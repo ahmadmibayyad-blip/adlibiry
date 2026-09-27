@@ -87,6 +87,17 @@ export default defineSchema({
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"]),
 
+  // Links an outside record (Nexscope TikTok ad, Apify Meta ad, Nexscope
+  // Shopify store) to our own doc, so repeat imports update instead of
+  // creating duplicates.
+  syncLinks: defineTable({
+    kind: v.string(),        // "ad" | "store"
+    externalId: v.string(),  // e.g. "tiktok_7401...", "meta_2381...", "shopify:store.dk"
+    docId: v.string(),       // Id<"ads"> or Id<"stores"> as a string
+    source: v.string(),      // "nexscope" | "apify"
+    lastSyncedAt: v.string(),
+  }).index("by_kind_external", ["kind", "externalId"]),
+
   // User saved ads (creative library)
   savedAds: defineTable({
     userId: v.id("users"),

@@ -93,4 +93,31 @@ http.route({
   }),
 });
 
+// Apify calls this when an import run finishes (registered per run in apify.ts).
+http.route({
+  path: "/apify/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const secret = process.env.APIFY_WEBHOOK_SECRET;
+    if (!secret || url.searchParams.get("secret") !== secret) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    let payload: any = null;
+    try {
+      payload = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+    const datasetId = payload?.resource?.defaultDatasetId;
+    if (!datasetId) return new Response("No dataset", { status: 400 });
+    await ctx.scheduler.runAfter(0, internal.apify.importDataset, {
+      datasetId: String(datasetId),
+      country: (url.searchParams.get("country") ?? "DK").toUpperCase(),
+      niche: url.searchParams.get("niche") ?? "General",
+    });
+    return new Response("queued", { status: 200 });
+  }),
+});
+
 export default http;

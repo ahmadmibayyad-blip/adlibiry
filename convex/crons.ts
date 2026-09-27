@@ -43,4 +43,20 @@ crons.daily(
   internal.nexscope.productDiscovery.discoverProducts
 );
 
+// Optional daily TikTok ads from Nexscope — only runs when the
+// NEXSCOPE_TIKTOK_COUNTRIES env var is set (e.g. "gb,de").
+crons.daily(
+  "import TikTok ads from Nexscope.ai",
+  { hourUTC: 7, minuteUTC: 5 },
+  internal.nexscope.tiktokAds.dailyTikTokImport
+);
+
+// Optional daily Meta Ad Library runs on Apify — only runs when the
+// APIFY_COUNTRIES env var is set (e.g. "DK,SE"). Results arrive via webhook.
+crons.daily(
+  "start Meta Ad Library imports on Apify",
+  { hourUTC: 7, minuteUTC: 25 },
+  internal.apify.dailyApifyImport
+);
+
 export default crons;

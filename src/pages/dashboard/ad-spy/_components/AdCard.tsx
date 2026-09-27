@@ -83,7 +83,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
         </div>
         <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-md px-2 py-0.5 border border-border">
           <Calendar className="w-3 h-3 text-muted-foreground" />
-          <span className="text-[11px] font-medium text-muted-foreground">{ad.daysRunning}d</span>
+          <span className="text-[11px] font-medium text-muted-foreground">{ad.daysRunning > 0 ? `${ad.daysRunning}d` : "new"}</span>
         </div>
       </div>
 
@@ -94,15 +94,23 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
         <div className="text-xs text-muted-foreground mb-3">{ad.niche} · {ad.country}</div>
 
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-          <div className="flex items-center gap-1">
-            <Heart className="w-3.5 h-3.5" />
-            {ad.likes.toLocaleString()}
-          </div>
-          <div className="flex items-center gap-1">
-            <Eye className="w-3.5 h-3.5" />
-            {ad.views}
-          </div>
-          <div className="font-semibold text-foreground">{ad.spendEstimate}</div>
+          {ad.likes > 0 && (
+            <div className="flex items-center gap-1">
+              <Heart className="w-3.5 h-3.5" />
+              {ad.likes.toLocaleString()}
+            </div>
+          )}
+          {ad.views && ad.views !== "0" && (
+            <div className="flex items-center gap-1">
+              <Eye className="w-3.5 h-3.5" />
+              {ad.views}
+            </div>
+          )}
+          {ad.spendEstimate && !/^unknown$|\$0–\$0/i.test(ad.spendEstimate) && (
+            <div className="font-semibold text-foreground truncate max-w-[55%]" title={ad.spendEstimate}>
+              {ad.spendEstimate.replace(/ \((impression-based est\.|AdLibrary est\.|Nexscope est\.)\)/, "")}
+            </div>
+          )}
         </div>
 
         {hasAmazonMatch && (

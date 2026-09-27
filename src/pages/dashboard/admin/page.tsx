@@ -29,6 +29,7 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdminGuard from "./_components/AdminGuard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
+import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users";
 type Product = Doc<"products">;
@@ -434,6 +435,7 @@ function AdsTab() {
     created: number;
     updated: number;
     skipped: number;
+    enriched?: number;
     creditsUsed: number;
     creditsRemaining: number | null;
     errors: string[];
@@ -482,6 +484,7 @@ function AdsTab() {
 
   return (
     <div>
+      <DataSourcesPanel />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -503,6 +506,7 @@ function AdsTab() {
             <span className="text-muted-foreground">Ads fetched <strong className="text-foreground">{lastSync.fetched}</strong></span>
             <span className="text-muted-foreground">Ads created <strong className="text-foreground">{lastSync.created}</strong></span>
             <span className="text-muted-foreground">Ads updated <strong className="text-foreground">{lastSync.updated}</strong></span>
+            <span className="text-muted-foreground">Enriched (audience/spend) <strong className="text-foreground">{lastSync.enriched ?? 0}</strong></span>
             <span className="text-muted-foreground">Products created <strong className="text-foreground">{lastSync.productsCreated}</strong></span>
             <span className="text-muted-foreground">Products updated <strong className="text-foreground">{lastSync.productsUpdated}</strong></span>
             <span className="text-muted-foreground">Credits used <strong className="text-foreground">{lastSync.creditsUsed}</strong></span>
