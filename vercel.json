@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "pnpm install",
+  "buildCommand": "node scripts/setup-convex-env.mjs && npx convex deploy --cmd 'pnpm run build'",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/((?!assets/|chrome-extension/|icon/|sw.js|site.webmanifest|offline.html|adspy-pro-extension.zip).*)", "destination": "/index.html" }]
+}
