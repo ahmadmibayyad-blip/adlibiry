@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { stableToken } from "../lib/authIdentity";
 
 // Shared admin authorization helper for admin-only queries and mutations.
 export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
@@ -9,7 +10,7 @@ export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   }
   const user = await ctx.db
     .query("users")
-    .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+    .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
     .unique();
   if (!user) {
     throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });

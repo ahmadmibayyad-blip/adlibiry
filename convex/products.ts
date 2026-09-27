@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { paginateFilteredArray } from "./lib/pagination";
+import { stableToken } from "./lib/authIdentity";
 
 // ── Products ────────────────────────────────────────────────────────────────
 
@@ -112,7 +113,7 @@ export const getSaved = query({
     if (!identity) return [];
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return [];
     const saved = await ctx.db
@@ -132,7 +133,7 @@ export const toggleSave = mutation({
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });
 
@@ -164,7 +165,7 @@ export const isSaved = query({
     if (!identity) return false;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return false;
     const existing = await ctx.db
@@ -186,7 +187,7 @@ export const getDashboardStats = query({
       ? await (async () => {
           const user = await ctx.db
             .query("users")
-            .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+            .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
             .unique();
           if (!user) return 0;
           const saved = await ctx.db

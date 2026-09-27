@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { DefaultProviders } from "./components/providers/default.tsx";
 import AuthCallback from "./pages/auth/Callback.tsx";
+import LoginPage from "./pages/auth/Login.tsx";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import DashboardLayout from "./pages/dashboard/_components/DashboardLayout.tsx";
@@ -63,6 +64,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/login" element={<LoginPage />} />
 
           {/* Dashboard — protected */}
           <Route

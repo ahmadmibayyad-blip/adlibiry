@@ -16,8 +16,9 @@ import { api, internal } from "../_generated/api";
 import { demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
 
 const openai = new OpenAI({
-  baseURL: "https://ai-gateway.hercules.app/v1",
-  apiKey: process.env.HERCULES_API_KEY,
+  // Your own OpenAI (or any OpenAI-compatible) key. Set OPENAI_API_KEY in Convex.
+  baseURL: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+  apiKey: process.env.OPENAI_API_KEY ?? "missing-openai-key",
 });
 
 const SummarySchema = z.object({
@@ -112,7 +113,7 @@ export const analyzeSaturation = action({
     let aiSummary: string;
     try {
       const response = await openai.chat.completions.parse({
-        model: "openai/gpt-6-luna",
+        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
         reasoning_effort: "low",
         messages: [
           {

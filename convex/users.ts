@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin/helpers";
+import { stableToken } from "./lib/authIdentity";
 
 export const updateCurrentUser = mutation({
   args: {},
@@ -12,7 +13,7 @@ export const updateCurrentUser = mutation({
     }
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (user !== null) {
       return user._id;
@@ -20,7 +21,7 @@ export const updateCurrentUser = mutation({
     return await ctx.db.insert("users", {
       name: identity.name,
       email: identity.email,
-      tokenIdentifier: identity.tokenIdentifier,
+      tokenIdentifier: stableToken(identity),
       role: "user",
     });
   },
@@ -33,7 +34,7 @@ export const getCurrentUser = query({
     if (!identity) return null;
     return await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
   },
 });
@@ -46,7 +47,7 @@ export const getCurrentUserInternal = internalQuery({
     if (!identity) return null;
     return await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
   },
 });
@@ -58,7 +59,7 @@ export const updateCustomerIdInternal = internalMutation({
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });
     await ctx.db.patch("users", user._id, { customerId: args.customerId });
@@ -74,7 +75,7 @@ export const isAdmin = query({
     if (!identity) return false;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     return user?.role === "admin";
   },

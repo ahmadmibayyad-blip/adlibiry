@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { paginateFilteredArray } from "./lib/pagination";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
+import { stableToken } from "./lib/authIdentity";
 
 // ── Ads ───────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ export const getSavedAds = query({
     if (!identity) return [];
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return [];
     const saved = await ctx.db
@@ -123,7 +124,7 @@ export const toggleSaveAd = mutation({
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });
 
@@ -153,7 +154,7 @@ export const isAdSaved = query({
     if (!identity) return false;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return false;
     const existing = await ctx.db

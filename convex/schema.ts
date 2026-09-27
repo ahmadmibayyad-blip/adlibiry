@@ -1,15 +1,26 @@
+import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  ...authTables,
+  // App users. Also Convex Auth's user table (name/email/image/... are written
+  // by the auth library; tokenIdentifier + role are set in auth.ts).
   users: defineTable({
-    tokenIdentifier: v.string(),
+    tokenIdentifier: v.optional(v.string()),
     name: v.optional(v.string()),
     email: v.optional(v.string()),
+    image: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
     customerId: v.optional(v.string()),
     role: v.optional(v.string()), // "admin" | "user"
     avatarUrl: v.optional(v.string()),
   })
+    .index("email", ["email"])
+    .index("phone", ["phone"])
     .index("by_token", ["tokenIdentifier"])
     .index("by_customer_id", ["customerId"]),
 

@@ -2,7 +2,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { Hercules } from "@usehercules/sdk";
+import { Hercules } from "./lib/herculesShim";
 import { api, internal } from "./_generated/api";
 
 const hercules = new Hercules({

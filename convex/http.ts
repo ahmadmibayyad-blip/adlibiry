@@ -1,8 +1,12 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { auth } from "./auth";
 
 const http = httpRouter();
+
+// Convex Auth endpoints (sign-in, token refresh, JWKS).
+auth.addHttpRoutes(http);
 
 // Basic CORS so the Chrome extension (running on facebook.com/tiktok.com origins)
 // can POST directly to this endpoint from its content/background script.
@@ -20,6 +24,8 @@ http.route({
   }),
 });
 
+const str = (value: unknown, max: number): string => (typeof value === "string" ? value.trim().slice(0, max) : "");
+
 http.route({
   path: "/extension/submit-ad",
   method: "POST",
@@ -34,10 +40,14 @@ http.route({
       });
     }
 
-    const b = body as Record<string, unknown>;
-    const required = ["visitorId", "advertiserName", "platform", "headline", "creativeUrl", "sourceUrl"];
+    const b = (body ?? {}) as Record<string, unknown>;
+    // Only identity fields are required. Many real ads have no headline
+    // (video ads), no image yet (lazy-loaded) or no page URL — rejecting
+    // those used to drop most submissions. Extra fields sent by extension
+    // v2 (ad id, video, CTA, engagement...) are ignored here, not rejected.
+    const required = ["visitorId", "advertiserName", "platform"];
     for (const field of required) {
-      if (typeof b[field] !== "string" || (b[field] as string).length === 0) {
+      if (typeof b[field] !== "string" || (b[field] as string).trim().length === 0) {
         return new Response(JSON.stringify({ error: `Missing or invalid field: ${field}` }), {
           status: 400,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -45,16 +55,29 @@ http.route({
       }
     }
 
+    const bodyText = str(b.bodyText, 2000);
+    const headline = str(b.headline, 500) || bodyText.split("\n")[0].slice(0, 200) || "Sponsored ad";
+    const creativeUrl = str(b.creativeUrl, 2000) || str(b.advertiserAvatar, 2000);
+    const landingPageUrl = str(b.landingPageUrl, 2000);
+    const sourceUrl = str(b.sourceUrl, 2000) || str(b.adLibraryUrl, 2000) || str(b.pageUrl, 2000);
+
+    if (!creativeUrl && !bodyText && headline === "Sponsored ad") {
+      return new Response(JSON.stringify({ error: "Ad has no creative or text" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     try {
       await ctx.runMutation(internal.submittedAds.submitFromExtension, {
-        submitterVisitorId: String(b.visitorId).slice(0, 200),
-        advertiserName: String(b.advertiserName).slice(0, 200),
-        platform: String(b.platform).slice(0, 50),
-        headline: String(b.headline).slice(0, 500),
-        bodyText: typeof b.bodyText === "string" ? b.bodyText.slice(0, 2000) : "",
-        creativeUrl: String(b.creativeUrl).slice(0, 2000),
-        landingPageUrl: typeof b.landingPageUrl === "string" ? b.landingPageUrl.slice(0, 2000) : "",
-        sourceUrl: String(b.sourceUrl).slice(0, 2000),
+        submitterVisitorId: str(b.visitorId, 200),
+        advertiserName: str(b.advertiserName, 200),
+        platform: str(b.platform, 50),
+        headline,
+        bodyText,
+        creativeUrl,
+        landingPageUrl,
+        sourceUrl,
       });
     } catch {
       return new Response(JSON.stringify({ error: "Failed to record submission" }), {

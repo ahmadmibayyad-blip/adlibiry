@@ -8,8 +8,9 @@ import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 
 const openai = new OpenAI({
-  baseURL: "https://ai-gateway.hercules.app/v1",
-  apiKey: process.env.HERCULES_API_KEY,
+  // Your own OpenAI (or any OpenAI-compatible) key. Set OPENAI_API_KEY in Convex.
+  baseURL: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+  apiKey: process.env.OPENAI_API_KEY ?? "missing-openai-key",
 });
 
 function handleAiError(error: unknown): never {
@@ -40,7 +41,7 @@ export const scoreProduct = action({
     const margin = Math.round(((args.price - args.cost) / args.price) * 100);
     try {
       const response = await openai.chat.completions.parse({
-        model: "openai/gpt-6-luna",
+        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
         reasoning_effort: "low",
         messages: [
           {
@@ -88,7 +89,7 @@ export const generateAdAngles = action({
   handler: async (_ctx, args): Promise<z.infer<typeof AdAnglesSchema>> => {
     try {
       const response = await openai.chat.completions.parse({
-        model: "openai/gpt-6-luna",
+        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
         reasoning_effort: "low",
         messages: [
           {
@@ -141,7 +142,7 @@ export const generateNicheReport = action({
         .join(" ");
 
       const response = await openai.chat.completions.parse({
-        model: "openai/gpt-6-luna",
+        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
         reasoning_effort: "medium",
         messages: [
           {
@@ -233,7 +234,7 @@ export const findCompetitors = action({
 
     try {
       const response = await openai.chat.completions.parse({
-        model: "openai/gpt-6-luna",
+        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
         reasoning_effort: "low",
         messages: [
           {

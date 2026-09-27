@@ -4,6 +4,7 @@ import type { MutationCtx } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { stableToken } from "./lib/authIdentity";
 
 // Push notifications use the subject portion of tokenIdentifier ("issuer|subject") as visitorId.
 function visitorIdFromToken(tokenIdentifier: string): string {
@@ -17,7 +18,7 @@ async function getCurrentUserOrThrow(ctx: MutationCtx) {
   if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
   const user = await ctx.db
     .query("users")
-    .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+    .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
     .unique();
   if (!user) throw new ConvexError({ code: "NOT_FOUND", message: "User not found" });
   return user;
@@ -32,7 +33,7 @@ export const list = query({
     }
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return { page: [], isDone: true, continueCursor: "" };
 
@@ -51,7 +52,7 @@ export const getUnreadCount = query({
     if (!identity) return 0;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return 0;
     const unread = await ctx.db
@@ -108,7 +109,7 @@ export const getPreferences = query({
     if (!identity) return { ...defaultPreferences, _id: null };
     const user = await ctx.db
       .query("users")
-      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return { ...defaultPreferences, _id: null };
     const prefs = await ctx.db
@@ -182,7 +183,7 @@ export const notifyUsersWatchingNiche = internalMutation({
         createdAt: new Date().toISOString(),
       });
       const user = await ctx.db.get("users", pref.userId);
-      if (user) visitorIds.push(visitorIdFromToken(user.tokenIdentifier));
+      if (user) visitorIds.push(visitorIdFromToken(user.tokenIdentifier ?? user._id));
     }
     if (visitorIds.length > 0) {
       await ctx.scheduler.runAfter(0, internal.pushNotifications.sendNotification, {
@@ -211,7 +212,7 @@ export const notifyAllForNewWinner = internalMutation({
         createdAt: new Date().toISOString(),
       });
       const user = await ctx.db.get("users", pref.userId);
-      if (user) visitorIds.push(visitorIdFromToken(user.tokenIdentifier));
+      if (user) visitorIds.push(visitorIdFromToken(user.tokenIdentifier ?? user._id));
     }
     if (visitorIds.length > 0) {
       await ctx.scheduler.runAfter(0, internal.pushNotifications.sendNotification, {
@@ -245,7 +246,7 @@ export const notifyTrackersOfStoreUpdate = internalMutation({
         createdAt: new Date().toISOString(),
       });
       const user = await ctx.db.get("users", t.userId);
-      if (user) visitorIds.push(visitorIdFromToken(user.tokenIdentifier));
+      if (user) visitorIds.push(visitorIdFromToken(user.tokenIdentifier ?? user._id));
     }
     if (visitorIds.length > 0) {
       await ctx.scheduler.runAfter(0, internal.pushNotifications.sendNotification, {
