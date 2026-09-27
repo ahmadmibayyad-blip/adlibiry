@@ -35,6 +35,12 @@ export type AdLibraryResult = {
   ecommerce_platform?: string;
   independent_website?: string;
   related_ads_count?: number;
+  // Fields the live API returns (seen 2026-09) that the docs don't list.
+  estimated_spend?: number | string;
+  all_exposure_value?: number;
+  call_to_action?: string;
+  logo_url?: string;
+  resource_urls?: unknown;
 };
 
 export type AdLibrarySearchResponse = {

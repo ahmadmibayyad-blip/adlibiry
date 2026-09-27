@@ -1,5 +1,5 @@
 import { v, ConvexError } from "convex/values";
-import { internalAction, internalMutation, action } from "../_generated/server";
+import { internalAction, internalMutation, internalQuery, action } from "../_generated/server";
 import { internal, api } from "../_generated/api";
 import {
   COUNTRY_NAME_TO_ALPHA2,
@@ -179,13 +179,19 @@ export const runSync = internalAction({
               result.skippedNoText += 1;
               continue;
             }
-            const country = resolveCountry(item.geo);
+            // The live search API no longer returns `geo`. The search itself is
+            // already limited to AdSpy Pro's countries, so keep the ad as
+            // "INTL" and let the free ad-detail enrichment set the real country.
+            let country = resolveCountry(item.geo);
             if (!country) {
-              // Ad targets only countries outside AdSpy Pro's supported list.
-              result.skipped += 1;
-              result.skippedNoCountry += 1;
-              if (result.sampleGeo.length < 8) result.sampleGeo.push(JSON.stringify(item.geo ?? null).slice(0, 120));
-              continue;
+              if (item.geo && item.geo.length) {
+                // geo present but only unsupported countries → skip
+                result.skipped += 1;
+                result.skippedNoCountry += 1;
+                if (result.sampleGeo.length < 8) result.sampleGeo.push(JSON.stringify(item.geo).slice(0, 120));
+                continue;
+              }
+              country = "INTL";
             }
 
             const outcome: "created" | "updated" = await ctx.runMutation(internal.adlibrary.sync.upsertAd, {
@@ -195,14 +201,16 @@ export const runSync = internalAction({
               country,
               niche,
               headline: item.title || item.message || item.caption || "Untitled ad",
-              bodyText: item.body || item.message || item.caption || "",
+              bodyText: [item.body || item.message || item.caption || "", item.button_text || item.call_to_action ? `CTA: ${item.button_text || item.call_to_action}` : ""]
+                .filter(Boolean)
+                .join("\n"),
               creativeUrl: item.preview_img_url || item.video_url || "",
               landingPageUrl: item.landing_page_url || "",
-              spendEstimate: estimateSpendRange(item.impression),
+              spendEstimate: spendFrom(item.estimated_spend) ?? estimateSpendRange(item.impression || item.all_exposure_value),
               likes: item.like_count ?? 0,
               // view_count is usually empty for Meta ads; impressions are the
               // real reach signal AdLibrary returns for them.
-              views: formatViews(item.view_count || item.impression),
+              views: formatViews(item.view_count || item.impression || item.all_exposure_value),
               daysRunning: computeDaysRunning(item),
               aiScore: computeHeatScore(item),
               firstSeenAt: item.first_seen
@@ -225,34 +233,24 @@ export const runSync = internalAction({
       }
     }
 
-    // Free enrichment for the newest ads: audience age/gender + cost estimate.
-    for (const adKey of newAdKeys.slice(0, enrichPerRun())) {
-      try {
-        await throttle();
-        const response = await fetch(ADLIBRARY_DETAIL_URL, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ creative_key: adKey, app_type: "3" }),
-        });
-        if (!response.ok) {
-          if (result.errors.length < 20) result.errors.push(`ad-detail ${adKey}: HTTP ${response.status}`);
-          continue;
-        }
-        const json = await response.json();
-        const enrichment = parseAdDetail(json);
-        if (!enrichment.targeting && !enrichment.spendEstimate) continue;
-        await ctx.runMutation(internal.adlibrary.sync.enrichAd, { externalId: adKey, ...enrichment });
-        result.enriched += 1;
-      } catch (error) {
-        if (result.errors.length < 20) {
-          result.errors.push(`ad-detail ${adKey}: ${error instanceof Error ? error.message : "Unknown error"}`);
-        }
-      }
+    // Free enrichment (country, landing page, audience, AdLibrary spend) runs
+    // in the background in rate-limited batches until every ad is done.
+    if (result.created > 0 && enrichPerRun() > 0) {
+      await ctx.scheduler.runAfter(10_000, internal.adlibrary.sync.enrichPending, {});
     }
+    void newAdKeys;
 
     return result;
   },
 });
+
+// AdLibrary's own spend estimate, when the search result has one.
+function spendFrom(value: unknown): string | undefined {
+  const n = typeof value === "number" ? value : Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  const fmt = (x: number) => (x >= 1000 ? `$${Math.round(x / 1000)}K` : `$${Math.round(x)}`);
+  return `~${fmt(n)} (AdLibrary est.)`;
+}
 
 function formatViews(count: number | undefined): string {
   if (!count) return "0";
@@ -276,6 +274,8 @@ function computeDaysRunning(item: { days_count?: number; first_seen?: number; la
 function parseAdDetail(json: unknown): {
   targeting?: { ageRange: string; gender: string; interests: string[] };
   spendEstimate?: string;
+  country?: string;
+  landingPageUrl?: string;
 } {
   const root = (json ?? {}) as Record<string, any>;
   const data = (root.data ?? root) as Record<string, any>;
@@ -305,7 +305,35 @@ function parseAdDetail(json: unknown): {
     const fmt = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${Math.round(n)}`);
     spendEstimate = `~${fmt(costNumber)} (AdLibrary est.)`;
   }
-  return { targeting, spendEstimate };
+  // Countries: names or ISO codes, as an array or comma string.
+  let country: string | undefined;
+  const rawCountries = detail.countries ?? data.countries ?? detail.geo ?? data.geo ?? audience?.location_detail;
+  const list: string[] = Array.isArray(rawCountries)
+    ? rawCountries.map((c: any) => (typeof c === "string" ? c : c?.name ?? c?.country ?? c?.code ?? "")).filter(Boolean)
+    : typeof rawCountries === "string"
+      ? rawCountries.split(",").map((s: string) => s.trim())
+      : rawCountries && typeof rawCountries === "object"
+        ? Object.keys(rawCountries)
+        : [];
+  for (const c of list) {
+    const upper = c.toUpperCase();
+    if (COUNTRY_NAME_TO_ALPHA2[c]) {
+      country = COUNTRY_NAME_TO_ALPHA2[c];
+      break;
+    }
+    if (ALPHA2_TO_ALPHA3[upper]) {
+      country = upper;
+      break;
+    }
+    const fromA3 = Object.entries(ALPHA2_TO_ALPHA3).find(([, a3]) => a3 === upper)?.[0];
+    if (fromA3) {
+      country = fromA3;
+      break;
+    }
+  }
+  const landing = detail.store_url ?? data.store_url ?? detail.landing_page_url ?? data.landing_page_url;
+  const landingPageUrl = typeof landing === "string" && /^https?:\/\//.test(landing) ? landing : undefined;
+  return { targeting, spendEstimate, country, landingPageUrl };
 }
 
 // AdLibrary's live API returns full English country names (not the ISO
@@ -364,10 +392,12 @@ export const upsertAd = internalMutation({
       const existing = await ctx.db.get("ads", existingLink.adId);
       // Keep enrichment from earlier runs: don't reset targeting, and don't
       // replace an ad-detail spend estimate with the rougher impression one.
-      const keepSpend = existing?.spendEstimate?.includes("AdLibrary est.");
+      const keepSpend = existing?.spendEstimate?.includes("AdLibrary est.") && !fields.spendEstimate.includes("AdLibrary est.");
       await ctx.db.patch("ads", existingLink.adId, {
         ...fields,
         ...(keepSpend ? { spendEstimate: existing!.spendEstimate } : {}),
+        ...(fields.country === "INTL" && existing && existing.country !== "INTL" ? { country: existing.country } : {}),
+        ...(!fields.landingPageUrl && existing?.landingPageUrl ? { landingPageUrl: existing.landingPageUrl } : {}),
         source: "adlibrary_api",
       });
       await ctx.db.patch("adlibrarySyncedAds", existingLink._id, { lastSyncedAt: new Date().toISOString() });
@@ -393,18 +423,75 @@ export const enrichAd = internalMutation({
     externalId: v.string(),
     targeting: v.optional(v.object({ ageRange: v.string(), gender: v.string(), interests: v.array(v.string()) })),
     spendEstimate: v.optional(v.string()),
+    country: v.optional(v.string()),
+    landingPageUrl: v.optional(v.string()),
   },
-  handler: async (ctx, { externalId, targeting, spendEstimate }) => {
+  handler: async (ctx, { externalId, targeting, spendEstimate, country, landingPageUrl }) => {
     const link = await ctx.db
       .query("adlibrarySyncedAds")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
       .unique();
     if (!link) return null;
-    await ctx.db.patch("ads", link.adId, {
-      ...(targeting ? { targeting } : {}),
-      ...(spendEstimate ? { spendEstimate } : {}),
-    });
+    const ad = await ctx.db.get("ads", link.adId);
+    if (ad) {
+      await ctx.db.patch("ads", link.adId, {
+        ...(targeting ? { targeting } : {}),
+        ...(spendEstimate ? { spendEstimate } : {}),
+        ...(country && ad.country === "INTL" ? { country } : {}),
+        ...(landingPageUrl && !ad.landingPageUrl ? { landingPageUrl } : {}),
+      });
+    }
+    await ctx.db.patch("adlibrarySyncedAds", link._id, { enrichedAt: new Date().toISOString() });
     return null;
+  },
+});
+
+export const listUnenriched = internalQuery({
+  args: { limit: v.number() },
+  handler: async (ctx, { limit }) => {
+    const rows = await ctx.db
+      .query("adlibrarySyncedAds")
+      .withIndex("by_enriched", (q) => q.eq("enrichedAt", undefined))
+      .order("desc")
+      .take(limit);
+    return rows.map((r) => r.externalId);
+  },
+});
+
+// Background: enrich up to ~50 ads per run (6.5s apart = AdLibrary's
+// 10 req/min limit), then reschedule itself until nothing is left.
+export const enrichPending = internalAction({
+  args: {},
+  handler: async (ctx): Promise<{ enriched: number; remaining: boolean }> => {
+    const apiKey = process.env.ADLIBRARY_API_KEY;
+    if (!apiKey) return { enriched: 0, remaining: false };
+    const keys: string[] = await ctx.runQuery(internal.adlibrary.sync.listUnenriched, { limit: 50 });
+    let enriched = 0;
+    let failures = 0;
+    for (const adKey of keys) {
+      await sleep(REQUEST_GAP_MS);
+      try {
+        const response = await fetch(ADLIBRARY_DETAIL_URL, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ creative_key: adKey, app_type: "3" }),
+        });
+        if (response.status === 429) {
+          await sleep(60_000);
+          continue;
+        }
+        const enrichment = response.ok ? parseAdDetail(await response.json()) : {};
+        // Mark as done even when nothing came back, so we never loop on it.
+        await ctx.runMutation(internal.adlibrary.sync.enrichAd, { externalId: adKey, ...enrichment });
+        if (enrichment.targeting || enrichment.spendEstimate || enrichment.country || enrichment.landingPageUrl) enriched += 1;
+        if (!response.ok) failures += 1;
+      } catch {
+        failures += 1;
+      }
+    }
+    const remaining = keys.length === 50 && failures < 25;
+    if (remaining) await ctx.scheduler.runAfter(5_000, internal.adlibrary.sync.enrichPending, {});
+    return { enriched, remaining };
   },
 });
 

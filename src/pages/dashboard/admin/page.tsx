@@ -609,7 +609,7 @@ function AdsTab() {
                       <Badge variant="secondary">{ad.aiScore}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {ad.source === "adlibrary_api" ? "AdLibrary" : ad.source === "meta_ad_library" ? "Meta" : "Curated"}
+                      {({ adlibrary_api: "AdLibrary", meta_ad_library: "Meta", apify: "Apify", nexscope: "Nexscope", extension: "Extension" } as Record<string, string>)[ad.source] ?? "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

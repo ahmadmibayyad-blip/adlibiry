@@ -270,8 +270,10 @@ export default defineSchema({
     externalId: v.string(),   // AdLibrary.com ad_key
     adId: v.id("ads"),
     lastSyncedAt: v.string(), // ISO 8601 UTC
+    enrichedAt: v.optional(v.string()), // set once the free ad-detail call ran
   })
-    .index("by_external_id", ["externalId"]),
+    .index("by_external_id", ["externalId"])
+    .index("by_enriched", ["enrichedAt"]),
 
   // Winning Products: auto-discovered from AdLibrary.com's own sync data.
   // Maps AdLibrary's `ad_key` (of the top-performing ad per niche) to our
