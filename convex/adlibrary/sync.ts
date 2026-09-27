@@ -495,6 +495,51 @@ export const enrichPending = internalAction({
   },
 });
 
+export const enrichmentStatus = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const pending = await ctx.db
+      .query("adlibrarySyncedAds")
+      .withIndex("by_enriched", (q) => q.eq("enrichedAt", undefined))
+      .take(1000);
+    const sampleKey = pending[0]?.externalId ?? null;
+    return { pending: pending.length, sampleKey };
+  },
+});
+
+// Admin diagnostic: raw ad-detail response for one ad (free endpoint) plus
+// enrichment backlog. Never returns the API key.
+export const debugAdDetail = action({
+  args: { adKey: v.optional(v.string()), startEnrichment: v.optional(v.boolean()) },
+  handler: async (ctx, args): Promise<Record<string, unknown>> => {
+    const isAdmin = await ctx.runQuery(api.users.isAdmin, {});
+    if (!isAdmin) throw new ConvexError({ code: "FORBIDDEN", message: "Admin access required" });
+    const status: { pending: number; sampleKey: string | null } = await ctx.runQuery(internal.adlibrary.sync.enrichmentStatus, {});
+    const adKey = args.adKey ?? status.sampleKey;
+    let detail: Record<string, unknown> = {};
+    if (adKey) {
+      const res = await fetch(ADLIBRARY_DETAIL_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.ADLIBRARY_API_KEY ?? ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ creative_key: adKey, app_type: "3" }),
+      });
+      const text = await res.text();
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(text);
+      } catch {}
+      detail = {
+        httpStatus: res.status,
+        topKeys: parsed && typeof parsed === "object" ? Object.keys(parsed as object) : [],
+        body: text.slice(0, 2500),
+        parsed: parseAdDetail(parsed),
+      };
+    }
+    if (args.startEnrichment) await ctx.scheduler.runAfter(0, internal.adlibrary.sync.enrichPending, {});
+    return { ...status, adKey, ...detail };
+  },
+});
+
 // Admin-triggered manual sync — lets an admin pull fresh ads on demand
 // without waiting for the recurring cron.
 export const syncNow = action({
