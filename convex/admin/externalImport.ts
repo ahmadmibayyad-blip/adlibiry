@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { mutation, internalMutation } from "../_generated/server";
 import { requireAdmin } from "./helpers";
 import { adFields, upsertAd } from "../sources/links";
 
@@ -16,6 +16,19 @@ export const importAds = mutation({
     for (const ad of args.ads) {
       const r = await upsertAd(ctx, ad);
       if (r === "created") created++;
+      else updated++;
+    }
+    return { created, updated };
+  },
+});
+
+export const importAdsInternal = internalMutation({
+  args: { ads: v.array(v.object(adFields)) },
+  handler: async (ctx, args): Promise<{ created: number; updated: number }> => {
+    let created = 0;
+    let updated = 0;
+    for (const ad of args.ads) {
+      if ((await upsertAd(ctx, ad)) === "created") created++;
       else updated++;
     }
     return { created, updated };

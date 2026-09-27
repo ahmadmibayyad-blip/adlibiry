@@ -60,4 +60,12 @@ crons.daily(
   internal.apify.dailyApifyImport
 );
 
+// WinningHunter REST import — only runs when WINNINGHUNTER_API_KEY is set.
+// Markets: WH_COUNTRIES (default DK,SE,NO,DE,GB,US), WH_PAGES × 50 ads each.
+crons.daily(
+  "import winning Meta ads from WinningHunter",
+  { hourUTC: 7, minuteUTC: 45 },
+  internal.winninghunter.dailyImport
+);
+
 export default crons;

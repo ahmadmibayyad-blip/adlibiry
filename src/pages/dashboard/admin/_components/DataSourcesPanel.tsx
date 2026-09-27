@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAction } from "convex/react";
 import { toast } from "sonner";
-import { Download, Store, Clapperboard } from "lucide-react";
+import { Download, Store, Clapperboard, Trophy } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -67,10 +67,84 @@ export default function DataSourcesPanel() {
   const [apMsg, setApMsg] = useState<string | null>(null);
   const [apRes, setApRes] = useState<{ fetched: number; created: number; updated: number; skipped: number; errors: string[] } | null>(null);
 
+  // WinningHunter REST
+  const whImport = useAction(api.winninghunter.importNow);
+  const whCredits = useAction(api.winninghunter.creditsNow);
+  const [wh, setWh] = useState({ country: "DK", keyword: "", media: "", score: "winning", pages: 2 });
+  const [whBusy, setWhBusy] = useState(false);
+  const [whInfo, setWhInfo] = useState<string | null>(null);
+  const [whRes, setWhRes] = useState<{ calls: number; fetched: number; adsCreated: number; adsUpdated: number; productsCreated: number; productsUpdated: number; errors: string[] } | null>(null);
+
   const fail = (e: unknown, fallback: string) => toast.error(e instanceof Error ? e.message : fallback);
 
   return (
-    <div className="grid gap-4 mb-5 lg:grid-cols-3">
+    <div className="grid gap-4 mb-5 lg:grid-cols-2 xl:grid-cols-4">
+      <Card icon={Trophy} title="WinningHunter (Meta ads + products)" text="Active winning Facebook/Instagram ads with video, EU reach, spend, countries and the Shopify product behind them. 1 credit per 50 ads. Runs daily by itself once the API key is set.">
+        <div className="flex flex-wrap gap-2">
+          <select className={selectCls} value={wh.country} onChange={(e) => setWh({ ...wh, country: e.target.value })}>
+            {META_COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className={selectCls} value={wh.score} onChange={(e) => setWh({ ...wh, score: e.target.value })}>
+            <option value="winning">Winning</option>
+            <option value="scaling">Scaling</option>
+            <option value="">Any score</option>
+          </select>
+          <select className={selectCls} value={wh.media} onChange={(e) => setWh({ ...wh, media: e.target.value })}>
+            <option value="">All media</option>
+            <option value="videos">Videos</option>
+            <option value="images">Images</option>
+          </select>
+          <Input className="h-9 w-36" placeholder="Keyword (optional)" value={wh.keyword} onChange={(e) => setWh({ ...wh, keyword: e.target.value })} />
+          <select className={selectCls} value={wh.pages} onChange={(e) => setWh({ ...wh, pages: Number(e.target.value) })}>
+            {[1, 2, 4, 6].map((n) => <option key={n} value={n}>{n * 50} ads</option>)}
+          </select>
+          <Button
+            size="sm"
+            disabled={whBusy}
+            onClick={async () => {
+              setWhBusy(true);
+              setWhRes(null);
+              try {
+                setWhRes(await whImport({
+                  countries: wh.country,
+                  keyword: wh.keyword || undefined,
+                  mediafilter: wh.media || undefined,
+                  adscorefilter: wh.score || undefined,
+                  pages: wh.pages,
+                }));
+              } catch (e) {
+                fail(e, "Import failed");
+              } finally {
+                setWhBusy(false);
+              }
+            }}
+          >
+            {whBusy ? <Spinner className="w-4 h-4" /> : "Import now"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const r = await whCredits({});
+                setWhInfo(!r.configured ? "API key not set yet (Convex → Environment Variables → WINNINGHUNTER_API_KEY)" : r.error ? r.error : `Credits: ${JSON.stringify(r.credits)}`);
+              } catch (e) {
+                fail(e, "Check failed");
+              }
+            }}
+          >
+            Check key
+          </Button>
+        </div>
+        {whInfo && <p className="mt-2 text-xs text-muted-foreground break-all">{whInfo}</p>}
+        {whRes && (
+          <Result
+            lines={[["Calls", whRes.calls], ["Fetched", whRes.fetched], ["New ads", whRes.adsCreated], ["Updated ads", whRes.adsUpdated], ["New products", whRes.productsCreated]]}
+            errors={whRes.errors}
+          />
+        )}
+      </Card>
+
       <Card icon={Clapperboard} title="TikTok ads (Nexscope)" text="Real TikTok ads with cover image, views, likes, days running and GMV. 1 search call per 10 ads + 1 detail call per ad.">
         <div className="flex flex-wrap gap-2">
           <select className={selectCls} value={tt.country} onChange={(e) => setTt({ ...tt, country: e.target.value })}>

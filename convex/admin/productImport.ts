@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { mutation, internalMutation, type MutationCtx } from "../_generated/server";
+import type { Infer } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireAdmin } from "./helpers";
 
@@ -8,7 +9,7 @@ import { requireAdmin } from "./helpers";
 // Products are keyed by their store URL (query string removed), so importing
 // the same file again updates metrics instead of creating duplicates.
 
-const row = v.object({
+export const row = v.object({
   title: v.string(),
   imageUrl: v.string(),
   productUrl: v.string(),
@@ -55,19 +56,21 @@ export function productKey(url: string, title: string, image: string): string {
   return `csv:${title.trim().toLowerCase().slice(0, 120)}|${image.split("?")[0]}`;
 }
 
-export const importProducts = mutation({
-  args: { rows: v.array(row), source: v.optional(v.string()), markWinners: v.optional(v.boolean()), sourceKey: v.optional(v.string()) },
-  handler: async (ctx, args): Promise<{ created: number; updated: number; skipped: number }> => {
-    await requireAdmin(ctx);
-    if (args.rows.length > 200) throw new ConvexError({ code: "BAD_REQUEST", message: "Send at most 200 rows per batch" });
-    const sourceTool = (args.source ?? "CSV").slice(0, 40);
-    const sourceKey = (args.sourceKey ?? "csv_import").slice(0, 40);
+export type ImportRow = Infer<typeof row>;
+
+export async function upsertProductRows(
+  ctx: MutationCtx,
+  rows: ImportRow[],
+  opts: { sourceTool: string; sourceKey: string; markWinners?: boolean },
+): Promise<{ created: number; updated: number; skipped: number }> {
+  const sourceTool = opts.sourceTool.slice(0, 40);
+  const sourceKey = opts.sourceKey.slice(0, 40);
     let created = 0;
     let updated = 0;
     let skipped = 0;
     const now = new Date().toISOString();
 
-    for (const r of args.rows) {
+    for (const r of rows) {
       const title = r.title.trim().slice(0, 300);
       if (!title || !/^https?:\/\//.test(r.imageUrl)) {
         skipped += 1;
@@ -88,7 +91,7 @@ export const importProducts = mutation({
         ...(r.priceUsd !== undefined && r.priceUsd > 0 ? { price: Math.round(r.priceUsd * 100) / 100, priceSource: "exact" } : {}),
         ...(r.cost !== undefined && r.cost > 0 ? { cost: Math.round(r.cost * 100) / 100 } : {}),
         category: r.category || "General",
-        tags: [...new Set([r.category, sourceTool, "CSV import", ...(r.tags ?? [])].filter(Boolean))].slice(0, 8),
+        tags: [...new Set([r.category, sourceTool, sourceKey === "csv_import" ? "CSV import" : "", ...(r.tags ?? [])].filter(Boolean))].slice(0, 8),
         aiScore: scoreFrom(r.ads, r.likes, r.growthPercent),
         trend: trendFrom(r.growthPercent),
         supplierUrl: r.productUrl || r.researchUrl || "",
@@ -119,7 +122,7 @@ export const importProducts = mutation({
         ...fields,
         saturation: "Unknown",
         adExamples: [],
-        isWinnerOfDay: !!args.markWinners,
+        isWinnerOfDay: !!opts.markWinners,
         publishedAt: now,
         source: sourceKey,
       });
@@ -127,5 +130,22 @@ export const importProducts = mutation({
       created += 1;
     }
     return { created, updated, skipped };
+}
+
+export const importProducts = mutation({
+  args: { rows: v.array(row), source: v.optional(v.string()), markWinners: v.optional(v.boolean()), sourceKey: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<{ created: number; updated: number; skipped: number }> => {
+    await requireAdmin(ctx);
+    if (args.rows.length > 200) throw new ConvexError({ code: "BAD_REQUEST", message: "Send at most 200 rows per batch" });
+    return upsertProductRows(ctx, args.rows, {
+      sourceTool: args.source ?? "CSV",
+      sourceKey: args.sourceKey ?? "csv_import",
+      markWinners: args.markWinners,
+    });
   },
+});
+
+export const importProductsInternal = internalMutation({
+  args: { rows: v.array(row), source: v.string(), sourceKey: v.string() },
+  handler: async (ctx, args) => upsertProductRows(ctx, args.rows, { sourceTool: args.source, sourceKey: args.sourceKey }),
 });
