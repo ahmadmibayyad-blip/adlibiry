@@ -480,6 +480,10 @@ export const enrichPending = internalAction({
           await sleep(60_000);
           continue;
         }
+        if (response.status === 404 || response.status === 405) {
+          // Endpoint shape changed — stop instead of marking ads as done.
+          return { enriched, remaining: false };
+        }
         const enrichment = response.ok ? parseAdDetail(await response.json()) : {};
         // Mark as done even when nothing came back, so we never loop on it.
         await ctx.runMutation(internal.adlibrary.sync.enrichAd, { externalId: adKey, ...enrichment });
@@ -537,6 +541,51 @@ export const debugAdDetail = action({
     }
     if (args.startEnrichment) await ctx.scheduler.runAfter(0, internal.adlibrary.sync.enrichPending, {});
     return { ...status, adKey, ...detail };
+  },
+});
+
+// Admin diagnostic: try several request shapes for the ad-detail endpoint.
+export const probeAdDetail = action({
+  args: { adKey: v.string() },
+  handler: async (ctx, { adKey }): Promise<Array<Record<string, unknown>>> => {
+    const isAdmin = await ctx.runQuery(api.users.isAdmin, {});
+    if (!isAdmin) throw new ConvexError({ code: "FORBIDDEN", message: "Admin access required" });
+    const key = process.env.ADLIBRARY_API_KEY ?? "";
+    const qs = new URLSearchParams({ creative_key: adKey, app_type: "3" }).toString();
+    const variants: Array<[string, string, RequestInit]> = [
+      ["GET /api/ad-detail?", `https://adlibrary.com/api/ad-detail?${qs}`, { method: "GET" }],
+      ["GET /api/ad-detail (auth)", `https://adlibrary.com/api/ad-detail?${qs}`, { method: "GET", headers: { Authorization: `Bearer ${key}` } }],
+      ["POST /api/v1/ad-detail", "https://adlibrary.com/api/v1/ad-detail", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ creative_key: adKey, app_type: "3" }) }],
+      ["POST /api/ad-detail/", "https://adlibrary.com/api/ad-detail/", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ creative_key: adKey, app_type: "3" }) }],
+      ["POST /api/search/detail", "https://adlibrary.com/api/search/detail", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ creative_key: adKey, app_type: "3" }) }],
+    ];
+    const out: Array<Record<string, unknown>> = [];
+    for (const [name, url, init] of variants) {
+      try {
+        const res = await fetch(url, { ...init, redirect: "manual" });
+        const text = await res.text();
+        out.push({ name, status: res.status, allow: res.headers.get("allow"), location: res.headers.get("location"), body: text.slice(0, 700) });
+      } catch (e) {
+        out.push({ name, error: String(e) });
+      }
+    }
+    return out;
+  },
+});
+
+// Pause/resume switch for background enrichment while the endpoint is fixed.
+export const resetEnrichment = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const done = await ctx.db.query("adlibrarySyncedAds").take(2000);
+    let n = 0;
+    for (const row of done) {
+      if (row.enrichedAt) {
+        await ctx.db.patch("adlibrarySyncedAds", row._id, { enrichedAt: undefined });
+        n++;
+      }
+    }
+    return n;
   },
 });
 
