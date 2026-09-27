@@ -18,7 +18,8 @@ crons.daily(
 crons.daily(
   "sync ads from AdLibrary.com",
   { hourUTC: 6, minuteUTC: 15 },
-  internal.adlibrary.sync.runSync
+  internal.adlibrary.sync.runSync,
+  {}
 );
 
 // Daily Nexscope.ai pricing backfill — runs 15 minutes after the AdLibrary

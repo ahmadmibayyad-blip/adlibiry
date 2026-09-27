@@ -36,6 +36,10 @@ type SyncResult = {
   updated: number;
   skipped: number;
   enriched: number;
+  skippedNoText: number;
+  skippedNoCountry: number;
+  sampleGeo: string[];
+  sampleKeys: string[];
   creditsUsed: number;
   creditsRemaining: number | null;
   errors: string[];
@@ -52,14 +56,19 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // button and by the recurring cron. All calls are spaced to respect
 // AdLibrary's rate limit (10 req/min, 10,000/day).
 export const runSync = internalAction({
-  args: {},
-  handler: async (ctx): Promise<SyncResult> => {
+  // nicheLimit: only sync the first N niches (1 = a 1-credit test run).
+  args: { nicheLimit: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<SyncResult> => {
     const result: SyncResult = {
       fetched: 0,
       created: 0,
       updated: 0,
       skipped: 0,
       enriched: 0,
+      skippedNoText: 0,
+      skippedNoCountry: 0,
+      sampleGeo: [],
+      sampleKeys: [],
       creditsUsed: 0,
       creditsRemaining: null,
       errors: [],
@@ -83,7 +92,8 @@ export const runSync = internalAction({
     const newAdKeys: string[] = [];
     let outOfCredits = false;
 
-    for (const { niche, keyword } of NICHE_KEYWORDS) {
+    const niches = NICHE_KEYWORDS.slice(0, Math.max(1, args.nicheLimit ?? NICHE_KEYWORDS.length));
+    for (const { niche, keyword } of niches) {
       if (outOfCredits) break;
       let productPicked = false;
 
@@ -162,15 +172,19 @@ export const runSync = internalAction({
             }
           }
 
+          if (result.sampleKeys.length === 0 && results[0]) result.sampleKeys = Object.keys(results[0]).slice(0, 60);
           for (const item of results) {
             if (!item.title && !item.message && !item.body) {
               result.skipped += 1;
+              result.skippedNoText += 1;
               continue;
             }
             const country = resolveCountry(item.geo);
             if (!country) {
               // Ad targets only countries outside AdSpy Pro's supported list.
               result.skipped += 1;
+              result.skippedNoCountry += 1;
+              if (result.sampleGeo.length < 8) result.sampleGeo.push(JSON.stringify(item.geo ?? null).slice(0, 120));
               continue;
             }
 
@@ -397,12 +411,12 @@ export const enrichAd = internalMutation({
 // Admin-triggered manual sync — lets an admin pull fresh ads on demand
 // without waiting for the recurring cron.
 export const syncNow = action({
-  args: {},
-  handler: async (ctx): Promise<SyncResult> => {
+  args: { nicheLimit: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<SyncResult> => {
     const isAdmin = await ctx.runQuery(api.users.isAdmin, {});
     if (!isAdmin) {
       throw new ConvexError({ code: "FORBIDDEN", message: "Admin access required" });
     }
-    return await ctx.runAction(internal.adlibrary.sync.runSync, {});
+    return await ctx.runAction(internal.adlibrary.sync.runSync, { nicheLimit: args.nicheLimit });
   },
 });

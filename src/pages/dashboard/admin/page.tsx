@@ -436,6 +436,10 @@ function AdsTab() {
     updated: number;
     skipped: number;
     enriched?: number;
+    skippedNoText?: number;
+    skippedNoCountry?: number;
+    sampleGeo?: string[];
+    sampleKeys?: string[];
     creditsUsed: number;
     creditsRemaining: number | null;
     errors: string[];
@@ -464,10 +468,10 @@ function AdsTab() {
     }
   };
 
-  const handleSync = async () => {
+  const handleSync = async (nicheLimit?: number) => {
     setSyncing(true);
     try {
-      const result = await syncAdLibrary({});
+      const result = await syncAdLibrary(nicheLimit ? { nicheLimit } : {});
       setLastSync(result);
       if (result.errors.length > 0) {
         toast.error(`Synced with ${result.errors.length} error(s) — see details below`);
@@ -496,10 +500,15 @@ function AdsTab() {
               Pulls real running ads for each curated niche, and the top-performing ad per niche also becomes a real Winning Product. Also runs automatically once a day. Each run uses AdLibrary credits.
             </p>
           </div>
-          <Button size="sm" onClick={handleSync} disabled={syncing}>
-            {syncing ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-            {syncing ? "Syncing..." : "Sync now"}
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => handleSync(1)} disabled={syncing}>
+              Test run (1 credit)
+            </Button>
+            <Button size="sm" onClick={() => handleSync()} disabled={syncing}>
+              {syncing ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+              {syncing ? "Syncing..." : "Sync now"}
+            </Button>
+          </div>
         </div>
         {lastSync && (
           <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap text-xs">
@@ -507,6 +516,14 @@ function AdsTab() {
             <span className="text-muted-foreground">Ads created <strong className="text-foreground">{lastSync.created}</strong></span>
             <span className="text-muted-foreground">Ads updated <strong className="text-foreground">{lastSync.updated}</strong></span>
             <span className="text-muted-foreground">Enriched (audience/spend) <strong className="text-foreground">{lastSync.enriched ?? 0}</strong></span>
+            <span className="text-muted-foreground">Skipped: no text <strong className="text-foreground">{lastSync.skippedNoText ?? 0}</strong></span>
+            <span className="text-muted-foreground">Skipped: country not covered <strong className="text-foreground">{lastSync.skippedNoCountry ?? 0}</strong></span>
+            {!!lastSync.sampleGeo?.length && (
+              <div className="w-full text-muted-foreground break-all">Sample countries of skipped ads: {lastSync.sampleGeo.join(" · ")}</div>
+            )}
+            {lastSync.created + lastSync.updated === 0 && !!lastSync.sampleKeys?.length && (
+              <div className="w-full text-muted-foreground break-all">Fields returned: {lastSync.sampleKeys.join(", ")}</div>
+            )}
             <span className="text-muted-foreground">Products created <strong className="text-foreground">{lastSync.productsCreated}</strong></span>
             <span className="text-muted-foreground">Products updated <strong className="text-foreground">{lastSync.productsUpdated}</strong></span>
             <span className="text-muted-foreground">Credits used <strong className="text-foreground">{lastSync.creditsUsed}</strong></span>
