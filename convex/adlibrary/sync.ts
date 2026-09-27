@@ -149,7 +149,7 @@ export const runSync = internalAction({
           // top-performing live ad. No extra AdLibrary credits spent.
           if (!productPicked) {
             const topProductCandidate = results.find(
-              (item) => (item.title || item.message) && item.preview_img_url && item.landing_page_url
+              (item) => (item.title || item.message) && item.preview_img_url
             );
             if (topProductCandidate) {
               productPicked = true;
@@ -269,71 +269,89 @@ function computeDaysRunning(item: { days_count?: number; first_seen?: number; la
   return 0;
 }
 
-// Defensive parser for /api/ad-detail — only maps fields that are actually
-// present. Never fabricates targeting or spend.
-function parseAdDetail(json: unknown): {
+// Parser for GET /api/ad-detail (shape verified 2026-09-27):
+// { detail: { countries: ["ITA",...], days_count, impression, store_url,
+//   cta_redirect_urls, ad_cost, ... }, audience: { min_age, max_age, sex,
+//   total_reach, sex_detail[{type,percent}], location_detail[{code,count}] } }
+// Only maps fields that are present. Never fabricates targeting or spend.
+type AdDetail = {
   targeting?: { ageRange: string; gender: string; interests: string[] };
   spendEstimate?: string;
   country?: string;
   landingPageUrl?: string;
-} {
+  views?: string;
+  daysRunning?: number;
+};
+const alpha3To2 = (code: string): string | undefined => {
+  const upper = String(code ?? "").toUpperCase();
+  if (ALPHA2_TO_ALPHA3[upper]) return upper;
+  const hit = Object.entries(ALPHA2_TO_ALPHA3).find(([, a3]) => a3 === upper);
+  return hit?.[0] ?? COUNTRY_NAME_TO_ALPHA2[String(code)];
+};
+function parseAdDetail(json: unknown): AdDetail {
   const root = (json ?? {}) as Record<string, any>;
   const data = (root.data ?? root) as Record<string, any>;
   const detail = (data.detail ?? {}) as Record<string, any>;
   const audience = (data.audience ?? detail.audience ?? null) as Record<string, any> | null;
+  const out: AdDetail = {};
 
-  let targeting: { ageRange: string; gender: string; interests: string[] } | undefined;
   if (audience) {
     const minAge = Number(audience.min_age);
     const maxAge = Number(audience.max_age);
     const ageRange =
       minAge > 0 && maxAge > 0 ? `${minAge}–${maxAge >= 65 ? "65+" : maxAge}` : minAge > 0 ? `${minAge}+` : "Unknown";
-    const sexRaw = String(audience.sex ?? audience.gender ?? "").toLowerCase();
-    const gender =
-      sexRaw === "1" || sexRaw.startsWith("m")
-        ? "Male"
-        : sexRaw === "2" || sexRaw.startsWith("f") || sexRaw.startsWith("w")
-          ? "Female"
-          : "All";
-    if (ageRange !== "Unknown" || gender !== "All") targeting = { ageRange, gender, interests: [] };
+    // Gender: the real reached split beats the targeting setting.
+    let gender = "All";
+    const split = Array.isArray(audience.sex_detail) ? audience.sex_detail : [];
+    const pct = (type: string) => Number(split.find((s: any) => s?.type === type)?.percent ?? 0);
+    if (pct("female") >= 0.7) gender = "Female";
+    else if (pct("male") >= 0.7) gender = "Male";
+    else {
+      const sexRaw = String(audience.sex ?? "").toLowerCase();
+      if (sexRaw === "male" || sexRaw === "1") gender = "Male";
+      else if (sexRaw === "female" || sexRaw === "2") gender = "Female";
+    }
+    // Top age brackets by reach, as readable "interest" chips.
+    const ages = (Array.isArray(audience.age_detail) ? audience.age_detail : [])
+      .filter((a: any) => Number(a?.count) > 0)
+      .sort((a: any, b: any) => Number(b.count) - Number(a.count))
+      .slice(0, 2)
+      .map((a: any) => `Most reached: ${a.type}`);
+    const reach = Number(audience.total_reach);
+    const interests = [...ages, ...(reach > 0 ? [`EU reach ${formatViews(reach)}`] : [])];
+    if (ageRange !== "Unknown" || gender !== "All" || interests.length) out.targeting = { ageRange, gender, interests };
+
+    // Country with the most reach that AdSpy Pro covers.
+    const locs = (Array.isArray(audience.location_detail) ? audience.location_detail : [])
+      .slice()
+      .sort((a: any, b: any) => Number(b?.count) - Number(a?.count));
+    for (const l of locs) {
+      const c = alpha3To2(l?.code);
+      if (c) {
+        out.country = c;
+        break;
+      }
+    }
+  }
+  if (!out.country && Array.isArray(detail.countries)) {
+    const priority = ["DK", "SE", "NO"];
+    const mapped = detail.countries.map((c: string) => alpha3To2(c)).filter(Boolean) as string[];
+    out.country = priority.find((p) => mapped.includes(p)) ?? mapped[0];
   }
 
-  let spendEstimate: string | undefined;
-  const cost = detail.ad_cost ?? data.ad_cost;
-  const costNumber = typeof cost === "number" ? cost : Number(String(cost ?? "").replace(/[^0-9.]/g, ""));
-  if (Number.isFinite(costNumber) && costNumber > 0) {
+  const cost = Number(String(detail.ad_cost ?? "").replace(/[^0-9.]/g, ""));
+  if (Number.isFinite(cost) && cost > 0) {
     const fmt = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${Math.round(n)}`);
-    spendEstimate = `~${fmt(costNumber)} (AdLibrary est.)`;
+    out.spendEstimate = `~${fmt(cost)} (AdLibrary est.)`;
   }
-  // Countries: names or ISO codes, as an array or comma string.
-  let country: string | undefined;
-  const rawCountries = detail.countries ?? data.countries ?? detail.geo ?? data.geo ?? audience?.location_detail;
-  const list: string[] = Array.isArray(rawCountries)
-    ? rawCountries.map((c: any) => (typeof c === "string" ? c : c?.name ?? c?.country ?? c?.code ?? "")).filter(Boolean)
-    : typeof rawCountries === "string"
-      ? rawCountries.split(",").map((s: string) => s.trim())
-      : rawCountries && typeof rawCountries === "object"
-        ? Object.keys(rawCountries)
-        : [];
-  for (const c of list) {
-    const upper = c.toUpperCase();
-    if (COUNTRY_NAME_TO_ALPHA2[c]) {
-      country = COUNTRY_NAME_TO_ALPHA2[c];
-      break;
-    }
-    if (ALPHA2_TO_ALPHA3[upper]) {
-      country = upper;
-      break;
-    }
-    const fromA3 = Object.entries(ALPHA2_TO_ALPHA3).find(([, a3]) => a3 === upper)?.[0];
-    if (fromA3) {
-      country = fromA3;
-      break;
-    }
-  }
-  const landing = detail.store_url ?? data.store_url ?? detail.landing_page_url ?? data.landing_page_url;
-  const landingPageUrl = typeof landing === "string" && /^https?:\/\//.test(landing) ? landing : undefined;
-  return { targeting, spendEstimate, country, landingPageUrl };
+  const cta = Array.isArray(detail.cta_redirect_urls) ? detail.cta_redirect_urls.find((u: any) => typeof u === "string" && /^https?:/.test(u)) : undefined;
+  const landing = cta ?? detail.store_url ?? detail.landing_page_url;
+  if (typeof landing === "string" && /^https?:\/\//.test(landing)) out.landingPageUrl = landing;
+  const impressions = Number(detail.impression);
+  if (impressions > 0) out.views = formatViews(impressions);
+  const days = Number(detail.days_count);
+  if (days > 0) out.daysRunning = days;
+  return out;
 }
 
 // AdLibrary's live API returns full English country names (not the ISO
@@ -425,8 +443,10 @@ export const enrichAd = internalMutation({
     spendEstimate: v.optional(v.string()),
     country: v.optional(v.string()),
     landingPageUrl: v.optional(v.string()),
+    views: v.optional(v.string()),
+    daysRunning: v.optional(v.number()),
   },
-  handler: async (ctx, { externalId, targeting, spendEstimate, country, landingPageUrl }) => {
+  handler: async (ctx, { externalId, targeting, spendEstimate, country, landingPageUrl, views, daysRunning }) => {
     const link = await ctx.db
       .query("adlibrarySyncedAds")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
@@ -439,6 +459,8 @@ export const enrichAd = internalMutation({
         ...(spendEstimate ? { spendEstimate } : {}),
         ...(country && ad.country === "INTL" ? { country } : {}),
         ...(landingPageUrl && !ad.landingPageUrl ? { landingPageUrl } : {}),
+        ...(views ? { views } : {}),
+        ...(daysRunning && daysRunning > ad.daysRunning ? { daysRunning } : {}),
       });
     }
     await ctx.db.patch("adlibrarySyncedAds", link._id, { enrichedAt: new Date().toISOString() });
@@ -471,10 +493,9 @@ export const enrichPending = internalAction({
     for (const adKey of keys) {
       await sleep(REQUEST_GAP_MS);
       try {
-        const response = await fetch(ADLIBRARY_DETAIL_URL, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ creative_key: adKey, app_type: "3" }),
+        // Verified 2026-09-27: GET with query params + Bearer key (POST → 405).
+        const response = await fetch(`${ADLIBRARY_DETAIL_URL}?${new URLSearchParams({ creative_key: adKey, app_type: "3" })}`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
         });
         if (response.status === 429) {
           await sleep(60_000);
@@ -487,7 +508,7 @@ export const enrichPending = internalAction({
         const enrichment = response.ok ? parseAdDetail(await response.json()) : {};
         // Mark as done even when nothing came back, so we never loop on it.
         await ctx.runMutation(internal.adlibrary.sync.enrichAd, { externalId: adKey, ...enrichment });
-        if (enrichment.targeting || enrichment.spendEstimate || enrichment.country || enrichment.landingPageUrl) enriched += 1;
+        if (Object.keys(enrichment).length) enriched += 1;
         if (!response.ok) failures += 1;
       } catch {
         failures += 1;
@@ -514,18 +535,17 @@ export const enrichmentStatus = internalQuery({
 // Admin diagnostic: raw ad-detail response for one ad (free endpoint) plus
 // enrichment backlog. Never returns the API key.
 export const debugAdDetail = action({
-  args: { adKey: v.optional(v.string()), startEnrichment: v.optional(v.boolean()) },
+  args: { adKey: v.optional(v.string()), startEnrichment: v.optional(v.boolean()), resetEnrichment: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<Record<string, unknown>> => {
     const isAdmin = await ctx.runQuery(api.users.isAdmin, {});
     if (!isAdmin) throw new ConvexError({ code: "FORBIDDEN", message: "Admin access required" });
+    if (args.resetEnrichment) await ctx.runMutation(internal.adlibrary.sync.resetEnrichment, {});
     const status: { pending: number; sampleKey: string | null } = await ctx.runQuery(internal.adlibrary.sync.enrichmentStatus, {});
     const adKey = args.adKey ?? status.sampleKey;
     let detail: Record<string, unknown> = {};
     if (adKey) {
-      const res = await fetch(ADLIBRARY_DETAIL_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${process.env.ADLIBRARY_API_KEY ?? ""}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ creative_key: adKey, app_type: "3" }),
+      const res = await fetch(`${ADLIBRARY_DETAIL_URL}?${new URLSearchParams({ creative_key: adKey, app_type: "3" })}`, {
+        headers: { Authorization: `Bearer ${process.env.ADLIBRARY_API_KEY ?? ""}` },
       });
       const text = await res.text();
       let parsed: unknown = null;
@@ -541,31 +561,6 @@ export const debugAdDetail = action({
     }
     if (args.startEnrichment) await ctx.scheduler.runAfter(0, internal.adlibrary.sync.enrichPending, {});
     return { ...status, adKey, ...detail };
-  },
-});
-
-// Admin diagnostic: try several request shapes for the ad-detail endpoint.
-export const probeAdDetail = action({
-  args: { adKey: v.string() },
-  handler: async (ctx, { adKey }): Promise<Array<Record<string, unknown>>> => {
-    const isAdmin = await ctx.runQuery(api.users.isAdmin, {});
-    if (!isAdmin) throw new ConvexError({ code: "FORBIDDEN", message: "Admin access required" });
-    const key = process.env.ADLIBRARY_API_KEY ?? "";
-    const qs = new URLSearchParams({ creative_key: adKey, app_type: "3" }).toString();
-    const variants: Array<[string, string, RequestInit]> = [
-      ["GET /api/ad-detail (auth)", `https://adlibrary.com/api/ad-detail?${qs}`, { method: "GET", headers: { Authorization: `Bearer ${key}` } }],
-    ];
-    const out: Array<Record<string, unknown>> = [];
-    for (const [name, url, init] of variants) {
-      try {
-        const res = await fetch(url, { ...init, redirect: "manual" });
-        const text = await res.text();
-        out.push({ name, status: res.status, body: res.ok ? text.slice(0, 12000) : text.slice(0, 300) });
-      } catch (e) {
-        out.push({ name, error: String(e) });
-      }
-    }
-    return out;
   },
 });
 
