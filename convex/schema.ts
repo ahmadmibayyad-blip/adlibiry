@@ -98,6 +98,19 @@ export default defineSchema({
     lastSyncedAt: v.string(),
   }).index("by_kind_external", ["kind", "externalId"]),
 
+  // One row per Apify import run. The random token in the webhook URL proves
+  // the callback is for a run we started (no shared secret env var needed).
+  apifyRuns: defineTable({
+    token: v.string(),
+    country: v.string(),
+    niche: v.string(),
+    keyword: v.string(),
+    runId: v.optional(v.string()),
+    status: v.string(), // "started" | "imported" | "failed"
+    createdAt: v.string(),
+    result: v.optional(v.string()),
+  }).index("by_token", ["token"]),
+
   // User saved ads (creative library)
   savedAds: defineTable({
     userId: v.id("users"),

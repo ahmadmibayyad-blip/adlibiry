@@ -1,13 +1,13 @@
 import { v, ConvexError } from "convex/values";
-import { action, internalAction } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { NICHE_KEYWORDS } from "./adlibrary/client";
 
 // Apify → Meta Ad Library ads (works for DK / SE / NO, which AdLibrary and
 // Nexscope barely cover). Flow: start an actor run with a webhook → Apify
 // calls /apify/webhook when the run finishes → we import every dataset item.
-// Env: APIFY_TOKEN (required), APIFY_WEBHOOK_SECRET (required for the
-// webhook), APIFY_ACTOR (optional, default curious_coder~facebook-ads-library-scraper),
+// Env: APIFY_TOKEN (required), APIFY_ACTOR (optional, default
+// curious_coder~facebook-ads-library-scraper),
 // APIFY_COUNTRIES (optional, e.g. "DK,SE" → daily automatic runs).
 
 const DEFAULT_ACTOR = "curious_coder~facebook-ads-library-scraper";
@@ -61,19 +61,21 @@ function adLibraryUrl(country: string, keyword: string) {
 
 type StartResult = { runId: string; status: string };
 
-async function startRun(country: string, keyword: string, niche: string, maxAds: number): Promise<StartResult> {
+async function startRun(
+  country: string,
+  keyword: string,
+  maxAds: number,
+  webhookToken: string,
+): Promise<StartResult> {
   const token = process.env.APIFY_TOKEN;
   if (!token) throw new Error("APIFY_TOKEN is not set. Add it in the Convex dashboard → Settings → Environment Variables.");
-  const secret = process.env.APIFY_WEBHOOK_SECRET;
   const site = process.env.CONVEX_SITE_URL;
   const actor = process.env.APIFY_ACTOR ?? DEFAULT_ACTOR;
   const query = new URLSearchParams({ token });
-  if (secret && site) {
+  if (site) {
     const hook = new URL(`${site}/apify/webhook`);
-    hook.searchParams.set("secret", secret);
-    hook.searchParams.set("country", country.toUpperCase());
-    hook.searchParams.set("niche", niche);
-    const webhooks = [{ eventTypes: ["ACTOR.RUN.SUCCEEDED"], requestUrl: hook.toString() }];
+    hook.searchParams.set("run", webhookToken);
+    const webhooks = [{ eventTypes: ["ACTOR.RUN.SUCCEEDED", "ACTOR.RUN.FAILED"], requestUrl: hook.toString() }];
     query.set("webhooks", btoa(JSON.stringify(webhooks)));
   }
   const res = await fetch(`https://api.apify.com/v2/acts/${actor}/runs?${query.toString()}`, {
@@ -92,13 +94,88 @@ async function startRun(country: string, keyword: string, niche: string, maxAds:
   return { runId: String(data.id ?? ""), status: String(data.status ?? "STARTED") };
 }
 
+function newToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export const createRun = internalMutation({
+  args: { token: v.string(), country: v.string(), niche: v.string(), keyword: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("apifyRuns", { ...args, status: "started", createdAt: new Date().toISOString() });
+    return null;
+  },
+});
+
+export const setRunInfo = internalMutation({
+  args: { token: v.string(), runId: v.optional(v.string()), status: v.string(), result: v.optional(v.string()) },
+  handler: async (ctx, { token, ...patch }) => {
+    const run = await ctx.db.query("apifyRuns").withIndex("by_token", (q) => q.eq("token", token)).unique();
+    if (run) await ctx.db.patch("apifyRuns", run._id, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)));
+    return null;
+  },
+});
+
+export const getRunByToken = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) =>
+    await ctx.db.query("apifyRuns").withIndex("by_token", (q) => q.eq("token", token)).unique(),
+});
+
+// Start one Apify run and remember it, so its webhook can be verified.
+export const startTrackedRun = internalAction({
+  args: { country: v.string(), keyword: v.string(), niche: v.string(), maxAds: v.number() },
+  handler: async (ctx, args): Promise<StartResult> => {
+    const token = newToken();
+    await ctx.runMutation(internal.apify.createRun, { token, country: args.country.toUpperCase(), niche: args.niche, keyword: args.keyword });
+    try {
+      const run = await startRun(args.country, args.keyword, args.maxAds, token);
+      await ctx.runMutation(internal.apify.setRunInfo, { token, runId: run.runId, status: "started" });
+      return run;
+    } catch (e) {
+      await ctx.runMutation(internal.apify.setRunInfo, { token, status: "failed", result: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+  },
+});
+
+// Called from the /apify/webhook HTTP route.
+export const handleWebhook = internalAction({
+  args: { token: v.string(), datasetId: v.optional(v.string()), eventType: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<{ ok: boolean }> => {
+    const run = await ctx.runQuery(internal.apify.getRunByToken, { token: args.token });
+    if (!run || run.status === "imported") return { ok: false };
+    if (args.eventType === "ACTOR.RUN.FAILED" || !args.datasetId) {
+      await ctx.runMutation(internal.apify.setRunInfo, { token: args.token, status: "failed", result: args.eventType ?? "no dataset" });
+      return { ok: true };
+    }
+    const result = await ctx.runAction(internal.apify.importDataset, {
+      datasetId: args.datasetId,
+      country: run.country,
+      niche: run.niche,
+    });
+    await ctx.runMutation(internal.apify.setRunInfo, {
+      token: args.token,
+      status: "imported",
+      result: `${result.created} created, ${result.updated} updated, ${result.errors.length} errors`,
+    });
+    return { ok: true };
+  },
+});
+
 export const startImportNow = action({
   args: { country: v.string(), keyword: v.string(), niche: v.string(), maxAds: v.optional(v.number()) },
   handler: async (ctx, args): Promise<StartResult & { webhook: boolean }> => {
     const isAdmin = await ctx.runQuery(api.users.isAdmin, {});
     if (!isAdmin) throw new ConvexError({ code: "FORBIDDEN", message: "Admin access required" });
-    const run = await startRun(args.country, args.keyword, args.niche, Math.min(500, Math.max(10, args.maxAds ?? 100)));
-    return { ...run, webhook: !!process.env.APIFY_WEBHOOK_SECRET };
+    const run: StartResult = await ctx.runAction(internal.apify.startTrackedRun, {
+      country: args.country,
+      keyword: args.keyword,
+      niche: args.niche,
+      maxAds: Math.min(500, Math.max(10, args.maxAds ?? 100)),
+    });
+    return { ...run, webhook: !!process.env.CONVEX_SITE_URL };
   },
 });
 
@@ -200,7 +277,7 @@ export const importDatasetNow = action({
 // Daily: only when APIFY_COUNTRIES is set (e.g. "DK,SE"). 50 ads per niche per country.
 export const dailyApifyImport = internalAction({
   args: {},
-  handler: async () => {
+  handler: async (ctx) => {
     const countries = (process.env.APIFY_COUNTRIES ?? "")
       .split(",")
       .map((c) => c.trim().toUpperCase())
@@ -208,7 +285,7 @@ export const dailyApifyImport = internalAction({
     for (const country of countries) {
       for (const { niche, keyword } of NICHE_KEYWORDS) {
         try {
-          await startRun(country, keyword, niche, 50);
+          await ctx.runAction(internal.apify.startTrackedRun, { country, keyword, niche, maxAds: 50 });
         } catch (e) {
           console.error(`Apify start failed for ${country}/${niche}:`, e);
         }

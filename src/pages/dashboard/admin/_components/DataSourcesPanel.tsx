@@ -163,7 +163,7 @@ export default function DataSourcesPanel() {
                 setApMsg(
                   r.webhook
                     ? `Run ${r.runId} started — ads appear automatically when it finishes.`
-                    : `Run ${r.runId} started. APIFY_WEBHOOK_SECRET is not set, so import its dataset below when it finishes.`,
+                    : `Run ${r.runId} started. The webhook could not be registered, so import its dataset below when it finishes.`,
                 );
                 toast.success("Apify run started");
               } catch (e) {

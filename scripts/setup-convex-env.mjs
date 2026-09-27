@@ -5,7 +5,6 @@
 // Secrets are sent over HTTPS in a request body — never on a command line,
 // and never printed.
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { exportJWK, exportPKCS8, generateKeyPair } from "jose";
 
 const key = process.env.CONVEX_DEPLOY_KEY?.trim();
@@ -55,9 +54,9 @@ function existingNames() {
     return new Set(out.split("\n").map((l) => l.split("=")[0].trim()).filter(Boolean));
   } catch (e) {
     const msg = String(e.stderr ?? e.message ?? "").split("\n").find((l) => l.trim()) ?? "unknown error";
-    console.error(`[setup-convex-env] could not read Convex env vars: ${msg}`);
-    console.error("[setup-convex-env] This usually means CONVEX_DEPLOY_KEY in Vercel is not the full production deploy key.");
-    process.exit(1);
+    console.log(`[setup-convex-env] skipped — this deploy key cannot manage env vars (${msg.trim()}).`);
+    console.log("[setup-convex-env] Set JWT_PRIVATE_KEY, JWKS and SITE_URL once in Convex → Settings → Environment Variables.");
+    process.exit(0);
   }
 }
 
@@ -76,15 +75,13 @@ if (!have || !have.has("JWT_PRIVATE_KEY") || !have.has("JWKS")) {
 }
 const prodHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
 if (prodHost && match[1] === "prod") changes.push({ name: "SITE_URL", value: `https://${prodHost}` });
-if (have && !have.has("APIFY_WEBHOOK_SECRET")) changes.push({ name: "APIFY_WEBHOOK_SECRET", value: randomBytes(24).toString("hex") });
 
 if (changes.length) {
   try {
     await call("/api/update_environment_variables", { changes });
     console.log(`[setup-convex-env] set ${changes.map((c) => c.name).join(", ")}`);
   } catch (e) {
-    console.error(`[setup-convex-env] failed to set env vars: ${e.message.split("\n")[0]}`);
-    process.exit(1);
+    console.log(`[setup-convex-env] could not set env vars (${e.message.split("\n")[0]}) — continuing deploy.`);
   }
 } else {
   console.log("[setup-convex-env] nothing to change");
