@@ -553,18 +553,14 @@ export const probeAdDetail = action({
     const key = process.env.ADLIBRARY_API_KEY ?? "";
     const qs = new URLSearchParams({ creative_key: adKey, app_type: "3" }).toString();
     const variants: Array<[string, string, RequestInit]> = [
-      ["GET /api/ad-detail?", `https://adlibrary.com/api/ad-detail?${qs}`, { method: "GET" }],
       ["GET /api/ad-detail (auth)", `https://adlibrary.com/api/ad-detail?${qs}`, { method: "GET", headers: { Authorization: `Bearer ${key}` } }],
-      ["POST /api/v1/ad-detail", "https://adlibrary.com/api/v1/ad-detail", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ creative_key: adKey, app_type: "3" }) }],
-      ["POST /api/ad-detail/", "https://adlibrary.com/api/ad-detail/", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ creative_key: adKey, app_type: "3" }) }],
-      ["POST /api/search/detail", "https://adlibrary.com/api/search/detail", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ creative_key: adKey, app_type: "3" }) }],
     ];
     const out: Array<Record<string, unknown>> = [];
     for (const [name, url, init] of variants) {
       try {
         const res = await fetch(url, { ...init, redirect: "manual" });
         const text = await res.text();
-        out.push({ name, status: res.status, allow: res.headers.get("allow"), location: res.headers.get("location"), body: text.slice(0, 700) });
+        out.push({ name, status: res.status, body: res.ok ? text.slice(0, 12000) : text.slice(0, 300) });
       } catch (e) {
         out.push({ name, error: String(e) });
       }
