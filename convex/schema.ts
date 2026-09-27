@@ -48,6 +48,7 @@ export default defineSchema({
     source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api" — absent means legacy curated row
     priceSource: v.optional(v.string()), // "exact" | "estimated_market" — absent means legacy curated row (exact); "estimated_market" means price/cost are a Nexscope-derived category benchmark, not this exact product's real price
   })
+    .index("by_category_published", ["category", "publishedAt"])
     .index("by_published", ["publishedAt"])
     .index("by_winner", ["isWinnerOfDay"]),
 

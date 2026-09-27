@@ -25,10 +25,16 @@ export const list = query({
     // scale of AdSpy Pro's product data. All filters apply before
     // pagination so pages are always fully filtered, never partially
     // filtered then sliced.
-    const candidates = await ctx.db.query("products").withIndex("by_published").order("desc").take(1000);
+    // Category uses its own index so large CSV imports never hide products.
+    const candidates = args.category
+      ? await ctx.db
+          .query("products")
+          .withIndex("by_category_published", (q) => q.eq("category", args.category!))
+          .order("desc")
+          .take(3000)
+      : await ctx.db.query("products").withIndex("by_published").order("desc").take(3000);
 
     let filtered = candidates;
-    if (args.category) filtered = filtered.filter((p) => p.category === args.category);
     if (args.trend) filtered = filtered.filter((p) => p.trend === args.trend);
     if (args.saturation) filtered = filtered.filter((p) => p.saturation === args.saturation);
     if (args.source) {

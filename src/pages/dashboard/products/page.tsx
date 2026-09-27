@@ -11,7 +11,7 @@ import FilterNumberInput from "@/components/FilterNumberInput.tsx";
 import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 
 const categories = [
-  "All", "Electronics", "Health & Wellness", "Home & Living", "Fashion", "Beauty", "Sports", "Toys",
+  "All", "Electronics", "Health & Wellness", "Home & Living", "Fashion", "Beauty", "Pet Supplies", "Sports", "Toys", "Other",
 ];
 
 const trendOptions = [
@@ -34,6 +34,7 @@ const sourceOptions = [
   { value: "none", label: "Any source" },
   { value: "nexscope_api", label: "Real Amazon listing" },
   { value: "adlibrary_api", label: "Live ad spotted" },
+  { value: "csv_import", label: "Imported (CSV)" },
   { value: "curated", label: "Curated" },
 ];
 

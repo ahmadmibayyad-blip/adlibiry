@@ -13,6 +13,7 @@ import type * as adlibrary_productSync from "../adlibrary/productSync.js";
 import type * as adlibrary_sync from "../adlibrary/sync.js";
 import type * as admin_ads from "../admin/ads.js";
 import type * as admin_helpers from "../admin/helpers.js";
+import type * as admin_productImport from "../admin/productImport.js";
 import type * as admin_products from "../admin/products.js";
 import type * as admin_stores from "../admin/stores.js";
 import type * as ads from "../ads.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   "adlibrary/sync": typeof adlibrary_sync;
   "admin/ads": typeof admin_ads;
   "admin/helpers": typeof admin_helpers;
+  "admin/productImport": typeof admin_productImport;
   "admin/products": typeof admin_products;
   "admin/stores": typeof admin_stores;
   ads: typeof ads;

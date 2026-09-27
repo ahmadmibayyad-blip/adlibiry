@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import {
   ShieldCheck, LayoutGrid, Package, Megaphone, Users, Plus, Search,
-  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw,
+  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -30,6 +30,7 @@ import AdminGuard from "./_components/AdminGuard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
+import CsvImportDialog from "./_components/CsvImportDialog.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users";
 type Product = Doc<"products">;
@@ -163,6 +164,7 @@ function ProductsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [pricing, setPricing] = useState(false);
   const [lastPricing, setLastPricing] = useState<{ updated: number; skipped: number; errors: string[] } | null>(null);
   const [discovering, setDiscovering] = useState(false);
@@ -297,11 +299,16 @@ function ProductsTab() {
             className="pl-9"
           />
         </div>
+        <Button variant="secondary" onClick={() => setCsvOpen(true)}>
+          <Upload className="w-4 h-4 mr-1.5" />
+          Import CSV
+        </Button>
         <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-1.5" />
           Add product
         </Button>
       </div>
+      <CsvImportDialog open={csvOpen} onOpenChange={setCsvOpen} />
 
       {status === "LoadingFirstPage" ? (
         <div className="space-y-2">
@@ -367,7 +374,7 @@ function ProductsTab() {
                       {product.isWinnerOfDay ? <Badge>Yes</Badge> : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Nexscope" : "Curated"}
+                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Nexscope" : product.source === "csv_import" ? "CSV" : "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
