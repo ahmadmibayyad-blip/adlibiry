@@ -28,6 +28,7 @@ export const list = query({
     minImpressions: v.optional(v.number()),
     minComments: v.optional(v.number()),
     cta: v.optional(v.string()),
+    minCopies: v.optional(v.number()),
     hasLandingPage: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -40,7 +41,7 @@ export const list = query({
     let filtered = candidates;
     if (args.platform) filtered = filtered.filter((a) => a.platform === args.platform);
     if (args.niche) filtered = filtered.filter((a) => a.niche === args.niche);
-    if (args.country) filtered = filtered.filter((a) => a.country === args.country);
+    if (args.country) filtered = filtered.filter((a) => a.country === args.country || (a.countries ?? []).includes(args.country!));
     if (args.search) {
       const term = args.search.toLowerCase();
       filtered = filtered.filter(
@@ -84,6 +85,7 @@ export const list = query({
       const c = args.cta.toLowerCase();
       filtered = filtered.filter((a) => (a.ctaText ?? "").toLowerCase().includes(c));
     }
+    if (args.minCopies !== undefined) filtered = filtered.filter((a) => (a.relatedAdsCount ?? 0) >= args.minCopies!);
     if (args.hasLandingPage) filtered = filtered.filter((a) => !!a.landingPageUrl);
 
     if (args.sort === "mostLiked") {
@@ -132,7 +134,7 @@ export const getFacets = query({
     return {
       total: ads.length,
       ctas: count(ads.map((a) => a.ctaText)).slice(0, 20),
-      countries: count(ads.map((a) => a.country)),
+      countries: count(ads.flatMap((a) => [...new Set([a.country, ...(a.countries ?? [])])]).filter((c) => c !== "INTL")),
       niches: count(ads.map((a) => a.niche)),
       platforms: count(ads.map((a) => a.platform)),
       activeCount: ads.filter((a) => a.isActive).length,

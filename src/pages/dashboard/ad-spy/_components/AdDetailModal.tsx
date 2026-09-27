@@ -7,12 +7,13 @@ import {
 import { Button } from "@/components/ui/button.tsx";
 import {
   Heart, Eye, Calendar, Zap, ExternalLink, Bookmark, BookmarkCheck,
-  Users, Target, DollarSign, ShoppingBag,
+  Users, Target, DollarSign, ShoppingBag, MessageCircle, Share2, Copy, Globe, Library, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
+import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 
 type Ad = Doc<"ads">;
 
@@ -24,11 +25,38 @@ const platformColors: Record<string, string> = {
 };
 
 function scoreColor(score: number) {
-  if (score >= 85) return "text-green-400";
-  if (score >= 70) return "text-yellow-400";
-  return "text-red-400";
+  if (score >= 70) return "text-green-400";
+  if (score >= 40) return "text-yellow-400";
+  return "text-muted-foreground";
 }
 
+function Stat({ icon: Icon, label, value }: { icon: typeof Eye; label: string; value: string }) {
+  return (
+    <div className="bg-muted rounded-lg p-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+        <Icon className="w-3.5 h-3.5" />
+        {label}
+      </div>
+      <div className="text-sm font-bold tabular-nums truncate">{value}</div>
+    </div>
+  );
+}
+
+function Bar({ label, pct, className }: { label: string; pct: number; className?: string }) {
+  const w = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+        <div className={cn("h-full rounded-full bg-primary", className)} style={{ width: `${w}%` }} />
+      </div>
+      <span className="w-10 text-right tabular-nums">{w.toFixed(0)}%</span>
+    </div>
+  );
+}
+
+// Percentages may arrive as fractions (0.42) or whole numbers (42).
+const pct = (n: number | undefined) => (n === undefined ? 0 : n <= 1 ? n * 100 : n);
 export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | null; open: boolean; onOpenChange: (open: boolean) => void }) {
   const isSaved = useQuery(api.ads.isAdSaved, ad ? { adId: ad._id } : "skip");
   const toggleSave = useMutation(api.ads.toggleSaveAd);
@@ -45,169 +73,237 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
     }
   };
 
+  const spend = spendLabel(ad.spendEstimate);
+  const domain = domainOf(ad.landingPageUrl);
+  const aud = ad.audience;
+  const ages = aud?.ages ?? [];
+  const audCountries = (aud?.countries ?? []).slice(0, 8);
+  const male = pct(aud?.malePct);
+  const female = pct(aud?.femalePct);
+  const allCountries = ad.countries?.length ? ad.countries : ad.country && ad.country !== "INTL" ? [ad.country] : [];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="sr-only">{ad.headline}</DialogTitle>
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-0">
+        <DialogHeader className="sr-only">
+          <DialogTitle>{ad.headline}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Creative */}
-          <div>
-            <div className="rounded-xl overflow-hidden border border-border bg-muted mb-3">
-              <img src={ad.creativeUrl} alt={ad.headline} className="w-full aspect-[4/3] object-cover" />
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          {/* Creative column */}
+          <div className="bg-black/40 md:border-r border-border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              {ad.advertiserAvatar ? (
+                <img src={ad.advertiserAvatar} alt="" className="w-9 h-9 rounded-full object-cover bg-muted" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold">
+                  {ad.advertiserName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="text-sm font-semibold truncate">{ad.advertiserName}</div>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span className={cn("px-1.5 rounded border", platformColors[ad.platform])}>{ad.platform}</span>
+                  {ad.isActive !== undefined && (
+                    <span className="flex items-center gap-1">
+                      <span className={cn("w-1.5 h-1.5 rounded-full", ad.isActive ? "bg-green-400" : "bg-muted-foreground/50")} />
+                      {ad.isActive ? "Active" : "Inactive"}
+                    </span>
+                  )}
+                  <span>· {ad.niche}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", platformColors[ad.platform])}>
-                {ad.platform}
-              </span>
-              <span className="text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-full border border-border">
-                {ad.country}
-              </span>
-              <span className="text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-full border border-border">
-                {ad.niche}
-              </span>
+
+            <div className="rounded-xl overflow-hidden border border-border bg-muted">
+              {ad.videoUrl ? (
+                <video src={ad.videoUrl} poster={ad.creativeUrl} controls playsInline className="w-full max-h-[60vh] bg-black" />
+              ) : ad.creativeUrl ? (
+                <img src={ad.creativeUrl} alt={ad.headline} className="w-full max-h-[60vh] object-contain bg-black" />
+              ) : (
+                <div className="aspect-square flex items-center justify-center text-sm text-muted-foreground">No creative</div>
+              )}
             </div>
+
+            <div className="text-sm whitespace-pre-line leading-relaxed max-h-56 overflow-y-auto pr-1">
+              {ad.headline && ad.headline !== ad.bodyText && <div className="font-semibold mb-1">{ad.headline}</div>}
+              <span className="text-muted-foreground">{ad.bodyText}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                navigator.clipboard?.writeText([ad.headline, ad.bodyText].filter(Boolean).join("\n\n"));
+                toast.success("Ad copy copied");
+              }}
+            >
+              <Copy className="w-3.5 h-3.5 mr-1.5" />Copy ad text
+            </Button>
           </div>
 
-          {/* Details */}
-          <div className="space-y-4">
-            <div>
-              <div className="text-xs font-semibold text-primary mb-1">{ad.advertiserName}</div>
-              <h2 className="text-lg font-bold leading-tight mb-2">{ad.headline}</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">{ad.bodyText}</p>
-            </div>
-
-            {/* AI Score */}
-            <div className="bg-card border border-border rounded-xl p-3.5 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full border-4 border-primary/30 flex items-center justify-center shrink-0">
+          {/* Data column */}
+          <div className="p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full border-4 border-primary/30 flex items-center justify-center shrink-0">
                 <span className={cn("text-base font-black", scoreColor(ad.aiScore))}>{ad.aiScore}</span>
               </div>
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Zap className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-sm font-semibold">AI Winning Score</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Zap className="w-3.5 h-3.5 text-primary" />Winning score
                 </div>
-                <p className="text-xs text-muted-foreground">Runtime, engagement, and spend velocity combined.</p>
+                <p className="text-xs text-muted-foreground">Runtime, engagement, reach and ad copies combined.</p>
               </div>
+              {(ad.relatedAdsCount ?? 0) > 1 && (
+                <div className="text-right">
+                  <div className="text-lg font-black text-primary">×{ad.relatedAdsCount}</div>
+                  <div className="text-[11px] text-muted-foreground">ad copies</div>
+                </div>
+              )}
             </div>
 
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
-                <Heart className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-bold">{ad.likes.toLocaleString()}</div>
-                  <div className="text-[11px] text-muted-foreground">Likes</div>
-                </div>
-              </div>
-              <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
-                <Eye className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-bold">{ad.views}</div>
-                  <div className="text-[11px] text-muted-foreground">Views</div>
-                </div>
-              </div>
-              <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-bold">{ad.daysRunning} days</div>
-                  <div className="text-[11px] text-muted-foreground">Running</div>
-                </div>
-              </div>
-              <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-bold">{ad.spendEstimate}</div>
-                  <div className="text-[11px] text-muted-foreground">Est. spend</div>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Stat icon={Eye} label="Impressions" value={ad.impressions ? compactNumber(ad.impressions) : ad.views && ad.views !== "0" ? ad.views : "—"} />
+              <Stat icon={Heart} label="Likes" value={ad.likes > 0 ? compactNumber(ad.likes) : "—"} />
+              <Stat icon={MessageCircle} label="Comments" value={compactNumber(ad.comments)} />
+              <Stat icon={Share2} label="Shares" value={compactNumber(ad.shares)} />
+              <Stat icon={DollarSign} label="Est. spend" value={spend ?? "—"} />
+              <Stat icon={Users} label="Reach" value={compactNumber(aud?.totalReach)} />
+              <Stat icon={Calendar} label="Days running" value={ad.daysRunning > 0 ? `${ad.daysRunning}` : "—"} />
+              <Stat icon={Globe} label="Countries" value={allCountries.length ? `${allCountries.length}` : "—"} />
             </div>
 
-            {/* Targeting */}
+            {/* Timeline */}
             <div className="bg-card border border-border rounded-xl p-3.5">
-              <div className="flex items-center gap-2 mb-2.5">
-                <Target className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-sm">Estimated Targeting</h3>
+              <div className="flex items-center gap-2 mb-3 text-sm font-semibold">
+                <Clock className="w-4 h-4 text-primary" />Timeline
               </div>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Age range</span>
-                  <span className="font-medium">{ad.targeting.ageRange}</span>
+              <div className="flex items-center gap-3 text-xs">
+                <div>
+                  <div className="text-muted-foreground">First seen</div>
+                  <div className="font-semibold">{shortDate(ad.firstSeenAt)}</div>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex-1 h-1.5 rounded-full bg-gradient-to-r from-primary/30 to-primary" />
+                <div className="text-right">
+                  <div className="text-muted-foreground">Last seen</div>
+                  <div className="font-semibold">{ad.isActive ? "Still running" : shortDate(ad.lastSeenAt)}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Audience */}
+            <div className="bg-card border border-border rounded-xl p-3.5 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Target className="w-4 h-4 text-primary" />Audience
+              </div>
+              {aud && (male > 0 || female > 0) ? (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-blue-400">Male {male.toFixed(0)}%</span>
+                    <span className="text-pink-400">Female {female.toFixed(0)}%</span>
+                  </div>
+                  <div className="flex h-2.5 rounded-full overflow-hidden bg-muted">
+                    <div className="bg-blue-500" style={{ width: `${male}%` }} />
+                    <div className="bg-pink-500" style={{ width: `${female}%` }} />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Gender</span>
                   <span className="font-medium">{ad.targeting.gender}</span>
                 </div>
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-muted-foreground shrink-0">Interests</span>
-                  <div className="flex flex-wrap gap-1 justify-end">
-                    {ad.targeting.interests.map((interest) => (
-                      <span key={interest} className="bg-muted px-1.5 py-0.5 rounded text-[11px]">
-                        {interest}
-                      </span>
+              )}
+              {ages.length > 0 ? (
+                <div className="space-y-1.5">
+                  <div className="text-xs text-muted-foreground">Age</div>
+                  {ages.map((a) => (
+                    <Bar key={a.bracket} label={a.bracket} pct={pct(a.pct)} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Age range</span>
+                  <span className="font-medium">{ad.targeting.ageRange}</span>
+                </div>
+              )}
+              {audCountries.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-xs text-muted-foreground">Top countries by reach</div>
+                  {audCountries.map((c) => (
+                    <Bar key={c.code} label={`${flag(c.code)} ${c.code}`} pct={pct(c.pct)} className="bg-primary/80" />
+                  ))}
+                </div>
+              )}
+              {!audCountries.length && allCountries.length > 0 && (
+                <div className="text-xs">
+                  <div className="text-muted-foreground mb-1">Running in</div>
+                  <div className="flex flex-wrap gap-1">
+                    {allCountries.slice(0, 30).map((c) => (
+                      <span key={c} className="bg-muted rounded px-1.5 py-0.5">{flag(c)} {c}</span>
                     ))}
                   </div>
                 </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-2.5 flex items-start gap-1">
-                <Users className="w-3 h-3 mt-0.5 shrink-0" />
-                Estimated from public ad library signals — actual advertiser targeting may vary.
-              </p>
+              )}
+              {ad.targeting.interests.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {ad.targeting.interests.map((i) => (
+                    <span key={i} className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{i}</span>
+                  ))}
+                </div>
+              )}
+              {!aud && (
+                <p className="text-[11px] text-muted-foreground">Detailed audience data is still being fetched for this ad.</p>
+              )}
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button asChild className="flex-1">
-                <a href={ad.landingPageUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View Landing Page
-                </a>
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              {ad.landingPageUrl && (
+                <Button asChild className="flex-1 min-w-[10rem]">
+                  <a href={ad.landingPageUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    {ad.ctaText ? `${ad.ctaText} · ` : ""}{domain || "Landing page"}
+                  </a>
+                </Button>
+              )}
+              {ad.adLibraryUrl && (
+                <Button asChild variant="outline">
+                  <a href={ad.adLibraryUrl} target="_blank" rel="noopener noreferrer">
+                    <Library className="w-4 h-4 mr-2" />Ad Library
+                  </a>
+                </Button>
+              )}
               <Authenticated>
                 <Button variant="outline" onClick={handleSave} className={cn(isSaved ? "border-primary/50 text-primary" : "")}>
-                  {isSaved ? (
-                    <><BookmarkCheck className="w-4 h-4 mr-2" />Saved</>
-                  ) : (
-                    <><Bookmark className="w-4 h-4 mr-2" />Save Ad</>
-                  )}
+                  {isSaved ? <><BookmarkCheck className="w-4 h-4 mr-2" />Saved</> : <><Bookmark className="w-4 h-4 mr-2" />Save</>}
                 </Button>
               </Authenticated>
               <Unauthenticated>
                 <Button variant="outline" onClick={() => toast.error("Please sign in to save ads")}>
-                  <Bookmark className="w-4 h-4 mr-2" />
-                  Save Ad
+                  <Bookmark className="w-4 h-4 mr-2" />Save
                 </Button>
               </Unauthenticated>
             </div>
 
             {amazonMatches && amazonMatches.length > 0 && (
               <div className="bg-card border border-border rounded-xl p-3.5">
-                <div className="flex items-center gap-2 mb-2.5">
-                  <ShoppingBag className="w-4 h-4 text-primary" />
-                  <h3 className="font-semibold text-sm">Real Amazon Matches</h3>
+                <div className="flex items-center gap-2 mb-2.5 text-sm font-semibold">
+                  <ShoppingBag className="w-4 h-4 text-primary" />Similar products in {ad.niche}
                 </div>
-                <p className="text-[11px] text-muted-foreground mb-3">
-                  Real Amazon listings in the {ad.niche} niche, sourced via Nexscope.ai — same category, not necessarily this exact product.
-                </p>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {amazonMatches.map((product) => (
                     <a
                       key={product._id}
                       href={product.supplierUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 bg-muted rounded-lg p-2 hover:bg-muted/70 transition-colors"
+                      className="flex items-center gap-2 bg-muted rounded-lg p-2 hover:bg-muted/70 transition-colors"
                     >
-                      <img src={product.imageUrl} alt={product.title} className="w-10 h-10 rounded-md object-cover shrink-0" />
+                      <img src={product.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium line-clamp-1">{product.title}</div>
-                        {product.price !== undefined && (
-                          <div className="text-xs text-muted-foreground">${product.price}</div>
-                        )}
+                        {product.price !== undefined && <div className="text-xs text-muted-foreground">${product.price}</div>}
                       </div>
-                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     </a>
                   ))}
                 </div>
