@@ -149,7 +149,7 @@ export const importTikTokAds = internalAction({
             country: country.toUpperCase(),
             niche: args.niche,
             headline: title,
-            bodyText: [d.product_title && d.product_title !== title ? d.product_title : "", gmv ? `GMV ${money(gmv)}` : "", d.button_text ? `CTA: ${d.button_text}` : ""]
+            bodyText: [d.product_title && d.product_title !== title ? d.product_title : "", gmv ? `GMV ${money(gmv)}` : ""]
               .filter(Boolean)
               .join(" · "),
             creativeUrl: imgUrl(d.ad_cover) || imgUrl(d.advertiser_avatar),
@@ -160,6 +160,15 @@ export const importTikTokAds = internalAction({
             daysRunning: Math.round(days),
             aiScore: score(views, days, gmv),
             firstSeenAt: toIso(d.ad_create_time || d.create_time),
+            mediaType: "video",
+            ...(imgUrl(d.advertiser_avatar) ? { advertiserAvatar: imgUrl(d.advertiser_avatar) } : {}),
+            ...(d.button_text ? { ctaText: String(d.button_text) } : {}),
+            ...(views ? { impressions: Math.round(views) } : {}),
+            ...(num(core.core_video_comment_count) !== undefined ? { comments: Math.round(num(core.core_video_comment_count)!) } : {}),
+            ...(num(core.core_video_share_count) !== undefined ? { shares: Math.round(num(core.core_video_share_count)!) } : {}),
+            ...(d.last_update_time ? { lastSeenAt: toIso(d.last_update_time) } : {}),
+            countries: [country.toUpperCase()],
+            ...(d.ad_url ? { adLibraryUrl: String(d.ad_url) } : {}),
           });
           if (outcome === "created") result.created += 1;
           else result.updated += 1;

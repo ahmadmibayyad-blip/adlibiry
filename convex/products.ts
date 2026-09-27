@@ -18,6 +18,9 @@ export const list = query({
     saturation: v.optional(v.string()), // "Low" | "Medium" | "High" | "Unknown"
     source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api"
     winnerOfDayOnly: v.optional(v.boolean()),
+    search: v.optional(v.string()),
+    sort: v.optional(v.string()), // "newest" | "score" | "ads" | "likes" | "growth" | "priceHigh" | "priceLow" | "margin"
+    minAds: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Candidate set is every product newest-first, bounded to a size that's
@@ -55,6 +58,24 @@ export const list = query({
         return margin >= args.minMargin!;
       });
     }
+
+    if (args.search) {
+      const term = args.search.toLowerCase();
+      filtered = filtered.filter((p) => p.title.toLowerCase().includes(term) || (p.storeUrl ?? p.supplierUrl).toLowerCase().includes(term));
+    }
+    if (args.minAds !== undefined) filtered = filtered.filter((p) => (p.adsCount ?? 0) >= args.minAds!);
+    const margin = (p: (typeof filtered)[number]) =>
+      p.price !== undefined && p.cost !== undefined && p.price > 0 ? (p.price - p.cost) / p.price : -1;
+    const sorters: Record<string, (a: (typeof filtered)[number], b: (typeof filtered)[number]) => number> = {
+      score: (a, b) => b.aiScore - a.aiScore,
+      ads: (a, b) => (b.adsCount ?? 0) - (a.adsCount ?? 0),
+      likes: (a, b) => (b.likes ?? 0) - (a.likes ?? 0),
+      growth: (a, b) => (b.growthPercent ?? -Infinity) - (a.growthPercent ?? -Infinity),
+      priceHigh: (a, b) => (b.price ?? -1) - (a.price ?? -1),
+      priceLow: (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity),
+      margin: (a, b) => margin(b) - margin(a),
+    };
+    if (args.sort && sorters[args.sort]) filtered = [...filtered].sort(sorters[args.sort]);
 
     return paginateFilteredArray(filtered, args.paginationOpts);
   },

@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, action } from "../_generated/server";
 import { internal, api } from "../_generated/api";
+import { richAdFields, defined } from "../lib/adFields";
 import {
   COUNTRY_NAME_TO_ALPHA2,
   ALPHA2_TO_ALPHA3,
@@ -201,9 +202,7 @@ export const runSync = internalAction({
               country,
               niche,
               headline: item.title || item.message || item.caption || "Untitled ad",
-              bodyText: [item.body || item.message || item.caption || "", item.button_text || item.call_to_action ? `CTA: ${item.button_text || item.call_to_action}` : ""]
-                .filter(Boolean)
-                .join("\n"),
+              bodyText: item.body || item.message || item.caption || "",
               creativeUrl: item.preview_img_url || item.video_url || "",
               landingPageUrl: item.landing_page_url || "",
               spendEstimate: spendFrom(item.estimated_spend) ?? estimateSpendRange(item.impression || item.all_exposure_value),
@@ -216,6 +215,7 @@ export const runSync = internalAction({
               firstSeenAt: item.first_seen
                 ? new Date(item.first_seen * 1000).toISOString()
                 : new Date().toISOString(),
+              ...searchRich(item),
             });
 
             if (outcome === "created") {
@@ -243,6 +243,34 @@ export const runSync = internalAction({
     return result;
   },
 });
+
+// Rich fields straight from a search result (all optional).
+function mediaUrl(item: any): { videoUrl?: string; imageUrl?: string } {
+  const res = Array.isArray(item.resource_urls) ? item.resource_urls : [];
+  const withVideo = res.find((r: any) => typeof r?.video_url === "string" && r.video_url);
+  return {
+    videoUrl: item.video_url || withVideo?.video_url || undefined,
+    imageUrl: item.preview_img_url || res.find((r: any) => r?.image_url)?.image_url,
+  };
+}
+function searchRich(item: any) {
+  const { videoUrl } = mediaUrl(item);
+  const lastSeen = typeof item.last_seen === "number" && item.last_seen > 0 ? item.last_seen * 1000 : undefined;
+  const type = Number(item.ads_type);
+  return defined({
+    externalKey: item.ad_key as string | undefined,
+    mediaType: type === 2 || videoUrl ? "video" : type === 3 ? "carousel" : "image",
+    videoUrl,
+    advertiserAvatar: typeof item.logo_url === "string" && item.logo_url ? item.logo_url : undefined,
+    ctaText: (item.button_text || item.call_to_action || undefined) as string | undefined,
+    impressions: Number(item.impression || item.all_exposure_value) || undefined,
+    comments: typeof item.comment_count === "number" ? item.comment_count : undefined,
+    shares: typeof item.share_count === "number" ? item.share_count : undefined,
+    lastSeenAt: lastSeen ? new Date(lastSeen).toISOString() : undefined,
+    isActive: lastSeen ? Date.now() - lastSeen < 4 * 86_400_000 : undefined,
+    relatedAdsCount: typeof item.related_ads_count === "number" ? item.related_ads_count : undefined,
+  });
+}
 
 // AdLibrary's own spend estimate, when the search result has one.
 function spendFrom(value: unknown): string | undefined {
@@ -281,6 +309,19 @@ type AdDetail = {
   landingPageUrl?: string;
   views?: string;
   daysRunning?: number;
+  impressions?: number;
+  countries?: string[];
+  videoUrl?: string;
+  language?: string;
+  lastSeenAt?: string;
+  isActive?: boolean;
+  audience?: {
+    totalReach?: number;
+    malePct?: number;
+    femalePct?: number;
+    ages: { bracket: string; pct: number }[];
+    countries: { code: string; pct: number }[];
+  };
 };
 const alpha3To2 = (code: string): string | undefined => {
   const upper = String(code ?? "").toUpperCase();
@@ -348,9 +389,48 @@ function parseAdDetail(json: unknown): AdDetail {
   const landing = cta ?? detail.store_url ?? detail.landing_page_url;
   if (typeof landing === "string" && /^https?:\/\//.test(landing)) out.landingPageUrl = landing;
   const impressions = Number(detail.impression);
-  if (impressions > 0) out.views = formatViews(impressions);
+  if (impressions > 0) {
+    out.views = formatViews(impressions);
+    out.impressions = impressions;
+  }
   const days = Number(detail.days_count);
   if (days > 0) out.daysRunning = days;
+
+  // All countries the ad runs in (alpha-2 where we know it, else as given).
+  if (Array.isArray(detail.countries) && detail.countries.length) {
+    out.countries = [...new Set(detail.countries.map((c: string) => alpha3To2(c) ?? String(c).toUpperCase()))].slice(0, 40) as string[];
+  }
+  const cdn = Array.isArray(detail.cdn_url) ? detail.cdn_url.find((u: any) => typeof u === "string" && /^https?:/.test(u)) : undefined;
+  const resVideo = Array.isArray(detail.resource_urls) ? detail.resource_urls.find((r: any) => r?.video_url)?.video_url : undefined;
+  if (cdn || resVideo) out.videoUrl = cdn || resVideo;
+  if (typeof detail.language === "string" && detail.language) out.language = detail.language;
+  if (typeof detail.last_seen === "number" && detail.last_seen > 0) {
+    out.lastSeenAt = new Date(detail.last_seen * 1000).toISOString();
+    out.isActive = Date.now() - detail.last_seen * 1000 < 4 * 86_400_000;
+  }
+
+  if (audience) {
+    const split = Array.isArray(audience.sex_detail) ? audience.sex_detail : [];
+    const pctOf = (type: string) => {
+      const p = Number(split.find((s: any) => s?.type === type)?.percent);
+      return Number.isFinite(p) ? Math.round(p * 1000) / 10 : undefined;
+    };
+    const ages = (Array.isArray(audience.age_detail) ? audience.age_detail : [])
+      .filter((a: any) => typeof a?.type === "string")
+      .map((a: any) => ({ bracket: String(a.type), pct: Math.round(Number(a.percent || 0) * 1000) / 10 }));
+    const countries = (Array.isArray(audience.location_detail) ? audience.location_detail : [])
+      .map((l: any) => ({ code: alpha3To2(l?.code) ?? String(l?.code ?? "").toUpperCase(), pct: Math.round(Number(l?.percent || 0) * 1000) / 10 }))
+      .filter((c: { code: string }) => c.code)
+      .slice(0, 12);
+    const totalReach = Number(audience.total_reach);
+    out.audience = {
+      ...(totalReach > 0 ? { totalReach } : {}),
+      ...(pctOf("male") !== undefined ? { malePct: pctOf("male") } : {}),
+      ...(pctOf("female") !== undefined ? { femalePct: pctOf("female") } : {}),
+      ages,
+      countries,
+    };
+  }
   return out;
 }
 
@@ -395,6 +475,7 @@ const upsertAdFields = {
   daysRunning: v.number(),
   aiScore: v.number(),
   firstSeenAt: v.string(),
+  ...richAdFields,
 };
 
 export const upsertAd = internalMutation({
@@ -445,8 +526,15 @@ export const enrichAd = internalMutation({
     landingPageUrl: v.optional(v.string()),
     views: v.optional(v.string()),
     daysRunning: v.optional(v.number()),
+    impressions: v.optional(v.number()),
+    countries: v.optional(v.array(v.string())),
+    videoUrl: v.optional(v.string()),
+    language: v.optional(v.string()),
+    lastSeenAt: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+    audience: richAdFields.audience,
   },
-  handler: async (ctx, { externalId, targeting, spendEstimate, country, landingPageUrl, views, daysRunning }) => {
+  handler: async (ctx, { externalId, targeting, spendEstimate, country, landingPageUrl, views, daysRunning, ...rich }) => {
     const link = await ctx.db
       .query("adlibrarySyncedAds")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
@@ -461,6 +549,8 @@ export const enrichAd = internalMutation({
         ...(landingPageUrl && !ad.landingPageUrl ? { landingPageUrl } : {}),
         ...(views ? { views } : {}),
         ...(daysRunning && daysRunning > ad.daysRunning ? { daysRunning } : {}),
+        ...defined(rich),
+        ...(rich.videoUrl ? { mediaType: "video" } : {}),
       });
     }
     await ctx.db.patch("adlibrarySyncedAds", link._id, { enrichedAt: new Date().toISOString() });

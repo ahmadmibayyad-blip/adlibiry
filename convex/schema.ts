@@ -47,6 +47,13 @@ export default defineSchema({
     publishedAt: v.string(),   // ISO 8601 UTC
     source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api" — absent means legacy curated row
     priceSource: v.optional(v.string()), // "exact" | "estimated_market" — absent means legacy curated row (exact); "estimated_market" means price/cost are a Nexscope-derived category benchmark, not this exact product's real price
+    // PiPiAds-style product metrics (CSV imports, discovery). Optional.
+    adsCount: v.optional(v.number()),
+    likes: v.optional(v.number()),
+    growthPercent: v.optional(v.number()),
+    storeUrl: v.optional(v.string()),
+    researchUrl: v.optional(v.string()),
+    originalPrice: v.optional(v.string()),
   })
     .index("by_category_published", ["category", "publishedAt"])
     .index("by_published", ["publishedAt"])
@@ -82,7 +89,29 @@ export default defineSchema({
       interests: v.array(v.string()),
     }),
     firstSeenAt: v.string(),     // ISO 8601 UTC
-    source: v.string(),          // "meta_ad_library" | "curated"
+    source: v.string(),          // "adlibrary_api" | "apify" | "nexscope" | "extension" | "curated"
+    // ── Rich ad data (Minea/PiPiAds-style). All optional: older rows lack them.
+    externalKey: v.optional(v.string()),     // source id (AdLibrary ad_key, meta_<archive id>, tiktok_<video id>)
+    mediaType: v.optional(v.string()),       // "image" | "video" | "carousel"
+    videoUrl: v.optional(v.string()),
+    advertiserAvatar: v.optional(v.string()),
+    ctaText: v.optional(v.string()),
+    impressions: v.optional(v.number()),
+    comments: v.optional(v.number()),
+    shares: v.optional(v.number()),
+    lastSeenAt: v.optional(v.string()),      // ISO 8601 UTC
+    isActive: v.optional(v.boolean()),
+    countries: v.optional(v.array(v.string())), // ISO alpha-2, where the ad runs
+    relatedAdsCount: v.optional(v.number()), // copies of the creative running (scaling signal)
+    language: v.optional(v.string()),
+    adLibraryUrl: v.optional(v.string()),
+    audience: v.optional(v.object({
+      totalReach: v.optional(v.number()),
+      malePct: v.optional(v.number()),
+      femalePct: v.optional(v.number()),
+      ages: v.array(v.object({ bracket: v.string(), pct: v.number() })),
+      countries: v.array(v.object({ code: v.string(), pct: v.number() })),
+    })),
   })
     .index("by_first_seen", ["firstSeenAt"])
     .index("by_platform", ["platform"])

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { richAdFields, defined } from "../lib/adFields";
 
 const adFields = {
   externalId: v.string(),
@@ -20,6 +21,7 @@ const adFields = {
   aiScore: v.number(),
   firstSeenAt: v.string(),
   targeting: v.optional(v.object({ ageRange: v.string(), gender: v.string(), interests: v.array(v.string()) })),
+  ...richAdFields,
 };
 
 // Insert or update one ad coming from Nexscope or Apify. On repeat sightings
@@ -28,7 +30,8 @@ const adFields = {
 export const upsertExternalAd = internalMutation({
   args: adFields,
   handler: async (ctx, args): Promise<"created" | "updated"> => {
-    const { externalId, source, targeting, ...fields } = args;
+    const { externalId, source, targeting, ...rest } = args;
+    const fields = defined(rest) as typeof rest;
     const now = new Date().toISOString();
     const link = await ctx.db
       .query("syncLinks")
@@ -51,6 +54,7 @@ export const upsertExternalAd = internalMutation({
     }
     const adId = await ctx.db.insert("ads", {
       ...fields,
+      externalKey: externalId,
       targeting: targeting ?? { ageRange: "Unknown", gender: "All", interests: [] },
       source,
     });

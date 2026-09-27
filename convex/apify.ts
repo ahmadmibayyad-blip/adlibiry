@@ -230,6 +230,13 @@ export const importDataset = internalAction({
         const pageName = String(pick(it, "page_name", "pageName") ?? pick(s, "page_name", "pageName") ?? "Unknown advertiser");
         const cta = pick(s, "cta_text", "ctaText") ?? cards[0]?.cta_text;
         const link = cleanLink(pick(s, "link_url", "linkUrl") ?? cards.find((c) => c.link_url || c.linkUrl)?.link_url);
+        const video =
+          pick(s, "videos.0.video_hd_url", "videos.0.videoHdUrl", "videos.0.video_sd_url", "videos.0.videoSdUrl") ??
+          pick(s, "cards.0.video_hd_url", "cards.0.videoHdUrl", "cards.0.video_sd_url", "cards.0.videoSdUrl");
+        const avatar = pick(s, "page_profile_picture_url", "pageProfilePictureUrl");
+        const countryList: string[] = (pick(it, "targeted_or_reached_countries", "targetedOrReachedCountries") ?? [])
+          .map((c: string) => String(c).toUpperCase().slice(0, 2))
+          .filter(Boolean);
 
         // Honest score from what Meta exposes: longevity + number of ad copies (scaling).
         const aiScore = Math.max(1, Math.min(100, Math.round((Math.min(days, 60) / 60) * 60 + (Math.min(copies, 20) / 20) * 40)));
@@ -242,7 +249,7 @@ export const importDataset = internalAction({
             country: args.country.toUpperCase(),
             niche: args.niche,
             headline: (title || body.split("\n")[0] || "Sponsored ad").slice(0, 500),
-            bodyText: [body, cta ? `CTA: ${cta}` : "", copies > 1 ? `${copies} ad copies running` : ""].filter(Boolean).join("\n").slice(0, 2000),
+            bodyText: String(body ?? "").slice(0, 2000),
             creativeUrl: String(image),
             landingPageUrl: link,
             spendEstimate: "Unknown",
@@ -251,6 +258,16 @@ export const importDataset = internalAction({
             daysRunning: days,
             aiScore,
             firstSeenAt: new Date(start ?? Date.now()).toISOString(),
+            mediaType: (pick(s, "cards") ?? []).length > 1 ? "carousel" : video ? "video" : "image",
+            ...(video ? { videoUrl: String(video) } : {}),
+            ...(avatar ? { advertiserAvatar: String(avatar) } : {}),
+            ...(cta ? { ctaText: String(cta) } : {}),
+            ...(reach ? { impressions: reach } : {}),
+            relatedAdsCount: copies,
+            ...(isActive !== undefined ? { isActive: !!isActive } : {}),
+            ...(end && isActive === false ? { lastSeenAt: new Date(end).toISOString() } : { lastSeenAt: new Date().toISOString() }),
+            ...(countryList.length ? { countries: countryList } : {}),
+            adLibraryUrl: `https://www.facebook.com/ads/library/?id=${archiveId}`,
           });
           if (outcome === "created") result.created += 1;
           else result.updated += 1;

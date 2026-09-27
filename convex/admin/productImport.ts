@@ -91,6 +91,12 @@ export const importProducts = mutation({
         aiScore: scoreFrom(r.ads, r.likes, r.growthPercent),
         trend: trendFrom(r.growthPercent),
         supplierUrl: r.productUrl || r.researchUrl || "",
+        ...(r.ads !== undefined ? { adsCount: r.ads } : {}),
+        ...(r.likes !== undefined ? { likes: r.likes } : {}),
+        ...(r.growthPercent !== undefined ? { growthPercent: r.growthPercent } : {}),
+        ...(r.productUrl ? { storeUrl: r.productUrl } : {}),
+        ...(r.researchUrl ? { researchUrl: r.researchUrl } : {}),
+        ...(r.originalPrice ? { originalPrice: r.originalPrice } : {}),
       };
 
       const link = await ctx.db

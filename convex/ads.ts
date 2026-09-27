@@ -20,14 +20,22 @@ export const list = query({
     minAiScore: v.optional(v.number()), // 0-100
     source: v.optional(v.string()), // "meta_ad_library" | "curated" | "adlibrary_api"
     gender: v.optional(v.string()), // from ad.targeting.gender, e.g. "All", "Male", "Female"
-    sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" | "longestRunning"
+    sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" | "longestRunning" | "impressions" | "comments" | "shares" | "lastSeen" | "copies" | "score"
+    mediaType: v.optional(v.string()), // "video" | "image" | "carousel"
+    activeOnly: v.optional(v.boolean()),
+    firstSeenWithinDays: v.optional(v.number()),
+    maxDaysRunning: v.optional(v.number()),
+    minImpressions: v.optional(v.number()),
+    minComments: v.optional(v.number()),
+    cta: v.optional(v.string()),
+    hasLandingPage: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Candidate set is every ad newest-first, bounded to a size that's safe
     // to filter in memory — matches the current small (low hundreds) scale
     // of AdSpy Pro's synced ad data. All filters apply before pagination so
     // pages are always fully filtered, never partially filtered then sliced.
-    const candidates = await ctx.db.query("ads").withIndex("by_first_seen").order("desc").take(1000);
+    const candidates = await ctx.db.query("ads").withIndex("by_first_seen").order("desc").take(3000);
 
     let filtered = candidates;
     if (args.platform) filtered = filtered.filter((a) => a.platform === args.platform);
@@ -63,6 +71,20 @@ export const list = query({
     if (args.gender) {
       filtered = filtered.filter((a) => a.targeting.gender === args.gender);
     }
+    if (args.mediaType) filtered = filtered.filter((a) => (a.mediaType ?? (a.videoUrl ? "video" : "image")) === args.mediaType);
+    if (args.activeOnly) filtered = filtered.filter((a) => a.isActive === true);
+    if (args.firstSeenWithinDays !== undefined) {
+      const since = Date.now() - args.firstSeenWithinDays * 86_400_000;
+      filtered = filtered.filter((a) => Date.parse(a.firstSeenAt) >= since);
+    }
+    if (args.maxDaysRunning !== undefined) filtered = filtered.filter((a) => a.daysRunning <= args.maxDaysRunning!);
+    if (args.minImpressions !== undefined) filtered = filtered.filter((a) => (a.impressions ?? 0) >= args.minImpressions!);
+    if (args.minComments !== undefined) filtered = filtered.filter((a) => (a.comments ?? 0) >= args.minComments!);
+    if (args.cta) {
+      const c = args.cta.toLowerCase();
+      filtered = filtered.filter((a) => (a.ctaText ?? "").toLowerCase().includes(c));
+    }
+    if (args.hasLandingPage) filtered = filtered.filter((a) => !!a.landingPageUrl);
 
     if (args.sort === "mostLiked") {
       filtered = [...filtered].sort((a, b) => b.likes - a.likes);
@@ -72,6 +94,18 @@ export const list = query({
       );
     } else if (args.sort === "longestRunning") {
       filtered = [...filtered].sort((a, b) => b.daysRunning - a.daysRunning);
+    } else if (args.sort === "impressions") {
+      filtered = [...filtered].sort((a, b) => (b.impressions ?? 0) - (a.impressions ?? 0));
+    } else if (args.sort === "comments") {
+      filtered = [...filtered].sort((a, b) => (b.comments ?? 0) - (a.comments ?? 0));
+    } else if (args.sort === "shares") {
+      filtered = [...filtered].sort((a, b) => (b.shares ?? 0) - (a.shares ?? 0));
+    } else if (args.sort === "lastSeen") {
+      filtered = [...filtered].sort((a, b) => Date.parse(b.lastSeenAt ?? b.firstSeenAt) - Date.parse(a.lastSeenAt ?? a.firstSeenAt));
+    } else if (args.sort === "copies") {
+      filtered = [...filtered].sort((a, b) => (b.relatedAdsCount ?? 0) - (a.relatedAdsCount ?? 0));
+    } else if (args.sort === "score") {
+      filtered = [...filtered].sort((a, b) => b.aiScore - a.aiScore);
     }
     // "newest" (default) keeps the by_first_seen desc order already applied.
 
@@ -83,6 +117,27 @@ export const getById = query({
   args: { id: v.id("ads") },
   handler: async (ctx, args) => {
     return await ctx.db.get("ads", args.id);
+  },
+});
+
+export const getFacets = query({
+  args: {},
+  handler: async (ctx) => {
+    const ads = await ctx.db.query("ads").withIndex("by_first_seen").order("desc").take(3000);
+    const count = (vals: (string | undefined)[]) => {
+      const m = new Map<string, number>();
+      for (const x of vals) if (x) m.set(x, (m.get(x) ?? 0) + 1);
+      return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([value, n]) => ({ value, n }));
+    };
+    return {
+      total: ads.length,
+      ctas: count(ads.map((a) => a.ctaText)).slice(0, 20),
+      countries: count(ads.map((a) => a.country)),
+      niches: count(ads.map((a) => a.niche)),
+      platforms: count(ads.map((a) => a.platform)),
+      activeCount: ads.filter((a) => a.isActive).length,
+      videoCount: ads.filter((a) => (a.mediaType ?? "") === "video" || a.videoUrl).length,
+    };
   },
 });
 
