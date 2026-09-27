@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AdSpy Pro — Ad Collector",
-  "version": "1.0.0",
-  "description": "Anonymously spot sponsored ads on Facebook and TikTok and contribute them to the AdSpy Pro ad database.",
+  "version": "2.2.0",
+  "description": "Collects publicly visible sponsored ads from Facebook, Meta Ad Library, TikTok, adlibrary.com and Nexscope into the AdSpy Pro database.",
   "icons": {
     "16": "icon-16.png",
     "48": "icon-48.png",
@@ -21,11 +21,19 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.facebook.com/*", "*://*.tiktok.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
+      "matches": ["*://*.facebook.com/*", "*://*.tiktok.com/*", "*://*.adlibrary.com/*", "*://*.nexscope.ai/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": ["*://*.facebook.com/*", "*://*.tiktok.com/*", "*://*.adlibrary.com/*", "*://*.nexscope.ai/*"],
+      "js": ["parsers.js", "content.js"],
+      "run_at": "document_start"
     }
   ],
-  "permissions": ["storage"],
-  "host_permissions": ["https://wandering-avocet-151.convex.site/*"]
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://careful-raccoon-363.convex.site/*"],
+  "minimum_chrome_version": "111"
 }

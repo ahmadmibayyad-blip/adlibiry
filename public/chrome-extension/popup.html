@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <style>
       body {
-        width: 260px;
+        width: 290px;
         font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
         background: #0a0a12;
         color: #f7f7f7;
@@ -76,6 +76,13 @@
       .toggle.on .toggle-thumb {
         transform: translateX(16px);
       }
+      .src { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; color:#cfcfdb; }
+      .src b { color:#1fbf6b; }
+      .muted { color:#666; }
+      .warn { display:none; font-size:11px; background:#3a2a00; color:#ffcf66; padding:8px; border-radius:6px; margin-top:8px; line-height:1.4; }
+      .err { font-size:11px; color:#ff7a7a; margin-top:6px; word-break:break-word; }
+      button { width:100%; margin-top:10px; background:#1b1b2a; color:#f7f7f7; border:1px solid #333; border-radius:6px; padding:7px; font-size:12px; cursor:pointer; }
+      button:hover { border-color:#1fbf6b; }
       p.note {
         font-size: 11px;
         color: #666;
@@ -97,9 +104,25 @@
       <span class="label">Ads submitted</span>
       <span class="value" id="count">0</span>
     </div>
+    <div class="row">
+      <span class="label">Waiting in queue</span>
+      <span class="value" id="queue">0</span>
+    </div>
+    <div class="row">
+      <span class="label">Last submitted</span>
+      <span class="value" id="last">—</span>
+    </div>
+    <div class="row" style="display:block">
+      <span class="label">By source</span>
+      <div id="sources" style="margin-top:6px"></div>
+    </div>
+    <div class="warn" id="legacy">Server rejected the extended ad fields, so only the 7 basic fields are being sent.
+      Update the backend's submit-ad validator to accept the new fields (see README).</div>
+    <div class="err" id="err"></div>
+    <button id="flush">Send queued now</button>
     <p class="note">
-      Runs on facebook.com and tiktok.com. Collects only publicly visible sponsored ad content —
-      never your personal posts, messages, or account data.
+      Runs on facebook.com (feed + Ad Library), tiktok.com, adlibrary.com and nexscope.ai. Collects only sponsored ad
+      content — never your personal posts, messages, account data or the page you're on.
     </p>
     <script src="popup.js"></script>
   </body>
