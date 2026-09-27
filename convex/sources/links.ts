@@ -1,9 +1,10 @@
 import { v } from "convex/values";
-import { internalMutation } from "../_generated/server";
+import { internalMutation, type MutationCtx } from "../_generated/server";
+import type { Infer } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { richAdFields, defined } from "../lib/adFields";
 
-const adFields = {
+export const adFields = {
   externalId: v.string(),
   source: v.string(),
   advertiserName: v.string(),
@@ -27,9 +28,10 @@ const adFields = {
 // Insert or update one ad coming from Nexscope or Apify. On repeat sightings
 // metrics (likes, views, days running, score) refresh; the original
 // first-seen date and any enriched targeting are kept.
-export const upsertExternalAd = internalMutation({
-  args: adFields,
-  handler: async (ctx, args): Promise<"created" | "updated"> => {
+const adArgs = v.object(adFields);
+export type ExternalAd = Infer<typeof adArgs>;
+
+export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"created" | "updated"> {
     const { externalId, source, targeting, ...rest } = args;
     const fields = defined(rest) as typeof rest;
     const now = new Date().toISOString();
@@ -60,7 +62,11 @@ export const upsertExternalAd = internalMutation({
     });
     await ctx.db.insert("syncLinks", { kind: "ad", externalId, docId: adId, source, lastSyncedAt: now });
     return "created";
-  },
+  }
+
+export const upsertExternalAd = internalMutation({
+  args: adFields,
+  handler: async (ctx, args): Promise<"created" | "updated"> => upsertAd(ctx, args),
 });
 
 export const upsertExternalStore = internalMutation({

@@ -374,7 +374,7 @@ function ProductsTab() {
                       {product.isWinnerOfDay ? <Badge>Yes</Badge> : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Nexscope" : product.source === "csv_import" ? "CSV" : "Curated"}
+                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Nexscope" : product.source === "csv_import" ? "CSV" : product.source === "winninghunter" ? "WinningHunter" : "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -616,7 +616,7 @@ function AdsTab() {
                       <Badge variant="secondary">{ad.aiScore}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {({ adlibrary_api: "AdLibrary", meta_ad_library: "Meta", apify: "Apify", nexscope: "Nexscope", extension: "Extension" } as Record<string, string>)[ad.source] ?? "Curated"}
+                      {({ adlibrary_api: "AdLibrary", meta_ad_library: "Meta", apify: "Apify", nexscope: "Nexscope", extension: "Extension", winninghunter: "WinningHunter" } as Record<string, string>)[ad.source] ?? "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

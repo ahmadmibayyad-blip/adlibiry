@@ -39,6 +39,7 @@ const sourceOptions = [
   { value: "nexscope_api", label: "Real Amazon listing" },
   { value: "adlibrary_api", label: "Live ad spotted" },
   { value: "csv_import", label: "Imported (CSV)" },
+  { value: "winninghunter", label: "WinningHunter" },
   { value: "curated", label: "Curated" },
 ];
 

@@ -51,6 +51,7 @@ const sourceOptions = [
   { value: "apify", label: "Meta (Apify)" },
   { value: "nexscope", label: "TikTok (Nexscope)" },
   { value: "extension", label: "Extension" },
+  { value: "winninghunter", label: "WinningHunter" },
 ];
 
 const genderOptions = [
