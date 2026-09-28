@@ -3,7 +3,8 @@ import { v, ConvexError } from "convex/values";
 import { internalAction, action, internalMutation } from "../_generated/server";
 import { internal, api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { retireStaleWinners } from "../lib/winners";
+import { retireStaleWinners, winnerSlot } from "../lib/winners";
+import { classifyNiche } from "../lib/category";
 import {
   NEXSCOPE_AMAZON_DISCOVERY_URL,
   NICHE_TO_AMAZON_KEYWORD,
@@ -135,9 +136,13 @@ export const upsertAmazonProduct = internalMutation({
     reviewCount: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<{ outcome: "created" | "updated"; productId: Id<"products"> }> => {
+    // The listing's own title decides its category (a "resistance bands"
+    // search for Health & Wellness returns Sports gear); the searched niche
+    // only decides which daily pick it fills.
+    const category = classifyNiche({ title: args.title, url: args.supplierUrl }, args.niche);
     const description = args.reviewCount
-      ? `Real Amazon bestseller candidate in ${args.niche}, backed by ${args.reviewCount.toLocaleString()} reviews and strong recent click demand.`
-      : `Real Amazon bestseller candidate in ${args.niche}, based on recent click demand.`;
+      ? `Real Amazon bestseller candidate in ${category}, backed by ${args.reviewCount.toLocaleString()} reviews and strong recent click demand.`
+      : `Real Amazon bestseller candidate in ${category}, based on recent click demand.`;
 
     const productDoc = {
       title: args.title,
@@ -145,8 +150,9 @@ export const upsertAmazonProduct = internalMutation({
       imageUrl: args.imageUrl,
       price: args.price,
       cost: args.cost,
-      category: args.niche,
-      tags: [args.niche, "Amazon", "market data"],
+      category,
+      tags: [category, "Amazon", "market data"],
+      winnerSlot: winnerSlot("nexscope_api", args.niche),
       aiScore: args.aiScore,
       saturation: "Unknown",
       trend: args.trend,
@@ -185,5 +191,5 @@ export const upsertAmazonProduct = internalMutation({
 
 export const retireOldWinners = internalMutation({
   args: { niche: v.string(), keepIds: v.array(v.id("products")) },
-  handler: async (ctx, args) => retireStaleWinners(ctx, "nexscope_api", args.niche, args.keepIds),
+  handler: async (ctx, args) => retireStaleWinners(ctx, { source: "nexscope_api", niche: args.niche }, args.keepIds),
 });

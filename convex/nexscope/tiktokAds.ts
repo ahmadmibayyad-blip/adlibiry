@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { NICHE_KEYWORDS } from "../adlibrary/client";
+import { classifyNiche } from "../lib/category";
 
 // Nexscope.ai → TikTok ads (chuhaijiang-tiktok-ad-search / -ad-detail) and
 // Shopify stores that advertise (shopify-store-query).
@@ -147,7 +148,10 @@ export const importTikTokAds = internalAction({
             advertiserName: String(d.advertiser_name || "Unknown advertiser").slice(0, 200),
             platform: "TikTok",
             country: country.toUpperCase(),
-            niche: args.niche,
+            niche: classifyNiche(
+              { title, body: String(d.product_title ?? ""), url: String(d.web_url || ""), advertiser: String(d.advertiser_name ?? "") },
+              args.niche,
+            ),
             headline: title,
             bodyText: [d.product_title && d.product_title !== title ? d.product_title : "", gmv ? `GMV ${money(gmv)}` : ""]
               .filter(Boolean)

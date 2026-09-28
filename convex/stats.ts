@@ -9,7 +9,7 @@ import { requireAdmin } from "./admin/helpers";
 
 type Count = { value: string; n: number };
 export type SiteStats = {
-  ads: { total: number; activeCount: number; videoCount: number; ctas: Count[]; countries: Count[]; niches: Count[]; platforms: Count[] };
+  ads: { total: number; activeCount: number; videoCount: number; ctas: Count[]; countries: Count[]; niches: Count[]; platforms: Count[]; languages?: Count[] };
   products: { total: number; categories: Count[] };
   users: { total: number; admins: number };
   stores: { total: number };
@@ -40,7 +40,7 @@ export const scanPage = internalQuery({
     const res = await ctx.db.query(table).paginate({ numItems: 1000, cursor });
     const rows = res.page.map((d: any) =>
       table === "ads"
-        ? { a: d.isActive === true, v: d.mediaType === "video" || !!d.videoUrl, cta: d.ctaText, c: [...new Set([d.country, ...(d.countries ?? [])])], n: d.niche, p: d.platform }
+        ? { a: d.isActive === true, v: d.mediaType === "video" || !!d.videoUrl, cta: d.ctaText, c: [...new Set([d.country, ...(d.countries ?? [])])], n: d.niche, p: d.platform, l: d.language }
         : table === "products"
           ? { n: d.category }
           : table === "users"
@@ -77,7 +77,7 @@ export const recompute = internalAction({
         cursor = res.cursor;
       }
     };
-    const ctas: string[] = [], countries: string[] = [], niches: string[] = [], platforms: string[] = [], cats: string[] = [];
+    const ctas: string[] = [], countries: string[] = [], niches: string[] = [], platforms: string[] = [], cats: string[] = [], langs: string[] = [];
     await scan("ads", (r) => {
       stats.ads.total++;
       if (r.a) stats.ads.activeCount++;
@@ -86,6 +86,7 @@ export const recompute = internalAction({
       for (const c of r.c) if (c && c !== "INTL") countries.push(c);
       niches.push(r.n);
       platforms.push(r.p);
+      if (r.l) langs.push(r.l);
     });
     await scan("products", (r) => {
       stats.products.total++;
@@ -100,6 +101,7 @@ export const recompute = internalAction({
     stats.ads.countries = count(countries);
     stats.ads.niches = count(niches);
     stats.ads.platforms = count(platforms);
+    stats.ads.languages = count(langs).slice(0, 30);
     stats.products.categories = count(cats);
     await ctx.runMutation(internal.stats.save, { data: stats });
     return null;

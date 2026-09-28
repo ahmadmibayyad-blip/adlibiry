@@ -18,17 +18,7 @@ export type ProductRow = {
   researchUrl?: string;
 };
 
-export const IMPORT_CATEGORIES = [
-  "Electronics",
-  "Health & Wellness",
-  "Home & Living",
-  "Fashion",
-  "Beauty",
-  "Pet Supplies",
-  "Sports",
-  "Toys",
-  "Other",
-] as const;
+export const IMPORT_CATEGORIES = NICHES;
 
 export function decodeCsvBytes(buf: ArrayBuffer): string {
   const b = new Uint8Array(buf);
@@ -147,7 +137,7 @@ export function toNumber(s: string | undefined): number | undefined {
 // Order matters: first match wins. Words end with \b where a stem would
 // otherwise match inside other words (e.g. "pain" in "painting").
 export { guessCategory } from "@/convex/lib/category.ts";
-import { guessCategory } from "@/convex/lib/category.ts";
+import { guessCategory, NICHES } from "@/convex/lib/category.ts";
 
 export type BuildResult = {
   rows: ProductRow[];

@@ -122,3 +122,35 @@ describe("whToRecords", () => {
     expect(whToRecords([row], now, ["NO"]).ads[0].country).toBe("US"); // not in the ad's list → fallback
   });
 });
+
+import { classifyNiche, guessCategory } from "./category";
+
+describe("classifyNiche", () => {
+  it("files products by what they are, not by the first loose keyword", () => {
+    expect(classifyNiche({ title: "LED dog collar for night walks" })).toBe("Pet Supplies"); // was Fashion (collar) / Electronics (LED)
+    expect(classifyNiche({ title: "Baby stroller with car seat" })).toBe("Baby & Kids"); // was Home (car)
+    expect(classifyNiche({ title: "Gold plated necklace with pendant" })).toBe("Jewelry");
+    expect(classifyNiche({ title: "Hand-poured soy candles" })).toBe("Home & Living");
+    expect(classifyNiche({ title: "Magnetic car phone mount" })).toBe("Automotive");
+    expect(classifyNiche({ title: "Posture corrector for back pain" })).toBe("Health & Wellness");
+  });
+
+  it("reads the product URL slug and Nordic/German copy", () => {
+    expect(classifyNiche({ title: "Only today — 50% off!", url: "https://shop.dk/products/no-pull-dog-harness" })).toBe("Pet Supplies");
+    expect(classifyNiche({ title: "Smukke smykker til hende", body: "Halskæde i ægte sølv" })).toBe("Jewelry");
+    expect(classifyNiche({ title: "Legetøj til børn" })).toBe("Toys");
+    expect(classifyNiche({ title: "Sko til børn" })).toBe("Fashion");
+    expect(classifyNiche({ title: "Ergonomische Kopfhörer mit Ladegerät" })).toBe("Electronics");
+  });
+
+  it("does not treat Swedish 'bra' (= good) as a bra", () => {
+    expect(classifyNiche({ title: "Så bra för din hund" })).toBe("Pet Supplies");
+    expect(classifyNiche({ title: "Riktigt bra erbjudande" }, "Beauty")).toBe("Beauty");
+  });
+
+  it("keeps the fallback when the evidence is unclear", () => {
+    expect(classifyNiche({ title: "Only today — 50% off everything!" }, "Fashion")).toBe("Fashion");
+    expect(classifyNiche({ title: "Limited offer" })).toBe("Other");
+    expect(guessCategory("Wireless earbuds with charging case")).toBe("Electronics");
+  });
+});

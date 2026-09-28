@@ -44,6 +44,7 @@ export default function StoreTrackerPage() {
   const recentlySpotted = useQuery(api.stores.getRecentlySpotted, {});
   const trackedStores = useQuery(api.stores.getTrackedStores, {});
   const seedStores = useMutation(api.stores.seedStores);
+  const isAdmin = useQuery(api.users.isAdmin, {});
 
   const parsedMinRevenue = minRevenue ? Number(minRevenue) * 1000 : undefined;
   const parsedMinTraffic = minTraffic ? Number(minTraffic) * 1000 : undefined;
@@ -295,11 +296,14 @@ export default function StoreTrackerPage() {
         <div className="flex flex-col items-center py-20 text-center border border-dashed border-border rounded-xl">
           <Store className="w-10 h-10 text-muted-foreground mb-3" />
           <h3 className="font-semibold mb-1">No stores found</h3>
-          <p className="text-sm text-muted-foreground mb-4">Try a different search term, or load sample data to get started.</p>
-          <Button size="sm" variant="outline" onClick={handleSeed} className="text-xs">
-            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-            Load Sample Store Data
-          </Button>
+          <p className="text-sm text-muted-foreground mb-4">Try a different search term or filter.</p>
+          {/* Demo data — admins only */}
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={handleSeed} className="text-xs">
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+              Load Sample Store Data
+            </Button>
+          )}
         </div>
       ) : (
         <>

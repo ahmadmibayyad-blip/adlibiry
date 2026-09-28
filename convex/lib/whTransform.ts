@@ -1,6 +1,6 @@
 // Maps WinningHunter Meta ad-library rows (REST /api/v1/adlibrary or the MCP
 // connector — same shape) to our ad + product records.
-import { guessCategory } from "./category";
+import { classifyNiche } from "./category";
 
 type WH = Record<string, any>;
 
@@ -60,7 +60,7 @@ export function whToRecords(data: WH[], nowMs = Date.now(), preferCountries: str
     const slug = slugTitle(link);
     const firstLine = stripEmoji(copy.split("\n")[0] ?? "").replace(/^[^\p{L}\p{N}]+/u, "").slice(0, 90);
     const title = looksLikeName(slug) ? slug : firstLine && !isPromo(firstLine) ? firstLine : slug || clean(a.pageName, 120);
-    const niche = guessCategory(`${title} ${copy.slice(0, 200)}`);
+    const niche = classifyNiche({ title, body: copy, url: link, advertiser: clean(a.pageName, 120) });
     const poster = abs(clean(a.poster, 1500)) || abs(clean(a.image, 1500)) || abs(clean(a.facebook_thumbnail_url, 1500));
     const video = abs(clean(a.video, 1500)) || abs(clean(a.facebook_video_url, 1500));
     if (!poster && !copy) continue;

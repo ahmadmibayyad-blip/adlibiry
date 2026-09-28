@@ -31,6 +31,12 @@ export const list = query({
     cta: v.optional(v.string()),
     minCopies: v.optional(v.number()),
     hasLandingPage: v.optional(v.boolean()),
+    // WinningHunter/PiPiAds-style range filters
+    lastSeenWithinDays: v.optional(v.number()),
+    maxImpressions: v.optional(v.number()),
+    maxLikes: v.optional(v.number()),
+    maxSpend: v.optional(v.number()),
+    language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Index-backed: each page reads only the ads it scans, never the whole
@@ -54,6 +60,11 @@ export const list = query({
       if (args.minComments !== undefined) c.push(q.gte(q.field("comments"), args.minComments));
       if (args.minCopies !== undefined) c.push(q.gte(q.field("relatedAdsCount"), args.minCopies));
       if (args.hasLandingPage) c.push(q.neq(q.field("landingPageUrl"), ""));
+      if (args.lastSeenWithinDays !== undefined)
+        c.push(q.gte(q.field("lastSeenAt"), new Date(Date.now() - args.lastSeenWithinDays * 86_400_000).toISOString()));
+      if (args.maxImpressions !== undefined) c.push(q.lte(q.field("impressions"), args.maxImpressions));
+      if (args.maxLikes !== undefined) c.push(q.lte(q.field("likes"), args.maxLikes));
+      if (args.language) c.push(q.eq(q.field("language"), args.language));
       return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
     };
 
@@ -95,6 +106,13 @@ export const list = query({
     if (args.minSpend !== undefined) {
       page = page.filter((a) => (parseRangeUpperBound(a.spendEstimate) ?? 0) >= args.minSpend!);
     }
+    if (args.maxSpend !== undefined) {
+      // Ads with no spend estimate can't be shown as "under $X".
+      page = page.filter((a) => {
+        const s = parseRangeUpperBound(a.spendEstimate);
+        return s !== undefined && s <= args.maxSpend!;
+      });
+    }
     return { ...result, page };
   },
 });
@@ -111,7 +129,7 @@ export const getFacets = query({
   handler: async (ctx) => {
     const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
     const a = (doc?.data as SiteStats | undefined)?.ads;
-    return a ?? { total: 0, activeCount: 0, videoCount: 0, ctas: [], countries: [], niches: [], platforms: [] };
+    return { languages: [], ...(a ?? { total: 0, activeCount: 0, videoCount: 0, ctas: [], countries: [], niches: [], platforms: [] }) };
   },
 });
 

@@ -1,6 +1,7 @@
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
+import { requireAdmin } from "./admin/helpers";
 
 // ── Trending keywords (Google Trends-style) ────────────────────────────────
 
@@ -84,8 +85,8 @@ export const getSupplierById = query({
 export const seedResearchData = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
+    // Demo rows with made-up metrics — admins only, never any signed-in user.
+    await requireAdmin(ctx);
 
     const existing = await ctx.db.query("trends").take(1);
     if (existing.length > 0) return { message: "Already seeded" };

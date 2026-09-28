@@ -76,6 +76,7 @@ function TrendsTab() {
   const [direction, setDirection] = useState<string | undefined>(undefined);
   const trends = useQuery(api.trends.list, { direction });
   const seedResearchData = useMutation(api.trends.seedResearchData);
+  const isAdmin = useQuery(api.users.isAdmin, {});
 
   const handleSeed = async () => {
     await seedResearchData();
@@ -105,7 +106,8 @@ function TrendsTab() {
             );
           })}
         </div>
-        {trends !== undefined && trends.length === 0 && (
+        {/* Demo data — admins only */}
+        {isAdmin && trends !== undefined && trends.length === 0 && (
           <Button size="sm" variant="outline" onClick={handleSeed} className="text-xs">
             <Sparkles className="w-3.5 h-3.5 mr-1.5" />
             Load Sample Research Data
