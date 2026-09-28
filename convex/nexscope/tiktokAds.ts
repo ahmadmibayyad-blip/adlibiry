@@ -3,6 +3,7 @@ import { action, internalAction } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { NICHE_KEYWORDS } from "../adlibrary/client";
 import { classifyNiche } from "../lib/category";
+import { findPayload, nestedError, describeReply } from "../lib/nexscopeReply";
 
 // Nexscope.ai → TikTok ads (chuhaijiang-tiktok-ad-search / -ad-detail) and
 // Shopify stores that advertise (shopify-store-query).
@@ -38,10 +39,9 @@ async function runSkill(slug: string, body: Record<string, unknown>, attempt = 0
     throw new Error(`Nexscope ${slug}: HTTP ${res.status} ${text.slice(0, 160)}`);
   }
   if (!res.ok) throw new Error(`Nexscope ${slug}: HTTP ${res.status} ${(json?.errmsg ?? json?.msg ?? text).toString().slice(0, 160)}`);
-  const code = json.errcode ?? json.code;
-  if (code !== undefined && code !== 200 && code !== 0) {
-    throw new Error(`Nexscope ${slug}: ${json.errmsg ?? json.msg ?? json.message ?? `error ${code}`}`);
-  }
+  // Errors can sit in an outer envelope or in the API's own payload.
+  const providerError = nestedError(json);
+  if (providerError) throw new Error(`Nexscope ${slug}: ${providerError}`);
   return json;
 }
 
@@ -108,7 +108,8 @@ export const importTikTokAds = internalAction({
       try {
         search = await runSkill("chuhaijiang-tiktok-ad-search", {
           country,
-          keyword: args.keyword,
+          // No keyword = the market's top ads by GMV.
+          ...(args.keyword.trim() ? { keyword: args.keyword.trim() } : {}),
           page,
           pageSize: 10,
           sort: "gmv:desc",
@@ -117,9 +118,21 @@ export const importTikTokAds = internalAction({
         result.errors.push(e instanceof Error ? e.message : String(e));
         break;
       }
-      const items: any[] = search?.data?.items ?? [];
-      result.totalAvailable = num(search?.data?.total_count) ?? result.totalAvailable;
-      if (!items.length) break;
+      const found = findPayload(search, "items");
+      const items: any[] = Array.isArray(found?.items) ? (found.items as any[]) : [];
+      result.totalAvailable = num(found?.total_count) ?? result.totalAvailable;
+      if (!items.length) {
+        // Say why instead of silently showing "0".
+        if (page === 1) {
+          result.errors.push(
+            args.keyword.trim()
+              ? `Nexscope has no TikTok Shop ads matching "${args.keyword.trim()}" in ${country.toUpperCase()}. Try a product word (e.g. "dog harness") or leave the keyword empty for the top ads.`
+              : `Nexscope returned no TikTok ads for ${country.toUpperCase()} right now.`,
+          );
+          result.errors.push(`What Nexscope sent: ${describeReply(search)}`);
+        }
+        break;
+      }
       result.fetched += items.length;
 
       for (const it of items) {
@@ -128,8 +141,8 @@ export const importTikTokAds = internalAction({
         if (withDetail && it.id) {
           try {
             const d = await runSkill("chuhaijiang-tiktok-ad-detail", { country, id: String(it.id), include: "core" });
-            detail = d?.data?.items?.[0] ?? {};
-            core = d?.data?.core?.items?.[0] ?? {};
+            detail = (findPayload(d, "items")?.items as any[] | undefined)?.[0] ?? {};
+            core = ((findPayload(d, "core")?.core as any)?.items as any[] | undefined)?.[0] ?? {};
           } catch (e) {
             if (result.errors.length < 10) result.errors.push(`detail ${it.id}: ${e instanceof Error ? e.message : e}`);
           }
@@ -244,8 +257,19 @@ export const importShopifyStores = internalAction({
         result.errors.push(e instanceof Error ? e.message : String(e));
         break;
       }
-      const stores: any[] = res?.stores ?? [];
-      if (!stores.length) break;
+      const found = findPayload(res, "stores");
+      const stores: any[] = Array.isArray(found?.stores) ? (found.stores as any[]) : [];
+      if (!stores.length) {
+        if (page === 1) {
+          result.errors.push(
+            args.searchKey
+              ? `No ${args.country.toUpperCase()} stores with ${args.minAds ?? 1}+ ads whose name or domain contains "${args.searchKey}". This field matches store names, not products — leave it empty to get the top advertising stores.`
+              : `Nexscope returned no ${args.country.toUpperCase()} stores with ${args.minAds ?? 1}+ active ads. Try a lower minimum.`,
+          );
+          result.errors.push(`What Nexscope sent: ${describeReply(res)}`);
+        }
+        break;
+      }
       result.fetched += stores.length;
       for (const s of stores) {
         const domain = String(s.storeDomain || "").toLowerCase();
@@ -273,7 +297,7 @@ export const importShopifyStores = internalAction({
           if (result.errors.length < 10) result.errors.push(`save ${domain}: ${e instanceof Error ? e.message : e}`);
         }
       }
-      const totalPage = num(res.totalPage);
+      const totalPage = num(found?.totalPage);
       if (stores.length < 20 || (totalPage && page >= totalPage)) break;
     }
     return result;

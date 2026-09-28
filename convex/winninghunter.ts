@@ -21,6 +21,15 @@ async function whGet(path: string, params: Record<string, string | number | unde
   return JSON.parse(text);
 }
 
+// ConvexError keeps its details in .data — show the readable message, not raw JSON.
+function errorText(e: unknown): string {
+  if (e instanceof ConvexError) {
+    const d = e.data as { message?: string } | string;
+    return typeof d === "string" ? d : (d?.message ?? "WinningHunter error");
+  }
+  return e instanceof Error ? e.message : String(e);
+}
+
 const importArgs = {
   countries: v.string(), // comma-separated ISO2
   keyword: v.optional(v.string()),
@@ -55,7 +64,7 @@ export const importAdLibrary = internalAction({
         });
         r.calls++;
       } catch (e) {
-        r.errors.push(e instanceof Error ? e.message : String(e));
+        r.errors.push(errorText(e));
         break;
       }
       const rows = Array.isArray(body?.data) ? body.data : [];
@@ -101,7 +110,7 @@ export const creditsNow = action({
     try {
       return { configured: true, credits: await whGet("/credits", {}) };
     } catch (e) {
-      return { configured: true, error: e instanceof Error ? e.message : String(e) };
+      return { configured: true, error: errorText(e) };
     }
   },
 });
