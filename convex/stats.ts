@@ -10,7 +10,7 @@ import { requireAdmin } from "./admin/helpers";
 type Count = { value: string; n: number };
 export type SiteStats = {
   ads: { total: number; activeCount: number; videoCount: number; ctas: Count[]; countries: Count[]; niches: Count[]; platforms: Count[]; languages?: Count[] };
-  products: { total: number; categories: Count[] };
+  products: { total: number; categories: Count[]; sources?: Count[] };
   users: { total: number; admins: number };
   stores: { total: number };
 };
@@ -42,7 +42,7 @@ export const scanPage = internalQuery({
       table === "ads"
         ? { a: d.isActive === true, v: d.mediaType === "video" || !!d.videoUrl, cta: d.ctaText, c: [...new Set([d.country, ...(d.countries ?? [])])], n: d.niche, p: d.platform, l: d.language }
         : table === "products"
-          ? { n: d.category }
+          ? { n: d.category, s: d.source ?? "curated" }
           : table === "users"
             ? { admin: d.role === "admin" }
             : {},
@@ -77,7 +77,7 @@ export const recompute = internalAction({
         cursor = res.cursor;
       }
     };
-    const ctas: string[] = [], countries: string[] = [], niches: string[] = [], platforms: string[] = [], cats: string[] = [], langs: string[] = [];
+    const ctas: string[] = [], countries: string[] = [], niches: string[] = [], platforms: string[] = [], cats: string[] = [], langs: string[] = [], psources: string[] = [];
     await scan("ads", (r) => {
       stats.ads.total++;
       if (r.a) stats.ads.activeCount++;
@@ -91,6 +91,7 @@ export const recompute = internalAction({
     await scan("products", (r) => {
       stats.products.total++;
       cats.push(r.n);
+      psources.push(r.s);
     });
     await scan("users", (r) => {
       stats.users.total++;
@@ -103,6 +104,7 @@ export const recompute = internalAction({
     stats.ads.platforms = count(platforms);
     stats.ads.languages = count(langs).slice(0, 30);
     stats.products.categories = count(cats);
+    stats.products.sources = count(psources);
     await ctx.runMutation(internal.stats.save, { data: stats });
     return null;
   },
