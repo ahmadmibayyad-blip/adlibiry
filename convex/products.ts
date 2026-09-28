@@ -22,6 +22,15 @@ export const list = query({
     search: v.optional(v.string()),
     sort: v.optional(v.string()), // "newest" | "score" | "ads" | "likes" | "growth" | "priceHigh" | "priceLow" | "margin"
     minAds: v.optional(v.number()),
+    // Ad Spy-style range filters
+    maxAds: v.optional(v.number()),
+    minLikes: v.optional(v.number()),
+    maxLikes: v.optional(v.number()),
+    minGrowth: v.optional(v.number()), // percent
+    maxGrowth: v.optional(v.number()),
+    publishedWithinDays: v.optional(v.number()),
+    hasPrice: v.optional(v.boolean()),
+    hasStoreLink: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Index-backed (see ads.list): pages read only what they scan.
@@ -37,6 +46,18 @@ export const list = query({
       if (args.minPrice !== undefined) c.push(q.gte(q.field("price"), args.minPrice));
       if (args.maxPrice !== undefined) c.push(q.and(q.gt(q.field("price"), 0), q.lte(q.field("price"), args.maxPrice)));
       if (args.minAds !== undefined) c.push(q.gte(q.field("adsCount"), args.minAds));
+      // A missing value sorts below every number, so "at most X" must also
+      // require the field to exist (no growth data isn't "declining").
+      const atMost = (field: string, max: number) => q.and(q.neq(q.field(field), undefined), q.lte(q.field(field), max));
+      if (args.maxAds !== undefined) c.push(atMost("adsCount", args.maxAds));
+      if (args.minLikes !== undefined) c.push(q.gte(q.field("likes"), args.minLikes));
+      if (args.maxLikes !== undefined) c.push(atMost("likes", args.maxLikes));
+      if (args.minGrowth !== undefined) c.push(q.gte(q.field("growthPercent"), args.minGrowth));
+      if (args.maxGrowth !== undefined) c.push(atMost("growthPercent", args.maxGrowth));
+      if (args.publishedWithinDays !== undefined)
+        c.push(q.gte(q.field("publishedAt"), new Date(Date.now() - args.publishedWithinDays * 86_400_000).toISOString()));
+      if (args.hasPrice) c.push(q.gt(q.field("price"), 0));
+      if (args.hasStoreLink) c.push(q.neq(q.field("supplierUrl"), ""));
       return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
     };
 

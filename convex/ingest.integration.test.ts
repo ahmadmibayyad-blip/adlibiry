@@ -183,6 +183,43 @@ describe("new Ad Spy filters", () => {
     expect(await list({ minImpressions: 10_000, maxImpressions: 100_000 })).toEqual(["no-spend"]);
     expect(await list({ maxSpend: 1_000 })).toEqual(["fresh-small"]);
   });
+
+  it("'under X impressions' skips ads with no impression data", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      const base = { ...adArgs, targeting: { ageRange: "Unknown", gender: "All", interests: [] as string[] }, source: "apify" };
+      await ctx.db.insert("ads", { ...base, headline: "small", impressions: 5_000 });
+      await ctx.db.insert("ads", { ...base, headline: "no-data" });
+    });
+    const r = await t.query(api.ads.list, { paginationOpts: { numItems: 50, cursor: null }, maxImpressions: 10_000 });
+    expect(r.page.map((a) => a.headline)).toEqual(["small"]);
+  });
+});
+
+describe("Winning Products filters", () => {
+  it("filters by ads, likes, growth, date added, price and store link", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      const base = {
+        description: "", imageUrl: "https://cdn.example.com/p.jpg", category: "Pet Supplies", tags: [], aiScore: 50,
+        saturation: "Unknown", trend: "Stable", adExamples: [], isWinnerOfDay: false, source: "winninghunter",
+      };
+      await ctx.db.insert("products", { ...base, title: "hot", supplierUrl: "https://shop.dk/p", price: 29, adsCount: 120, likes: 5_000, growthPercent: 80, publishedAt: new Date(now - 2 * 86_400_000).toISOString() });
+      await ctx.db.insert("products", { ...base, title: "cooling", supplierUrl: "", adsCount: 5, likes: 50, growthPercent: -20, publishedAt: new Date(now - 60 * 86_400_000).toISOString() });
+      await ctx.db.insert("products", { ...base, title: "no-data", supplierUrl: "", publishedAt: new Date(now - 90 * 86_400_000).toISOString() });
+    });
+    const list = (extra: Record<string, unknown>) =>
+      t.query(api.products.list, { paginationOpts: { numItems: 50, cursor: null }, ...extra }).then((r) => r.page.map((p) => p.title).sort());
+    expect(await list({ minAds: 50, maxAds: 199 })).toEqual(["hot"]);
+    expect(await list({ maxAds: 9 })).toEqual(["cooling"]); // no ad count ≠ "1–9 ads"
+    expect(await list({ minLikes: 1_000 })).toEqual(["hot"]);
+    expect(await list({ maxGrowth: 0 })).toEqual(["cooling"]); // "Declining" skips products without growth data
+    expect(await list({ minGrowth: 50 })).toEqual(["hot"]);
+    expect(await list({ publishedWithinDays: 7 })).toEqual(["hot"]);
+    expect(await list({ hasPrice: true })).toEqual(["hot"]);
+    expect(await list({ hasStoreLink: true })).toEqual(["hot"]);
+  });
 });
 
 describe("admin access", () => {

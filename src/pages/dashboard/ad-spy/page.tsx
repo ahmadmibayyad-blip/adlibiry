@@ -1,20 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import { Search, Sparkles, X, Bookmark, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils.ts";
+import { Search, Sparkles, X } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdCard, { AdCardSkeleton } from "./_components/AdCard.tsx";
 import AdDetailModal from "./_components/AdDetailModal.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Checkbox } from "@/components/ui/checkbox.tsx";
-import { Input } from "@/components/ui/input.tsx";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import PlatformIcon from "@/components/PlatformIcon.tsx";
+import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
+import { ANY, opt, range, readJson, writeJson } from "@/lib/filterUtils.ts";
 import { flag, compactNumber } from "@/lib/adFormat.ts";
 
 type Ad = Doc<"ads">;
@@ -57,9 +54,6 @@ const FIRST_SEEN = [
   { value: "365", label: "Last year" },
 ];
 
-const opt = (value: string, label: string) => ({ value, label });
-const ANY = opt("any", "Any");
-
 const LAST_SEEN = [ANY, opt("1", "Last 24h"), opt("3", "Last 3 days"), opt("7", "Last 7 days"), opt("30", "Last 30 days")];
 const RUN_TIME = [ANY, opt("1-7", "1–7 days"), opt("7-30", "7–30 days"), opt("30-90", "30–90 days"), opt("90-", "90+ days")];
 const IMPRESSIONS = [ANY, opt("0-10000", "Under 10K"), opt("10000-100000", "10K–100K"), opt("100000-1000000", "100K–1M"), opt("1000000-", "1M+")];
@@ -88,13 +82,6 @@ const SORTS = [
   opt("copies", "Most ad copies"),
   opt("longestRunning", "Longest running"),
 ];
-
-function range(value: string | undefined): { min?: number; max?: number } {
-  if (!value) return {};
-  const [a, b] = value.split("-");
-  const n = (s: string | undefined) => (s && Number.isFinite(Number(s)) ? Number(s) : undefined);
-  return { min: n(a), max: n(b) };
-}
 
 // Panel state → ads.list args.
 function toQueryArgs(f: Filters, search: string) {
@@ -135,48 +122,8 @@ function toQueryArgs(f: Filters, search: string) {
 // ── Per-browser memory: viewed ads + saved searches ─────────────────────────
 const VIEWED_KEY = "adspy.viewedAds";
 const SAVED_KEY = "adspy.savedSearches";
-type SavedSearch = { name: string; filters: Filters; search: string };
-
-function readJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function writeJson(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // private mode / storage full — the feature just doesn't persist
-  }
-}
 
 const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code === code)?.name ?? code;
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs border cursor-pointer whitespace-nowrap transition-colors shrink-0",
-        on ? "bg-primary/15 border-primary text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Check({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string }) {
-  return (
-    <label className="flex items-center gap-2 h-8 px-1 text-xs cursor-pointer select-none whitespace-nowrap" title={hint}>
-      <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
-      {label}
-    </label>
-  );
-}
 
 export default function AdSpyPage() {
   const [f, setF] = useState<Filters>({});
@@ -191,9 +138,6 @@ export default function AdSpyPage() {
   const [excludeViewed, setExcludeViewed] = useState(false);
   const [viewed, setViewed] = useState<string[]>(() => readJson<string[]>(VIEWED_KEY, []));
   const viewedSet = useMemo(() => new Set(viewed), [viewed]);
-  const [saved, setSaved] = useState<SavedSearch[]>(() => readJson<SavedSearch[]>(SAVED_KEY, []));
-  const [saveName, setSaveName] = useState("");
-  const [saveOpen, setSaveOpen] = useState(false);
 
   const facets = useQuery(api.ads.getFacets, {});
   const args = toQueryArgs(f, debouncedSearch);
@@ -228,28 +172,6 @@ export default function AdSpyPage() {
       setViewed(next);
       writeJson(VIEWED_KEY, next);
     }
-  };
-
-  const saveSearch = () => {
-    const name = saveName.trim();
-    if (!name) return;
-    const next = [{ name, filters: f, search }, ...saved.filter((s) => s.name !== name)].slice(0, 20);
-    setSaved(next);
-    writeJson(SAVED_KEY, next);
-    setSaveName("");
-    setSaveOpen(false);
-    toast.success(`Saved "${name}"`);
-  };
-  const applySaved = (name: string) => {
-    const s = saved.find((x) => x.name === name);
-    if (!s) return;
-    setF(s.filters);
-    setSearch(s.search);
-  };
-  const deleteSaved = (name: string) => {
-    const next = saved.filter((s) => s.name !== name);
-    setSaved(next);
-    writeJson(SAVED_KEY, next);
   };
 
   const countryOptions = [
@@ -367,44 +289,15 @@ export default function AdSpyPage() {
           )}
           <div className="flex-1" />
           <Check label="Exclude viewed ads" hint="Hide ads you've already opened in this browser" checked={excludeViewed} onChange={setExcludeViewed} />
-          <Popover open={saveOpen} onOpenChange={setSaveOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs">
-                <Bookmark className="w-3.5 h-3.5 mr-1.5" />Save current search
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64" align="end">
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  saveSearch();
-                }}
-              >
-                <Input autoFocus value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Name, e.g. DK pets video" className="h-8 text-xs" />
-                <Button type="submit" size="sm" className="h-8" disabled={!saveName.trim()}>Save</Button>
-              </form>
-            </PopoverContent>
-          </Popover>
-          {saved.length > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs">Saved searches ({saved.length})</Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-1" align="end">
-                {saved.map((s) => (
-                  <div key={s.name} className="flex items-center gap-1 rounded-md hover:bg-muted">
-                    <button className="flex-1 text-left text-sm px-2 py-1.5 truncate cursor-pointer" onClick={() => applySaved(s.name)}>
-                      {s.name}
-                    </button>
-                    <button className="p-1.5 text-muted-foreground hover:text-destructive cursor-pointer" title="Delete" onClick={() => deleteSaved(s.name)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </PopoverContent>
-            </Popover>
-          )}
+          <SavedSearches
+            storageKey={SAVED_KEY}
+            filters={f}
+            search={search}
+            onApply={(filters, q) => {
+              setF(filters);
+              setSearch(q);
+            }}
+          />
         </div>
       </div>
 

@@ -62,7 +62,10 @@ export const list = query({
       if (args.hasLandingPage) c.push(q.neq(q.field("landingPageUrl"), ""));
       if (args.lastSeenWithinDays !== undefined)
         c.push(q.gte(q.field("lastSeenAt"), new Date(Date.now() - args.lastSeenWithinDays * 86_400_000).toISOString()));
-      if (args.maxImpressions !== undefined) c.push(q.lte(q.field("impressions"), args.maxImpressions));
+      // A missing value sorts below every number, so "at most X" must also
+      // require the field to exist — ads with no data aren't "under 10K".
+      if (args.maxImpressions !== undefined)
+        c.push(q.and(q.neq(q.field("impressions"), undefined), q.lte(q.field("impressions"), args.maxImpressions)));
       if (args.maxLikes !== undefined) c.push(q.lte(q.field("likes"), args.maxLikes));
       if (args.language) c.push(q.eq(q.field("language"), args.language));
       return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);

@@ -1,56 +1,108 @@
-import { usePaginatedQuery } from "convex/react";
+import { useEffect, useRef, useState } from "react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { Link } from "react-router-dom";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { compactNumber, domainOf } from "@/lib/adFormat.ts";
 import { api } from "@/convex/_generated/api.js";
-import { motion } from "motion/react";
-import { Filter, TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { useState } from "react";
+import { TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
-import FilterNumberInput from "@/components/FilterNumberInput.tsx";
-import FilterTogglePill from "@/components/FilterTogglePill.tsx";
-import { NICHES } from "@/convex/lib/category.ts";
+import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
+import { ANY, opt, range } from "@/lib/filterUtils.ts";
 
-const categories = ["All", ...NICHES];
+// ── Filter model (same layout as Ad Spy) ────────────────────────────────────
+type Filters = {
+  source?: string;
+  category?: string;
+  added?: string; // days
+  price?: string; // range, USD
+  margin?: string; // min %
+  ads?: string; // range
+  likes?: string; // range
+  growth?: string; // range, %
+  score?: string; // range
+  trend?: string;
+  saturation?: string;
+  winner?: boolean;
+  hasPrice?: boolean;
+  hasStore?: boolean;
+  sort?: string;
+};
 
-const trendOptions = [
-  { value: "none", label: "Any trend" },
-  { value: "Rising", label: "Rising" },
-  { value: "Stable", label: "Stable" },
-  { value: "Declining", label: "Declining" },
-  { value: "Unknown", label: "Unknown" },
-];
-
-const saturationOptions = [
-  { value: "none", label: "Any saturation" },
-  { value: "Low", label: "Low" },
-  { value: "Medium", label: "Medium" },
-  { value: "High", label: "High" },
-  { value: "Unknown", label: "Unknown" },
-];
-
-const sourceOptions = [
-  { value: "none", label: "Any source" },
-  { value: "nexscope_api", label: "Real Amazon listing" },
-  { value: "adlibrary_api", label: "Live ad spotted" },
-  { value: "csv_import", label: "Imported (CSV)" },
+const SOURCES = [
+  { value: undefined, label: "All" },
   { value: "winninghunter", label: "WinningHunter" },
+  { value: "adlibrary_api", label: "Live ads" },
+  { value: "nexscope_api", label: "Amazon" },
+  { value: "csv_import", label: "CSV import" },
   { value: "curated", label: "Curated" },
 ];
 
-const sortOptions = [
-  { value: "newest", label: "Newest" },
-  { value: "score", label: "Winning score" },
-  { value: "ads", label: "Most ads" },
-  { value: "likes", label: "Most likes" },
-  { value: "growth", label: "Fastest growth" },
-  { value: "priceHigh", label: "Price: high → low" },
-  { value: "priceLow", label: "Price: low → high" },
+const ADDED = [
+  { value: undefined, label: "All" },
+  { value: "1", label: "Last 24h" },
+  { value: "7", label: "Last 7 days" },
+  { value: "30", label: "Last 30 days" },
+  { value: "180", label: "Last 6 months" },
+  { value: "365", label: "Last year" },
 ];
+
+const PRICE = [ANY, opt("0-20", "Under $20"), opt("20-50", "$20–$50"), opt("50-100", "$50–$100"), opt("100-", "$100+")];
+const MARGIN = [ANY, opt("30", "30%+"), opt("50", "50%+"), opt("70", "70%+")];
+const ADS = [ANY, opt("1-9", "1–9"), opt("10-49", "10–49"), opt("50-199", "50–199"), opt("200-", "200+")];
+const LIKES = [ANY, opt("100-", "100+"), opt("1000-", "1K+"), opt("10000-", "10K+"), opt("100000-", "100K+")];
+const GROWTH = [ANY, opt("10-", "Growing 10%+"), opt("50-", "Growing 50%+"), opt("100-", "Growing 100%+"), opt("-1000-0", "Declining")];
+const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
+const TREND = [ANY, opt("Rising", "Rising"), opt("Stable", "Stable"), opt("Declining", "Declining"), opt("Unknown", "Unknown")];
+const SATURATION = [ANY, opt("Low", "Low"), opt("Medium", "Medium"), opt("High", "High"), opt("Unknown", "Unknown")];
+const SORTS = [
+  opt("newest", "Newest"),
+  opt("score", "Winning score"),
+  opt("ads", "Most ads"),
+  opt("likes", "Most likes"),
+  opt("growth", "Fastest growth"),
+  opt("priceHigh", "Price: high → low"),
+  opt("priceLow", "Price: low → high"),
+];
+const SAVED_KEY = "products.savedSearches";
+
+// "-1000-0" (declining) splits as ["", "1000", "0"]; handle negative mins.
+function growthRange(v: string | undefined) {
+  if (v === "-1000-0") return { min: undefined, max: 0 };
+  return range(v);
+}
+
+function toQueryArgs(f: Filters, search: string) {
+  const price = range(f.price);
+  const ads = range(f.ads);
+  const likes = range(f.likes);
+  const growth = growthRange(f.growth);
+  return {
+    source: f.source,
+    category: f.category,
+    publishedWithinDays: f.added ? Number(f.added) : undefined,
+    minPrice: price.min,
+    maxPrice: price.max,
+    minMargin: f.margin ? Number(f.margin) : undefined,
+    minAds: ads.min,
+    maxAds: ads.max,
+    minLikes: likes.min,
+    maxLikes: likes.max,
+    minGrowth: growth.min,
+    maxGrowth: growth.max,
+    minAiScore: range(f.score).min,
+    trend: f.trend,
+    saturation: f.saturation,
+    winnerOfDayOnly: f.winner || undefined,
+    hasPrice: f.hasPrice || undefined,
+    hasStoreLink: f.hasStore || undefined,
+    search: search || undefined,
+    sort: f.sort,
+  };
+}
 
 type Product = Doc<"products">;
 
@@ -123,229 +175,190 @@ function ProductTable({ products }: { products: Product[] }) {
 }
 
 export default function ProductsFeed() {
+  const [f, setF] = useState<Filters>({});
+  const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
+  const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [sort, setSort] = useState<string | undefined>(undefined);
-  const [minAds, setMinAds] = useState("");
   const [view, setView] = useState<"table" | "grid">("table");
-  const [activeCategory, setActiveCategory] = useState<string | undefined>(undefined);
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [minMargin, setMinMargin] = useState("");
-  const [minAiScore, setMinAiScore] = useState("");
-  const [trend, setTrend] = useState<string | undefined>(undefined);
-  const [saturation, setSaturation] = useState<string | undefined>(undefined);
-  const [source, setSource] = useState<string | undefined>(undefined);
-  const [winnerOfDayOnly, setWinnerOfDayOnly] = useState(false);
 
-  const parsedMinPrice = minPrice ? Number(minPrice) : undefined;
-  const parsedMaxPrice = maxPrice ? Number(maxPrice) : undefined;
-  const parsedMinMargin = minMargin ? Number(minMargin) : undefined;
-  const parsedMinAiScore = minAiScore ? Number(minAiScore) : undefined;
-  const activeFilterCount = [
-    parsedMinPrice,
-    parsedMaxPrice,
-    parsedMinMargin,
-    parsedMinAiScore,
-    trend,
-    saturation,
-    source,
-    winnerOfDayOnly ? true : undefined,
-    minAds ? Number(minAds) : undefined,
-  ].filter((v) => v !== undefined && !(typeof v === "number" && Number.isNaN(v))).length;
+  const stats = useQuery(api.stats.get, {});
+  const categories = stats?.products.categories ?? [];
+  const sourceCounts = Object.fromEntries((stats?.products.sources ?? []).map((c) => [c.value, c.n]));
 
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.products.list,
-    {
-      category: activeCategory,
-      minPrice: parsedMinPrice,
-      maxPrice: parsedMaxPrice,
-      minMargin: parsedMinMargin,
-      minAiScore: parsedMinAiScore,
-      trend,
-      saturation,
-      source,
-      winnerOfDayOnly: winnerOfDayOnly || undefined,
-      search: debouncedSearch || undefined,
-      sort,
-      minAds: minAds ? Number(minAds) : undefined,
-    },
-    { initialNumItems: 30 }
-  );
+  const args = toQueryArgs(f, debouncedSearch);
+  const { results, status, loadMore } = usePaginatedQuery(api.products.list, args, { initialNumItems: 30 });
 
-  const handleClearFilters = () => {
-    setMinPrice("");
-    setMaxPrice("");
-    setMinMargin("");
-    setMinAiScore("");
-    setTrend(undefined);
-    setSaturation(undefined);
-    setSource(undefined);
-    setWinnerOfDayOnly(false);
-    setMinAds("");
-  };
+  // Margin is matched after a page is read, so a page can come back short:
+  // keep reading until the list has as many products as asked for.
+  const PAGE = 30;
+  const filterKey = JSON.stringify(args);
+  const [wanted, setWanted] = useState({ key: filterKey, n: PAGE });
+  const target = wanted.key === filterKey ? wanted.n : PAGE;
+  const topUps = useRef({ key: "", target: 0, n: 0 });
+  useEffect(() => {
+    if (topUps.current.key !== filterKey || topUps.current.target !== target) topUps.current = { key: filterKey, target, n: 0 };
+    if (status === "CanLoadMore" && results.length < target && topUps.current.n < 15) {
+      topUps.current.n++;
+      loadMore(60);
+    }
+  }, [status, results.length, filterKey, target, loadMore]);
+  const showMore = () => setWanted({ key: filterKey, n: Math.max(target, results.length) + PAGE });
+
+  const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
+  const clearAll = () => setF((prev) => ({ sort: prev.sort }));
 
   return (
     <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="mb-6"
-      >
-        <div className="flex items-center gap-2.5 mb-1">
-          <TrendingUp className="w-5 h-5 text-primary" />
-          <h1 className="text-2xl font-bold">Winning Products</h1>
+      {/* Header + stats */}
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
+        <div>
+          <div className="flex items-center gap-2.5 mb-1">
+            <TrendingUp className="w-5 h-5 text-primary" />
+            <h1 className="text-2xl font-bold">Winning Products</h1>
+          </div>
+          <p className="text-sm text-muted-foreground">Products with proven ads — filter by niche, ads, likes, growth, price and margin.</p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Products with proven ads — sort by ads, likes, growth or score.
-        </p>
-      </motion.div>
+        {stats && (
+          <div className="flex gap-2 text-xs">
+            {[
+              { label: "Products", value: stats.products.total },
+              { label: "Niches", value: categories.length },
+              { label: "Sources", value: (stats.products.sources ?? []).length },
+            ].map((s) => (
+              <div key={s.label} className="bg-card border border-border rounded-lg px-3 py-1.5 text-center">
+                <div className="font-bold text-sm tabular-nums">{compactNumber(s.value)}</div>
+                <div className="text-muted-foreground">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Search + sort + view */}
-      <div className="flex flex-col md:flex-row gap-2 mb-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
-            className="w-full bg-card border border-border rounded-lg pl-9 pr-3 h-10 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
-          />
+      <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
+        {/* Source + search */}
+        <div className="flex flex-col lg:flex-row gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {SOURCES.map((s) => (
+              <Chip key={s.label} on={f.source === s.value} onClick={() => set("source", s.value)}>
+                {s.label}
+                {s.value && sourceCounts[s.value] !== undefined && <span className="opacity-60 tabular-nums">{compactNumber(sourceCounts[s.value])}</span>}
+              </Chip>
+            ))}
+          </div>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search product names…"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <FilterSelect label="Sort" value={sort ?? "newest"} onChange={(v) => setSort(v === "newest" ? undefined : v)} options={sortOptions} active={!!sort} />
-          <div className="flex items-center bg-card border border-border rounded-lg p-1">
+
+        {/* Niches */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1 shrink-0">Niche</span>
+          <Chip on={!f.category} onClick={() => set("category", undefined)}>All</Chip>
+          {categories.map((c) => (
+            <Chip key={c.value} on={f.category === c.value} onClick={() => set("category", f.category === c.value ? undefined : c.value)}>
+              {c.value}
+              <span className="opacity-60 tabular-nums">{compactNumber(c.n)}</span>
+            </Chip>
+          ))}
+        </div>
+
+        {/* Date added */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1">Added</span>
+          {ADDED.map((o) => (
+            <Chip key={o.label} on={f.added === o.value} onClick={() => set("added", o.value)}>{o.label}</Chip>
+          ))}
+        </div>
+
+        {/* Metrics */}
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect label="Price" value={f.price ?? "any"} onChange={setAny("price")} options={PRICE} active={!!f.price} />
+          <FilterSelect label="Margin" value={f.margin ?? "any"} onChange={setAny("margin")} options={MARGIN} active={!!f.margin} />
+          <FilterSelect label="Ads running" value={f.ads ?? "any"} onChange={setAny("ads")} options={ADS} active={!!f.ads} />
+          <FilterSelect label="Likes" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
+          <FilterSelect label="Growth" value={f.growth ?? "any"} onChange={setAny("growth")} options={GROWTH} active={!!f.growth} />
+          <FilterSelect label="Winning score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+          <FilterSelect label="Trend" value={f.trend ?? "any"} onChange={setAny("trend")} options={TREND} active={!!f.trend} />
+          <FilterSelect label="Saturation" value={f.saturation ?? "any"} onChange={setAny("saturation")} options={SATURATION} active={!!f.saturation} />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Check label="Winner of the day" checked={!!f.winner} onChange={(v) => set("winner", v || undefined)} />
+          <Check label="Has price" checked={!!f.hasPrice} onChange={(v) => set("hasPrice", v || undefined)} />
+          <Check label="Has store link" checked={!!f.hasStore} onChange={(v) => set("hasStore", v || undefined)} />
+        </div>
+
+        {/* Sort, view, saved searches */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
+          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          {activeCount > 0 && (
+            <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
+              <X className="w-3.5 h-3.5" />Clear filters ({activeCount})
+            </button>
+          )}
+          <div className="flex-1" />
+          <div className="flex items-center bg-background border border-border rounded-lg p-1">
             {([["table", Table2], ["grid", LayoutGrid]] as const).map(([v, Icon]) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
                 title={v === "table" ? "Table view" : "Grid view"}
-                className={cn("p-1.5 rounded-md cursor-pointer", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+                className={cn("p-1 rounded-md cursor-pointer", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
               >
                 <Icon className="w-4 h-4" />
               </button>
             ))}
           </div>
+          <SavedSearches
+            storageKey={SAVED_KEY}
+            filters={f}
+            search={search}
+            onApply={(filters, q) => {
+              setF(filters);
+              setSearch(q);
+            }}
+          />
         </div>
       </div>
 
-      {/* Category pills */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.05 }}
-        className="flex items-center gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide"
-      >
-        <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-        {categories.map((cat) => {
-          const isActive = cat === "All" ? !activeCategory : activeCategory === cat;
-          return (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat === "All" ? undefined : cat)}
-              className={cn(
-                "px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
-                isActive
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-border/80"
-              )}
-            >
-              {cat}
-            </button>
-          );
-        })}
-      </motion.div>
-
-      {/* Advanced filter bar — dense row of dropdowns/inputs, always visible */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b border-border"
-      >
-        <FilterNumberInput label="Min price $" value={minPrice} onChange={setMinPrice} placeholder="0" />
-        <FilterNumberInput label="Max price $" value={maxPrice} onChange={setMaxPrice} placeholder="Any" />
-        <FilterNumberInput label="Min margin %" value={minMargin} onChange={setMinMargin} placeholder="0" />
-        <FilterNumberInput label="Min AI score" value={minAiScore} onChange={setMinAiScore} placeholder="0" />
-        <FilterNumberInput label="Min ads" value={minAds} onChange={setMinAds} placeholder="0" />
-        <FilterSelect
-          label="Trend"
-          value={trend ?? "none"}
-          onChange={(v) => setTrend(v === "none" ? undefined : v)}
-          options={trendOptions}
-          active={!!trend}
-        />
-        <FilterSelect
-          label="Saturation"
-          value={saturation ?? "none"}
-          onChange={(v) => setSaturation(v === "none" ? undefined : v)}
-          options={saturationOptions}
-          active={!!saturation}
-        />
-        <FilterSelect
-          label="Source"
-          value={source ?? "none"}
-          onChange={(v) => setSource(v === "none" ? undefined : v)}
-          options={sourceOptions}
-          active={!!source}
-        />
-        <FilterTogglePill
-          label="Winner of day"
-          active={winnerOfDayOnly}
-          onToggle={() => setWinnerOfDayOnly((v) => !v)}
-        />
-        {activeFilterCount > 0 && (
-          <button
-            onClick={handleClearFilters}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2"
-          >
-            <X className="w-3.5 h-3.5" />
-            Clear ({activeFilterCount})
-          </button>
-        )}
-      </motion.div>
-
-      {/* Grid */}
+      {/* Results */}
       {status === "LoadingFirstPage" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <ProductCardSkeleton key={i} />
-          ))}
+          {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
         </div>
-      ) : results.length === 0 ? (
+      ) : results.length === 0 && status !== "LoadingMore" ? (
         <div className="flex flex-col items-center py-20 text-center border border-dashed border-border rounded-xl">
           <TrendingUp className="w-10 h-10 text-muted-foreground mb-3" />
-          <h3 className="font-semibold mb-1">No products in this category</h3>
-          <p className="text-sm text-muted-foreground">Try a different filter.</p>
+          <h3 className="font-semibold mb-1">No products match these filters</h3>
+          <p className="text-sm text-muted-foreground mb-3">Try removing a filter.</p>
+          {activeCount > 0 && <Button variant="outline" size="sm" onClick={clearAll}>Clear filters</Button>}
         </div>
       ) : (
         <>
-          {view === "table" ? <ProductTable products={results} /> : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {results.map((product, i) => (
-              <motion.div
-                key={product._id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: (i % 8) * 0.04 }}
-              >
-                <ProductCard product={product} />
-              </motion.div>
-            ))}
-          </div>
-          )}
-          {status === "CanLoadMore" && (
-            <div className="flex justify-center mt-8">
-              <Button
-                variant="outline"
-                onClick={() => loadMore(30)}
-                className="px-8"
-              >
-                Load more products
-              </Button>
+          {view === "table" ? (
+            <ProductTable products={results} />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {results.map((product) => <ProductCard key={product._id} product={product} />)}
             </div>
+          )}
+          {status === "LoadingMore" ? (
+            <div className="flex justify-center mt-8 text-sm text-muted-foreground">Loading…</div>
+          ) : status === "CanLoadMore" ? (
+            <div className="flex justify-center mt-8">
+              <Button variant="outline" onClick={showMore} className="px-8">Load more products</Button>
+            </div>
+          ) : (
+            <p className="text-center mt-8 text-xs text-muted-foreground">
+              Showing all {results.length} matching product{results.length === 1 ? "" : "s"}.
+            </p>
           )}
         </>
       )}
