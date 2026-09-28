@@ -1,3 +1,4 @@
+import { markStatsDirty } from "../stats";
 import { ConvexError, v } from "convex/values";
 import { mutation, internalMutation, type MutationCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
@@ -118,6 +119,7 @@ export async function upsertProductRows(
         }
         await ctx.db.delete("syncLinks", link._id);
       }
+      await markStatsDirty(ctx);
       const id = await ctx.db.insert("products", {
         ...fields,
         saturation: "Unknown",

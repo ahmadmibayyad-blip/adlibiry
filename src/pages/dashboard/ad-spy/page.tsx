@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Search, Sparkles, X, Play, Flame, Clock, Rocket, Link2, SlidersHorizontal } from "lucide-react";
@@ -25,7 +25,6 @@ const sortOptions = [
   { value: "comments", label: "Most comments" },
   { value: "shares", label: "Most shares" },
   { value: "copies", label: "Most ad copies" },
-  { value: "highestSpend", label: "Highest spend" },
   { value: "longestRunning", label: "Longest running" },
   { value: "lastSeen", label: "Recently seen" },
 ];
@@ -116,6 +115,18 @@ export default function AdSpyPage() {
   const activeCount = Object.entries(filters).filter(([k, v]) => k !== "search" && k !== "sort" && v !== undefined).length;
 
   const { results, status, loadMore } = usePaginatedQuery(api.ads.list, filters, { initialNumItems: 24 });
+
+  // Country / CTA are matched after the database page is read, so a page can
+  // come back short. Top it up a few times so the grid isn't empty.
+  const filterKey = JSON.stringify(filters);
+  const topUps = useRef({ key: "", n: 0 });
+  useEffect(() => {
+    if (topUps.current.key !== filterKey) topUps.current = { key: filterKey, n: 0 };
+    if (status === "CanLoadMore" && results.length < 24 && topUps.current.n < 15) {
+      topUps.current.n++;
+      loadMore(48);
+    }
+  }, [status, results.length, filterKey, loadMore]);
 
   const clearAll = () => {
     setPlatform(undefined); setCountry(undefined); setNiche(undefined); setMediaType(undefined);

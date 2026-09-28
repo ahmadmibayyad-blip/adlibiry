@@ -1,3 +1,4 @@
+import { markStatsDirty } from "../stats";
 import { v, ConvexError } from "convex/values";
 import { internalAction, action, internalMutation } from "../_generated/server";
 import { internal, api } from "../_generated/api";
@@ -161,6 +162,7 @@ export const upsertAmazonProduct = internalMutation({
       return "updated";
     }
 
+    await markStatsDirty(ctx);
     const productId = await ctx.db.insert("products", {
       ...productDoc,
       publishedAt: new Date().toISOString(),

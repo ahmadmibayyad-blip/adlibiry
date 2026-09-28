@@ -46,6 +46,7 @@ import type * as saturation_analyze from "../saturation/analyze.js";
 import type * as saturation_compare from "../saturation/compare.js";
 import type * as saturation_mutations from "../saturation/mutations.js";
 import type * as sources_links from "../sources/links.js";
+import type * as stats from "../stats.js";
 import type * as stores from "../stores.js";
 import type * as submittedAds from "../submittedAds.js";
 import type * as trends from "../trends.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   "saturation/compare": typeof saturation_compare;
   "saturation/mutations": typeof saturation_mutations;
   "sources/links": typeof sources_links;
+  stats: typeof stats;
   stores: typeof stores;
   submittedAds: typeof submittedAds;
   trends: typeof trends;

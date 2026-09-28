@@ -49,7 +49,6 @@ const sortOptions = [
   { value: "ads", label: "Most ads" },
   { value: "likes", label: "Most likes" },
   { value: "growth", label: "Fastest growth" },
-  { value: "margin", label: "Best margin" },
   { value: "priceHigh", label: "Price: high → low" },
   { value: "priceLow", label: "Price: low → high" },
 ];

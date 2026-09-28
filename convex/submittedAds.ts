@@ -1,3 +1,4 @@
+import { markStatsDirty } from "./stats";
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
@@ -87,6 +88,7 @@ export const approveSubmission = mutation({
       throw new ConvexError({ code: "BAD_REQUEST", message: "AI score must be between 0 and 100" });
     }
 
+    await markStatsDirty(ctx);
     await ctx.db.insert("ads", {
       advertiserName: submission.advertiserName,
       platform: submission.platform,

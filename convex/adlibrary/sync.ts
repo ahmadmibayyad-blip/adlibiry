@@ -1,3 +1,4 @@
+import { markStatsDirty } from "../stats";
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, action } from "../_generated/server";
 import { internal, api } from "../_generated/api";
@@ -503,6 +504,7 @@ export const upsertAd = internalMutation({
       return "updated";
     }
 
+    await markStatsDirty(ctx);
     const adId = await ctx.db.insert("ads", {
       ...fields,
       targeting: { ageRange: "Unknown", gender: "All", interests: [] as string[] },

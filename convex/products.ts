@@ -1,7 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { paginateFilteredArray } from "./lib/pagination";
 import { stableToken } from "./lib/authIdentity";
 
 // ── Products ────────────────────────────────────────────────────────────────
@@ -23,61 +22,55 @@ export const list = query({
     minAds: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Candidate set is every product newest-first, bounded to a size that's
-    // safe to filter in memory — matches the current small (low hundreds)
-    // scale of AdSpy Pro's product data. All filters apply before
-    // pagination so pages are always fully filtered, never partially
-    // filtered then sliced.
-    // Category uses its own index so large CSV imports never hide products.
-    const candidates = args.category
-      ? await ctx.db
-          .query("products")
-          .withIndex("by_category_published", (q) => q.eq("category", args.category!))
-          .order("desc")
-          .take(3000)
-      : await ctx.db.query("products").withIndex("by_published").order("desc").take(3000);
-
-    let filtered = candidates;
-    if (args.trend) filtered = filtered.filter((p) => p.trend === args.trend);
-    if (args.saturation) filtered = filtered.filter((p) => p.saturation === args.saturation);
-    if (args.source) {
-      filtered = filtered.filter((p) => (args.source === "curated" ? !p.source || p.source === "curated" : p.source === args.source));
-    }
-    if (args.winnerOfDayOnly) filtered = filtered.filter((p) => p.isWinnerOfDay);
-    if (args.minAiScore !== undefined) filtered = filtered.filter((p) => p.aiScore >= args.minAiScore!);
-    if (args.minPrice !== undefined) {
-      filtered = filtered.filter((p) => p.price !== undefined && p.price >= args.minPrice!);
-    }
-    if (args.maxPrice !== undefined) {
-      filtered = filtered.filter((p) => p.price !== undefined && p.price <= args.maxPrice!);
-    }
-    if (args.minMargin !== undefined) {
-      filtered = filtered.filter((p) => {
-        if (p.price === undefined || p.cost === undefined || p.price <= 0) return false;
-        const margin = ((p.price - p.cost) / p.price) * 100;
-        return margin >= args.minMargin!;
-      });
-    }
-
-    if (args.search) {
-      const term = args.search.toLowerCase();
-      filtered = filtered.filter((p) => p.title.toLowerCase().includes(term) || (p.storeUrl ?? p.supplierUrl).toLowerCase().includes(term));
-    }
-    if (args.minAds !== undefined) filtered = filtered.filter((p) => (p.adsCount ?? 0) >= args.minAds!);
-    const margin = (p: (typeof filtered)[number]) =>
-      p.price !== undefined && p.cost !== undefined && p.price > 0 ? (p.price - p.cost) / p.price : -1;
-    const sorters: Record<string, (a: (typeof filtered)[number], b: (typeof filtered)[number]) => number> = {
-      score: (a, b) => b.aiScore - a.aiScore,
-      ads: (a, b) => (b.adsCount ?? 0) - (a.adsCount ?? 0),
-      likes: (a, b) => (b.likes ?? 0) - (a.likes ?? 0),
-      growth: (a, b) => (b.growthPercent ?? -Infinity) - (a.growthPercent ?? -Infinity),
-      priceHigh: (a, b) => (b.price ?? -1) - (a.price ?? -1),
-      priceLow: (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity),
-      margin: (a, b) => margin(b) - margin(a),
+    // Index-backed (see ads.list): pages read only what they scan.
+    const conds = (q: any) => {
+      const c: any[] = [];
+      if (args.category) c.push(q.eq(q.field("category"), args.category));
+      if (args.trend) c.push(q.eq(q.field("trend"), args.trend));
+      if (args.saturation) c.push(q.eq(q.field("saturation"), args.saturation));
+      if (args.source === "curated") c.push(q.or(q.eq(q.field("source"), "curated"), q.eq(q.field("source"), undefined)));
+      else if (args.source) c.push(q.eq(q.field("source"), args.source));
+      if (args.winnerOfDayOnly) c.push(q.eq(q.field("isWinnerOfDay"), true));
+      if (args.minAiScore !== undefined) c.push(q.gte(q.field("aiScore"), args.minAiScore));
+      if (args.minPrice !== undefined) c.push(q.gte(q.field("price"), args.minPrice));
+      if (args.maxPrice !== undefined) c.push(q.and(q.gt(q.field("price"), 0), q.lte(q.field("price"), args.maxPrice)));
+      if (args.minAds !== undefined) c.push(q.gte(q.field("adsCount"), args.minAds));
+      return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
     };
-    if (args.sort && sorters[args.sort]) filtered = [...filtered].sort(sorters[args.sort]);
 
-    return paginateFilteredArray(filtered, args.paginationOpts);
+    const term = args.search?.trim();
+    let result;
+    if (term) {
+      result = await ctx.db
+        .query("products")
+        .withSearchIndex("search_title", (q) => {
+          let s = q.search("title", term);
+          if (args.category) s = s.eq("category", args.category);
+          return s;
+        })
+        .filter(conds)
+        .paginate(args.paginationOpts);
+    } else if (args.sort === "priceLow") {
+      result = await ctx.db.query("products").withIndex("by_price", (q) => q.gt("price", 0)).order("asc").filter(conds).paginate(args.paginationOpts);
+    } else {
+      const base = ctx.db.query("products");
+      const sorted =
+        args.sort === "score" ? base.withIndex("by_score")
+        : args.sort === "ads" ? base.withIndex("by_ads")
+        : args.sort === "likes" ? base.withIndex("by_likes")
+        : args.sort === "growth" ? base.withIndex("by_growth")
+        : args.sort === "priceHigh" ? base.withIndex("by_price")
+        : args.category && (!args.sort || args.sort === "newest")
+          ? base.withIndex("by_category_published", (q) => q.eq("category", args.category!))
+          : base.withIndex("by_published");
+      result = await sorted.order("desc").filter(conds).paginate(args.paginationOpts);
+    }
+
+    let page = result.page;
+    if (args.minMargin !== undefined) {
+      page = page.filter((p) => p.price !== undefined && p.cost !== undefined && p.price > 0 && ((p.price - p.cost) / p.price) * 100 >= args.minMargin!);
+    }
+    return { ...result, page };
   },
 });
 

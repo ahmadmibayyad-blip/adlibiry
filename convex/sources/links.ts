@@ -1,3 +1,4 @@
+import { markStatsDirty } from "../stats";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
@@ -54,6 +55,7 @@ export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"cre
       }
       await ctx.db.delete("syncLinks", link._id); // ad was deleted by an admin — recreate
     }
+    await markStatsDirty(ctx);
     const adId = await ctx.db.insert("ads", {
       ...fields,
       externalKey: externalId,

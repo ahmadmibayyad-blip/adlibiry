@@ -57,7 +57,13 @@ export default defineSchema({
   })
     .index("by_category_published", ["category", "publishedAt"])
     .index("by_published", ["publishedAt"])
-    .index("by_winner", ["isWinnerOfDay"]),
+    .index("by_winner", ["isWinnerOfDay"])
+    .index("by_score", ["aiScore"])
+    .index("by_ads", ["adsCount"])
+    .index("by_likes", ["likes"])
+    .index("by_growth", ["growthPercent"])
+    .index("by_price", ["price"])
+    .searchIndex("search_title", { searchField: "title", filterFields: ["category", "source"] }),
 
   // User saved/bookmarked products
   savedProducts: defineTable({
@@ -115,7 +121,16 @@ export default defineSchema({
   })
     .index("by_first_seen", ["firstSeenAt"])
     .index("by_platform", ["platform"])
-    .index("by_niche", ["niche"]),
+    .index("by_niche", ["niche"])
+    .index("by_score", ["aiScore"])
+    .index("by_impressions", ["impressions"])
+    .index("by_likes", ["likes"])
+    .index("by_days", ["daysRunning"])
+    .index("by_copies", ["relatedAdsCount"])
+    .index("by_last_seen", ["lastSeenAt"])
+    .index("by_comments", ["comments"])
+    .index("by_shares", ["shares"])
+    .searchIndex("search_body", { searchField: "bodyText", filterFields: ["platform", "niche", "source"] }),
 
   // Links an outside record (Nexscope TikTok ad, Apify Meta ad, Nexscope
   // Shopify store) to our own doc, so repeat imports update instead of
@@ -130,6 +145,14 @@ export default defineSchema({
 
   // One row per Apify import run. The random token in the webhook URL proves
   // the callback is for a run we started (no shared secret env var needed).
+  // Precomputed counts/facets (filter dropdowns, admin totals) so pages never
+  // scan whole tables. Rebuilt a few minutes after imports and once a day.
+  siteStats: defineTable({
+    key: v.string(),
+    data: v.any(),
+    updatedAt: v.string(),
+  }).index("by_key", ["key"]),
+
   apifyRuns: defineTable({
     token: v.string(),
     country: v.string(),

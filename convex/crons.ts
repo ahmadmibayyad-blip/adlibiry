@@ -68,4 +68,7 @@ crons.daily(
   internal.winninghunter.dailyImport
 );
 
+// Rebuild filter counts / admin totals once a day as a backstop.
+crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.recompute);
+
 export default crons;

@@ -1,3 +1,4 @@
+import { markStatsDirty } from "../stats";
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { platformLabel } from "./client";
@@ -82,6 +83,7 @@ export const upsertProductFromTopAd = internalMutation({
       return "updated";
     }
 
+    await markStatsDirty(ctx);
     const productId = await ctx.db.insert("products", {
       ...productDoc,
       publishedAt: new Date().toISOString(),

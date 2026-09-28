@@ -1,3 +1,4 @@
+import type { SiteStats } from "./stats";
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
@@ -118,16 +119,14 @@ export const getAdminStats = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const users = await ctx.db.query("users").take(2000);
-    const products = await ctx.db.query("products").take(2000);
-    const ads = await ctx.db.query("ads").take(2000);
-    const stores = await ctx.db.query("stores").take(2000);
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
+    const s = doc?.data as SiteStats | undefined;
     return {
-      totalUsers: users.length,
-      totalAdmins: users.filter((u) => u.role === "admin").length,
-      totalProducts: products.length,
-      totalAds: ads.length,
-      totalStores: stores.length,
+      totalUsers: s?.users.total ?? 0,
+      totalAdmins: s?.users.admins ?? 0,
+      totalProducts: s?.products.total ?? 0,
+      totalAds: s?.ads.total ?? 0,
+      totalStores: s?.stores.total ?? 0,
     };
   },
 });

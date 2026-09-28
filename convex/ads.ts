@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { paginateFilteredArray } from "./lib/pagination";
+import type { SiteStats } from "./stats";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 
@@ -32,86 +32,69 @@ export const list = query({
     hasLandingPage: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Candidate set is every ad newest-first, bounded to a size that's safe
-    // to filter in memory — matches the current small (low hundreds) scale
-    // of AdSpy Pro's synced ad data. All filters apply before pagination so
-    // pages are always fully filtered, never partially filtered then sliced.
-    const candidates = await ctx.db.query("ads").withIndex("by_first_seen").order("desc").take(3000);
+    // Index-backed: each page reads only the ads it scans, never the whole
+    // table. Simple filters run inside the database query; the few that
+    // can't (multi-country match, CTA text, spend range) trim the page after.
+    const conds = (q: any) => {
+      const c: any[] = [];
+      if (args.platform) c.push(q.eq(q.field("platform"), args.platform));
+      if (args.niche) c.push(q.eq(q.field("niche"), args.niche));
+      if (args.source) c.push(q.eq(q.field("source"), args.source));
+      if (args.gender) c.push(q.eq(q.field("targeting.gender"), args.gender));
+      if (args.minDaysRunning !== undefined) c.push(q.gte(q.field("daysRunning"), args.minDaysRunning));
+      if (args.maxDaysRunning !== undefined) c.push(q.lte(q.field("daysRunning"), args.maxDaysRunning));
+      if (args.minLikes !== undefined) c.push(q.gte(q.field("likes"), args.minLikes));
+      if (args.minAiScore !== undefined) c.push(q.gte(q.field("aiScore"), args.minAiScore));
+      if (args.mediaType) c.push(q.eq(q.field("mediaType"), args.mediaType));
+      if (args.activeOnly) c.push(q.eq(q.field("isActive"), true));
+      if (args.firstSeenWithinDays !== undefined)
+        c.push(q.gte(q.field("firstSeenAt"), new Date(Date.now() - args.firstSeenWithinDays * 86_400_000).toISOString()));
+      if (args.minImpressions !== undefined) c.push(q.gte(q.field("impressions"), args.minImpressions));
+      if (args.minComments !== undefined) c.push(q.gte(q.field("comments"), args.minComments));
+      if (args.minCopies !== undefined) c.push(q.gte(q.field("relatedAdsCount"), args.minCopies));
+      if (args.hasLandingPage) c.push(q.neq(q.field("landingPageUrl"), ""));
+      return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
+    };
 
-    let filtered = candidates;
-    if (args.platform) filtered = filtered.filter((a) => a.platform === args.platform);
-    if (args.niche) filtered = filtered.filter((a) => a.niche === args.niche);
-    if (args.country) filtered = filtered.filter((a) => a.country === args.country || (a.countries ?? []).includes(args.country!));
-    if (args.search) {
-      const term = args.search.toLowerCase();
-      filtered = filtered.filter(
-        (a) =>
-          a.advertiserName.toLowerCase().includes(term) ||
-          a.headline.toLowerCase().includes(term) ||
-          a.niche.toLowerCase().includes(term)
-      );
+    const term = args.search?.trim();
+    let result;
+    if (term) {
+      result = await ctx.db
+        .query("ads")
+        .withSearchIndex("search_body", (q) => {
+          let s = q.search("bodyText", term);
+          if (args.platform) s = s.eq("platform", args.platform);
+          if (args.niche) s = s.eq("niche", args.niche);
+          if (args.source) s = s.eq("source", args.source);
+          return s;
+        })
+        .filter(conds)
+        .paginate(args.paginationOpts);
+    } else {
+      const base = ctx.db.query("ads");
+      const sorted =
+        args.sort === "score" ? base.withIndex("by_score")
+        : args.sort === "impressions" || args.sort === "highestSpend" ? base.withIndex("by_impressions")
+        : args.sort === "mostLiked" ? base.withIndex("by_likes")
+        : args.sort === "longestRunning" ? base.withIndex("by_days")
+        : args.sort === "copies" ? base.withIndex("by_copies")
+        : args.sort === "lastSeen" ? base.withIndex("by_last_seen")
+        : args.sort === "comments" ? base.withIndex("by_comments")
+        : args.sort === "shares" ? base.withIndex("by_shares")
+        : base.withIndex("by_first_seen");
+      result = await sorted.order("desc").filter(conds).paginate(args.paginationOpts);
     }
-    if (args.minDaysRunning !== undefined) {
-      filtered = filtered.filter((a) => a.daysRunning >= args.minDaysRunning!);
-    }
-    if (args.minLikes !== undefined) {
-      filtered = filtered.filter((a) => a.likes >= args.minLikes!);
-    }
-    if (args.minSpend !== undefined) {
-      filtered = filtered.filter((a) => {
-        const ceiling = parseRangeUpperBound(a.spendEstimate);
-        return ceiling !== undefined && ceiling >= args.minSpend!;
-      });
-    }
-    if (args.minAiScore !== undefined) {
-      filtered = filtered.filter((a) => a.aiScore >= args.minAiScore!);
-    }
-    if (args.source) {
-      filtered = filtered.filter((a) => a.source === args.source);
-    }
-    if (args.gender) {
-      filtered = filtered.filter((a) => a.targeting.gender === args.gender);
-    }
-    if (args.mediaType) filtered = filtered.filter((a) => (a.mediaType ?? (a.videoUrl ? "video" : "image")) === args.mediaType);
-    if (args.activeOnly) filtered = filtered.filter((a) => a.isActive === true);
-    if (args.firstSeenWithinDays !== undefined) {
-      const since = Date.now() - args.firstSeenWithinDays * 86_400_000;
-      filtered = filtered.filter((a) => Date.parse(a.firstSeenAt) >= since);
-    }
-    if (args.maxDaysRunning !== undefined) filtered = filtered.filter((a) => a.daysRunning <= args.maxDaysRunning!);
-    if (args.minImpressions !== undefined) filtered = filtered.filter((a) => (a.impressions ?? 0) >= args.minImpressions!);
-    if (args.minComments !== undefined) filtered = filtered.filter((a) => (a.comments ?? 0) >= args.minComments!);
+
+    let page = result.page;
+    if (args.country) page = page.filter((a) => a.country === args.country || (a.countries ?? []).includes(args.country!));
     if (args.cta) {
       const c = args.cta.toLowerCase();
-      filtered = filtered.filter((a) => (a.ctaText ?? "").toLowerCase().includes(c));
+      page = page.filter((a) => (a.ctaText ?? "").toLowerCase().includes(c));
     }
-    if (args.minCopies !== undefined) filtered = filtered.filter((a) => (a.relatedAdsCount ?? 0) >= args.minCopies!);
-    if (args.hasLandingPage) filtered = filtered.filter((a) => !!a.landingPageUrl);
-
-    if (args.sort === "mostLiked") {
-      filtered = [...filtered].sort((a, b) => b.likes - a.likes);
-    } else if (args.sort === "highestSpend") {
-      filtered = [...filtered].sort(
-        (a, b) => (parseRangeUpperBound(b.spendEstimate) ?? 0) - (parseRangeUpperBound(a.spendEstimate) ?? 0)
-      );
-    } else if (args.sort === "longestRunning") {
-      filtered = [...filtered].sort((a, b) => b.daysRunning - a.daysRunning);
-    } else if (args.sort === "impressions") {
-      filtered = [...filtered].sort((a, b) => (b.impressions ?? 0) - (a.impressions ?? 0));
-    } else if (args.sort === "comments") {
-      filtered = [...filtered].sort((a, b) => (b.comments ?? 0) - (a.comments ?? 0));
-    } else if (args.sort === "shares") {
-      filtered = [...filtered].sort((a, b) => (b.shares ?? 0) - (a.shares ?? 0));
-    } else if (args.sort === "lastSeen") {
-      filtered = [...filtered].sort((a, b) => Date.parse(b.lastSeenAt ?? b.firstSeenAt) - Date.parse(a.lastSeenAt ?? a.firstSeenAt));
-    } else if (args.sort === "copies") {
-      filtered = [...filtered].sort((a, b) => (b.relatedAdsCount ?? 0) - (a.relatedAdsCount ?? 0));
-    } else if (args.sort === "score") {
-      filtered = [...filtered].sort((a, b) => b.aiScore - a.aiScore);
+    if (args.minSpend !== undefined) {
+      page = page.filter((a) => (parseRangeUpperBound(a.spendEstimate) ?? 0) >= args.minSpend!);
     }
-    // "newest" (default) keeps the by_first_seen desc order already applied.
-
-    return paginateFilteredArray(filtered, args.paginationOpts);
+    return { ...result, page };
   },
 });
 
@@ -125,30 +108,17 @@ export const getById = query({
 export const getFacets = query({
   args: {},
   handler: async (ctx) => {
-    const ads = await ctx.db.query("ads").withIndex("by_first_seen").order("desc").take(3000);
-    const count = (vals: (string | undefined)[]) => {
-      const m = new Map<string, number>();
-      for (const x of vals) if (x) m.set(x, (m.get(x) ?? 0) + 1);
-      return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([value, n]) => ({ value, n }));
-    };
-    return {
-      total: ads.length,
-      ctas: count(ads.map((a) => a.ctaText)).slice(0, 20),
-      countries: count(ads.flatMap((a) => [...new Set([a.country, ...(a.countries ?? [])])]).filter((c) => c !== "INTL")),
-      niches: count(ads.map((a) => a.niche)),
-      platforms: count(ads.map((a) => a.platform)),
-      activeCount: ads.filter((a) => a.isActive).length,
-      videoCount: ads.filter((a) => (a.mediaType ?? "") === "video" || a.videoUrl).length,
-    };
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
+    const a = (doc?.data as SiteStats | undefined)?.ads;
+    return a ?? { total: 0, activeCount: 0, videoCount: 0, ctas: [], countries: [], niches: [], platforms: [] };
   },
 });
 
 export const getNiches = query({
   args: {},
   handler: async (ctx) => {
-    const ads = await ctx.db.query("ads").take(500);
-    const niches = new Set(ads.map((a) => a.niche));
-    return Array.from(niches).sort();
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
+    return ((doc?.data as SiteStats | undefined)?.ads.niches ?? []).map((n) => n.value).sort();
   },
 });
 

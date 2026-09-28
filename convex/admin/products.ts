@@ -1,3 +1,4 @@
+import { markStatsDirty } from "../stats";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
@@ -46,6 +47,7 @@ export const createProduct = mutation({
     if (args.aiScore < 0 || args.aiScore > 100) {
       throw new ConvexError({ code: "BAD_REQUEST", message: "AI score must be between 0 and 100" });
     }
+    await markStatsDirty(ctx);
     const productId = await ctx.db.insert("products", {
       ...args,
       adExamples: [],
@@ -85,6 +87,7 @@ export const deleteProduct = mutation({
     await requireAdmin(ctx);
     const existing = await ctx.db.get("products", args.id);
     if (!existing) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found" });
+    await markStatsDirty(ctx);
     await ctx.db.delete("products", args.id);
     return { success: true };
   },
