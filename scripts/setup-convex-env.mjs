@@ -15,6 +15,15 @@ if (!key) {
 
 // Deploy keys look like "prod:<deployment-name>|<secret>".
 const [target] = key.split("|");
+
+// Preview deploy keys ("preview:<team>:<project>|<secret>") don't name a
+// deployment: `convex deploy` creates one per branch. Their env vars come from
+// the project's default environment variables in Convex, so there is nothing
+// to set here — don't fail the preview build over the key's format.
+if (/^preview:[^|]+$/.test(target ?? "") && key.includes("|")) {
+  console.log("[setup-convex-env] preview deploy key — skipping (set preview env vars in Convex → Project Settings → Default Environment Variables).");
+  process.exit(0);
+}
 const match = /^(prod|preview|dev):([a-z0-9-]+)$/.exec(target ?? "");
 if (!match || !key.includes("|")) {
   console.error(
