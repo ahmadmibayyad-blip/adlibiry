@@ -1,160 +1,264 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import { Search, Sparkles, X, Play, Flame, Clock, Rocket, Link2, SlidersHorizontal } from "lucide-react";
+import { Search, Sparkles, X, Bookmark, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdCard, { AdCardSkeleton } from "./_components/AdCard.tsx";
 import AdDetailModal from "./_components/AdDetailModal.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 import FilterSelect from "@/components/FilterSelect.tsx";
-import FilterNumberInput from "@/components/FilterNumberInput.tsx";
+import PlatformIcon from "@/components/PlatformIcon.tsx";
 import { flag, compactNumber } from "@/lib/adFormat.ts";
 
 type Ad = Doc<"ads">;
 
-const platforms = ["All", "Facebook", "Instagram", "TikTok"];
+// ── Filter model ────────────────────────────────────────────────────────────
+// Everything the panel can set lives in one object, so a search can be saved
+// and restored in one go. Range filters are stored as "min-max" strings
+// ("1000-" = at least 1000).
+type Filters = {
+  platform?: string;
+  niche?: string;
+  firstSeen?: string; // days
+  lastSeen?: string; // days
+  runTime?: string; // range, days
+  country?: string;
+  language?: string;
+  cta?: string;
+  landing?: string; // "has"
+  mediaType?: string;
+  gender?: string;
+  source?: string;
+  impressions?: string; // range
+  likes?: string; // range
+  spend?: string; // range, USD
+  score?: string; // range
+  newAds?: boolean;
+  repeated?: boolean;
+  active?: boolean;
+  sort?: string;
+};
 
-const sortOptions = [
-  { value: "newest", label: "Newest" },
-  { value: "score", label: "Winning score" },
-  { value: "impressions", label: "Most impressions" },
-  { value: "mostLiked", label: "Most likes" },
-  { value: "comments", label: "Most comments" },
-  { value: "shares", label: "Most shares" },
-  { value: "copies", label: "Most ad copies" },
-  { value: "longestRunning", label: "Longest running" },
-  { value: "lastSeen", label: "Recently seen" },
-];
+const PLATFORMS = ["Facebook", "Instagram", "TikTok"];
 
-const mediaOptions = [
-  { value: "none", label: "Any" },
-  { value: "video", label: "Video" },
-  { value: "image", label: "Image" },
-  { value: "carousel", label: "Carousel" },
-];
-
-const publishedOptions = [
-  { value: "none", label: "Any time" },
+const FIRST_SEEN = [
+  { value: undefined, label: "All" },
   { value: "1", label: "Last 24h" },
   { value: "7", label: "Last 7 days" },
   { value: "30", label: "Last 30 days" },
-  { value: "90", label: "Last 90 days" },
+  { value: "180", label: "Last 6 months" },
+  { value: "365", label: "Last year" },
 ];
 
-const sourceOptions = [
-  { value: "none", label: "Any" },
-  { value: "adlibrary_api", label: "AdLibrary" },
-  { value: "apify", label: "Meta (Apify)" },
-  { value: "nexscope", label: "TikTok (Nexscope)" },
-  { value: "extension", label: "Extension" },
-  { value: "winninghunter", label: "WinningHunter" },
+const opt = (value: string, label: string) => ({ value, label });
+const ANY = opt("any", "Any");
+
+const LAST_SEEN = [ANY, opt("1", "Last 24h"), opt("3", "Last 3 days"), opt("7", "Last 7 days"), opt("30", "Last 30 days")];
+const RUN_TIME = [ANY, opt("1-7", "1–7 days"), opt("7-30", "7–30 days"), opt("30-90", "30–90 days"), opt("90-", "90+ days")];
+const IMPRESSIONS = [ANY, opt("0-10000", "Under 10K"), opt("10000-100000", "10K–100K"), opt("100000-1000000", "100K–1M"), opt("1000000-", "1M+")];
+const LIKES = [ANY, opt("100-", "100+"), opt("1000-", "1K+"), opt("10000-", "10K+"), opt("100000-", "100K+")];
+const SPEND = [ANY, opt("0-1000", "Under $1K"), opt("1000-10000", "$1K–$10K"), opt("10000-50000", "$10K–$50K"), opt("50000-", "$50K+")];
+const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
+const MEDIA = [ANY, opt("video", "Video"), opt("image", "Image"), opt("carousel", "Carousel")];
+const LANDING = [ANY, opt("has", "Has store link")];
+const AUDIENCE = [ANY, opt("All", "All genders"), opt("Female", "Mostly women"), opt("Male", "Mostly men")];
+const SOURCES = [
+  ANY,
+  opt("adlibrary_api", "AdLibrary"),
+  opt("apify", "Meta (Apify)"),
+  opt("winninghunter", "WinningHunter"),
+  opt("nexscope", "TikTok (Nexscope)"),
+  opt("extension", "Extension"),
+];
+const SORTS = [
+  opt("newest", "Newest"),
+  opt("lastSeen", "Last seen"),
+  opt("score", "Winning score"),
+  opt("impressions", "Most impressions"),
+  opt("mostLiked", "Most likes"),
+  opt("comments", "Most comments"),
+  opt("shares", "Most shares"),
+  opt("copies", "Most ad copies"),
+  opt("longestRunning", "Longest running"),
 ];
 
-const genderOptions = [
-  { value: "none", label: "Any" },
-  { value: "All", label: "All" },
-  { value: "Male", label: "Male" },
-  { value: "Female", label: "Female" },
-];
+function range(value: string | undefined): { min?: number; max?: number } {
+  if (!value) return {};
+  const [a, b] = value.split("-");
+  const n = (s: string | undefined) => (s && Number.isFinite(Number(s)) ? Number(s) : undefined);
+  return { min: n(a), max: n(b) };
+}
+
+// Panel state → ads.list args.
+function toQueryArgs(f: Filters, search: string) {
+  const run = range(f.runTime);
+  const imp = range(f.impressions);
+  const likes = range(f.likes);
+  const spend = range(f.spend);
+  const score = range(f.score);
+  const firstSeenDays = [f.firstSeen ? Number(f.firstSeen) : undefined, f.newAds ? 7 : undefined].filter((x): x is number => x !== undefined);
+  return {
+    platform: f.platform,
+    niche: f.niche,
+    country: f.country,
+    language: f.language,
+    cta: f.cta,
+    mediaType: f.mediaType,
+    gender: f.gender,
+    source: f.source,
+    search: search || undefined,
+    sort: f.sort,
+    firstSeenWithinDays: firstSeenDays.length ? Math.min(...firstSeenDays) : undefined,
+    lastSeenWithinDays: f.lastSeen ? Number(f.lastSeen) : undefined,
+    minDaysRunning: run.min,
+    maxDaysRunning: run.max,
+    minImpressions: imp.min,
+    maxImpressions: imp.max,
+    minLikes: likes.min,
+    maxLikes: likes.max,
+    minSpend: spend.min,
+    maxSpend: spend.max,
+    minAiScore: score.min,
+    minCopies: f.repeated ? 2 : undefined,
+    activeOnly: f.active || undefined,
+    hasLandingPage: f.landing === "has" || undefined,
+  };
+}
+
+// ── Per-browser memory: viewed ads + saved searches ─────────────────────────
+const VIEWED_KEY = "adspy.viewedAds";
+const SAVED_KEY = "adspy.savedSearches";
+type SavedSearch = { name: string; filters: Filters; search: string };
+
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // private mode / storage full — the feature just doesn't persist
+  }
+}
 
 const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code === code)?.name ?? code;
-const num = (s: string) => (s && Number.isFinite(Number(s)) ? Number(s) : undefined);
+
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs border cursor-pointer whitespace-nowrap transition-colors shrink-0",
+        on ? "bg-primary/15 border-primary text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Check({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string }) {
+  return (
+    <label className="flex items-center gap-2 h-8 px-1 text-xs cursor-pointer select-none whitespace-nowrap" title={hint}>
+      <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
+      {label}
+    </label>
+  );
+}
 
 export default function AdSpyPage() {
+  const [f, setF] = useState<Filters>({});
+  const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
+  const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
+
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [platform, setPlatform] = useState<string>();
-  const [country, setCountry] = useState<string>();
-  const [niche, setNiche] = useState<string>();
-  const [sort, setSort] = useState<string>();
-  const [mediaType, setMediaType] = useState<string>();
-  const [published, setPublished] = useState<string>();
-  const [cta, setCta] = useState<string>();
-  const [source, setSource] = useState<string>();
-  const [gender, setGender] = useState<string>();
-  const [activeOnly, setActiveOnly] = useState(false);
-  const [hasLandingPage, setHasLandingPage] = useState(false);
-  const [scaling, setScaling] = useState(false);
-  const [minDays, setMinDays] = useState("");
-  const [maxDays, setMaxDays] = useState("");
-  const [minLikes, setMinLikes] = useState("");
-  const [minComments, setMinComments] = useState("");
-  const [minImpressions, setMinImpressions] = useState("");
-  const [minAiScore, setMinAiScore] = useState("");
-  const [showMore, setShowMore] = useState(false);
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const [excludeViewed, setExcludeViewed] = useState(false);
+  const [viewed, setViewed] = useState<string[]>(() => readJson<string[]>(VIEWED_KEY, []));
+  const viewedSet = useMemo(() => new Set(viewed), [viewed]);
+  const [saved, setSaved] = useState<SavedSearch[]>(() => readJson<SavedSearch[]>(SAVED_KEY, []));
+  const [saveName, setSaveName] = useState("");
+  const [saveOpen, setSaveOpen] = useState(false);
+
   const facets = useQuery(api.ads.getFacets, {});
+  const args = toQueryArgs(f, debouncedSearch);
+  const { results, status, loadMore } = usePaginatedQuery(api.ads.list, args, { initialNumItems: 24 });
+  const shown = excludeViewed ? results.filter((a) => !viewedSet.has(a._id)) : results;
 
-  const minImpressionsN = num(minImpressions);
-  const filters = {
-    platform,
-    country,
-    niche,
-    search: debouncedSearch || undefined,
-    sort,
-    mediaType,
-    firstSeenWithinDays: published ? Number(published) : undefined,
-    cta,
-    source,
-    gender,
-    activeOnly: activeOnly || undefined,
-    hasLandingPage: hasLandingPage || undefined,
-    minCopies: scaling ? 3 : undefined,
-    minDaysRunning: num(minDays),
-    maxDaysRunning: num(maxDays),
-    minLikes: num(minLikes),
-    minComments: num(minComments),
-    minImpressions: minImpressionsN !== undefined ? minImpressionsN * 1000 : undefined,
-    minAiScore: num(minAiScore),
-  };
-  const activeCount = Object.entries(filters).filter(([k, v]) => k !== "search" && k !== "sort" && v !== undefined).length;
-
-  const { results, status, loadMore } = usePaginatedQuery(api.ads.list, filters, { initialNumItems: 24 });
-
-  // Country / CTA / spend are matched after the database page is read, so a
-  // page can come back short. Keep reading until the grid has as many ads as
-  // the user asked for (24 at first, +24 per "Load more") — before, "Load
-  // more" could add nothing and look like the end of the results.
+  // Some filters (country, CTA, spend, viewed) trim a page after it's read,
+  // so keep reading until the grid has as many ads as asked for (24, +24 per
+  // "Load more").
   const PAGE = 24;
-  const filterKey = JSON.stringify(filters);
+  const filterKey = JSON.stringify(args) + excludeViewed;
   const [wanted, setWanted] = useState({ key: filterKey, n: PAGE });
   const target = wanted.key === filterKey ? wanted.n : PAGE;
   const topUps = useRef({ key: "", target: 0, n: 0 });
   useEffect(() => {
     if (topUps.current.key !== filterKey || topUps.current.target !== target) topUps.current = { key: filterKey, target, n: 0 };
-    if (status === "CanLoadMore" && results.length < target && topUps.current.n < 15) {
+    if (status === "CanLoadMore" && shown.length < target && topUps.current.n < 15) {
       topUps.current.n++;
       loadMore(48);
     }
-  }, [status, results.length, filterKey, target, loadMore]);
-  const showMoreAds = () => setWanted({ key: filterKey, n: Math.max(target, results.length) + PAGE });
+  }, [status, shown.length, filterKey, target, loadMore]);
+  const showMoreAds = () => setWanted({ key: filterKey, n: Math.max(target, shown.length) + PAGE });
 
-  const clearAll = () => {
-    setPlatform(undefined); setCountry(undefined); setNiche(undefined); setMediaType(undefined);
-    setPublished(undefined); setCta(undefined); setSource(undefined); setGender(undefined);
-    setActiveOnly(false); setHasLandingPage(false); setScaling(false);
-    setMinDays(""); setMaxDays(""); setMinLikes(""); setMinComments(""); setMinImpressions(""); setMinAiScore("");
+  const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
+  const clearAll = () => setF((prev) => ({ sort: prev.sort }));
+
+  const openAd = (ad: Ad) => {
+    setSelectedAd(ad);
+    setModalOpen(true);
+    if (!viewedSet.has(ad._id)) {
+      const next = [ad._id, ...viewed].slice(0, 3000);
+      setViewed(next);
+      writeJson(VIEWED_KEY, next);
+    }
   };
 
-  const quick = [
-    { label: "Active now", icon: Flame, on: activeOnly, toggle: () => setActiveOnly(!activeOnly) },
-    { label: "Video ads", icon: Play, on: mediaType === "video", toggle: () => setMediaType(mediaType === "video" ? undefined : "video") },
-    { label: "New this week", icon: Clock, on: published === "7", toggle: () => setPublished(published === "7" ? undefined : "7") },
-    { label: "Scaling (3+ copies)", icon: Rocket, on: scaling, toggle: () => setScaling(!scaling) },
-    { label: "Has store link", icon: Link2, on: hasLandingPage, toggle: () => setHasLandingPage(!hasLandingPage) },
-  ];
+  const saveSearch = () => {
+    const name = saveName.trim();
+    if (!name) return;
+    const next = [{ name, filters: f, search }, ...saved.filter((s) => s.name !== name)].slice(0, 20);
+    setSaved(next);
+    writeJson(SAVED_KEY, next);
+    setSaveName("");
+    setSaveOpen(false);
+    toast.success(`Saved "${name}"`);
+  };
+  const applySaved = (name: string) => {
+    const s = saved.find((x) => x.name === name);
+    if (!s) return;
+    setF(s.filters);
+    setSearch(s.search);
+  };
+  const deleteSaved = (name: string) => {
+    const next = saved.filter((s) => s.name !== name);
+    setSaved(next);
+    writeJson(SAVED_KEY, next);
+  };
 
   const countryOptions = [
-    { value: "All", label: "All countries" },
-    ...(facets?.countries ?? []).map((c) => ({ value: c.value, label: `${flag(c.value)} ${countryName(c.value)} (${c.n})` })),
+    opt("any", "All countries"),
+    ...(facets?.countries ?? []).map((c) => opt(c.value, `${flag(c.value)} ${countryName(c.value)} (${compactNumber(c.n)})`)),
   ];
-  const nicheOptions = [{ value: "All", label: "All niches" }, ...(facets?.niches ?? []).map((n) => ({ value: n.value, label: `${n.value} (${n.n})` }))];
-  const ctaOptions = [{ value: "none", label: "Any" }, ...(facets?.ctas ?? []).map((c) => ({ value: c.value, label: `${c.value} (${c.n})` }))];
+  const languageOptions = [ANY, ...(facets?.languages ?? []).map((l) => opt(l.value, `${l.value} (${compactNumber(l.n)})`))];
+  const ctaOptions = [ANY, ...(facets?.ctas ?? []).map((c) => opt(c.value, `${c.value} (${compactNumber(c.n)})`))];
+  const niches = facets?.niches ?? [];
 
   return (
     <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
@@ -181,88 +285,127 @@ export default function AdSpyPage() {
         )}
       </div>
 
-      {/* Filter panel */}
       <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
-        <div className="flex flex-col md:flex-row gap-2">
+        {/* Platform + search */}
+        <div className="flex flex-col lg:flex-row gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            <Chip on={!f.platform} onClick={() => set("platform", undefined)}>All</Chip>
+            {PLATFORMS.map((p) => (
+              <Chip key={p} on={f.platform === p} onClick={() => set("platform", f.platform === p ? undefined : p)}>
+                <PlatformIcon platform={p} />
+                {p}
+              </Chip>
+            ))}
+          </div>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search ad copy…"
-              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-10 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
-          </div>
-          <div className="flex items-center gap-1 bg-background border border-border rounded-lg p-1 overflow-x-auto">
-            {platforms.map((p) => {
-              const on = p === "All" ? !platform : platform === p;
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPlatform(p === "All" ? undefined : p)}
-                  className={cn(
-                    "px-3 h-8 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer",
-                    on ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {p}
-                </button>
-              );
-            })}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {quick.map((q) => (
-            <button
-              key={q.label}
-              onClick={q.toggle}
-              className={cn(
-                "flex items-center gap-1.5 h-8 px-3 rounded-full text-xs border cursor-pointer transition-colors",
-                q.on ? "bg-primary/15 border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <q.icon className="w-3.5 h-3.5" />
-              {q.label}
-            </button>
+        {/* Niches */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1 shrink-0">Niche</span>
+          <Chip on={!f.niche} onClick={() => set("niche", undefined)}>All</Chip>
+          {niches.map((n) => (
+            <Chip key={n.value} on={f.niche === n.value} onClick={() => set("niche", f.niche === n.value ? undefined : n.value)}>
+              {n.value}
+              <span className="opacity-60 tabular-nums">{compactNumber(n.n)}</span>
+            </Chip>
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterSelect label="Sort" value={sort ?? "newest"} onChange={(v) => setSort(v === "newest" ? undefined : v)} options={sortOptions} active={!!sort} />
-          <FilterSelect label="Country" value={country ?? "All"} onChange={(v) => setCountry(v === "All" ? undefined : v)} options={countryOptions} active={!!country} />
-          <FilterSelect label="Niche" value={niche ?? "All"} onChange={(v) => setNiche(v === "All" ? undefined : v)} options={nicheOptions} active={!!niche} />
-          <FilterSelect label="Media" value={mediaType ?? "none"} onChange={(v) => setMediaType(v === "none" ? undefined : v)} options={mediaOptions} active={!!mediaType} />
-          <FilterSelect label="First seen" value={published ?? "none"} onChange={(v) => setPublished(v === "none" ? undefined : v)} options={publishedOptions} active={!!published} />
-          {ctaOptions.length > 1 && (
-            <FilterSelect label="CTA" value={cta ?? "none"} onChange={(v) => setCta(v === "none" ? undefined : v)} options={ctaOptions} active={!!cta} />
-          )}
-          <button
-            onClick={() => setShowMore(!showMore)}
-            className={cn("flex items-center gap-1.5 h-8 px-3 rounded-full text-xs border cursor-pointer", showMore ? "border-primary text-primary" : "border-border text-muted-foreground hover:text-foreground")}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            More filters
-          </button>
-          {activeCount > 0 && (
-            <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
-              <X className="w-3.5 h-3.5" />Clear ({activeCount})
-            </button>
-          )}
+        {/* Dates */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1">First seen</span>
+          {FIRST_SEEN.map((o) => (
+            <Chip key={o.label} on={f.firstSeen === o.value} onClick={() => set("firstSeen", o.value)}>{o.label}</Chip>
+          ))}
+          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+          <FilterSelect label="Last seen" value={f.lastSeen ?? "any"} onChange={setAny("lastSeen")} options={LAST_SEEN} active={!!f.lastSeen} />
+          <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
         </div>
 
-        {showMore && (
-          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-            <FilterNumberInput label="Min days" value={minDays} onChange={setMinDays} placeholder="0" />
-            <FilterNumberInput label="Max days" value={maxDays} onChange={setMaxDays} placeholder="∞" />
-            <FilterNumberInput label="Min impressions (K)" value={minImpressions} onChange={setMinImpressions} placeholder="0" />
-            <FilterNumberInput label="Min likes" value={minLikes} onChange={setMinLikes} placeholder="0" />
-            <FilterNumberInput label="Min comments" value={minComments} onChange={setMinComments} placeholder="0" />
-            <FilterNumberInput label="Min score" value={minAiScore} onChange={setMinAiScore} placeholder="0" />
-            <FilterSelect label="Audience" value={gender ?? "none"} onChange={(v) => setGender(v === "none" ? undefined : v)} options={genderOptions} active={!!gender} />
-            <FilterSelect label="Source" value={source ?? "none"} onChange={(v) => setSource(v === "none" ? undefined : v)} options={sourceOptions} active={!!source} />
+        {/* Targeting + creative */}
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect label="Country" value={f.country ?? "any"} onChange={setAny("country")} options={countryOptions} active={!!f.country} />
+          {languageOptions.length > 1 && (
+            <FilterSelect label="Language" value={f.language ?? "any"} onChange={setAny("language")} options={languageOptions} active={!!f.language} />
+          )}
+          {ctaOptions.length > 1 && <FilterSelect label="CTA button" value={f.cta ?? "any"} onChange={setAny("cta")} options={ctaOptions} active={!!f.cta} />}
+          <FilterSelect label="Landing page" value={f.landing ?? "any"} onChange={setAny("landing")} options={LANDING} active={!!f.landing} />
+          <FilterSelect label="Format" value={f.mediaType ?? "any"} onChange={setAny("mediaType")} options={MEDIA} active={!!f.mediaType} />
+          <FilterSelect label="Audience" value={f.gender ?? "any"} onChange={setAny("gender")} options={AUDIENCE} active={!!f.gender} />
+          <FilterSelect label="Source" value={f.source ?? "any"} onChange={setAny("source")} options={SOURCES} active={!!f.source} />
+        </div>
+
+        {/* Performance */}
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect label="Impressions" value={f.impressions ?? "any"} onChange={setAny("impressions")} options={IMPRESSIONS} active={!!f.impressions} />
+          <FilterSelect label="Engagement (likes)" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
+          <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
+          <FilterSelect label="Winning score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+          <div className="flex flex-wrap items-center gap-3 ml-1">
+            <Check label="New ads" hint="First seen in the last 7 days" checked={!!f.newAds} onChange={(v) => set("newAds", v || undefined)} />
+            <Check label="Repeated ads" hint="The same creative runs as 2+ ad copies — a scaling signal" checked={!!f.repeated} onChange={(v) => set("repeated", v || undefined)} />
+            <Check label="Active now" checked={!!f.active} onChange={(v) => set("active", v || undefined)} />
           </div>
-        )}
+        </div>
+
+        {/* Sort + saved searches */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
+          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          {activeCount > 0 && (
+            <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
+              <X className="w-3.5 h-3.5" />Clear filters ({activeCount})
+            </button>
+          )}
+          <div className="flex-1" />
+          <Check label="Exclude viewed ads" hint="Hide ads you've already opened in this browser" checked={excludeViewed} onChange={setExcludeViewed} />
+          <Popover open={saveOpen} onOpenChange={setSaveOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs">
+                <Bookmark className="w-3.5 h-3.5 mr-1.5" />Save current search
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64" align="end">
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveSearch();
+                }}
+              >
+                <Input autoFocus value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Name, e.g. DK pets video" className="h-8 text-xs" />
+                <Button type="submit" size="sm" className="h-8" disabled={!saveName.trim()}>Save</Button>
+              </form>
+            </PopoverContent>
+          </Popover>
+          {saved.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">Saved searches ({saved.length})</Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-1" align="end">
+                {saved.map((s) => (
+                  <div key={s.name} className="flex items-center gap-1 rounded-md hover:bg-muted">
+                    <button className="flex-1 text-left text-sm px-2 py-1.5 truncate cursor-pointer" onClick={() => applySaved(s.name)}>
+                      {s.name}
+                    </button>
+                    <button className="p-1.5 text-muted-foreground hover:text-destructive cursor-pointer" title="Delete" onClick={() => deleteSaved(s.name)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       </div>
 
       {/* Results */}
@@ -270,7 +413,7 @@ export default function AdSpyPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => <AdCardSkeleton key={i} />)}
         </div>
-      ) : results.length === 0 ? (
+      ) : shown.length === 0 && status !== "LoadingMore" ? (
         <div className="flex flex-col items-center py-20 text-center border border-dashed border-border rounded-xl">
           <Sparkles className="w-10 h-10 text-muted-foreground mb-3" />
           <h3 className="font-semibold mb-1">No ads match these filters</h3>
@@ -280,8 +423,8 @@ export default function AdSpyPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {results.map((ad) => (
-              <AdCard key={ad._id} ad={ad} onClick={() => { setSelectedAd(ad); setModalOpen(true); }} />
+            {shown.map((ad) => (
+              <AdCard key={ad._id} ad={ad} onClick={() => openAd(ad)} />
             ))}
           </div>
           {status === "LoadingMore" ? (
@@ -292,7 +435,7 @@ export default function AdSpyPage() {
             </div>
           ) : (
             <p className="text-center mt-8 text-xs text-muted-foreground">
-              Showing all {results.length} matching ad{results.length === 1 ? "" : "s"}.
+              Showing all {shown.length} matching ad{shown.length === 1 ? "" : "s"}.
             </p>
           )}
         </>

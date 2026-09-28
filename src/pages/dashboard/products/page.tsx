@@ -13,10 +13,9 @@ import { Button } from "@/components/ui/button.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import FilterNumberInput from "@/components/FilterNumberInput.tsx";
 import FilterTogglePill from "@/components/FilterTogglePill.tsx";
+import { NICHES } from "@/convex/lib/category.ts";
 
-const categories = [
-  "All", "Electronics", "Health & Wellness", "Home & Living", "Fashion", "Beauty", "Pet Supplies", "Sports", "Toys", "Other",
-];
+const categories = ["All", ...NICHES];
 
 const trendOptions = [
   { value: "none", label: "Any trend" },

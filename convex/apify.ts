@@ -3,6 +3,7 @@ import { action, internalAction, internalMutation, internalQuery } from "./_gene
 import { api, internal } from "./_generated/api";
 import { NICHE_KEYWORDS } from "./adlibrary/client";
 import { toAlpha2List } from "./lib/countryCodes";
+import { classifyNiche } from "./lib/category";
 
 // Apify → Meta Ad Library ads (works for DK / SE / NO, which AdLibrary and
 // Nexscope barely cover). Flow: start an actor run with a webhook → Apify
@@ -246,7 +247,8 @@ export const importDataset = internalAction({
             advertiserName: pageName.slice(0, 200),
             platform: platforms.length === 1 && platforms[0] === "instagram" ? "Instagram" : "Facebook",
             country: args.country.toUpperCase(),
-            niche: args.niche,
+            // What the ad actually sells; the searched niche only when unclear.
+            niche: classifyNiche({ title, body, url: link, advertiser: pageName }, args.niche),
             headline: (title || body.split("\n")[0] || "Sponsored ad").slice(0, 500),
             bodyText: String(body ?? "").slice(0, 2000),
             creativeUrl: String(image),

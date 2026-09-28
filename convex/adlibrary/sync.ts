@@ -5,6 +5,7 @@ import { internal, api } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { richAdFields, defined } from "../lib/adFields";
 import { toAlpha2 } from "../lib/countryCodes";
+import { classifyNiche } from "../lib/category";
 import {
   ALPHA2_TO_ALPHA3,
   NICHE_KEYWORDS,
@@ -204,14 +205,20 @@ export const runSync = internalAction({
               country = "INTL";
             }
 
+            const headline = item.title || item.message || item.caption || "Untitled ad";
+            const bodyText = item.body || item.message || item.caption || "";
             const outcome: "created" | "updated" = await ctx.runMutation(internal.adlibrary.sync.upsertAd, {
               externalId: item.ad_key,
               advertiserName: item.advertiser_name || item.page_name || "Unknown advertiser",
               platform: platformLabel(item.platform),
               country,
-              niche,
-              headline: item.title || item.message || item.caption || "Untitled ad",
-              bodyText: item.body || item.message || item.caption || "",
+              // What the ad actually sells; the search niche only when unclear.
+              niche: classifyNiche(
+                { title: headline, body: bodyText, url: item.landing_page_url, advertiser: item.advertiser_name || item.page_name },
+                niche,
+              ),
+              headline,
+              bodyText,
               creativeUrl: item.preview_img_url || item.video_url || "",
               landingPageUrl: item.landing_page_url || "",
               spendEstimate: spendFrom(item.estimated_spend) ?? estimateSpendRange(item.impression || item.all_exposure_value),

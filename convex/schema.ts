@@ -54,6 +54,9 @@ export default defineSchema({
     storeUrl: v.optional(v.string()),
     researchUrl: v.optional(v.string()),
     originalPrice: v.optional(v.string()),
+    // Which daily auto-pick this product fills ("<source>:<search niche>"),
+    // so tomorrow's pick can retire it. See convex/lib/winners.ts.
+    winnerSlot: v.optional(v.string()),
   })
     .index("by_category_published", ["category", "publishedAt"])
     .index("by_published", ["publishedAt"])

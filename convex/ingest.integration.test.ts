@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 import schema from "./schema";
 import { internal, api } from "./_generated/api";
+import { initNewUser } from "./lib/userRole";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -131,5 +132,80 @@ describe("extension submissions", () => {
     const user = t.withIdentity({ subject: "u1|s" });
     await expect(user.mutation(api.products.seedProducts, {})).rejects.toThrow(/Admin/);
     await expect(user.mutation(api.ads.seedAds, {})).rejects.toThrow(/Admin/);
+  });
+});
+
+describe("niches and winners", () => {
+  it("files the daily pick by what it sells, and still retires yesterday's pick for that search", async () => {
+    const t = convexTest(schema, modules);
+    const pick = (adKey: string, headline: string) =>
+      t.mutation(internal.adlibrary.productSync.upsertProductFromTopAd, {
+        niche: "Beauty", adKey, advertiserName: "A", platform: "facebook", headline, bodyText: "",
+        imageUrl: "https://cdn.example.com/p.jpg", landingPageUrl: "", heat: 800, daysCount: 5, impression: 100,
+      });
+    await pick("d1", "No-pull dog harness"); // found by the Beauty search, but it's a pet product
+    await pick("d2", "Vitamin C face serum");
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    const byTitle = Object.fromEntries(products.map((p) => [p.title, p]));
+    expect(byTitle["No-pull dog harness"]).toMatchObject({ category: "Pet Supplies", isWinnerOfDay: false });
+    expect(byTitle["Vitamin C face serum"]).toMatchObject({ category: "Beauty", isWinnerOfDay: true });
+  });
+
+  it("re-checks niches of auto-imported ads only", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "admin1", role: "admin" });
+      const base = { ...adArgs, targeting: { ageRange: "Unknown", gender: "All", interests: [] as string[] } };
+      await ctx.db.insert("ads", { ...base, niche: "Beauty", headline: "No-pull dog harness", source: "apify" });
+      await ctx.db.insert("ads", { ...base, niche: "Beauty", headline: "No-pull dog harness", source: "curated" });
+    });
+    await t.withIdentity({ subject: "admin1|s" }).mutation(api.admin.reclassify.start, {});
+    await t.finishAllScheduledFunctions(() => {});
+    const ads = await t.run((ctx) => ctx.db.query("ads").collect());
+    expect(ads.find((a) => a.source === "apify")?.niche).toBe("Pet Supplies");
+    expect(ads.find((a) => a.source === "curated")?.niche).toBe("Beauty"); // hand-set niches are kept
+  });
+});
+
+describe("new Ad Spy filters", () => {
+  it("filters by last seen, impression range and max spend", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      const base = { ...adArgs, targeting: { ageRange: "Unknown", gender: "All", interests: [] as string[] }, source: "apify" };
+      await ctx.db.insert("ads", { ...base, headline: "fresh-small", impressions: 5_000, spendEstimate: "~$500 (AdLibrary est.)", lastSeenAt: new Date(now - 86_400_000).toISOString() });
+      await ctx.db.insert("ads", { ...base, headline: "old-big", impressions: 2_000_000, spendEstimate: "~$80K (AdLibrary est.)", lastSeenAt: new Date(now - 20 * 86_400_000).toISOString() });
+      await ctx.db.insert("ads", { ...base, headline: "no-spend", impressions: 50_000, spendEstimate: "Unknown", lastSeenAt: new Date(now).toISOString() });
+    });
+    const list = (extra: Record<string, unknown>) =>
+      t.query(api.ads.list, { paginationOpts: { numItems: 50, cursor: null }, ...extra }).then((r) => r.page.map((a) => a.headline).sort());
+    expect(await list({ lastSeenWithinDays: 3 })).toEqual(["fresh-small", "no-spend"]);
+    expect(await list({ minImpressions: 10_000, maxImpressions: 100_000 })).toEqual(["no-spend"]);
+    expect(await list({ maxSpend: 1_000 })).toEqual(["fresh-small"]);
+  });
+});
+
+describe("admin access", () => {
+  it("only the very first account becomes admin — a listed email no longer grants it", async () => {
+    const t = convexTest(schema, modules);
+    process.env.ADMIN_EMAILS = "owner@example.com";
+    const roles = await t.run(async (ctx) => {
+      const first = await ctx.db.insert("users", { email: "first@example.com" });
+      await initNewUser(ctx, first);
+      // A later sign-up using a listed-but-unregistered email stays a normal user.
+      const claimed = await ctx.db.insert("users", { email: "owner@example.com" });
+      await initNewUser(ctx, claimed);
+      return [(await ctx.db.get("users", first))?.role, (await ctx.db.get("users", claimed))?.role];
+    });
+    expect(roles).toEqual(["admin", "user"]);
+    delete process.env.ADMIN_EMAILS;
+  });
+
+  it("does not let regular users seed demo stores or research data", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" }));
+    const user = t.withIdentity({ subject: "u1|s" });
+    await expect(user.mutation(api.stores.seedStores, {})).rejects.toThrow(/Admin/);
+    await expect(user.mutation(api.trends.seedResearchData, {})).rejects.toThrow(/Admin/);
   });
 });

@@ -2,7 +2,8 @@ import { markStatsDirty } from "../stats";
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { platformLabel } from "./client";
-import { retireStaleWinners } from "../lib/winners";
+import { retireStaleWinners, winnerSlot } from "../lib/winners";
+import { classifyNiche } from "../lib/category";
 
 // Winning Products: derives one real "winning product" per niche from the
 // same AdLibrary.com data already fetched for Ad Spy (no extra API credits).
@@ -51,13 +52,21 @@ export const upsertProductFromTopAd = internalMutation({
   handler: async (ctx, args): Promise<"created" | "updated"> => {
     const platform = platformLabel(args.platform);
     const description = `Spotted running live on ${platform} by ${args.advertiserName}. ${args.bodyText}`.trim();
+    // File the product under what it actually is; the searched niche only
+    // decides which daily pick it fills.
+    const category = classifyNiche(
+      { title: args.headline, body: args.bodyText, url: args.landingPageUrl, advertiser: args.advertiserName },
+      args.niche,
+    );
+    const slot = { source: "adlibrary_api", niche: args.niche };
 
     const productDoc = {
       title: args.headline,
       description: description.slice(0, 500),
       imageUrl: args.imageUrl,
-      category: args.niche,
-      tags: [args.niche, platform, "live ad"],
+      category,
+      tags: [category, platform, "live ad"],
+      winnerSlot: winnerSlot(slot.source, slot.niche),
       aiScore: scoreFromHeat(args.heat, args.daysCount, args.impression),
       saturation: "Unknown",
       trend: trendFromHeat(args.heat),
@@ -82,7 +91,7 @@ export const upsertProductFromTopAd = internalMutation({
     if (existingLink && (await ctx.db.get("products", existingLink.productId))) {
       await ctx.db.patch("products", existingLink.productId, productDoc);
       await ctx.db.patch("productSyncedItems", existingLink._id, { lastSyncedAt: new Date().toISOString() });
-      await retireStaleWinners(ctx, "adlibrary_api", args.niche, [existingLink.productId]);
+      await retireStaleWinners(ctx, slot, [existingLink.productId]);
       return "updated";
     }
     if (existingLink) await ctx.db.delete("productSyncedItems", existingLink._id); // product was deleted by an admin — recreate
@@ -97,7 +106,7 @@ export const upsertProductFromTopAd = internalMutation({
       productId,
       lastSyncedAt: new Date().toISOString(),
     });
-    await retireStaleWinners(ctx, "adlibrary_api", args.niche, [productId]);
+    await retireStaleWinners(ctx, slot, [productId]);
     return "created";
   },
 });

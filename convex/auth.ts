@@ -1,5 +1,7 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
+import type { MutationCtx } from "./_generated/server";
+import { initNewUser } from "./lib/userRole";
 
 // Email + password sign-in, handled entirely by this Convex deployment.
 // Replaces the Hercules-hosted OIDC login.
@@ -16,19 +18,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     }),
   ],
   callbacks: {
-    // Give every new account the stable key the rest of the app looks users up
-    // by (see lib/authIdentity.ts), and make the first account — or any email
-    // listed in the ADMIN_EMAILS env var — an admin.
+    // Stable lookup key + role for new accounts — see lib/userRole.ts.
     async afterUserCreatedOrUpdated(ctx, { userId }) {
-      const user = await ctx.db.get(userId);
-      if (!user || user.tokenIdentifier) return;
-      const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-        .split(",")
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
-      const anyAdmin = (await ctx.db.query("users").take(500)).some((u) => u.role === "admin");
-      const isAdmin = (user.email && adminEmails.includes(user.email.toLowerCase())) || !anyAdmin;
-      await ctx.db.patch(userId, { tokenIdentifier: userId, role: isAdmin ? "admin" : "user" });
+      await initNewUser(ctx as unknown as MutationCtx, userId);
     },
   },
 });

@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { useAction } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Download, Store, Clapperboard, Trophy } from "lucide-react";
+import { Download, Store, Clapperboard, Trophy, Tags } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
+import { NICHES as ALL_NICHES } from "@/convex/lib/category.ts";
 
-const NICHES = ["Health & Wellness", "Electronics", "Home & Living", "Beauty", "Fashion", "Pet Supplies"];
+// Fallback niche for imports: used only when the ad itself doesn't make its
+// niche clear (each ad is classified from its own text and link).
+const NICHES: string[] = ALL_NICHES.filter((n) => n !== "Other");
 const TIKTOK_COUNTRIES = ["gb", "de", "fr", "es", "it", "us"];
 const META_COUNTRIES = ["DK", "SE", "NO", "DE", "GB", "NL", "FR", "US"];
 
@@ -75,10 +78,48 @@ export default function DataSourcesPanel() {
   const [whInfo, setWhInfo] = useState<string | null>(null);
   const [whRes, setWhRes] = useState<{ calls: number; fetched: number; adsCreated: number; adsUpdated: number; productsCreated: number; productsUpdated: number; errors: string[] } | null>(null);
 
+  // Re-check niches of already-imported ads/products
+  const startReclassify = useMutation(api.admin.reclassify.start);
+  const reclassify = useQuery(api.admin.reclassify.status, {});
+
   const fail = (e: unknown, fallback: string) => toast.error(e instanceof Error ? e.message : fallback);
 
   return (
     <div className="grid gap-4 mb-5 lg:grid-cols-2 xl:grid-cols-4">
+      <Card
+        icon={Tags}
+        title="Fix niches"
+        text="Re-checks the niche of every auto-imported ad and product from its own text and product link (they used to get the niche that was searched for). Niches you set by hand are kept."
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            disabled={reclassify?.running}
+            onClick={async () => {
+              try {
+                const r = await startReclassify({});
+                toast[r.alreadyRunning ? "info" : "success"](r.alreadyRunning ? "Already running" : "Re-checking niches…");
+              } catch (e) {
+                fail(e, "Could not start");
+              }
+            }}
+          >
+            {reclassify?.running ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <Tags className="w-3.5 h-3.5 mr-1.5" />}
+            {reclassify?.running ? "Running…" : "Re-check niches"}
+          </Button>
+        </div>
+        {reclassify && (
+          <Result
+            lines={[
+              ["Ads changed", reclassify.adsChanged],
+              ["Products changed", reclassify.productsChanged],
+              ["Status", reclassify.running ? "running" : `done ${new Date(reclassify.finishedAt ?? reclassify.startedAt).toLocaleString()}`],
+            ]}
+            errors={[]}
+          />
+        )}
+      </Card>
+
       <Card icon={Trophy} title="WinningHunter (Meta ads + products)" text="Active winning Facebook/Instagram ads with video, EU reach, spend, countries and the Shopify product behind them. 1 credit per 50 ads. Runs daily by itself once the API key is set.">
         <div className="flex flex-wrap gap-2">
           <select className={selectCls} value={wh.country} onChange={(e) => setWh({ ...wh, country: e.target.value })}>

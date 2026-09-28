@@ -20,8 +20,9 @@ import { Switch } from "@/components/ui/switch.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { useEffect } from "react";
+import { NICHES } from "@/convex/lib/category.ts";
 
-const categories = ["Electronics", "Health & Wellness", "Home & Living", "Fashion", "Beauty", "Sports", "Toys", "Pet Supplies"];
+const categories: string[] = NICHES.filter((n) => n !== "Other");
 const saturations = ["Low", "Medium", "High"];
 const trends = ["Rising", "Stable", "Declining"];
 
