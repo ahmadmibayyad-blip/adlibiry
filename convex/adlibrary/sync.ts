@@ -2,9 +2,10 @@ import { markStatsDirty } from "../stats";
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, action } from "../_generated/server";
 import { internal, api } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { richAdFields, defined } from "../lib/adFields";
+import { toAlpha2 } from "../lib/countryCodes";
 import {
-  COUNTRY_NAME_TO_ALPHA2,
   ALPHA2_TO_ALPHA3,
   NICHE_KEYWORDS,
   estimateSpendRange,
@@ -99,6 +100,7 @@ export const runSync = internalAction({
       if (outOfCredits) break;
       let productPicked = false;
 
+      let retried429 = false;
       for (let page = 1; page <= pagesPerNiche(); page++) {
         try {
           await throttle();
@@ -129,8 +131,14 @@ export const runSync = internalAction({
           }
           if (response.status === 429) {
             const retryAfter = Number(response.headers.get("retry-after")) || 60;
-            result.errors.push(`${niche}: rate limited, waited ${retryAfter}s and skipped page ${page}`);
             await sleep(retryAfter * 1000);
+            if (!retried429) {
+              // Retry the same page once instead of silently losing it.
+              retried429 = true;
+              page -= 1;
+              continue;
+            }
+            result.errors.push(`${niche}: rate limited twice, skipped page ${page}`);
             continue;
           }
           if (!response.ok) {
@@ -216,6 +224,7 @@ export const runSync = internalAction({
               firstSeenAt: item.first_seen
                 ? new Date(item.first_seen * 1000).toISOString()
                 : new Date().toISOString(),
+              firstSeenKnown: !!item.first_seen,
               ...searchRich(item),
             });
 
@@ -324,11 +333,11 @@ type AdDetail = {
     countries: { code: string; pct: number }[];
   };
 };
-const alpha3To2 = (code: string): string | undefined => {
-  const upper = String(code ?? "").toUpperCase();
-  if (ALPHA2_TO_ALPHA3[upper]) return upper;
-  const hit = Object.entries(ALPHA2_TO_ALPHA3).find(([, a3]) => a3 === upper);
-  return hit?.[0] ?? COUNTRY_NAME_TO_ALPHA2[String(code)];
+// Any alpha-2/alpha-3/English name → alpha-2, but only for countries AdSpy
+// Pro covers (used to pick the ad's primary country).
+const supportedAlpha2 = (code: unknown): string | undefined => {
+  const c = toAlpha2(code);
+  return c && ALPHA2_TO_ALPHA3[c] ? c : undefined;
 };
 function parseAdDetail(json: unknown): AdDetail {
   const root = (json ?? {}) as Record<string, any>;
@@ -368,7 +377,7 @@ function parseAdDetail(json: unknown): AdDetail {
       .slice()
       .sort((a: any, b: any) => Number(b?.count) - Number(a?.count));
     for (const l of locs) {
-      const c = alpha3To2(l?.code);
+      const c = supportedAlpha2(l?.code);
       if (c) {
         out.country = c;
         break;
@@ -377,7 +386,7 @@ function parseAdDetail(json: unknown): AdDetail {
   }
   if (!out.country && Array.isArray(detail.countries)) {
     const priority = ["DK", "SE", "NO"];
-    const mapped = detail.countries.map((c: string) => alpha3To2(c)).filter(Boolean) as string[];
+    const mapped = detail.countries.map((c: string) => supportedAlpha2(c)).filter(Boolean) as string[];
     out.country = priority.find((p) => mapped.includes(p)) ?? mapped[0];
   }
 
@@ -399,7 +408,7 @@ function parseAdDetail(json: unknown): AdDetail {
 
   // All countries the ad runs in (alpha-2 where we know it, else as given).
   if (Array.isArray(detail.countries) && detail.countries.length) {
-    out.countries = [...new Set(detail.countries.map((c: string) => alpha3To2(c) ?? String(c).toUpperCase()))].slice(0, 40) as string[];
+    out.countries = [...new Set(detail.countries.map((c: string) => toAlpha2(c) ?? String(c).toUpperCase()))].slice(0, 40) as string[];
   }
   const cdn = Array.isArray(detail.cdn_url) ? detail.cdn_url.find((u: any) => typeof u === "string" && /^https?:/.test(u)) : undefined;
   const resVideo = Array.isArray(detail.resource_urls) ? detail.resource_urls.find((r: any) => r?.video_url)?.video_url : undefined;
@@ -420,7 +429,7 @@ function parseAdDetail(json: unknown): AdDetail {
       .filter((a: any) => typeof a?.type === "string")
       .map((a: any) => ({ bracket: String(a.type), pct: Math.round(Number(a.percent || 0) * 1000) / 10 }));
     const countries = (Array.isArray(audience.location_detail) ? audience.location_detail : [])
-      .map((l: any) => ({ code: alpha3To2(l?.code) ?? String(l?.code ?? "").toUpperCase(), pct: Math.round(Number(l?.percent || 0) * 1000) / 10 }))
+      .map((l: any) => ({ code: toAlpha2(l?.code) ?? String(l?.code ?? "").toUpperCase(), pct: Math.round(Number(l?.percent || 0) * 1000) / 10 }))
       .filter((c: { code: string }) => c.code)
       .slice(0, 12);
     const totalReach = Number(audience.total_reach);
@@ -435,16 +444,14 @@ function parseAdDetail(json: unknown): AdDetail {
   return out;
 }
 
-// AdLibrary's live API returns full English country names (not the ISO
-// alpha-3 codes its docs describe), and lists every targeted country, not
-// just one. Match against the first name in the list that AdSpy Pro
-// supports. Returns undefined if the ad targets no supported country, or
-// provides no geo data at all (about half of non-Meta-sourced results) —
-// those ads are skipped rather than assigned a guessed country.
-function resolveCountry(geo: string[] | undefined): string | undefined {
+// AdLibrary's live API returns full English country names, its docs describe
+// ISO alpha-3, and some responses carry alpha-2 — accept all three. Picks the
+// first listed country AdSpy Pro supports. Returns undefined if the ad
+// targets no supported country or has no geo data at all.
+export function resolveCountry(geo: string[] | undefined): string | undefined {
   if (!geo || geo.length === 0) return undefined;
-  for (const name of geo) {
-    const code = COUNTRY_NAME_TO_ALPHA2[name];
+  for (const value of geo) {
+    const code = supportedAlpha2(value);
     if (code) return code;
   }
   return undefined;
@@ -476,13 +483,15 @@ const upsertAdFields = {
   daysRunning: v.number(),
   aiScore: v.number(),
   firstSeenAt: v.string(),
+  // false when AdLibrary sent no first_seen and firstSeenAt is just "now".
+  firstSeenKnown: v.optional(v.boolean()),
   ...richAdFields,
 };
 
 export const upsertAd = internalMutation({
   args: upsertAdFields,
   handler: async (ctx, args): Promise<"created" | "updated"> => {
-    const { externalId, ...fields } = args;
+    const { externalId, firstSeenKnown, ...fields } = args;
     const existingLink = await ctx.db
       .query("adlibrarySyncedAds")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
@@ -494,10 +503,12 @@ export const upsertAd = internalMutation({
       // replace an ad-detail spend estimate with the rougher impression one.
       const keepSpend = existing?.spendEstimate?.includes("AdLibrary est.") && !fields.spendEstimate.includes("AdLibrary est.");
       await ctx.db.patch("ads", existingLink.adId, {
-        ...fields,
+        ...defined(fields),
+        spendEstimate: fields.spendEstimate,
         ...(keepSpend ? { spendEstimate: existing!.spendEstimate } : {}),
         ...(fields.country === "INTL" && existing && existing.country !== "INTL" ? { country: existing.country } : {}),
         ...(!fields.landingPageUrl && existing?.landingPageUrl ? { landingPageUrl: existing.landingPageUrl } : {}),
+        ...(existing ? keepEarlierData(existing, fields, firstSeenKnown !== false) : {}),
         source: "adlibrary_api",
       });
       await ctx.db.patch("adlibrarySyncedAds", existingLink._id, { lastSyncedAt: new Date().toISOString() });
@@ -518,6 +529,26 @@ export const upsertAd = internalMutation({
     return "created";
   },
 });
+
+// A re-sync must never make an ad look newer or smaller than we already know
+// it is: keep the real first-seen date (a missing first_seen used to reset it
+// to "now"), the longest run length, the largest reach, and video media found
+// by enrichment.
+function keepEarlierData(
+  existing: Doc<"ads">,
+  incoming: { firstSeenAt: string; daysRunning: number; views: string; impressions?: number; mediaType?: string },
+  firstSeenKnown: boolean,
+) {
+  const out: Partial<Doc<"ads">> = {};
+  if (!firstSeenKnown || existing.firstSeenAt < incoming.firstSeenAt) out.firstSeenAt = existing.firstSeenAt;
+  if (existing.daysRunning > incoming.daysRunning) out.daysRunning = existing.daysRunning;
+  if ((existing.impressions ?? 0) > (incoming.impressions ?? 0)) {
+    out.impressions = existing.impressions;
+    out.views = existing.views;
+  }
+  if (existing.videoUrl && incoming.mediaType !== "video" && incoming.mediaType !== "carousel") out.mediaType = "video";
+  return out;
+}
 
 export const enrichAd = internalMutation({
   args: {

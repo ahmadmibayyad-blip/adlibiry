@@ -61,7 +61,8 @@ export const importAdLibrary = internalAction({
       const rows = Array.isArray(body?.data) ? body.data : [];
       if (body?.upgrade) r.errors.push("WinningHunter says this filter needs a higher plan");
       r.fetched += rows.length;
-      const { ads, products } = whToRecords(rows);
+      const markets = args.countries.split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
+      const { ads, products } = whToRecords(rows, Date.now(), markets);
       for (let i = 0; i < ads.length; i += 25) {
         const res = await ctx.runMutation(internal.admin.externalImport.importAdsInternal, { ads: ads.slice(i, i + 25) });
         r.adsCreated += res.created;

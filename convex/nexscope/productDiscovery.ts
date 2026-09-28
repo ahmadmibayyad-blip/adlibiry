@@ -2,6 +2,8 @@ import { markStatsDirty } from "../stats";
 import { v, ConvexError } from "convex/values";
 import { internalAction, action, internalMutation } from "../_generated/server";
 import { internal, api } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import { retireStaleWinners } from "../lib/winners";
 import {
   NEXSCOPE_AMAZON_DISCOVERY_URL,
   NICHE_TO_AMAZON_KEYWORD,
@@ -77,6 +79,7 @@ export const discoverProducts = internalAction({
           continue;
         }
 
+        const keepIds: Id<"products">[] = [];
         for (const product of candidates.slice(0, PRODUCTS_PER_NICHE)) {
           const price = Math.round(product.price * 100) / 100;
           const outcome = await ctx.runMutation(internal.nexscope.productDiscovery.upsertAmazonProduct, {
@@ -91,9 +94,12 @@ export const discoverProducts = internalAction({
             trend: trendFromClickGrowth(product.clickCountGrowthT30),
             reviewCount: product.ratings,
           });
-          if (outcome === "created") result.created += 1;
+          keepIds.push(outcome.productId);
+          if (outcome.outcome === "created") result.created += 1;
           else result.updated += 1;
         }
+        // Today's picks are this niche's Nexscope winners; earlier picks retire.
+        await ctx.runMutation(internal.nexscope.productDiscovery.retireOldWinners, { niche, keepIds });
       } catch (error) {
         result.errors.push(`${niche}: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
@@ -128,7 +134,7 @@ export const upsertAmazonProduct = internalMutation({
     trend: v.string(),
     reviewCount: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<"created" | "updated"> => {
+  handler: async (ctx, args): Promise<{ outcome: "created" | "updated"; productId: Id<"products"> }> => {
     const description = args.reviewCount
       ? `Real Amazon bestseller candidate in ${args.niche}, backed by ${args.reviewCount.toLocaleString()} reviews and strong recent click demand.`
       : `Real Amazon bestseller candidate in ${args.niche}, based on recent click demand.`;
@@ -156,11 +162,12 @@ export const upsertAmazonProduct = internalMutation({
       .withIndex("by_external_id", (q) => q.eq("externalId", args.asin))
       .unique();
 
-    if (existingLink) {
+    if (existingLink && (await ctx.db.get("products", existingLink.productId))) {
       await ctx.db.patch("products", existingLink.productId, productDoc);
       await ctx.db.patch("nexscopeSyncedProducts", existingLink._id, { lastSyncedAt: new Date().toISOString() });
-      return "updated";
+      return { outcome: "updated", productId: existingLink.productId };
     }
+    if (existingLink) await ctx.db.delete("nexscopeSyncedProducts", existingLink._id); // product was deleted by an admin — recreate
 
     await markStatsDirty(ctx);
     const productId = await ctx.db.insert("products", {
@@ -172,6 +179,11 @@ export const upsertAmazonProduct = internalMutation({
       productId,
       lastSyncedAt: new Date().toISOString(),
     });
-    return "created";
+    return { outcome: "created", productId };
   },
+});
+
+export const retireOldWinners = internalMutation({
+  args: { niche: v.string(), keepIds: v.array(v.id("products")) },
+  handler: async (ctx, args) => retireStaleWinners(ctx, "nexscope_api", args.niche, args.keepIds),
 });

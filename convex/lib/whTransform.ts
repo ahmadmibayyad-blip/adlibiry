@@ -39,7 +39,9 @@ function strip<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== "")) as T;
 }
 
-export function whToRecords(data: WH[], nowMs = Date.now()): { ads: WhAd[]; products: WhProduct[] } {
+// preferCountries: the market(s) this import asked for. An ad that runs in
+// DK and US, imported for DK, is a DK ad — not the first MAIN match (US).
+export function whToRecords(data: WH[], nowMs = Date.now(), preferCountries: string[] = []): { ads: WhAd[]; products: WhProduct[] } {
   const ads: WhAd[] = [];
   const products: WhProduct[] = [];
   const seenProducts = new Set<string>();
@@ -71,7 +73,7 @@ export function whToRecords(data: WH[], nowMs = Date.now()): { ads: WhAd[]; prod
       source: "winninghunter",
       advertiserName: clean(a.pageName, 200) || "Unknown",
       platform: String(a.platform ?? "facebook").toLowerCase().includes("insta") ? "Instagram" : "Facebook",
-      country: MAIN.find((c) => countries.includes(c)) ?? countries[0] ?? "INTL",
+      country: preferCountries.find((c) => countries.includes(c)) ?? MAIN.find((c) => countries.includes(c)) ?? countries[0] ?? "INTL",
       niche,
       headline: clean(copy.split("\n")[0], 200) || title || "Sponsored ad",
       bodyText: copy,

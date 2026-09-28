@@ -56,30 +56,10 @@ export type AdLibrarySearchResponse = {
   };
 };
 
-// AdLibrary's `geo` uses ISO 3166 alpha-3 in its docs, but the live API
-// actually returns full English country names (e.g. "United Kingdom",
-// "Germany"). Map full names to the alpha-2 codes AdSpy Pro uses
-// (src/lib/countries.ts) — extend both together. Only countries AdSpy Pro
-// surfaces are included; ads for other countries are skipped, not dropped.
-export const COUNTRY_NAME_TO_ALPHA2: Record<string, string> = {
-  "United States": "US",
-  "United Kingdom": "GB",
-  Germany: "DE",
-  France: "FR",
-  Denmark: "DK",
-  Sweden: "SE",
-  Norway: "NO",
-  Netherlands: "NL",
-  Spain: "ES",
-  Italy: "IT",
-  "United Arab Emirates": "AE",
-  "Saudi Arabia": "SA",
-  Australia: "AU",
-  Canada: "CA",
-};
-
-// Alpha-2 -> alpha-3, used only for the outbound `geo` search filter, which
-// AdLibrary's docs specify as ISO alpha-3.
+// Countries AdSpy Pro covers, alpha-2 -> alpha-3. Used for the outbound `geo`
+// search filter (AdLibrary's docs specify ISO alpha-3) and as the supported
+// set when picking an ad's primary country. Incoming geo values of any format
+// are normalized by convex/lib/countryCodes.ts.
 export const ALPHA2_TO_ALPHA3: Record<string, string> = {
   US: "USA",
   GB: "GBR",
