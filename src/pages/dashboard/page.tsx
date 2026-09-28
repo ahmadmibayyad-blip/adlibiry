@@ -23,6 +23,7 @@ export default function DashboardHome() {
   const stats = useQuery(api.products.getDashboardStats, {});
   const winners = useQuery(api.products.getWinnersOfDay, {});
   const seedProducts = useMutation(api.products.seedProducts);
+  const isAdmin = useQuery(api.users.isAdmin, {});
 
   const handleSeed = async () => {
     await seedProducts();
@@ -51,11 +52,11 @@ export default function DashboardHome() {
               {greeting()}, {user?.profile?.name?.split(" ")[0] ?? "there"} 👋
             </h1>
             <p className="text-muted-foreground text-sm">
-              Here's what's winning today — updated daily by our research team.
+              Here's what's winning today — refreshed daily from live ad and marketplace data.
             </p>
           </div>
-          {/* Dev seed button — only visible when no products */}
-          {winners !== undefined && winners.length === 0 && (
+          {/* Dev seed button — admins only, only visible when no products */}
+          {isAdmin && winners !== undefined && winners.length === 0 && (
             <Button size="sm" variant="outline" onClick={handleSeed} className="text-xs">
               <Sparkles className="w-3.5 h-3.5 mr-1.5" />
               Load Sample Products

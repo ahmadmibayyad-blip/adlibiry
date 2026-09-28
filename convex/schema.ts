@@ -362,7 +362,22 @@ export default defineSchema({
     sourceUrl: v.string(),           // page URL the ad was spotted on
     status: v.string(),              // "pending" | "approved" | "rejected"
     submittedAt: v.string(),         // ISO 8601 UTC
+    // Rich data the extension scrapes (all optional: older rows lack them).
+    adKey: v.optional(v.string()),           // stable id: "meta_<archive id>" or "ext:<extension key>" — dedupes submissions and approved ads
+    videoUrl: v.optional(v.string()),
+    ctaText: v.optional(v.string()),
+    advertiserAvatar: v.optional(v.string()),
+    mediaType: v.optional(v.string()),       // "image" | "video" | "carousel"
+    likes: v.optional(v.number()),
+    comments: v.optional(v.number()),
+    shares: v.optional(v.number()),
+    impressions: v.optional(v.number()),
+    countries: v.optional(v.array(v.string())), // ISO alpha-2
+    isActive: v.optional(v.boolean()),
+    startedAt: v.optional(v.string()),       // ISO 8601 — when the ad started running / was posted
+    adLibraryUrl: v.optional(v.string()),
   })
     .index("by_status", ["status"])
-    .index("by_submitted", ["submittedAt"]),
+    .index("by_submitted", ["submittedAt"])
+    .index("by_ad_key", ["adKey"]),
 });

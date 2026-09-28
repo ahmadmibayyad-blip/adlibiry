@@ -2,6 +2,8 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { stableToken } from "./lib/authIdentity";
+import { requireAdmin } from "./admin/helpers";
+import type { SiteStats } from "./stats";
 
 // ── Products ────────────────────────────────────────────────────────────────
 
@@ -218,17 +220,27 @@ export const getDashboardStats = query({
         })()
       : 0;
 
-    const totalProducts = await ctx.db.query("products").take(1000);
+    // Real counts: the total comes from the precomputed site stats (no table
+    // scan); "new this week" counts products actually published in the last 7
+    // days (it used to be a made-up min(total, 24)).
+    const statsDoc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
+    const statsTotal = (statsDoc?.data as SiteStats | undefined)?.products.total;
+    const totalProducts = statsTotal ?? (await ctx.db.query("products").take(1000)).length;
+    const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const newThisWeek = await ctx.db
+      .query("products")
+      .withIndex("by_published", (q) => q.gte("publishedAt", weekAgo))
+      .take(1000);
     const winnersToday = await ctx.db
       .query("products")
       .withIndex("by_winner", (q) => q.eq("isWinnerOfDay", true))
       .take(1000);
 
     return {
-      totalProducts: totalProducts.length,
+      totalProducts,
       savedCount,
       winnersToday: winnersToday.length,
-      newThisWeek: Math.min(totalProducts.length, 24),
+      newThisWeek: newThisWeek.length,
     };
   },
 });
@@ -237,8 +249,8 @@ export const getDashboardStats = query({
 export const seedProducts = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
+    // Demo rows with made-up metrics — admins only, never any signed-in user.
+    await requireAdmin(ctx);
 
     const existing = await ctx.db.query("products").take(1);
     if (existing.length > 0) return { message: "Already seeded" };

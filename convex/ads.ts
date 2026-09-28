@@ -4,6 +4,7 @@ import { paginationOptsValidator } from "convex/server";
 import type { SiteStats } from "./stats";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
+import { requireAdmin } from "./admin/helpers";
 
 // ── Ads ───────────────────────────────────────────────────────────────────
 
@@ -196,8 +197,8 @@ export const isAdSaved = query({
 export const seedAds = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
+    // Demo rows with made-up metrics — admins only, never any signed-in user.
+    await requireAdmin(ctx);
 
     const existing = await ctx.db.query("ads").take(1);
     if (existing.length > 0) return { message: "Already seeded" };

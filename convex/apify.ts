@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { NICHE_KEYWORDS } from "./adlibrary/client";
+import { toAlpha2List } from "./lib/countryCodes";
 
 // Apify → Meta Ad Library ads (works for DK / SE / NO, which AdLibrary and
 // Nexscope barely cover). Flow: start an actor run with a webhook → Apify
@@ -234,9 +235,7 @@ export const importDataset = internalAction({
           pick(s, "videos.0.video_hd_url", "videos.0.videoHdUrl", "videos.0.video_sd_url", "videos.0.videoSdUrl") ??
           pick(s, "cards.0.video_hd_url", "cards.0.videoHdUrl", "cards.0.video_sd_url", "cards.0.videoSdUrl");
         const avatar = pick(s, "page_profile_picture_url", "pageProfilePictureUrl");
-        const countryList: string[] = (pick(it, "targeted_or_reached_countries", "targetedOrReachedCountries") ?? [])
-          .map((c: string) => String(c).toUpperCase().slice(0, 2))
-          .filter(Boolean);
+        const countryList = toAlpha2List(pick(it, "targeted_or_reached_countries", "targetedOrReachedCountries", "reached_countries"));
 
         // Honest score from what Meta exposes: longevity + number of ad copies (scaling).
         const aiScore = Math.max(1, Math.min(100, Math.round((Math.min(days, 60) / 60) * 60 + (Math.min(copies, 20) / 20) * 40)));

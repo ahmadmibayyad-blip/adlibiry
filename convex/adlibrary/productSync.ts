@@ -2,6 +2,7 @@ import { markStatsDirty } from "../stats";
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import { platformLabel } from "./client";
+import { retireStaleWinners } from "../lib/winners";
 
 // Winning Products: derives one real "winning product" per niche from the
 // same AdLibrary.com data already fetched for Ad Spy (no extra API credits).
@@ -77,11 +78,14 @@ export const upsertProductFromTopAd = internalMutation({
       .withIndex("by_external_id", (q) => q.eq("externalId", args.adKey))
       .unique();
 
-    if (existingLink) {
+    // One AdLibrary winner per niche: today's top ad replaces earlier picks.
+    if (existingLink && (await ctx.db.get("products", existingLink.productId))) {
       await ctx.db.patch("products", existingLink.productId, productDoc);
       await ctx.db.patch("productSyncedItems", existingLink._id, { lastSyncedAt: new Date().toISOString() });
+      await retireStaleWinners(ctx, "adlibrary_api", args.niche, [existingLink.productId]);
       return "updated";
     }
+    if (existingLink) await ctx.db.delete("productSyncedItems", existingLink._id); // product was deleted by an admin — recreate
 
     await markStatsDirty(ctx);
     const productId = await ctx.db.insert("products", {
@@ -93,6 +97,7 @@ export const upsertProductFromTopAd = internalMutation({
       productId,
       lastSyncedAt: new Date().toISOString(),
     });
+    await retireStaleWinners(ctx, "adlibrary_api", args.niche, [productId]);
     return "created";
   },
 });

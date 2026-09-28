@@ -116,17 +116,23 @@ export default function AdSpyPage() {
 
   const { results, status, loadMore } = usePaginatedQuery(api.ads.list, filters, { initialNumItems: 24 });
 
-  // Country / CTA are matched after the database page is read, so a page can
-  // come back short. Top it up a few times so the grid isn't empty.
+  // Country / CTA / spend are matched after the database page is read, so a
+  // page can come back short. Keep reading until the grid has as many ads as
+  // the user asked for (24 at first, +24 per "Load more") — before, "Load
+  // more" could add nothing and look like the end of the results.
+  const PAGE = 24;
   const filterKey = JSON.stringify(filters);
-  const topUps = useRef({ key: "", n: 0 });
+  const [wanted, setWanted] = useState({ key: filterKey, n: PAGE });
+  const target = wanted.key === filterKey ? wanted.n : PAGE;
+  const topUps = useRef({ key: "", target: 0, n: 0 });
   useEffect(() => {
-    if (topUps.current.key !== filterKey) topUps.current = { key: filterKey, n: 0 };
-    if (status === "CanLoadMore" && results.length < 24 && topUps.current.n < 15) {
+    if (topUps.current.key !== filterKey || topUps.current.target !== target) topUps.current = { key: filterKey, target, n: 0 };
+    if (status === "CanLoadMore" && results.length < target && topUps.current.n < 15) {
       topUps.current.n++;
       loadMore(48);
     }
-  }, [status, results.length, filterKey, loadMore]);
+  }, [status, results.length, filterKey, target, loadMore]);
+  const showMoreAds = () => setWanted({ key: filterKey, n: Math.max(target, results.length) + PAGE });
 
   const clearAll = () => {
     setPlatform(undefined); setCountry(undefined); setNiche(undefined); setMediaType(undefined);
@@ -183,7 +189,7 @@ export default function AdSpyPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search ad text, advertiser, product or niche…"
+              placeholder="Search ad copy…"
               className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-10 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
           </div>
@@ -278,13 +284,16 @@ export default function AdSpyPage() {
               <AdCard key={ad._id} ad={ad} onClick={() => { setSelectedAd(ad); setModalOpen(true); }} />
             ))}
           </div>
-          {status === "CanLoadMore" && (
-            <div className="flex justify-center mt-8">
-              <Button variant="outline" onClick={() => loadMore(24)} className="px-8">Load more ads</Button>
-            </div>
-          )}
-          {status === "LoadingMore" && (
+          {status === "LoadingMore" ? (
             <div className="flex justify-center mt-8 text-sm text-muted-foreground">Loading…</div>
+          ) : status === "CanLoadMore" ? (
+            <div className="flex justify-center mt-8">
+              <Button variant="outline" onClick={showMoreAds} className="px-8">Load more ads</Button>
+            </div>
+          ) : (
+            <p className="text-center mt-8 text-xs text-muted-foreground">
+              Showing all {results.length} matching ad{results.length === 1 ? "" : "s"}.
+            </p>
           )}
         </>
       )}
