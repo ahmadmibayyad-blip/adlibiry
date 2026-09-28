@@ -5,6 +5,7 @@ import { internal, api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { retireStaleWinners, winnerSlot } from "../lib/winners";
 import { classifyNiche } from "../lib/category";
+import { findPayload, nestedError } from "../lib/nexscopeReply";
 import {
   NEXSCOPE_AMAZON_DISCOVERY_URL,
   NICHE_TO_AMAZON_KEYWORD,
@@ -65,12 +66,17 @@ export const discoverProducts = internalAction({
         }
 
         const data: NexscopeAmazonDiscoveryResponse = await response.json();
-        if (data.code !== 0) {
-          result.errors.push(`${niche}: Nexscope returned error — ${data.msg ?? "unknown"}`);
+        // Accept the documented direct payload ({ products }) and the
+        // enveloped one ({ code, msg, data: { products } }).
+        const providerError = nestedError(data);
+        if (providerError) {
+          result.errors.push(`${niche}: Nexscope returned error — ${providerError}`);
           continue;
         }
+        const found = findPayload(data, "products");
+        const products = (Array.isArray(found?.products) ? found.products : []) as NexscopeAmazonProduct[];
 
-        const candidates = (data.data?.products ?? []).filter(
+        const candidates = products.filter(
           (p): p is NexscopeAmazonProduct & { asin: string; title: string; price: number; imageUrl: string } =>
             !!p.asin && !!p.title && typeof p.price === "number" && p.price > 0 && !!p.imageUrl
         );

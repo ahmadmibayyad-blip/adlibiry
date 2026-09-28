@@ -154,3 +154,24 @@ describe("classifyNiche", () => {
     expect(guessCategory("Wireless earbuds with charging case")).toBe("Electronics");
   });
 });
+
+import { findPayload, nestedError, describeReply } from "./nexscopeReply";
+
+describe("Nexscope reply parsing", () => {
+  const items = [{ id: "1" }];
+  it("finds the payload with or without the platform envelope", () => {
+    expect(findPayload({ errcode: 200, data: { items, total_count: 1 } }, "items")?.items).toEqual(items); // documented
+    expect(findPayload({ code: 0, msg: "ok", data: { errcode: 200, data: { items } } }, "items")?.items).toEqual(items); // enveloped
+    expect(findPayload({ total: 1, stores: [{ storeId: "s" }] }, "stores")?.stores).toHaveLength(1);
+    expect(findPayload({ code: 0, data: { total: 1, stores: [{ storeId: "s" }] } }, "stores")?.stores).toHaveLength(1);
+    expect(findPayload({ code: 0, data: null }, "items")).toBeUndefined();
+  });
+  it("surfaces provider errors at any level", () => {
+    expect(nestedError({ code: 0, data: { errcode: 200, data: {} } })).toBeUndefined();
+    expect(nestedError({ code: 0, data: { errcode: 401, errmsg: "no credits" } })).toBe("no credits");
+    expect(nestedError({ code: 1003, msg: "Insufficient credits" })).toBe("Insufficient credits");
+  });
+  it("describes an empty reply's shape", () => {
+    expect(describeReply({ code: 0, msg: "ok", data: { list: [] } })).toBe('reply {code, msg, data} · message "ok" · data {list}');
+  });
+});
