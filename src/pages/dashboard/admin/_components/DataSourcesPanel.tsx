@@ -186,7 +186,7 @@ export default function DataSourcesPanel() {
         )}
       </Card>
 
-      <Card icon={Clapperboard} title="TikTok ads (Nexscope)" text="Real TikTok ads with cover image, views, likes, days running and GMV. 1 search call per 10 ads + 1 detail call per ad.">
+      <Card icon={Clapperboard} title="TikTok ads (Nexscope)" text="Real TikTok Shop ads with cover image, views, likes, days running and GMV. Leave the keyword empty to get the market's top ads by sales. Covers GB, DE, FR, ES, IT, US (not DK/SE/NO). 1 search call per 10 ads + 1 detail call per ad.">
         <div className="flex flex-wrap gap-2">
           <select className={selectCls} value={tt.country} onChange={(e) => setTt({ ...tt, country: e.target.value })}>
             {TIKTOK_COUNTRIES.map((c) => (
@@ -196,13 +196,13 @@ export default function DataSourcesPanel() {
           <select className={selectCls} value={tt.niche} onChange={(e) => setTt({ ...tt, niche: e.target.value })}>
             {NICHES.map((n) => <option key={n}>{n}</option>)}
           </select>
-          <Input className="flex-1 min-w-[140px]" placeholder="Keyword, e.g. dog harness" value={tt.keyword} onChange={(e) => setTt({ ...tt, keyword: e.target.value })} />
+          <Input className="flex-1 min-w-[140px]" placeholder="Keyword (optional), e.g. dog harness" value={tt.keyword} onChange={(e) => setTt({ ...tt, keyword: e.target.value })} />
           <select className={selectCls} value={tt.pages} onChange={(e) => setTt({ ...tt, pages: Number(e.target.value) })}>
             {[1, 2, 3, 5].map((p) => <option key={p} value={p}>{p * 10} ads</option>)}
           </select>
           <Button
             size="sm"
-            disabled={ttBusy || !tt.keyword.trim()}
+            disabled={ttBusy}
             onClick={async () => {
               setTtBusy(true);
               try {
@@ -223,7 +223,7 @@ export default function DataSourcesPanel() {
         {ttRes && <Result lines={[["Fetched", ttRes.fetched], ["Created", ttRes.created], ["Updated", ttRes.updated], ["Available", ttRes.totalAvailable]]} errors={ttRes.errors} />}
       </Card>
 
-      <Card icon={Store} title="Shopify stores that advertise (Nexscope)" text="Stores with active ads, traffic and order estimates. They appear in Store Tracker.">
+      <Card icon={Store} title="Shopify stores that advertise (Nexscope)" text="Shopify stores with active ads, traffic and order estimates. They appear in Store Tracker. The search box matches store names/domains, not products — leave it empty for the top advertisers.">
         <div className="flex flex-wrap gap-2">
           <select className={selectCls} value={st.country} onChange={(e) => setSt({ ...st, country: e.target.value })}>
             {META_COUNTRIES.map((c) => <option key={c}>{c}</option>)}
@@ -231,7 +231,7 @@ export default function DataSourcesPanel() {
           <select className={selectCls} value={st.niche} onChange={(e) => setSt({ ...st, niche: e.target.value })}>
             {NICHES.map((n) => <option key={n}>{n}</option>)}
           </select>
-          <Input className="flex-1 min-w-[140px]" placeholder="Store keyword (optional)" value={st.searchKey} onChange={(e) => setSt({ ...st, searchKey: e.target.value })} />
+          <Input className="flex-1 min-w-[140px]" placeholder="Store name/domain (optional)" value={st.searchKey} onChange={(e) => setSt({ ...st, searchKey: e.target.value })} />
           <Input className="w-24" type="number" min={1} value={st.minAds} onChange={(e) => setSt({ ...st, minAds: Number(e.target.value) || 1 })} title="Minimum active ads" />
           <Button
             size="sm"

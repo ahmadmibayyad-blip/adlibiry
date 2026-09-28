@@ -108,7 +108,8 @@ export const importTikTokAds = internalAction({
       try {
         search = await runSkill("chuhaijiang-tiktok-ad-search", {
           country,
-          keyword: args.keyword,
+          // No keyword = the market's top ads by GMV.
+          ...(args.keyword.trim() ? { keyword: args.keyword.trim() } : {}),
           page,
           pageSize: 10,
           sort: "gmv:desc",
@@ -119,7 +120,17 @@ export const importTikTokAds = internalAction({
       }
       const items: any[] = search?.data?.items ?? [];
       result.totalAvailable = num(search?.data?.total_count) ?? result.totalAvailable;
-      if (!items.length) break;
+      if (!items.length) {
+        // Say why instead of silently showing "0".
+        if (page === 1) {
+          result.errors.push(
+            args.keyword.trim()
+              ? `Nexscope has no TikTok Shop ads matching "${args.keyword.trim()}" in ${country.toUpperCase()}. Try a product word (e.g. "dog harness") or leave the keyword empty for the top ads.`
+              : `Nexscope returned no TikTok ads for ${country.toUpperCase()} right now.`,
+          );
+        }
+        break;
+      }
       result.fetched += items.length;
 
       for (const it of items) {
@@ -245,7 +256,16 @@ export const importShopifyStores = internalAction({
         break;
       }
       const stores: any[] = res?.stores ?? [];
-      if (!stores.length) break;
+      if (!stores.length) {
+        if (page === 1) {
+          result.errors.push(
+            args.searchKey
+              ? `No ${args.country.toUpperCase()} stores with ${args.minAds ?? 1}+ ads whose name or domain contains "${args.searchKey}". This field matches store names, not products — leave it empty to get the top advertising stores.`
+              : `Nexscope returned no ${args.country.toUpperCase()} stores with ${args.minAds ?? 1}+ active ads. Try a lower minimum.`,
+          );
+        }
+        break;
+      }
       result.fetched += stores.length;
       for (const s of stores) {
         const domain = String(s.storeDomain || "").toLowerCase();
