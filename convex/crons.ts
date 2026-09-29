@@ -68,6 +68,10 @@ crons.daily(
   internal.winninghunter.dailyImport
 );
 
+// PiPiSpy — only runs when PIPISPY_API_KEY and PIPISPY_COUNTRIES are set.
+// Each ad costs 1 credit: PIPISPY_DAILY_PER_COUNTRY × countries per day.
+crons.daily("import ads from PiPiSpy", { hourUTC: 8, minuteUTC: 5 }, internal.pipispy.dailyImport);
+
 // Rebuild filter counts / admin totals once a day as a backstop.
 crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.recompute);
 

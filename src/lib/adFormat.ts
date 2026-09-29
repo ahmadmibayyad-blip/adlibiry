@@ -31,5 +31,5 @@ export function domainOf(url: string | undefined): string {
 // Spend strings carry a source note ("(AdLibrary est.)"); cards show just the value.
 export function spendLabel(spend: string | undefined): string | null {
   if (!spend || /^unknown$|\$0–\$0/i.test(spend)) return null;
-  return spend.replace(/\s*\((impression-based est\.|AdLibrary est\.|Nexscope est\.|WinningHunter est\.)\)/, "");
+  return spend.replace(/\s*\((impression-based est\.|AdLibrary est\.|Nexscope est\.|WinningHunter est\.|PiPiSpy est\.)\)/, "");
 }

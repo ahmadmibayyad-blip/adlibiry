@@ -68,6 +68,7 @@ const SOURCES = [
   opt("adlibrary_api", "AdLibrary"),
   opt("apify", "Meta (Apify)"),
   opt("winninghunter", "WinningHunter"),
+  opt("pipispy", "PiPiSpy"),
   opt("nexscope", "TikTok (Nexscope)"),
   opt("extension", "Extension"),
 ];
