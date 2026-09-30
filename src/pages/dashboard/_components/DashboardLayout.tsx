@@ -21,6 +21,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar.tsx";
+import AIAssistant from "./ai/AIAssistant.tsx";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -170,6 +171,7 @@ export default function DashboardLayout() {
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           <Outlet />
         </main>
+        <AIAssistant />
 
         {/* Bottom nav — mobile */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50">
