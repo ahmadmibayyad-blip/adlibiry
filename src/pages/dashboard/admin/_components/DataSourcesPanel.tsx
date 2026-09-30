@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Download, Store, Clapperboard, Trophy, Tags } from "lucide-react";
+import { Download, Store, Clapperboard, Trophy, Tags, FileUp } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { NICHES as ALL_NICHES } from "@/convex/lib/category.ts";
+import AdCsvImportDialog from "./AdCsvImportDialog.tsx";
 
 // Fallback niche for imports: used only when the ad itself doesn't make its
 // niche clear (each ad is classified from its own text and link).
@@ -82,10 +83,24 @@ export default function DataSourcesPanel() {
   const startReclassify = useMutation(api.admin.reclassify.start);
   const reclassify = useQuery(api.admin.reclassify.status, {});
 
+  // Upload ads from a CSV file
+  const [csvOpen, setCsvOpen] = useState(false);
+
   const fail = (e: unknown, fallback: string) => toast.error(e instanceof Error ? e.message : fallback);
 
   return (
     <div className="grid gap-4 mb-5 lg:grid-cols-2 xl:grid-cols-4">
+      <Card
+        icon={FileUp}
+        title="Upload ads (CSV)"
+        text="Import ads from a CSV file: Minea, PiPiAds, WinningHunter or Ad Library exports, or your own sheet. Columns are matched automatically and you see a preview first. Re-uploading updates ads instead of duplicating them."
+      >
+        <Button size="sm" onClick={() => setCsvOpen(true)}>
+          <FileUp className="w-3.5 h-3.5 mr-1.5" />
+          Upload CSV file
+        </Button>
+        <AdCsvImportDialog open={csvOpen} onOpenChange={setCsvOpen} />
+      </Card>
       <Card
         icon={Tags}
         title="Fix niches"
