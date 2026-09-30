@@ -28,6 +28,7 @@ import type * as commerce from "../commerce.js";
 import type * as crons from "../crons.js";
 import type * as emailDigest from "../emailDigest.js";
 import type * as emailSender from "../emailSender.js";
+import type * as history from "../history.js";
 import type * as http from "../http.js";
 import type * as lib_adFields from "../lib/adFields.js";
 import type * as lib_aiTools from "../lib/aiTools.js";
@@ -35,6 +36,7 @@ import type * as lib_authIdentity from "../lib/authIdentity.js";
 import type * as lib_category from "../lib/category.js";
 import type * as lib_herculesShim from "../lib/herculesShim.js";
 import type * as lib_pagination from "../lib/pagination.js";
+import type * as lib_productMatch from "../lib/productMatch.js";
 import type * as lib_rangeParsing from "../lib/rangeParsing.js";
 import type * as lib_saturationScoring from "../lib/saturationScoring.js";
 import type * as lib_whTransform from "../lib/whTransform.js";
@@ -45,6 +47,7 @@ import type * as nexscope_pricing from "../nexscope/pricing.js";
 import type * as nexscope_productDiscovery from "../nexscope/productDiscovery.js";
 import type * as nexscope_tiktokAds from "../nexscope/tiktokAds.js";
 import type * as notifications from "../notifications.js";
+import type * as productPipeline from "../productPipeline.js";
 import type * as products from "../products.js";
 import type * as pushIdentities from "../pushIdentities.js";
 import type * as pushNotifications from "../pushNotifications.js";
@@ -57,6 +60,7 @@ import type * as stores from "../stores.js";
 import type * as submittedAds from "../submittedAds.js";
 import type * as trends from "../trends.js";
 import type * as users from "../users.js";
+import type * as winners from "../winners.js";
 import type * as winninghunter from "../winninghunter.js";
 
 import type {
@@ -86,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   emailDigest: typeof emailDigest;
   emailSender: typeof emailSender;
+  history: typeof history;
   http: typeof http;
   "lib/adFields": typeof lib_adFields;
   "lib/aiTools": typeof lib_aiTools;
@@ -93,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   "lib/category": typeof lib_category;
   "lib/herculesShim": typeof lib_herculesShim;
   "lib/pagination": typeof lib_pagination;
+  "lib/productMatch": typeof lib_productMatch;
   "lib/rangeParsing": typeof lib_rangeParsing;
   "lib/saturationScoring": typeof lib_saturationScoring;
   "lib/whTransform": typeof lib_whTransform;
@@ -103,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   "nexscope/productDiscovery": typeof nexscope_productDiscovery;
   "nexscope/tiktokAds": typeof nexscope_tiktokAds;
   notifications: typeof notifications;
+  productPipeline: typeof productPipeline;
   products: typeof products;
   pushIdentities: typeof pushIdentities;
   pushNotifications: typeof pushNotifications;
@@ -115,6 +122,7 @@ declare const fullApi: ApiFromModules<{
   submittedAds: typeof submittedAds;
   trends: typeof trends;
   users: typeof users;
+  winners: typeof winners;
   winninghunter: typeof winninghunter;
 }>;
 
