@@ -54,6 +54,7 @@ export default defineSchema({
     storeUrl: v.optional(v.string()),
     researchUrl: v.optional(v.string()),
     originalPrice: v.optional(v.string()),
+    priceCheckedAt: v.optional(v.string()), // last time the product page was checked for a price (convex/priceFetch.ts)
     // Which daily auto-pick this product fills ("<source>:<search niche>"),
     // so tomorrow's pick can retire it. See convex/lib/winners.ts.
     winnerSlot: v.optional(v.string()),

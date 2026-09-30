@@ -51,11 +51,21 @@ async function runPipeline(t: ReturnType<typeof convexTest>) {
   return await t.query(api.productPipeline.status, {});
 }
 
+// Product pages "served" to the price lookup; everything else has no price.
+let pages: Record<string, string> = {};
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-09-30T08:05:00Z"));
+  pages = {};
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => new Response(pages[url] ?? "<html></html>", { headers: { "content-type": "text/html" } })),
+  );
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("linking ads to products", () => {
   it("merges ads for the same product and skips ads that don't sell one", async () => {
@@ -219,5 +229,35 @@ describe("Products filters", () => {
     expect(await list({ origin: "db", hidePersonalised: true })).toEqual(["Ball", "Cheap lamp", "Fancy lamp"]);
     const byMargin = (await t.query(api.products.list, { paginationOpts: { numItems: 2, cursor: null }, sort: "margin" })).page.map((p) => p.title);
     expect(byMargin).toEqual(["Fancy lamp", "Cheap lamp"]);
+  });
+});
+
+describe("prices for products found in ads", () => {
+  it("takes the price an import wrote into the ad text", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("ads", ad({ bodyText: "Product Price: $12.61 · Items Sold (Last 7 days): 14" })));
+    await runPipeline(t);
+    const [p] = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(p).toMatchObject({ price: 12.61, priceSource: "ad_data", originalPrice: "USD 12.61" });
+  });
+
+  it("reads the price from the product page, converting to USD", async () => {
+    const t = convexTest(schema, modules);
+    pages["https://paws.example.com/products/dog-cooling-mat"] =
+      '<html><head><meta property="og:price:amount" content="299,00"><meta property="og:price:currency" content="DKK"></head></html>';
+    await t.run((ctx) => ctx.db.insert("ads", ad({})));
+    await runPipeline(t);
+    const [p] = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(p).toMatchObject({ price: 43.36, priceSource: "landing_page", originalPrice: "DKK 299.00" });
+    expect(p.priceCheckedAt).toBeDefined();
+  });
+
+  it("doesn't re-check a page without a price for a week", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("ads", ad({})));
+    await runPipeline(t);
+    const calls = vi.mocked(fetch).mock.calls.length;
+    await runPipeline(t);
+    expect(vi.mocked(fetch).mock.calls.length).toBe(calls);
   });
 });

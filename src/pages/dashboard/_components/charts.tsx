@@ -34,11 +34,16 @@ export function RangeSwitch({ value, onChange }: { value: Range; onChange: (r: R
   );
 }
 
-export function CollectingData({ className }: { className?: string }) {
+// Shown until there are 2 daily points. `firstDay` = the one saved so far.
+export function CollectingData({ className, firstDay }: { className?: string; firstDay?: string }) {
   return (
     <div className={cn("h-44 flex flex-col items-center justify-center text-center rounded-lg border border-dashed border-border px-4", className)}>
-      <p className="text-sm font-medium">Collecting data</p>
-      <p className="text-xs text-muted-foreground">Charts appear after 2 days.</p>
+      <p className="text-sm font-medium">Collecting data — charts appear after 2 days</p>
+      <p className="text-xs text-muted-foreground max-w-xs">
+        {firstDay
+          ? `History started ${dayLabel(firstDay)}. The next point is saved tomorrow at 08:05 UTC.`
+          : "Numbers are saved once a day at 08:05 UTC."}
+      </p>
     </div>
   );
 }
@@ -52,6 +57,7 @@ export function ChartCard({
   format = compactNumber,
   children,
   enough,
+  firstDay,
 }: {
   title: string;
   headline?: ReactNode;
@@ -59,6 +65,7 @@ export function ChartCard({
   format?: (n: number) => string;
   children: ReactNode;
   enough: boolean;
+  firstDay?: string;
 }) {
   const [table, setTable] = useState(false);
   return (
@@ -80,7 +87,7 @@ export function ChartCard({
         </div>
       </div>
       {!enough ? (
-        <CollectingData />
+        <CollectingData firstDay={firstDay} />
       ) : table ? (
         <div className="h-44 overflow-y-auto text-xs">
           <table className="w-full">

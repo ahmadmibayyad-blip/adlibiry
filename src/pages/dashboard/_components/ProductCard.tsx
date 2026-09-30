@@ -152,6 +152,9 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
                   <span className="text-[9px] text-muted-foreground uppercase tracking-wide">est.</span>
                 )}
               </div>
+              {product.priceSource === "landing_page" && product.originalPrice && !product.originalPrice.startsWith("USD") && (
+                <div className="text-[11px] text-muted-foreground">{product.originalPrice} in store</div>
+              )}
               <div className="text-xs text-muted-foreground">
                 {hasCost ? `Cost: $${product.cost}` : "Cost unknown"}
               </div>
@@ -163,9 +166,14 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
               </div>
             ) : null}
           </div>
+        ) : product.originalPrice ? (
+          <div className="mb-3">
+            <div className="text-base font-bold">{product.originalPrice}</div>
+            <div className="text-xs text-muted-foreground">Store price</div>
+          </div>
         ) : (
           <div className="mb-3 text-xs text-muted-foreground">
-            Price varies by supplier — see landing page
+            Price not found yet — see the landing page
           </div>
         )}
 
