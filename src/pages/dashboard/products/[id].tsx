@@ -17,6 +17,7 @@ import AIProductScoreCard from "../_components/ai/AIProductScoreCard.tsx";
 import AIAdAnglesCard from "../_components/ai/AIAdAnglesCard.tsx";
 import AICompetitorFinderCard from "../_components/ai/AICompetitorFinderCard.tsx";
 import CountrySaturationCard from "../_components/ai/CountrySaturationCard.tsx";
+import ProductPerformance, { ProductHeadline } from "./_components/ProductPerformance.tsx";
 
 const saturationColors: Record<string, string> = {
   Low: "text-green-400 bg-green-400/10 border-green-400/20",
@@ -188,6 +189,8 @@ export default function ProductDetail() {
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
           </div>
 
+          <ProductHeadline product={product} />
+
           {/* AI Score */}
           <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
             <div className="w-14 h-14 rounded-full border-4 border-primary/30 flex items-center justify-center">
@@ -275,9 +278,22 @@ export default function ProductDetail() {
                   ? "View Live Store"
                   : product.source === "nexscope_api"
                     ? "View on Amazon"
-                    : "Find Supplier on AliExpress"}
+                    : product.storeUrl
+                      ? "Open landing page"
+                      : "Find Supplier on AliExpress"}
               </a>
             </Button>
+            {product.source !== "nexscope_api" && (
+              <Button asChild variant="outline">
+                <a
+                  href={`https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Find supplier
+                </a>
+              </Button>
+            )}
             <Authenticated>
               <SaveButtonDetail productId={product._id} />
             </Authenticated>
@@ -308,6 +324,8 @@ export default function ProductDetail() {
           </div>
         </motion.div>
       </div>
+
+      <ProductPerformance product={product} />
     </div>
   );
 }

@@ -64,7 +64,7 @@ function SaveButton({ productId }: { productId: Id<"products"> }) {
   );
 }
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({ product, isNewToday }: { product: Product; isNewToday?: boolean }) {
   const hasPrice = product.price !== undefined;
   const hasCost = product.cost !== undefined;
   const margin =
@@ -89,6 +89,9 @@ export default function ProductCard({ product }: { product: Product }) {
             {product.aiScore}
           </span>
         </div>
+        {isNewToday && (
+          <div className="absolute top-11 left-2 rounded-md px-2 py-0.5 text-[11px] font-semibold bg-orange-500 text-white">New today</div>
+        )}
         {/* Save button */}
         <div className="absolute top-2 right-2">
           <Authenticated>
@@ -123,7 +126,22 @@ export default function ProductCard({ product }: { product: Product }) {
           </h3>
         </div>
 
-        <div className="text-xs text-muted-foreground mb-3">{product.category}</div>
+        <div className="text-xs text-muted-foreground mb-2">{product.category}</div>
+
+        {(product.winnerRank !== undefined || (product.linkedAds ?? 0) > 0) && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {product.winnerRank !== undefined && (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary">
+                Winner · #{product.winnerRank} in {product.category}
+              </span>
+            )}
+            {(product.linkedAds ?? 0) > 0 && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">
+                From {product.linkedAds} ad{product.linkedAds === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+        )}
 
         {hasPrice ? (
           <div className="flex items-center justify-between mb-3">

@@ -159,6 +159,68 @@ function OverviewTab() {
   );
 }
 
+const PIPELINE_STAGES: Record<string, string> = {
+  keys: "Preparing products",
+  link: "Linking ads to products",
+  aggregate: "Adding up ad numbers",
+  winners: "Rebuilding Winning Products",
+  snapshotProducts: "Saving product history",
+  snapshotAds: "Saving ad history",
+  prune: "Removing history older than 90 days",
+  done: "Done",
+};
+
+function ProductPipelineCard() {
+  const status = useQuery(api.productPipeline.status, {});
+  const runNow = useMutation(api.productPipeline.runNow);
+  const running = status?.state === "running";
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 mb-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <RefreshCw className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm">Products from ads, Winning Products & history</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Links ads to the products they sell, rebuilds Winning Products (top 50 per niche, score 65+) and saves today's numbers for the charts.
+            Runs automatically every day at 08:05 UTC. No API credits used.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          disabled={running}
+          onClick={async () => {
+            try {
+              const r = await runNow({});
+              toast[r.started ? "success" : "info"](r.started ? "Started" : "Already running");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start");
+            }
+          }}
+        >
+          {running ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+          {running ? "Running…" : "Run now"}
+        </Button>
+      </div>
+      {status && (
+        <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap text-xs">
+          <span className="text-muted-foreground">
+            Status <strong className={cn("text-foreground", status.state === "error" && "text-destructive")}>
+              {status.state === "running" ? PIPELINE_STAGES[status.stage] ?? status.stage : status.state === "done" ? `Done ${new Date(status.finishedAt ?? status.startedAt).toLocaleString()}` : "Failed"}
+            </strong>
+          </span>
+          <span className="text-muted-foreground">Products created from ads <strong className="text-foreground">{status.counts.productsCreated}</strong></span>
+          <span className="text-muted-foreground">Ads linked <strong className="text-foreground">{status.counts.adsLinked}</strong></span>
+          <span className="text-muted-foreground">Winners <strong className="text-foreground">{status.counts.winners}</strong></span>
+          <span className="text-muted-foreground">History rows <strong className="text-foreground">{status.counts.snapshots}</strong></span>
+          {status.error && <div className="w-full text-destructive">{status.error}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductsTab() {
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
@@ -231,6 +293,7 @@ function ProductsTab() {
 
   return (
     <div>
+      <ProductPipelineCard />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>

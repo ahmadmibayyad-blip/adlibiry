@@ -14,6 +14,7 @@ import {
   LineChart,
   ShieldCheck,
   Puzzle,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
@@ -25,7 +26,8 @@ import AIAssistant from "./ai/AIAssistant.tsx";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: TrendingUp, label: "Winning Products", href: "/dashboard/products" },
+  { icon: Trophy, label: "Winning Products", href: "/dashboard/winners" },
+  { icon: TrendingUp, label: "Products", href: "/dashboard/products" },
   { icon: Search, label: "Ad Spy", href: "/dashboard/ad-spy" },
   { icon: LineChart, label: "Research", href: "/dashboard/research" },
   { icon: Store, label: "Store Tracker", href: "/dashboard/stores" },
