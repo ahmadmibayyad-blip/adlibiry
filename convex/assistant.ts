@@ -65,20 +65,29 @@ export const chat = action({
     }
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    try {
-      const final = await client.beta.messages.toolRunner({
+    const ask = (withFallback: boolean) =>
+      client.beta.messages.toolRunner({
         model: MODEL,
         max_tokens: 16000,
         // Chat answers don't need deep reasoning; low effort keeps replies fast and cheap.
         output_config: { effort: "low" },
         // If a safety check declines a request, the API retries it on a suitable model.
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
+        ...(withFallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
         system: SYSTEM,
         tools: makeTools(ctx),
         max_iterations: 6,
         messages: history.map((m) => ({ role: m.role, content: m.content })),
       });
+    try {
+      let final;
+      try {
+        final = await ask(true);
+      } catch (e) {
+        // The fallback option is a beta some accounts can't use: ask again without it.
+        if (!(e instanceof Anthropic.BadRequestError && /fallback|beta/i.test(e.message))) throw e;
+        console.warn("Claude: retrying without server-side fallback:", e.message);
+        final = await ask(false);
+      }
       if (final.stop_reason === "refusal") {
         return { reply: "Sorry, I can't help with that one. Try asking about products, ads or niches.", used: claim.used, limit };
       }
@@ -101,7 +110,19 @@ export const chat = action({
       }
       if (error instanceof Anthropic.APIError) {
         console.error("Claude API error", error.status, error.message);
-        throw new ConvexError({ code: "AI_ERROR", message: "The AI assistant had a problem. Please try again." });
+        const reason = /credit balance/i.test(error.message)
+          ? "The AI assistant is out of credit. The site owner needs to add credit at console.anthropic.com → Billing."
+          : error instanceof Anthropic.NotFoundError
+            ? "The AI model isn't available for this API key."
+            : error instanceof Anthropic.PermissionDeniedError
+              ? "This API key isn't allowed to use the AI model."
+              : error instanceof Anthropic.InternalServerError || error.status === 529
+                ? "The AI service is overloaded right now. Please try again in a minute."
+                : "The AI assistant had a problem. Please try again.";
+        // Admins also see Anthropic's own message, to fix the setup.
+        const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
+        const detail = user?.role === "admin" ? ` (Anthropic ${error.status}: ${error.message.slice(0, 300)})` : "";
+        throw new ConvexError({ code: "AI_ERROR", message: reason + detail });
       }
       throw error;
     }
