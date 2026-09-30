@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNiches, buildTrends, keywordsOf, type AdLite } from "./research";
+import { buildNiches, buildTrends, isHomepageUrl, keywordsOf, type AdLite } from "./research";
 
 const NOW = Date.parse("2026-09-30T08:00:00Z");
 const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
@@ -50,5 +50,14 @@ describe("buildNiches", () => {
     expect(rows).toHaveLength(1); // Toys has no products or ads
     expect(rows[0]).toMatchObject({ name: "Pet Supplies", icon: "PawPrint", avgAiScore: 70, productCount: 2, trendDirection: "Rising", topCountries: ["US"] });
     expect(rows[0].description).toBe("1 winner · 1 found in ads · 2 new ads this week (1 last week) · mostly TikTok.");
+  });
+});
+
+describe("isHomepageUrl", () => {
+  it("spots a bare site address", () => {
+    expect(isHomepageUrl("https://www.aliexpress.com")).toBe(true);
+    expect(isHomepageUrl("https://www.aliexpress.com/")).toBe(true);
+    expect(isHomepageUrl("https://www.aliexpress.com/item/1.html")).toBe(false);
+    expect(isHomepageUrl("https://www.aliexpress.com/?q=mat")).toBe(false);
   });
 });

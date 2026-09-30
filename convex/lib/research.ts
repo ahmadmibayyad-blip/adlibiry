@@ -188,3 +188,14 @@ export function buildNiches(niches: readonly string[], products: ProductLite[], 
     .filter((n) => n.productCount > 0 || n.adCount > 0)
     .map(({ adCount: _a, ...row }) => row);
 }
+
+// True for a bare site address ("https://www.aliexpress.com") that points to
+// no product in particular.
+export function isHomepageUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (u.pathname === "" || u.pathname === "/") && !u.search;
+  } catch {
+    return true;
+  }
+}

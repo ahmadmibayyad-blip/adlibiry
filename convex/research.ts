@@ -3,7 +3,7 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { internal } from "./_generated/api";
 import { NICHES } from "./lib/category";
 import { productTitleForAd } from "./lib/productMatch";
-import { buildNiches, buildTrends, type AdLite, type ProductLite } from "./lib/research";
+import { buildNiches, buildTrends, isHomepageUrl, type AdLite, type ProductLite } from "./lib/research";
 
 // ── Research → Trends and Niche Explorer ────────────────────────────────────
 // Rebuilt once a day right after the product pipeline (convex/productPipeline.ts)
@@ -69,6 +69,10 @@ export const save = internalMutation({
   handler: async (ctx, args) => {
     for (const t of await ctx.db.query("trends").collect()) await ctx.db.delete("trends", t._id);
     for (const n of await ctx.db.query("niches").collect()) await ctx.db.delete("niches", n._id);
+    // Old demo supplier listings link to a store's homepage, not a product.
+    for (const s of await ctx.db.query("supplierListings").collect()) {
+      if (isHomepageUrl(s.supplierUrl)) await ctx.db.delete("supplierListings", s._id);
+    }
     const updatedAt = new Date().toISOString();
     for (const t of args.trends) await ctx.db.insert("trends", { ...t, updatedAt });
     for (const n of args.niches) await ctx.db.insert("niches", n);
