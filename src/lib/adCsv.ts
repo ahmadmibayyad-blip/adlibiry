@@ -274,7 +274,9 @@ export function buildAdRows(
       0,
       Math.round(daysCol ?? (firstSeen ? ((lastSeen ?? now).getTime() - firstSeen.getTime()) / dayMs : 0)),
     );
-    const firstSeenAt = (firstSeen ?? new Date(now.getTime() - days * dayMs)).toISOString();
+    // Dated by the import, not the file: Ad Spy and the admin list sort by
+    // first-seen, and back-dated rows would sink below every newer ad.
+    const firstSeenAt = now.toISOString();
 
     const likes = Math.max(0, Math.round(toNumber(get(r, "likes")) ?? 0));
     const viewsNum = toNumber(get(r, "views"));
@@ -315,7 +317,7 @@ export function buildAdRows(
       ...(viewsNum !== undefined ? { impressions: Math.round(viewsNum) } : {}),
       ...(toNumber(get(r, "comments")) !== undefined ? { comments: Math.round(toNumber(get(r, "comments"))!) } : {}),
       ...(toNumber(get(r, "shares")) !== undefined ? { shares: Math.round(toNumber(get(r, "shares"))!) } : {}),
-      ...(lastSeen ? { lastSeenAt: lastSeen.toISOString() } : {}),
+      lastSeenAt: (lastSeen ?? now).toISOString(),
       ...(countries.length ? { countries } : {}),
       ...(isUrl(libraryUrl) ? { adLibraryUrl: libraryUrl } : {}),
     });

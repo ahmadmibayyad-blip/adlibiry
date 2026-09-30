@@ -90,7 +90,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
     setProgress(0);
     try {
       for (let i = 0; i < rows.length; i += BATCH) {
-        const r = await importAds({ ads: rows.slice(i, i + BATCH) });
+        const r = await importAds({ ads: rows.slice(i, i + BATCH), refreshFirstSeen: true });
         totals.created += r.created;
         totals.updated += r.updated;
         setProgress(Math.round(((i + BATCH) / rows.length) * 100));
@@ -250,7 +250,8 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
             {progress !== null && <Progress value={Math.min(progress, 100)} />}
             {result && (
               <p className="text-xs">
-                Done: <strong>{result.created}</strong> new, <strong>{result.updated}</strong> updated.
+                Done: <strong>{result.created}</strong> new, <strong>{result.updated}</strong> updated. They are at the
+                top of the ads list below and of Ad Spy (Newest). In Ad Spy you can also pick Source → "CSV import" to see only these.
               </p>
             )}
           </div>
