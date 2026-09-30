@@ -65,6 +65,9 @@ export default function ProductPerformance({ product }: { product: Product }) {
   const crossed = score.find((p, i) => i > 0 && p.value >= WINNER_LINE && score[i - 1].value < WINNER_LINE);
 
   const adList = ads ?? [];
+  // Views, spend and engagement only exist for products with linked ads.
+  const hasAdData = (product.linkedAds ?? 0) > 0 || adList.length > 0;
+  const firstDay = rows[0]?.day;
   const countBy = (keyOf: (a: (typeof adList)[number]) => string) => {
     const m = new Map<string, number>();
     for (const a of adList) m.set(keyOf(a), (m.get(keyOf(a)) ?? 0) + 1);
@@ -80,30 +83,46 @@ export default function ProductPerformance({ product }: { product: Product }) {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <ChartCard title="Views over time" points={views} enough={enough} headline={<span className="tabular-nums">+{compactNumber(viewsGained)} in {range}d</span>}>
-          <TimeChart kind="area" points={views} label="views" />
-        </ChartCard>
-        <ChartCard title="Estimated daily ad spend" points={spendPerDay} format={money} enough={enough}>
-          <TimeChart kind="bar" points={spendPerDay} label="spend" format={money} />
-        </ChartCard>
+        {hasAdData && (
+          <>
+            <ChartCard title="Views over time" points={views} enough={enough} firstDay={firstDay} headline={<span className="tabular-nums">+{compactNumber(viewsGained)} in {range}d</span>}>
+              <TimeChart kind="area" points={views} label="views" />
+            </ChartCard>
+            <ChartCard title="Estimated daily ad spend" points={spendPerDay} format={money} enough={enough} firstDay={firstDay}>
+              <TimeChart kind="bar" points={spendPerDay} label="spend" format={money} />
+            </ChartCard>
+          </>
+        )}
         <ChartCard
           title="Score history"
           points={score}
           format={(n) => `${Math.round(n)}`}
           enough={enough}
+          firstDay={firstDay}
           headline={crossed ? <span>Became a winner on {new Date(`${crossed.day}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" })}</span> : undefined}
         >
           <TimeChart kind="line" points={score} label="score" format={(n) => `${Math.round(n)}`} domain={[0, 100]} reference={{ y: WINNER_LINE, label: `Winner line ${WINNER_LINE}` }} />
         </ChartCard>
-        <ChartCard
-          title="Engagement rate (likes + comments ÷ views)"
-          points={engagement}
-          format={pct}
-          enough={enough}
-          headline={engagement.length ? <span className="tabular-nums">{pct(engagement[engagement.length - 1].value)}</span> : undefined}
-        >
-          <TimeChart kind="line" points={engagement} label="engagement" format={pct} />
-        </ChartCard>
+        {hasAdData ? (
+          <ChartCard
+            title="Engagement rate (likes + comments ÷ views)"
+            points={engagement}
+            format={pct}
+            enough={enough}
+            firstDay={firstDay}
+            headline={engagement.length ? <span className="tabular-nums">{pct(engagement[engagement.length - 1].value)}</span> : undefined}
+          >
+            <TimeChart kind="line" points={engagement} label="engagement" format={pct} />
+          </ChartCard>
+        ) : (
+          <div className="bg-card border border-border rounded-xl p-4 flex flex-col justify-center">
+            <h3 className="text-sm font-semibold mb-1">No ads linked to this product yet</h3>
+            <p className="text-xs text-muted-foreground">
+              Views, ad spend and engagement come from running ads for this product. When an ad in Ad Spy links to this
+              product's page, it's attached automatically and these charts appear.
+            </p>
+          </div>
+        )}
       </div>
 
       {adList.length > 0 && (

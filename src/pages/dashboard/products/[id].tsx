@@ -216,6 +216,14 @@ export default function ProductDetail() {
                 <ShoppingCart className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold text-sm">Quick Numbers</h3>
               </div>
+              {product.priceSource === "landing_page" && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  Price read from the store's product page{product.originalPrice && !product.originalPrice.startsWith("USD") ? ` (${product.originalPrice}, converted to USD)` : ""}. Supplier cost isn't known — enter yours in the profit calculator.
+                </p>
+              )}
+              {product.priceSource === "ad_data" && (
+                <p className="text-xs text-muted-foreground mb-3">Price taken from the imported ad data.</p>
+              )}
               {product.priceSource === "estimated_market" && (
                 <p className="text-xs text-muted-foreground mb-3">
                   Estimated market price/cost for this category, benchmarked from Amazon listings — not this exact product's real price.
@@ -254,7 +262,10 @@ export default function ProductDetail() {
                 <h3 className="font-semibold text-sm">Pricing</h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                This product was auto-discovered from a live running ad. Price and supplier cost aren't available yet — check the store's landing page below, then use the profit calculator with your own numbers.
+                {product.originalPrice
+                  ? `The store sells it for ${product.originalPrice} (we have no USD rate for that currency). `
+                  : "We couldn't read a price from the store's page yet — we check product pages once a day. "}
+                Check the landing page below, then use the profit calculator with your own numbers.
               </p>
             </div>
           )}

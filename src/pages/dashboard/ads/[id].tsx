@@ -178,6 +178,7 @@ export default function AdDetailPage() {
               title="New views per day"
               points={newViews}
               enough={enough}
+              firstDay={rows[0]?.day}
               headline={peak ? <span className="tabular-nums">peak {compactNumber(peak)}</span> : undefined}
             >
               <TimeChart kind="bar" points={newViews} label="new views" />
@@ -185,7 +186,7 @@ export default function AdDetailPage() {
             <div className="bg-card border border-border rounded-xl p-4 min-w-0">
               <h3 className="text-sm font-semibold mb-3">Likes & comments (total)</h3>
               {!enough ? (
-                <CollectingData />
+                <CollectingData firstDay={rows[0]?.day} />
               ) : (
                 // Two small charts, each on its own scale — comments are far fewer than likes.
                 <div className="grid grid-cols-2 gap-3">

@@ -6,6 +6,7 @@ import { markStatsDirty } from "./stats";
 import { requireAdmin } from "./admin/helpers";
 import { NICHES } from "./lib/category";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
+import { priceFromAdText, priceLabel, toUsd } from "./lib/priceParse";
 import {
   adSellsProduct, gmvFromText, parseCompact, productFlags, productTitleForAd, roundRobin, titleKey, urlKey, isProductPage,
 } from "./lib/productMatch";
@@ -212,6 +213,8 @@ export const step = internalMutation({
     const nextStage = done ? NEXT[stage] : stage;
     if (nextStage === "done") {
       await writeStatus(ctx, { ...status.data, counts, stage: "done", state: "done", finishedAt: new Date().toISOString() });
+      // Then look up prices for products that have none (network, so an action).
+      await ctx.scheduler.runAfter(0, internal.priceFetch.run, { round: 0 });
       return;
     }
     await writeStatus(ctx, { ...status.data, counts, stage: nextStage });
@@ -315,6 +318,19 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
     linkedSpend: sum.spend,
     linkedGmv: sum.gmv,
   };
+  // A price an import wrote into the ad text ("Product Price: $12.61").
+  if (p.price === undefined) {
+    for (const ad of ads) {
+      const found = priceFromAdText(ad.bodyText ?? "");
+      const usd = found ? toUsd(found) : undefined;
+      if (found && usd !== undefined) {
+        patch.price = usd;
+        patch.priceSource = "ad_data";
+        patch.originalPrice = priceLabel(found);
+        break;
+      }
+    }
+  }
   // "Ads running" (sort and filter) counts linked ads too.
   if (ads.length > (p.adsCount ?? 0) || p.source === "ads") patch.adsCount = ads.length;
   if (p.source === "ads" && ads.length) {
