@@ -14,7 +14,9 @@ export const list = query({
     let trends = await ctx.db.query("trends").withIndex("by_updated").order("desc").take(200);
     if (args.niche) trends = trends.filter((t) => t.niche === args.niche);
     if (args.direction) trends = trends.filter((t) => t.direction === args.direction);
-    return trends;
+    // Rising first (biggest gain first), then steady, then falling.
+    const order: Record<string, number> = { Rising: 0, Stable: 1, Declining: 2 };
+    return trends.sort((a, b) => (order[a.direction] ?? 3) - (order[b.direction] ?? 3) || b.risingPercent - a.risingPercent);
   },
 });
 

@@ -5,6 +5,7 @@ import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { ConvexError, v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { claudeErrorMessage } from "./lib/claudeErrors";
 import { listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
@@ -102,27 +103,10 @@ export const chat = action({
         limit,
       };
     } catch (error) {
-      if (error instanceof Anthropic.AuthenticationError) {
-        throw new ConvexError({ code: "NOT_CONFIGURED", message: "The AI assistant's API key is invalid." });
-      }
-      if (error instanceof Anthropic.RateLimitError) {
-        throw new ConvexError({ code: "BUSY", message: "The AI assistant is busy right now. Try again in a minute." });
-      }
       if (error instanceof Anthropic.APIError) {
         console.error("Claude API error", error.status, error.message);
-        const reason = /credit balance/i.test(error.message)
-          ? "The AI assistant is out of credit. The site owner needs to add credit at console.anthropic.com → Billing."
-          : error instanceof Anthropic.NotFoundError
-            ? "The AI model isn't available for this API key."
-            : error instanceof Anthropic.PermissionDeniedError
-              ? "This API key isn't allowed to use the AI model."
-              : error instanceof Anthropic.InternalServerError || error.status === 529
-                ? "The AI service is overloaded right now. Please try again in a minute."
-                : "The AI assistant had a problem. Please try again.";
-        // Admins also see Anthropic's own message, to fix the setup.
         const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
-        const detail = user?.role === "admin" ? ` (Anthropic ${error.status}: ${error.message.slice(0, 300)})` : "";
-        throw new ConvexError({ code: "AI_ERROR", message: reason + detail });
+        throw new ConvexError({ code: "AI_ERROR", message: claudeErrorMessage(error, user?.role === "admin") });
       }
       throw error;
     }

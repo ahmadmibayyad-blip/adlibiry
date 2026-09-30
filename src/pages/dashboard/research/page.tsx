@@ -77,13 +77,6 @@ export default function ResearchPage() {
 function TrendsTab() {
   const [direction, setDirection] = useState<string | undefined>(undefined);
   const trends = useQuery(api.trends.list, { direction });
-  const seedResearchData = useMutation(api.trends.seedResearchData);
-  const isAdmin = useQuery(api.users.isAdmin, {});
-
-  const handleSeed = async () => {
-    await seedResearchData();
-    toast.success("Research data loaded!");
-  };
 
   return (
     <div>
@@ -108,13 +101,9 @@ function TrendsTab() {
             );
           })}
         </div>
-        {/* Demo data — admins only */}
-        {isAdmin && trends !== undefined && trends.length === 0 && (
-          <Button size="sm" variant="outline" onClick={handleSeed} className="text-xs">
-            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-            Load Sample Research Data
-          </Button>
-        )}
+        <p className="text-xs text-muted-foreground">
+          Product words and phrases counted in new ads each week. Rising = more new ads this week than last. Updated every morning.
+        </p>
       </div>
 
       {trends === undefined ? (
@@ -126,8 +115,11 @@ function TrendsTab() {
       ) : trends.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-center border border-dashed border-border rounded-xl">
           <LineChart className="w-10 h-10 text-muted-foreground mb-3" />
-          <h3 className="font-semibold mb-1">No trend data yet</h3>
-          <p className="text-sm text-muted-foreground">Click "Load Sample Research Data" above to populate trends.</p>
+          <h3 className="font-semibold mb-1">No trends yet</h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Trends are built every morning from new ads. They appear once enough ads mention the same product
+            (3+ in the last two weeks).
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -167,7 +159,7 @@ function NichesTab({ onSelectNiche }: { onSelectNiche: (niche: string) => void }
       <div className="flex flex-col items-center py-20 text-center border border-dashed border-border rounded-xl">
         <Compass className="w-10 h-10 text-muted-foreground mb-3" />
         <h3 className="font-semibold mb-1">No niches yet</h3>
-        <p className="text-sm text-muted-foreground">Load sample research data from the Trends tab first.</p>
+        <p className="text-sm text-muted-foreground">Niche stats are built every morning from your products and ads.</p>
       </div>
     );
   }
