@@ -21,6 +21,8 @@ import type * as admin_stores from "../admin/stores.js";
 import type * as ads from "../ads.js";
 import type * as ai from "../ai.js";
 import type * as apify from "../apify.js";
+import type * as assistant from "../assistant.js";
+import type * as assistantUsage from "../assistantUsage.js";
 import type * as auth from "../auth.js";
 import type * as commerce from "../commerce.js";
 import type * as crons from "../crons.js";
@@ -74,6 +76,8 @@ declare const fullApi: ApiFromModules<{
   ads: typeof ads;
   ai: typeof ai;
   apify: typeof apify;
+  assistant: typeof assistant;
+  assistantUsage: typeof assistantUsage;
   auth: typeof auth;
   commerce: typeof commerce;
   crons: typeof crons;

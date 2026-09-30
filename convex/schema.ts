@@ -150,6 +150,13 @@ export default defineSchema({
   // the callback is for a run we started (no shared secret env var needed).
   // Precomputed counts/facets (filter dropdowns, admin totals) so pages never
   // scan whole tables. Rebuilt a few minutes after imports and once a day.
+  // Messages each user sent to the AI assistant per UTC day (daily cap).
+  assistantUsage: defineTable({
+    userId: v.id("users"),
+    day: v.string(), // "YYYY-MM-DD" (UTC)
+    count: v.number(),
+  }).index("by_user_day", ["userId", "day"]),
+
   siteStats: defineTable({
     key: v.string(),
     data: v.any(),
