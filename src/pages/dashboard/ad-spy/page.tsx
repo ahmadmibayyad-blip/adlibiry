@@ -70,6 +70,7 @@ const SOURCES = [
   opt("winninghunter", "WinningHunter"),
   opt("nexscope", "TikTok (Nexscope)"),
   opt("extension", "Extension"),
+  opt("csv_import", "CSV import"),
 ];
 const SORTS = [
   opt("newest", "Newest"),

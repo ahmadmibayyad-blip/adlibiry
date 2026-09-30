@@ -31,6 +31,7 @@ import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
 import CsvImportDialog from "./_components/CsvImportDialog.tsx";
+import AdCsvImportDialog from "./_components/AdCsvImportDialog.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users";
 type Product = Doc<"products">;
@@ -436,6 +437,7 @@ function AdsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Ad | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Ad | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<{
     fetched: number;
@@ -556,11 +558,16 @@ function AdsTab() {
             className="pl-9"
           />
         </div>
+        <Button variant="secondary" onClick={() => setCsvOpen(true)}>
+          <Upload className="w-4 h-4 mr-1.5" />
+          Import CSV
+        </Button>
         <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-1.5" />
           Add ad
         </Button>
       </div>
+      <AdCsvImportDialog open={csvOpen} onOpenChange={setCsvOpen} />
 
       {status === "LoadingFirstPage" ? (
         <div className="space-y-2">
@@ -616,7 +623,7 @@ function AdsTab() {
                       <Badge variant="secondary">{ad.aiScore}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {({ adlibrary_api: "AdLibrary", meta_ad_library: "Meta", apify: "Apify", nexscope: "Nexscope", extension: "Extension", winninghunter: "WinningHunter" } as Record<string, string>)[ad.source] ?? "Curated"}
+                      {({ adlibrary_api: "AdLibrary", meta_ad_library: "Meta", apify: "Apify", nexscope: "Nexscope", extension: "Extension", winninghunter: "WinningHunter", csv_import: "CSV" } as Record<string, string>)[ad.source] ?? "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
