@@ -5,6 +5,7 @@ import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { ConvexError, v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { claudeErrorMessage } from "./lib/claudeErrors";
 import { listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
@@ -65,20 +66,29 @@ export const chat = action({
     }
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    try {
-      const final = await client.beta.messages.toolRunner({
+    const ask = (withFallback: boolean) =>
+      client.beta.messages.toolRunner({
         model: MODEL,
         max_tokens: 16000,
         // Chat answers don't need deep reasoning; low effort keeps replies fast and cheap.
         output_config: { effort: "low" },
         // If a safety check declines a request, the API retries it on a suitable model.
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
+        ...(withFallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
         system: SYSTEM,
         tools: makeTools(ctx),
         max_iterations: 6,
         messages: history.map((m) => ({ role: m.role, content: m.content })),
       });
+    try {
+      let final;
+      try {
+        final = await ask(true);
+      } catch (e) {
+        // The fallback option is a beta some accounts can't use: ask again without it.
+        if (!(e instanceof Anthropic.BadRequestError && /fallback|beta/i.test(e.message))) throw e;
+        console.warn("Claude: retrying without server-side fallback:", e.message);
+        final = await ask(false);
+      }
       if (final.stop_reason === "refusal") {
         return { reply: "Sorry, I can't help with that one. Try asking about products, ads or niches.", used: claim.used, limit };
       }
@@ -93,15 +103,10 @@ export const chat = action({
         limit,
       };
     } catch (error) {
-      if (error instanceof Anthropic.AuthenticationError) {
-        throw new ConvexError({ code: "NOT_CONFIGURED", message: "The AI assistant's API key is invalid." });
-      }
-      if (error instanceof Anthropic.RateLimitError) {
-        throw new ConvexError({ code: "BUSY", message: "The AI assistant is busy right now. Try again in a minute." });
-      }
       if (error instanceof Anthropic.APIError) {
         console.error("Claude API error", error.status, error.message);
-        throw new ConvexError({ code: "AI_ERROR", message: "The AI assistant had a problem. Please try again." });
+        const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
+        throw new ConvexError({ code: "AI_ERROR", message: claudeErrorMessage(error, user?.role === "admin") });
       }
       throw error;
     }

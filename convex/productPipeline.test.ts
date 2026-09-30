@@ -261,3 +261,21 @@ describe("prices for products found in ads", () => {
     expect(vi.mocked(fetch).mock.calls.length).toBe(calls);
   });
 });
+
+describe("Research tab", () => {
+  it("replaces demo trends and niches with ones built from ads and products", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("niches", { name: "Fake", icon: "Package", description: "demo", avgAiScore: 99, productCount: 999, trendDirection: "Rising", topCountries: [] });
+      for (let i = 0; i < 4; i++) {
+        await ctx.db.insert("ads", ad({ firstSeenAt: "2026-09-28T00:00:00.000Z", landingPageUrl: `https://paws.example.com/products/dog-cooling-mat-${i}` }));
+      }
+    });
+    await runPipeline(t);
+    const niches = await t.run((ctx) => ctx.db.query("niches").collect());
+    expect(niches.map((n) => n.name)).toEqual(["Pet Supplies"]);
+    expect(niches[0].productCount).toBe(1); // the four ads are the same product
+    const trends = await t.query(api.trends.list, {});
+    expect(trends.map((r) => r.keyword)).toContain("dog cooling mat");
+  });
+});

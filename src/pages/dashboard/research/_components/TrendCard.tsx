@@ -65,7 +65,7 @@ export default function TrendCard({ trend }: { trend: Trend }) {
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Globe2 className="w-3.5 h-3.5" />
           Top region: <span className="font-medium text-foreground">{topCountry.country}</span>
-          <span className="text-muted-foreground">({topCountry.interest}/100)</span>
+          <span className="text-muted-foreground">({topCountry.interest}% of ads)</span>
         </div>
       )}
     </div>

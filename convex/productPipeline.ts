@@ -215,6 +215,8 @@ export const step = internalMutation({
       await writeStatus(ctx, { ...status.data, counts, stage: "done", state: "done", finishedAt: new Date().toISOString() });
       // Then look up prices for products that have none (network, so an action).
       await ctx.scheduler.runAfter(0, internal.priceFetch.run, { round: 0 });
+      // And the Research tab (trending keywords, niches) from today's data.
+      await ctx.scheduler.runAfter(0, internal.research.rebuild, {});
       return;
     }
     await writeStatus(ctx, { ...status.data, counts, stage: nextStage });

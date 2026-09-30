@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAction } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api.js";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -29,7 +30,7 @@ const competitionColors: Record<string, string> = {
 };
 
 export default function AINicheReportModal({ niche, open, onOpenChange }: { niche: Niche | null; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const generateNicheReport = useAction(api.ai.generateNicheReport);
+  const generateNicheReport = useAction(api.nicheReport.generate);
   const [report, setReport] = useState<Report | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,15 +39,13 @@ export default function AINicheReportModal({ niche, open, onOpenChange }: { nich
   const handleGenerate = async () => {
     setIsLoading(true);
     try {
-      const res = await generateNicheReport({
-        niche: niche.name,
-        avgAiScore: niche.avgAiScore,
-        productCount: niche.productCount,
-        trendDirection: niche.trendDirection,
-      });
+      const res = await generateNicheReport({ niche: niche.name });
       setReport(res);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to generate niche report";
+      const message =
+        error instanceof ConvexError && typeof (error.data as { message?: unknown })?.message === "string"
+          ? (error.data as { message: string }).message
+          : "Failed to generate niche report";
       toast.error(message);
     } finally {
       setIsLoading(false);
