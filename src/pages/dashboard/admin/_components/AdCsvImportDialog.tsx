@@ -76,7 +76,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
       const rows = parseCsv(text);
       if (rows.length < 2) throw new Error("The file has no data rows.");
       setTable(rows);
-      setMap(autoMapAds(rows[0]));
+      setMap(autoMapAds(rows[0], rows.slice(1, 11)));
       setFileName(file.name);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read this file");

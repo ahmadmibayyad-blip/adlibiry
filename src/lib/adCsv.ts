@@ -49,22 +49,22 @@ const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 // Earlier aliases win.
 const ALIASES: Record<AdField, string[]> = {
   adId: ["adid", "adkey", "id", "adarchiveid", "archiveid", "libraryid", "videoid"],
-  advertiserName: ["advertiser", "advertisername", "pagename", "page", "brand", "store", "storename", "shopname", "author", "username", "account"],
-  headline: ["headline", "title", "adtitle", "linktitle", "name", "producttitle", "productname"],
+  advertiserName: ["advertiser", "advertisername", "pagename", "page", "shop", "shopname", "store", "storename", "seller", "sellername", "brand", "author", "username", "account"],
+  headline: ["headline", "title", "adtitle", "linktitle", "name", "producttitle", "productname", "products", "product"],
   bodyText: ["bodytext", "body", "adtext", "adcopy", "copy", "text", "caption", "description", "primarytext", "message"],
-  creativeUrl: ["creativeurl", "imageurl", "image", "thumbnail", "thumbnailurl", "cover", "coverurl", "poster", "preview", "adimage", "picture", "img"],
+  creativeUrl: ["creativeurl", "imageurl", "image", "productimageurl", "productimage", "imagelink", "mainimage", "coverimage", "coverimageurl", "videocover", "thumbnail", "thumbnailurl", "cover", "coverurl", "poster", "preview", "adimage", "picture", "img"],
   videoUrl: ["videourl", "video", "videolink", "mediaurl"],
-  landingPageUrl: ["landingpage", "landingpageurl", "landingurl", "producturl", "productlink", "storeurl", "shopurl", "linkurl", "destinationurl", "url", "link"],
+  landingPageUrl: ["landingpage", "landingpageurl", "landingurl", "producturl", "productlink", "storeurl", "shopurl", "linkurl", "destinationurl", "tiktokurl", "tiktoklink", "tiktokshopurl", "url", "link"],
   platform: ["platform", "network", "channel", "publisherplatform"],
   country: ["country", "countrycode", "region", "market", "countries", "geo", "location"],
-  niche: ["niche", "category", "producttype", "vertical"],
+  niche: ["niche", "category", "productcategory", "producttype", "vertical"],
   spend: ["spend", "spendestimate", "adspend", "estimatedspend", "budget"],
   likes: ["likes", "likecount", "reactions", "diggcount", "totallikes"],
   views: ["views", "viewcount", "plays", "playcount", "impressions", "reach", "totalreach"],
   comments: ["comments", "commentcount"],
   shares: ["shares", "sharecount"],
   daysRunning: ["daysrunning", "days", "runningdays", "activedays", "duration", "adduration"],
-  firstSeen: ["firstseen", "firstseenat", "startdate", "adstartdate", "created", "createdat", "launchdate", "publishedat", "date"],
+  firstSeen: ["firstseen", "firstseenat", "startdate", "adstartdate", "created", "createdat", "launchdate", "publishedat", "estimatedlisteddate", "listeddate", "listingdate", "date"],
   lastSeen: ["lastseen", "lastseenat", "enddate", "adenddate", "updatedat"],
   ctaText: ["cta", "ctatext", "calltoaction", "button", "buttontext"],
   adLibraryUrl: ["adlibraryurl", "adlibrarylink", "adurl", "adlink", "sourceurl", "detailurl", "postlink", "posturl"],
@@ -76,22 +76,64 @@ const ORDER: AdField[] = [
 
 export type AdColumnMap = Partial<Record<AdField, number>>;
 
-export function autoMapAds(header: string[]): AdColumnMap {
+// Loose fallbacks for columns the exact aliases miss, e.g. "Main Image (URL)".
+const FUZZY: Partial<Record<AdField, string[]>> = {
+  creativeUrl: ["image", "img", "thumbnail", "cover", "picture", "photo"],
+  headline: ["title", "product", "name"],
+  advertiserName: ["advertiser", "shop", "store", "brand", "page"],
+  landingPageUrl: ["url", "link"],
+  niche: ["category", "niche"],
+  country: ["country"],
+};
+const IMAGE_VALUE = /\.(jpe?g|png|webp|gif|avif)(\?|~|$)|[/._-](image|img|thumb|cover)|tplv-|ttcdn|fbcdn|scontent/i;
+
+// `sample` (the first data rows) lets us find an image column by its values
+// when the header gives no hint.
+export function autoMapAds(header: string[], sample: string[][] = []): AdColumnMap {
   const h = header.map(norm);
   const used = new Set<number>();
   const map: AdColumnMap = {};
+  const take = (f: AdField, idx: number) => {
+    map[f] = idx;
+    used.add(idx);
+  };
   for (const f of ORDER) {
     for (const alias of ALIASES[f]) {
       const idx = h.indexOf(alias);
       if (idx >= 0 && !used.has(idx)) {
-        map[f] = idx;
-        used.add(idx);
+        take(f, idx);
         break;
       }
     }
   }
+  const rows = sample.slice(0, 10);
+  const urlShare = (idx: number, re: RegExp) => {
+    const vals = rows.map((r) => (r[idx] ?? "").trim()).filter(Boolean);
+    return vals.length ? vals.filter((v) => /^https?:\/\//i.test(v) && re.test(v)).length / vals.length : 0;
+  };
+  if (map.creativeUrl === undefined && map.videoUrl === undefined) {
+    const idx = h.findIndex((_, i) => !used.has(i) && urlShare(i, IMAGE_VALUE) >= 0.5);
+    if (idx >= 0) take("creativeUrl", idx);
+  }
+  for (const f of ORDER) {
+    if (map[f] !== undefined || !FUZZY[f]) continue;
+    const idx = h.findIndex(
+      (col, i) =>
+        !used.has(i) &&
+        FUZZY[f]!.some((k) => col.includes(k)) &&
+        // a URL column only counts as a landing page / image if it holds URLs
+        (f === "landingPageUrl" || f === "creativeUrl" ? urlShare(i, /./) >= 0.5 || rows.length === 0 : true),
+    );
+    if (idx >= 0) take(f, idx);
+  }
   return map;
 }
+
+// "-", "N/A" and similar placeholders count as empty.
+const clean = (s: string | undefined) => {
+  const t = (s ?? "").trim();
+  return /^(-+|—|n\/?a|null|none|undefined)$/i.test(t) ? "" : t;
+};
 
 const isUrl = (s: string | undefined): s is string => !!s && /^https?:\/\//i.test(s);
 
@@ -119,6 +161,13 @@ function normPlatform(s: string | undefined, fallback: string): string {
   if (t.includes("pinterest")) return "Pinterest";
   if (t.includes("snap")) return "Snapchat";
   return fallback;
+}
+
+// A TikTok / Instagram / Facebook link tells us the platform when no column does.
+function urlPlatform(url: string | undefined): string {
+  if (!url) return "";
+  const m = url.match(/^https?:\/\/(?:[a-z0-9-]+\.)*(tiktok|instagram|facebook|fb|youtube|pinterest|snapchat)\.com/i);
+  return m ? m[1] : "";
 }
 
 // "US", "us", "US, GB", "United Kingdom" (only codes are kept).
@@ -168,19 +217,29 @@ export function buildAdRows(
   map: AdColumnMap,
   opts: { niche: "auto" | string; platform: string; country: string; source?: string; now?: Date },
 ): AdBuildResult {
-  const [, ...data] = table;
+  const [header, ...data] = table;
   const now = opts.now ?? new Date();
   const seen = new Set<string>();
   const rows: AdRow[] = [];
   let duplicates = 0;
   let invalid = 0;
-  const get = (r: string[], f: AdField) => (map[f] !== undefined ? (r[map[f]!] ?? "").trim() : undefined);
+  const get = (r: string[], f: AdField) => (map[f] !== undefined ? clean(r[map[f]!]) : undefined);
+  const mapped = new Set(Object.values(map));
 
   for (const r of data) {
     const image = get(r, "creativeUrl");
     const video = get(r, "videoUrl");
     const headlineRaw = get(r, "headline") ?? "";
-    const body = get(r, "bodyText") ?? "";
+    // No ad-text column (e.g. product-finder exports): keep the other columns
+    // (price, items sold, GMV…) as readable text instead of dropping them.
+    const body =
+      map.bodyText !== undefined
+        ? (get(r, "bodyText") ?? "")
+        : header
+            .map((h, i) => (mapped.has(i) || !h.trim() ? "" : clean(r[i]) && !isUrl(clean(r[i])) ? `${h.trim()}: ${clean(r[i])}` : ""))
+            .filter(Boolean)
+            .slice(0, 12)
+            .join(" · ");
     const advertiserRaw = get(r, "advertiserName") ?? "";
     if ((!isUrl(image) && !isUrl(video)) || (!headlineRaw && !body && !advertiserRaw)) {
       invalid++;
@@ -188,7 +247,7 @@ export function buildAdRows(
     }
     const landing = get(r, "landingPageUrl");
     const libraryUrl = get(r, "adLibraryUrl");
-    const platform = normPlatform(get(r, "platform"), opts.platform);
+    const platform = normPlatform(get(r, "platform") || urlPlatform(landing ?? libraryUrl), opts.platform);
     let advertiser = advertiserRaw;
     if (!advertiser && isUrl(landing)) {
       try {
