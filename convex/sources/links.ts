@@ -32,7 +32,13 @@ export const adFields = {
 const adArgs = v.object(adFields);
 export type ExternalAd = Infer<typeof adArgs>;
 
-export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"created" | "updated"> {
+// `refreshFirstSeen` lets a re-import overwrite the stored first-seen date
+// (admin CSV uploads, whose earlier versions back-dated it).
+export async function upsertAd(
+  ctx: MutationCtx,
+  args: ExternalAd,
+  opts: { refreshFirstSeen?: boolean } = {},
+): Promise<"created" | "updated"> {
     const { externalId, source, targeting, ...rest } = args;
     const fields = defined(rest) as typeof rest;
     const now = new Date().toISOString();
@@ -46,7 +52,7 @@ export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"cre
       if (existing) {
         await ctx.db.patch("ads", adId, {
           ...fields,
-          firstSeenAt: existing.firstSeenAt,
+          firstSeenAt: opts.refreshFirstSeen ? fields.firstSeenAt : existing.firstSeenAt,
           ...(targeting ? { targeting } : {}),
           source,
         });

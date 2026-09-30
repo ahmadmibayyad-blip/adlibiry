@@ -22,7 +22,8 @@ describe("ad CSV import", () => {
     expect(ad.views).toBe("1.2M");
     expect(ad.spendEstimate).toBe("$5.0K");
     expect(ad.daysRunning).toBe(60);
-    expect(ad.firstSeenAt).toBe("2026-08-01T00:00:00.000Z");
+    expect(ad.firstSeenAt).toBe(now.toISOString());
+    expect(ad.lastSeenAt).toBe(now.toISOString());
     expect(ad.aiScore).toBeGreaterThan(0);
     expect(ad.aiScore).toBeLessThanOrEqual(100);
   });
