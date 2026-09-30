@@ -180,6 +180,7 @@ export const importTikTokAds = internalAction({
             mediaType: "video",
             ...(imgUrl(d.advertiser_avatar) ? { advertiserAvatar: imgUrl(d.advertiser_avatar) } : {}),
             ...(d.button_text ? { ctaText: String(d.button_text) } : {}),
+            ...(gmv ? { gmv: Math.round(gmv) } : {}),
             ...(views ? { impressions: Math.round(views) } : {}),
             ...(num(core.core_video_comment_count) !== undefined ? { comments: Math.round(num(core.core_video_comment_count)!) } : {}),
             ...(num(core.core_video_share_count) !== undefined ? { shares: Math.round(num(core.core_video_share_count)!) } : {}),

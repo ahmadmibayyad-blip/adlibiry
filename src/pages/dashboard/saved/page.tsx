@@ -86,7 +86,7 @@ export default function SavedProducts() {
             </EmptyHeader>
             <EmptyContent>
               <Button asChild size="sm">
-                <Link to="/dashboard/products">Browse Winning Products</Link>
+                <Link to="/dashboard/winners">Browse Winning Products</Link>
               </Button>
             </EmptyContent>
           </Empty>

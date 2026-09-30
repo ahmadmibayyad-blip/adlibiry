@@ -11,6 +11,11 @@ export const list = query({
   args: {
     paginationOpts: paginationOptsValidator,
     category: v.optional(v.string()),
+    categories: v.optional(v.array(v.string())), // any of these niches
+    origin: v.optional(v.union(v.literal("db"), v.literal("ads"))), // product database only / detected from ads
+    hideBigBrands: v.optional(v.boolean()),
+    hidePersonalised: v.optional(v.boolean()),
+    hideServices: v.optional(v.boolean()),
     minPrice: v.optional(v.number()),
     maxPrice: v.optional(v.number()),
     minMargin: v.optional(v.number()), // percent, 0-100
@@ -37,6 +42,12 @@ export const list = query({
     const conds = (q: any) => {
       const c: any[] = [];
       if (args.category) c.push(q.eq(q.field("category"), args.category));
+      if (args.categories?.length) c.push(q.or(...args.categories.map((n) => q.eq(q.field("category"), n))));
+      if (args.origin === "ads") c.push(q.gt(q.field("linkedAds"), 0));
+      if (args.origin === "db") c.push(q.or(q.eq(q.field("linkedAds"), undefined), q.eq(q.field("linkedAds"), 0)));
+      if (args.hideBigBrands) c.push(q.neq(q.field("isBigBrand"), true));
+      if (args.hidePersonalised) c.push(q.neq(q.field("isPersonalised"), true));
+      if (args.hideServices) c.push(q.neq(q.field("isService"), true));
       if (args.trend) c.push(q.eq(q.field("trend"), args.trend));
       if (args.saturation) c.push(q.eq(q.field("saturation"), args.saturation));
       if (args.source === "curated") c.push(q.or(q.eq(q.field("source"), "curated"), q.eq(q.field("source"), undefined)));
@@ -83,6 +94,7 @@ export const list = query({
         : args.sort === "likes" ? base.withIndex("by_likes")
         : args.sort === "growth" ? base.withIndex("by_growth")
         : args.sort === "priceHigh" ? base.withIndex("by_price")
+        : args.sort === "margin" ? base.withIndex("by_margin")
         : args.category && (!args.sort || args.sort === "newest")
           ? base.withIndex("by_category_published", (q) => q.eq("category", args.category!))
           : base.withIndex("by_published");
@@ -139,6 +151,13 @@ export const listNexscopeProductsByNiche = query({
 export const getWinnersOfDay = query({
   args: {},
   handler: async (ctx) => {
+    // The top of today's Winning Products list (mixed across niches); before
+    // the first daily rebuild, the older per-source daily picks.
+    const top = await ctx.db.query("winningProducts").withIndex("by_position").take(6);
+    if (top.length) {
+      const products = await Promise.all(top.map((r) => ctx.db.get("products", r.productId)));
+      return products.filter((p) => p !== null);
+    }
     return await ctx.db
       .query("products")
       .withIndex("by_winner", (q) => q.eq("isWinnerOfDay", true))

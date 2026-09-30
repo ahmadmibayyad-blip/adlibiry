@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
 import { Search, Sparkles, X } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdCard, { AdCardSkeleton } from "./_components/AdCard.tsx";
-import AdDetailModal from "./_components/AdDetailModal.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
@@ -133,8 +133,7 @@ export default function AdSpyPage() {
 
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const [excludeViewed, setExcludeViewed] = useState(false);
   const [viewed, setViewed] = useState<string[]>(() => readJson<string[]>(VIEWED_KEY, []));
@@ -166,8 +165,7 @@ export default function AdSpyPage() {
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
 
   const openAd = (ad: Ad) => {
-    setSelectedAd(ad);
-    setModalOpen(true);
+    navigate(`/dashboard/ads/${ad._id}`);
     if (!viewedSet.has(ad._id)) {
       const next = [ad._id, ...viewed].slice(0, 3000);
       setViewed(next);
@@ -335,7 +333,6 @@ export default function AdSpyPage() {
         </>
       )}
 
-      <AdDetailModal ad={selectedAd} open={modalOpen} onOpenChange={setModalOpen} />
     </div>
   );
 }

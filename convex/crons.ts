@@ -68,6 +68,11 @@ crons.daily(
   internal.winninghunter.dailyImport
 );
 
+// Products pipeline, after all imports: link ads to products, rebuild
+// Winning Products (top 50 per niche), then save today's history snapshot
+// for the charts. Runs as a chain of small steps (convex/productPipeline.ts).
+crons.daily("link ads to products, rebuild winners, save history", { hourUTC: 8, minuteUTC: 5 }, internal.productPipeline.start);
+
 // Rebuild filter counts / admin totals once a day as a backstop.
 crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.recompute);
 

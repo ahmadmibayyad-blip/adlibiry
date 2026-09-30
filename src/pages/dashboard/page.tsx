@@ -103,7 +103,7 @@ export default function DashboardHome() {
             </div>
           </div>
           <Link
-            to="/dashboard/products"
+            to="/dashboard/winners"
             className="flex items-center gap-1 text-sm text-primary hover:underline cursor-pointer"
           >
             View all

@@ -1,0 +1,227 @@
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { Authenticated, useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Info, Package } from "lucide-react";
+import { api } from "@/convex/_generated/api.js";
+import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
+import { Button } from "@/components/ui/button.tsx";
+import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { cn } from "@/lib/utils.ts";
+import { compactNumber, flag, spendLabel } from "@/lib/adFormat.ts";
+import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
+import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
+import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
+import { dailyChange, money, pct, SERIES, type Point, type Range } from "../_components/chartUtils.ts";
+
+type Ad = Doc<"ads">;
+
+const adViews = (ad: Ad): number => ad.impressions ?? parseCompact(ad.views) ?? 0;
+
+function SaveAd({ adId }: { adId: Id<"ads"> }) {
+  const saved = useQuery(api.ads.isAdSaved, { adId });
+  const toggle = useMutation(api.ads.toggleSaveAd);
+  return (
+    <Button
+      className="flex-1"
+      variant={saved ? "outline" : "default"}
+      onClick={async () => {
+        try {
+          const r = await toggle({ adId });
+          toast.success(r.saved ? "Ad saved" : "Removed from saved");
+        } catch {
+          toast.error("Please sign in to save ads");
+        }
+      }}
+    >
+      {saved ? <BookmarkCheck className="w-4 h-4 mr-2" /> : <Bookmark className="w-4 h-4 mr-2" />}
+      {saved ? "Saved" : "Save ad"}
+    </Button>
+  );
+}
+
+function ProductInAd({ productId }: { productId: Id<"products"> }) {
+  const product = useQuery(api.products.getById, { id: productId });
+  if (!product) return null;
+  return (
+    <Link
+      to={`/dashboard/products/${product._id}`}
+      className="flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4 hover:bg-primary/10 transition-colors"
+    >
+      <div className="w-12 h-12 rounded-lg bg-card overflow-hidden flex items-center justify-center shrink-0">
+        {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="w-5 h-5 text-primary" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-primary">Product in this ad</div>
+        <div className="font-semibold truncate">{product.title}</div>
+        <div className="text-xs text-muted-foreground">
+          {product.winnerRank !== undefined ? `Winner · #${product.winnerRank} in ${product.category}` : product.category}
+          {(product.linkedAds ?? 0) > 1 && ` · ${product.linkedAds} ads merged`}
+        </div>
+      </div>
+      <span className="text-sm font-medium text-primary flex items-center shrink-0">
+        Open product <ChevronRight className="w-4 h-4" />
+      </span>
+    </Link>
+  );
+}
+
+export default function AdDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const adId = id as Id<"ads">;
+  const ad = useQuery(api.ads.getById, id ? { id: adId } : "skip");
+  const [range, setRange] = useState<Range>(30);
+  const history = useQuery(api.history.adHistory, id ? { adId, days: range } : "skip");
+  const comparison = useQuery(api.history.adNicheComparison, id ? { adId } : "skip");
+  const [details, setDetails] = useState(false);
+
+  if (ad === undefined) {
+    return (
+      <div className="p-5 lg:p-8 max-w-7xl mx-auto grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <Skeleton className="aspect-[9/16] rounded-xl" />
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-2/3" />
+          <Skeleton className="h-24" />
+        </div>
+      </div>
+    );
+  }
+  if (!ad) {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="font-semibold text-lg mb-2">Ad not found</h2>
+        <Link to="/dashboard/ad-spy" className="text-primary hover:underline text-sm">← Back to Ad Spy</Link>
+      </div>
+    );
+  }
+
+  const rows = history ?? [];
+  const enough = rows.length >= 2;
+  const series = (get: (r: (typeof rows)[number]) => number): Point[] => rows.map((r) => ({ day: r.day, value: get(r) }));
+  const newViews = dailyChange(series((r) => r.views));
+  const likes = series((r) => r.likes);
+  const comments = series((r) => r.comments);
+  const peak = newViews.reduce((m, p) => Math.max(m, p.value), 0);
+  const spend = spendLabel(ad.spendEstimate);
+  const gmv = ad.gmv ?? gmvFromText(ad.bodyText) ?? 0;
+
+  return (
+    <div className="p-5 lg:p-8 max-w-7xl mx-auto">
+      <nav className="text-sm text-muted-foreground mb-4" aria-label="Breadcrumb">
+        <Link to="/dashboard/ad-spy" className="text-primary hover:underline">Ad Spy</Link>
+        <span className="mx-2">/</span>
+        <span>{ad.advertiserName}</span>
+      </nav>
+
+      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <div className="rounded-xl overflow-hidden border border-border bg-black">
+            {ad.videoUrl ? (
+              <video src={ad.videoUrl} poster={ad.creativeUrl || undefined} controls playsInline className="w-full max-h-[70vh]" />
+            ) : ad.creativeUrl ? (
+              <img src={ad.creativeUrl} alt={ad.headline} className="w-full max-h-[70vh] object-contain" />
+            ) : (
+              <div className="aspect-square flex items-center justify-center text-sm text-muted-foreground">No creative</div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Authenticated>
+              <SaveAd adId={ad._id} />
+            </Authenticated>
+            {ad.landingPageUrl && (
+              <Button asChild variant="outline" className="flex-1">
+                <a href={ad.landingPageUrl} target="_blank" rel="noopener noreferrer">
+                  Landing page <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+                </a>
+              </Button>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => setDetails(true)}>
+            <Info className="w-3.5 h-3.5 mr-1.5" />
+            Audience, timeline & ad copy
+          </Button>
+        </div>
+
+        <div className="space-y-5 min-w-0">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <div className="flex flex-wrap gap-2 mb-3">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-foreground text-background">{ad.platform}</span>
+              {ad.country && <span className="text-xs px-2 py-0.5 rounded bg-muted">{flag(ad.country)} {ad.country}</span>}
+              {ad.mediaType && <span className="text-xs px-2 py-0.5 rounded bg-muted capitalize">{ad.mediaType}</span>}
+              <span className="text-xs px-2 py-0.5 rounded bg-muted">{ad.niche}</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/15 text-primary">Ad score {ad.aiScore}</span>
+            </div>
+            <h1 className="text-2xl font-bold leading-tight mb-1">“{ad.headline}”</h1>
+            <p className="text-sm text-muted-foreground line-clamp-3">
+              {ad.advertiserName}
+              {ad.bodyText && ` · ${ad.bodyText}`}
+              {ad.ctaText && ` · CTA: ${ad.ctaText}`}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-4">
+              <StatTile label="Running" value={ad.daysRunning > 0 ? `${ad.daysRunning} d` : "—"} />
+              <StatTile label="Views" value={adViews(ad) ? compactNumber(adViews(ad)) : "—"} />
+              <StatTile label="Likes" value={ad.likes ? compactNumber(ad.likes) : "—"} />
+              <StatTile label="Comments" value={ad.comments ? compactNumber(ad.comments) : "—"} />
+              <StatTile label="Spend (est.)" value={spend ?? "—"} />
+              <StatTile label="GMV" value={gmv ? money(gmv) : "—"} />
+            </div>
+          </div>
+
+          {ad.productId && <ProductInAd productId={ad.productId} />}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-bold">How this ad is doing</h2>
+            <RangeSwitch value={range} onChange={setRange} />
+          </div>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ChartCard
+              title="New views per day"
+              points={newViews}
+              enough={enough}
+              headline={peak ? <span className="tabular-nums">peak {compactNumber(peak)}</span> : undefined}
+            >
+              <TimeChart kind="bar" points={newViews} label="new views" />
+            </ChartCard>
+            <div className="bg-card border border-border rounded-xl p-4 min-w-0">
+              <h3 className="text-sm font-semibold mb-3">Likes & comments (total)</h3>
+              {!enough ? (
+                <CollectingData />
+              ) : (
+                // Two small charts, each on its own scale — comments are far fewer than likes.
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                      <span className="w-3 h-0.5 rounded" style={{ background: SERIES.primary }} />Likes
+                    </div>
+                    <TimeChart kind="line" points={likes} label="likes" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                      <span className="w-3 h-0.5 rounded" style={{ background: SERIES.second }} />Comments
+                    </div>
+                    <TimeChart kind="line" points={comments} label="comments" color={SERIES.second} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {comparison && comparison.peers > 1 && (
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold">Compared with other ads in {comparison.niche}</h3>
+                <span className="text-xs text-muted-foreground">{comparison.peers} ads</span>
+              </div>
+              <ComparisonRow label="Views" {...comparison.views} format={compactNumber} />
+              <ComparisonRow label="Engagement rate" {...comparison.engagement} format={pct} />
+              <ComparisonRow label="Days running" {...comparison.daysRunning} format={(n) => `${Math.round(n)} d`} />
+              <p className={cn("text-[11px] text-muted-foreground")}>Bar = this ad. Tick = niche median.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <AdDetailModal ad={ad} open={details} onOpenChange={setDetails} />
+    </div>
+  );
+}

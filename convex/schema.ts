@@ -57,7 +57,29 @@ export default defineSchema({
     // Which daily auto-pick this product fills ("<source>:<search niche>"),
     // so tomorrow's pick can retire it. See convex/lib/winners.ts.
     winnerSlot: v.optional(v.string()),
+    // ── Linked ads (convex/productPipeline.ts). Products "from ads" are built
+    // from running ads that sell a physical product; several ads for the same
+    // product share one product row.
+    urlKey: v.optional(v.string()),     // normalised product-page URL, for matching
+    titleKey: v.optional(v.string()),   // normalised title, for matching
+    adIds: v.optional(v.array(v.id("ads"))),
+    linkedAds: v.optional(v.number()),  // number of linked ads (0/absent = product DB only)
+    linkedViews: v.optional(v.number()),
+    linkedComments: v.optional(v.number()),
+    linkedSpend: v.optional(v.number()), // est. ad spend, upper bound, USD
+    linkedGmv: v.optional(v.number()),
+    marginPercent: v.optional(v.number()),
+    // Kept out of Winning Products; hideable in Products.
+    isBigBrand: v.optional(v.boolean()),
+    isPersonalised: v.optional(v.boolean()),
+    isService: v.optional(v.boolean()),
+    // Winning Products (rebuilt daily): rank inside its niche, absent if not in the list.
+    winnerRank: v.optional(v.number()),
   })
+    .index("by_url_key", ["urlKey"])
+    .index("by_title_key", ["titleKey"])
+    .index("by_margin", ["marginPercent"])
+    .index("by_category_score", ["category", "aiScore"])
     .index("by_category_published", ["category", "publishedAt"])
     .index("by_published", ["publishedAt"])
     .index("by_winner", ["isWinnerOfDay"])
@@ -75,7 +97,8 @@ export default defineSchema({
     savedAt: v.string(), // ISO 8601 UTC
   })
     .index("by_user", ["userId"])
-    .index("by_user_and_product", ["userId", "productId"]),
+    .index("by_user_and_product", ["userId", "productId"])
+    .index("by_product", ["productId"]),
 
   // Ad Spy: ads sourced from Meta Ad Library (EU/UK) or admin-curated (TikTok/global)
   ads: defineTable({
@@ -114,6 +137,8 @@ export default defineSchema({
     relatedAdsCount: v.optional(v.number()), // copies of the creative running (scaling signal)
     language: v.optional(v.string()),
     adLibraryUrl: v.optional(v.string()),
+    gmv: v.optional(v.number()),              // est. sales from this ad (TikTok Shop), USD
+    productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
@@ -123,6 +148,7 @@ export default defineSchema({
     })),
   })
     .index("by_first_seen", ["firstSeenAt"])
+    .index("by_product", ["productId"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
     .index("by_score", ["aiScore"])
@@ -177,6 +203,38 @@ export default defineSchema({
     day: v.string(), // "YYYY-MM-DD" (UTC)
     count: v.number(),
   }).index("by_user_day", ["userId", "day"]),
+
+  // Winning Products: the top 50 per niche (score 65+), in feed order.
+  // Rebuilt once a day by convex/productPipeline.ts.
+  winningProducts: defineTable({
+    productId: v.id("products"),
+    niche: v.string(),
+    nicheRank: v.number(),   // 1 = best in its niche
+    position: v.number(),    // order in the mixed feed
+    score: v.number(),
+    enteredDay: v.string(),  // "YYYY-MM-DD" it first entered the list (kept while it stays)
+  })
+    .index("by_position", ["position"])
+    .index("by_niche_rank", ["niche", "nicheRank"])
+    .index("by_product", ["productId"]),
+
+  // One row per product and per ad per day (kept 90 days) for the charts.
+  dailySnapshots: defineTable({
+    day: v.string(), // "YYYY-MM-DD" (UTC)
+    kind: v.union(v.literal("product"), v.literal("ad")),
+    entityId: v.string(),
+    score: v.number(),
+    adsRunning: v.number(),
+    views: v.number(),
+    likes: v.number(),
+    comments: v.number(),
+    spend: v.number(), // est. ad spend so far, USD (upper bound)
+    gmv: v.number(),
+    trend: v.optional(v.string()),
+    saturation: v.optional(v.string()),
+  })
+    .index("by_entity_day", ["kind", "entityId", "day"])
+    .index("by_day", ["day"]),
 
   siteStats: defineTable({
     key: v.string(),

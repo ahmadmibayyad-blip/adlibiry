@@ -16,7 +16,13 @@ import { ANY, opt, range } from "@/lib/filterUtils.ts";
 // ── Filter model (same layout as Ad Spy) ────────────────────────────────────
 type Filters = {
   source?: string;
+  origin?: "db" | "ads";
+  categories?: string[];
+  /** Old saved searches stored a single niche. */
   category?: string;
+  hideBrands?: boolean;
+  hidePersonalised?: boolean;
+  hideServices?: boolean;
   added?: string; // days
   price?: string; // range, USD
   margin?: string; // min %
@@ -31,6 +37,12 @@ type Filters = {
   hasStore?: boolean;
   sort?: string;
 };
+
+const ORIGINS = [
+  { value: undefined, label: "All" },
+  { value: "db" as const, label: "Product DB" },
+  { value: "ads" as const, label: "From ads" },
+];
 
 const SOURCES = [
   { value: undefined, label: "All" },
@@ -61,7 +73,8 @@ const SATURATION = [ANY, opt("Low", "Low"), opt("Medium", "Medium"), opt("High",
 const SORTS = [
   opt("newest", "Newest"),
   opt("score", "Winning score"),
-  opt("ads", "Most ads"),
+  opt("ads", "Ads running"),
+  opt("margin", "Margin"),
   opt("likes", "Most likes"),
   opt("growth", "Fastest growth"),
   opt("priceHigh", "Price: high → low"),
@@ -82,7 +95,11 @@ function toQueryArgs(f: Filters, search: string) {
   const growth = growthRange(f.growth);
   return {
     source: f.source,
-    category: f.category,
+    origin: f.origin,
+    categories: f.categories?.length ? f.categories : f.category ? [f.category] : undefined,
+    hideBigBrands: f.hideBrands || undefined,
+    hidePersonalised: f.hidePersonalised || undefined,
+    hideServices: f.hideServices || undefined,
     publishedWithinDays: f.added ? Number(f.added) : undefined,
     minPrice: price.min,
     maxPrice: price.max,
@@ -132,7 +149,19 @@ function ProductTable({ products }: { products: Product[] }) {
                 <td className="px-3 py-2">
                   <Link to={`/dashboard/products/${p._id}`} className="flex items-center gap-3 min-w-0">
                     <img src={p.imageUrl} alt="" loading="lazy" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
-                    <span className="line-clamp-2 font-medium hover:text-primary max-w-[22rem]">{p.title}</span>
+                    <span className="min-w-0">
+                      <span className="line-clamp-2 font-medium hover:text-primary max-w-[22rem]">{p.title}</span>
+                      {(p.winnerRank !== undefined || (p.linkedAds ?? 0) > 0) && (
+                        <span className="flex flex-wrap gap-1 mt-0.5">
+                          {p.winnerRank !== undefined && (
+                            <span className="text-[10px] font-semibold px-1.5 rounded bg-primary/15 text-primary">Winner #{p.winnerRank}</span>
+                          )}
+                          {(p.linkedAds ?? 0) > 0 && (
+                            <span className="text-[10px] font-medium px-1.5 rounded bg-orange-500/15 text-orange-400">From {p.linkedAds} ad{p.linkedAds === 1 ? "" : "s"}</span>
+                          )}
+                        </span>
+                      )}
+                    </span>
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
@@ -205,6 +234,14 @@ export default function ProductsFeed() {
   }, [status, results.length, filterKey, target, loadMore]);
   const showMore = () => setWanted({ key: filterKey, n: Math.max(target, results.length) + PAGE });
 
+  const selectedNiches = f.categories ?? (f.category ? [f.category] : []);
+  const toggleNiche = (n: string) =>
+    setF((prev) => {
+      const current = prev.categories ?? (prev.category ? [prev.category] : []);
+      const next = current.includes(n) ? current.filter((x) => x !== n) : [...current, n];
+      return { ...prev, category: undefined, categories: next.length ? next : undefined };
+    });
+
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
 
@@ -215,9 +252,12 @@ export default function ProductsFeed() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <TrendingUp className="w-5 h-5 text-primary" />
-            <h1 className="text-2xl font-bold">Winning Products</h1>
+            <h1 className="text-2xl font-bold">Products</h1>
           </div>
-          <p className="text-sm text-muted-foreground">Products with proven ads — filter by niche, ads, likes, growth, price and margin.</p>
+          <p className="text-sm text-muted-foreground">
+            Everything we track, including products found inside running ads. Only the best reach{" "}
+            <Link to="/dashboard/winners" className="text-primary hover:underline">Winning Products</Link>.
+          </p>
         </div>
         {stats && (
           <div className="flex gap-2 text-xs">
@@ -236,6 +276,15 @@ export default function ProductsFeed() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
+        {/* Where the product comes from */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1 shrink-0">Show</span>
+          {ORIGINS.map((o) => (
+            <Chip key={o.label} on={f.origin === o.value} onClick={() => set("origin", o.value)}>{o.label}</Chip>
+          ))}
+          <span className="text-[11px] text-muted-foreground ml-1">"From ads" = products we found inside running ads; several ads for one product are merged.</span>
+        </div>
+
         {/* Source + search */}
         <div className="flex flex-col lg:flex-row gap-2">
           <div className="flex items-center gap-1.5 overflow-x-auto">
@@ -260,9 +309,9 @@ export default function ProductsFeed() {
         {/* Niches */}
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted-foreground mr-1 shrink-0">Niche</span>
-          <Chip on={!f.category} onClick={() => set("category", undefined)}>All</Chip>
+          <Chip on={!selectedNiches.length} onClick={() => setF((prev) => ({ ...prev, categories: undefined, category: undefined }))}>All</Chip>
           {categories.map((c) => (
-            <Chip key={c.value} on={f.category === c.value} onClick={() => set("category", f.category === c.value ? undefined : c.value)}>
+            <Chip key={c.value} on={selectedNiches.includes(c.value)} onClick={() => toggleNiche(c.value)}>
               {c.value}
               <span className="opacity-60 tabular-nums">{compactNumber(c.n)}</span>
             </Chip>
@@ -293,6 +342,10 @@ export default function ProductsFeed() {
           <Check label="Winner of the day" checked={!!f.winner} onChange={(v) => set("winner", v || undefined)} />
           <Check label="Has price" checked={!!f.hasPrice} onChange={(v) => set("hasPrice", v || undefined)} />
           <Check label="Has store link" checked={!!f.hasStore} onChange={(v) => set("hasStore", v || undefined)} />
+          <span className="text-xs text-muted-foreground ml-2">Hide</span>
+          <Check label="Big brands (Apple, Bissell…)" checked={!!f.hideBrands} onChange={(v) => set("hideBrands", v || undefined)} />
+          <Check label="Personalised / print-on-demand" checked={!!f.hidePersonalised} onChange={(v) => set("hidePersonalised", v || undefined)} />
+          <Check label="Services & gift cards" checked={!!f.hideServices} onChange={(v) => set("hideServices", v || undefined)} />
         </div>
 
         {/* Sort, view, saved searches */}
