@@ -4,6 +4,7 @@ import {
 import { Star, Truck, Package, Users, ExternalLink } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import ProfitCalculator from "../../_components/ProfitCalculator.tsx";
+import { supplierLink } from "@/lib/supplierLink.ts";
 
 type Supplier = Doc<"supplierListings">;
 
@@ -44,7 +45,7 @@ export default function SupplierDetailModal({ supplier, open, onOpenChange }: { 
               </div>
             </div>
             <a
-              href={supplier.supplierUrl}
+              href={supplierLink(supplier)}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full text-sm font-medium bg-secondary hover:bg-secondary/80 rounded-lg py-2.5 transition-colors flex items-center justify-center gap-1.5"

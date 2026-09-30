@@ -278,4 +278,16 @@ describe("Research tab", () => {
     const trends = await t.query(api.trends.list, {});
     expect(trends.map((r) => r.keyword)).toContain("dog cooling mat");
   });
+
+  it("removes demo supplier listings that only link to a homepage", async () => {
+    const t = convexTest(schema, modules);
+    const listing = { imageUrl: "", price: 5, orders: 1, rating: 4, reviewCount: 1, shippingDays: 9, storeName: "S", storeRating: 4, sellerCount: 1, niche: "Beauty" };
+    await t.run(async (ctx) => {
+      await ctx.db.insert("supplierListings", { ...listing, title: "Demo", supplierUrl: "https://www.aliexpress.com" });
+      await ctx.db.insert("supplierListings", { ...listing, title: "Real", supplierUrl: "https://www.aliexpress.com/item/100500.html" });
+    });
+    await runPipeline(t);
+    const left = await t.run((ctx) => ctx.db.query("supplierListings").collect());
+    expect(left.map((s) => s.title)).toEqual(["Real"]);
+  });
 });

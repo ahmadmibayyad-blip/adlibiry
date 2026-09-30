@@ -1,6 +1,7 @@
 import { Star, Truck, Package, Users, ExternalLink } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { cn } from "@/lib/utils.ts";
+import { supplierLink } from "@/lib/supplierLink.ts";
 
 type Supplier = Doc<"supplierListings">;
 
@@ -51,7 +52,7 @@ export default function SupplierCard({ supplier, onSelect }: { supplier: Supplie
           Calculate profit
         </button>
         <a
-          href={supplier.supplierUrl}
+          href={supplierLink(supplier)}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-1.5 w-full text-xs font-medium text-primary hover:underline rounded-lg py-1.5 transition-colors flex items-center justify-center gap-1.5"
