@@ -157,6 +157,27 @@ export default defineSchema({
     count: v.number(),
   }).index("by_user_day", ["userId", "day"]),
 
+  // Personal access keys for the MCP server (convex/mcp.ts). Only a SHA-256
+  // hash of each key is stored; the key itself is shown once at creation.
+  mcpKeys: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    keyHash: v.string(),
+    prefix: v.string(), // first characters of the key, to tell keys apart
+    createdAt: v.string(),
+    lastUsedAt: v.optional(v.string()),
+    revokedAt: v.optional(v.string()),
+  })
+    .index("by_hash", ["keyHash"])
+    .index("by_user", ["userId"]),
+
+  // MCP tool calls per user per UTC day (daily cap).
+  mcpUsage: defineTable({
+    userId: v.id("users"),
+    day: v.string(), // "YYYY-MM-DD" (UTC)
+    count: v.number(),
+  }).index("by_user_day", ["userId", "day"]),
+
   siteStats: defineTable({
     key: v.string(),
     data: v.any(),

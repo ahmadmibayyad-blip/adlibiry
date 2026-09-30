@@ -7,6 +7,7 @@ import ProfileSection from "./_components/ProfileSection.tsx";
 import PlanSection from "./_components/PlanSection.tsx";
 import AppearanceSection from "./_components/AppearanceSection.tsx";
 import AccountSection from "./_components/AccountSection.tsx";
+import McpSection from "./_components/McpSection.tsx";
 
 export default function SettingsPage() {
   return (
@@ -43,6 +44,9 @@ export default function SettingsPage() {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
             <PlanSection />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.12 }}>
+            <McpSection />
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
             <AppearanceSection />

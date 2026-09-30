@@ -2,10 +2,10 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
-import * as z from "zod/v4";
 import { ConvexError, v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
+import { listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
 // A chat assistant for signed-in customers. Claude answers from the app's own
@@ -31,100 +31,13 @@ When you mention a product from a tool result, link it as /dashboard/products/<i
 
 Keep answers short and practical: lead with the answer, use short lists, no long preambles. Reply in the customer's language.`;
 
-const clip = (s: string | undefined, n: number) => (s && s.length > n ? `${s.slice(0, n)}…` : s);
-
+// The data tools live in lib/aiTools.ts (shared with the MCP server).
 function makeTools(ctx: ActionCtx) {
-  const searchAds = betaZodTool({
-    name: "search_ads",
-    description:
-      "Search the ad library (Facebook, Instagram, TikTok ads). Returns up to `limit` ads with advertiser, headline, text, niche, likes, views, days running, estimated spend, score and landing page. Use `search` for words in the ad text; leave it empty to browse by niche/platform and sort.",
-    inputSchema: z.object({
-      search: z.string().optional().describe("Words that appear in the ad text, e.g. 'posture corrector'"),
-      niche: z.string().optional().describe("Exact niche name from list_niches, e.g. 'Beauty'"),
-      platform: z.enum(["Facebook", "Instagram", "TikTok"]).optional(),
-      country: z.string().optional().describe("ISO country code, e.g. 'US', 'DK'"),
-      mediaType: z.enum(["video", "image", "carousel"]).optional(),
-      minDaysRunning: z.number().optional().describe("Only ads running at least this many days (a sign they are profitable)"),
-      sort: z.enum(["newest", "score", "mostLiked", "longestRunning", "impressions", "comments"]).optional(),
-      limit: z.number().min(1).max(15).optional().describe("How many ads to return (default 8)"),
-    }),
-    run: async ({ limit, search, ...filters }) => {
-      const result = await ctx.runQuery(api.ads.list, {
-        paginationOpts: { numItems: limit ?? 8, cursor: null },
-        ...filters,
-        ...(search?.trim() ? { search: search.trim() } : {}),
-      });
-      return JSON.stringify(
-        result.page.map((a) => ({
-          advertiser: a.advertiserName,
-          platform: a.platform,
-          country: a.country,
-          niche: a.niche,
-          headline: clip(a.headline, 160),
-          text: clip(a.bodyText, 400),
-          mediaType: a.mediaType,
-          likes: a.likes,
-          views: a.views,
-          comments: a.comments,
-          daysRunning: a.daysRunning,
-          spendEstimate: a.spendEstimate,
-          score: a.aiScore,
-          cta: a.ctaText,
-          landingPage: a.landingPageUrl || undefined,
-        })),
-      );
-    },
-  });
-
-  const searchProducts = betaZodTool({
-    name: "search_products",
-    description:
-      "Search the winning-products database. Returns up to `limit` products with id, title, category, price, cost, margin, score, trend, saturation, ads running and likes. Use `search` for words in the product title.",
-    inputSchema: z.object({
-      search: z.string().optional().describe("Words in the product title, e.g. 'dog bed'"),
-      category: z.string().optional().describe("Exact niche/category name from list_niches"),
-      maxPrice: z.number().optional().describe("Max selling price in USD"),
-      minMargin: z.number().min(0).max(100).optional().describe("Minimum margin in percent"),
-      trend: z.enum(["Rising", "Stable", "Declining"]).optional(),
-      winnerOfDayOnly: z.boolean().optional().describe("Only today's picked winners"),
-      sort: z.enum(["newest", "score", "ads", "likes", "growth", "margin"]).optional(),
-      limit: z.number().min(1).max(15).optional().describe("How many products to return (default 8)"),
-    }),
-    run: async ({ limit, search, ...filters }) => {
-      const result = await ctx.runQuery(api.products.list, {
-        paginationOpts: { numItems: limit ?? 8, cursor: null },
-        ...filters,
-        ...(search?.trim() ? { search: search.trim() } : {}),
-      });
-      return JSON.stringify(
-        result.page.map((p) => ({
-          id: p._id,
-          title: clip(p.title, 160),
-          category: p.category,
-          price: p.price,
-          cost: p.cost,
-          marginPercent: p.price && p.cost !== undefined ? Math.round(((p.price - p.cost) / p.price) * 100) : undefined,
-          priceIsEstimate: p.priceSource === "estimated_market" || undefined,
-          score: p.aiScore,
-          trend: p.trend,
-          saturation: p.saturation,
-          adsRunning: p.adsCount,
-          likes: p.likes,
-          growthPercent: p.growthPercent,
-          winnerOfDay: p.isWinnerOfDay || undefined,
-        })),
-      );
-    },
-  });
-
-  const listNiches = betaZodTool({
-    name: "list_niches",
-    description: "List the niche names used for ads and products, to pass as `niche` or `category` in the other tools.",
-    inputSchema: z.object({}),
-    run: async () => JSON.stringify(await ctx.runQuery(api.ads.getNiches, {})),
-  });
-
-  return [searchAds, searchProducts, listNiches];
+  return [
+    betaZodTool({ ...searchAdsTool, run: (input) => searchAdsTool.run(ctx, input) }),
+    betaZodTool({ ...searchProductsTool, run: (input) => searchProductsTool.run(ctx, input) }),
+    betaZodTool({ ...listNichesTool, run: () => listNichesTool.run(ctx) }),
+  ];
 }
 
 export const chat = action({
