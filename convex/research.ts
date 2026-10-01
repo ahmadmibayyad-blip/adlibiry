@@ -3,7 +3,7 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { internal } from "./_generated/api";
 import { NICHES } from "./lib/category";
 import { productTitleForAd } from "./lib/productMatch";
-import { buildNiches, buildTrends, isHomepageUrl, type AdLite, type ProductLite } from "./lib/research";
+import { buildDashboard, buildNiches, buildTrends, isHomepageUrl, type AdLite, type ProductLite } from "./lib/research";
 
 // ── Research → Trends and Niche Explorer ────────────────────────────────────
 // Rebuilt once a day right after the product pipeline (convex/productPipeline.ts)
@@ -40,6 +40,7 @@ export const productsPage = internalQuery({
       aiScore: p.aiScore,
       winnerRank: p.winnerRank,
       linkedAds: p.linkedAds,
+      publishedAt: p.publishedAt,
     }));
     return { products, isDone: page.isDone, cursor: page.continueCursor };
   },
@@ -64,8 +65,15 @@ const nicheRow = v.object({
   topCountries: v.array(v.string()),
 });
 
+const series = v.array(v.object({ day: v.string(), value: v.number() }));
+const dashboardStats = v.object({
+  adsPerDay: series,
+  productsPerDay: series,
+  topNiches: v.array(v.object({ niche: v.string(), thisWeek: v.number(), lastWeek: v.number() })),
+});
+
 export const save = internalMutation({
-  args: { trends: v.array(trendRow), niches: v.array(nicheRow) },
+  args: { trends: v.array(trendRow), niches: v.array(nicheRow), dashboard: dashboardStats },
   handler: async (ctx, args) => {
     for (const t of await ctx.db.query("trends").collect()) await ctx.db.delete("trends", t._id);
     for (const n of await ctx.db.query("niches").collect()) await ctx.db.delete("niches", n._id);
@@ -76,6 +84,10 @@ export const save = internalMutation({
     const updatedAt = new Date().toISOString();
     for (const t of args.trends) await ctx.db.insert("trends", { ...t, updatedAt });
     for (const n of args.niches) await ctx.db.insert("niches", n);
+    // Home dashboard charts (convex/dashboard.ts).
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "dashboard")).unique();
+    if (doc) await ctx.db.patch("siteStats", doc._id, { data: args.dashboard, updatedAt });
+    else await ctx.db.insert("siteStats", { key: "dashboard", data: args.dashboard, updatedAt });
   },
 });
 
@@ -103,6 +115,7 @@ export const rebuild = internalAction({
     await ctx.runMutation(internal.research.save, {
       trends: buildTrends(ads, now),
       niches: buildNiches(NICHES, products, ads, now),
+      dashboard: buildDashboard(ads, products, now),
     });
   },
 });

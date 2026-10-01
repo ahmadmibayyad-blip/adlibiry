@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { Check, Trophy } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -21,7 +21,9 @@ function RuleChip({ children }: { children: React.ReactNode }) {
 
 export default function WinnersPage() {
   const [mode, setMode] = useState<Mode>("mixed");
-  const [niche, setNiche] = useState<string | undefined>(undefined);
+  const [searchParams] = useSearchParams();
+  // ?niche=… (e.g. from the dashboard's "Top niches") opens one niche.
+  const [niche, setNiche] = useState<string | undefined>(() => searchParams.get("niche") ?? undefined);
   const summary = useQuery(api.winners.summary, {});
   const { results, status, loadMore } = usePaginatedQuery(api.winners.feed, { mode, niche }, { initialNumItems: 24 });
 

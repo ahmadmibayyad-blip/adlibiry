@@ -26,6 +26,7 @@ import type * as assistantUsage from "../assistantUsage.js";
 import type * as auth from "../auth.js";
 import type * as commerce from "../commerce.js";
 import type * as crons from "../crons.js";
+import type * as dashboard from "../dashboard.js";
 import type * as emailDigest from "../emailDigest.js";
 import type * as emailSender from "../emailSender.js";
 import type * as history from "../history.js";
@@ -94,6 +95,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   commerce: typeof commerce;
   crons: typeof crons;
+  dashboard: typeof dashboard;
   emailDigest: typeof emailDigest;
   emailSender: typeof emailSender;
   history: typeof history;

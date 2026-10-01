@@ -277,6 +277,8 @@ describe("Research tab", () => {
     expect(niches[0].productCount).toBe(1); // the four ads are the same product
     const trends = await t.query(api.trends.list, {});
     expect(trends.map((r) => r.keyword)).toContain("dog cooling mat");
+    const overview = await t.query(api.dashboard.overview, {});
+    expect(overview?.topNiches[0]).toMatchObject({ niche: "Pet Supplies", thisWeek: 4 });
   });
 
   it("removes demo supplier listings that only link to a homepage", async () => {
