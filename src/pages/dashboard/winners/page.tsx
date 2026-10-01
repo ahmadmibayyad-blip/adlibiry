@@ -92,7 +92,7 @@ export default function WinnersPage() {
         </div>
 
         {status === "LoadingFirstPage" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-5">
             {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
         ) : results.length === 0 ? (
@@ -116,7 +116,7 @@ export default function WinnersPage() {
                     </span>
                   </h2>
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-5">
                   {section.items.map((r) => (
                     <ProductCard key={r.product._id} product={r.product} isNewToday={r.isNewToday} />
                   ))}
