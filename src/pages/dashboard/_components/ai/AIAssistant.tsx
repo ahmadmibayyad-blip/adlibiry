@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
+import { OPEN_ASSISTANT_EVENT } from "@/lib/assistant.ts";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet.tsx";
@@ -70,6 +71,13 @@ export default function AIAssistant() {
       /* storage unavailable - chat just won't survive a reload */
     }
   }, [messages]);
+
+  // Other parts of the app (e.g. the dashboard's "Ask AI" button) open the chat.
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener(OPEN_ASSISTANT_EVENT, show);
+    return () => window.removeEventListener(OPEN_ASSISTANT_EVENT, show);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

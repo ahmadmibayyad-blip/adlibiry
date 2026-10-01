@@ -14,7 +14,7 @@ export type AdLite = {
   firstSeenAt: string; // ISO
 };
 
-export type ProductLite = { category: string; aiScore: number; winnerRank?: number; linkedAds?: number };
+export type ProductLite = { category: string; aiScore: number; winnerRank?: number; linkedAds?: number; publishedAt?: string };
 
 export type TrendRow = {
   keyword: string;
@@ -198,4 +198,46 @@ export function isHomepageUrl(url: string): boolean {
   } catch {
     return true;
   }
+}
+
+// ── Dashboard numbers (home page) ───────────────────────────────────────────
+export type DashboardStats = {
+  adsPerDay: { day: string; value: number }[];      // new ads per day, last 30 days
+  productsPerDay: { day: string; value: number }[]; // new products per day, last 30 days
+  topNiches: { niche: string; thisWeek: number; lastWeek: number }[];
+};
+
+const DAY_MS = 86_400_000;
+
+function perDay(dates: (string | undefined)[], now: number, days: number) {
+  const today = Math.floor(now / DAY_MS);
+  const counts = Array(days).fill(0) as number[];
+  for (const d of dates) {
+    const t = d ? Date.parse(d) : NaN;
+    if (!(t <= now)) continue;
+    const i = days - 1 - (today - Math.floor(t / DAY_MS));
+    if (i >= 0 && i < days) counts[i]++;
+  }
+  return counts.map((value, i) => ({ day: new Date((today - (days - 1 - i)) * DAY_MS).toISOString().slice(0, 10), value }));
+}
+
+export function buildDashboard(ads: AdLite[], products: ProductLite[], now: number, days = 30): DashboardStats {
+  const niches = new Map<string, { thisWeek: number; lastWeek: number }>();
+  for (const a of ads) {
+    const age = now - Date.parse(a.firstSeenAt);
+    if (!(age >= 0) || age >= 2 * WEEK_MS) continue;
+    const n = niches.get(a.niche) ?? { thisWeek: 0, lastWeek: 0 };
+    if (age < WEEK_MS) n.thisWeek++;
+    else n.lastWeek++;
+    niches.set(a.niche, n);
+  }
+  return {
+    adsPerDay: perDay(ads.map((a) => a.firstSeenAt), now, days),
+    productsPerDay: perDay(products.map((p) => p.publishedAt), now, days),
+    topNiches: [...niches.entries()]
+      .map(([niche, n]) => ({ niche, ...n }))
+      .filter((n) => n.thisWeek > 0)
+      .sort((a, b) => b.thisWeek - a.thisWeek)
+      .slice(0, 6),
+  };
 }

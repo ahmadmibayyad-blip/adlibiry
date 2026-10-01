@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNiches, buildTrends, isHomepageUrl, keywordsOf, type AdLite } from "./research";
+import { buildDashboard, buildNiches, buildTrends, isHomepageUrl, keywordsOf, type AdLite } from "./research";
 
 const NOW = Date.parse("2026-09-30T08:00:00Z");
 const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
@@ -59,5 +59,26 @@ describe("isHomepageUrl", () => {
     expect(isHomepageUrl("https://www.aliexpress.com/")).toBe(true);
     expect(isHomepageUrl("https://www.aliexpress.com/item/1.html")).toBe(false);
     expect(isHomepageUrl("https://www.aliexpress.com/?q=mat")).toBe(false);
+  });
+});
+
+describe("buildDashboard", () => {
+  it("counts new ads and products per day and ranks this week's niches", () => {
+    const ads = [
+      ad("a", 0), ad("b", 0), ad("c", 1),
+      ad("d", 2, { niche: "Beauty" }),
+      ad("e", 9, { niche: "Beauty" }), ad("f", 10, { niche: "Beauty" }),
+      ad("g", 40),
+    ];
+    const d = buildDashboard(ads, [{ category: "Beauty", aiScore: 70, publishedAt: daysAgo(0) }, { category: "Beauty", aiScore: 70 }], NOW);
+    expect(d.adsPerDay).toHaveLength(30);
+    expect(d.adsPerDay[29]).toEqual({ day: "2026-09-30", value: 2 });
+    expect(d.adsPerDay[28].value).toBe(1);
+    expect(d.adsPerDay.reduce((s, p) => s + p.value, 0)).toBe(6); // the 40-day-old ad is outside
+    expect(d.productsPerDay[29].value).toBe(1);
+    expect(d.topNiches).toEqual([
+      { niche: "Pet Supplies", thisWeek: 3, lastWeek: 0 },
+      { niche: "Beauty", thisWeek: 1, lastWeek: 2 },
+    ]);
   });
 });
