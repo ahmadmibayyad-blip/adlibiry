@@ -334,7 +334,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
       )}
 
       {items === undefined ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {Array.from({ length: 6 }).map((_, i) => (
             <ProductCardSkeleton key={i} />
           ))}
@@ -346,7 +346,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
           <p className="text-sm text-muted-foreground">They're picked every morning from products scoring {summary?.minScore ?? 65} or more.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {items.map(({ product, isNewToday }) => (
             <motion.div key={product._id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <ProductCard product={product} isNewToday={isNewToday} />

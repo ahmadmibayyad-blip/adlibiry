@@ -295,14 +295,14 @@ function SourcingTab({ initialNiche }: { initialNiche?: string }) {
           <section>
             <h3 className="text-sm font-semibold mb-2">Matching products in AdSpy Pro</h3>
             {products.status === "LoadingFirstPage" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
                 {Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}
               </div>
             ) : products.results.length === 0 ? (
               <p className="text-sm text-muted-foreground">No products in AdSpy Pro match yet — use the supplier searches above.</p>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
                   {products.results.map((p) => <ProductCard key={p._id} product={p} />)}
                 </div>
                 {products.status === "CanLoadMore" && (
