@@ -421,6 +421,8 @@ export default defineSchema({
     adId: v.id("ads"),
     userId: v.id("users"),
     expiresAt: v.number(),    // ms
+    sourceUrl: v.optional(v.string()), // resolved file link (TikTok), else ads.videoUrl
+    cookie: v.optional(v.string()),    // cookies TikTok requires with that link
   })
     .index("by_token", ["token"])
     .index("by_expires", ["expiresAt"]),
