@@ -103,6 +103,16 @@ export const getRecentlySpotted = query({
   },
 });
 
+// Stores added by Nexscope product discovery (newest first). Older rows are
+// recognised by the site-icon logo discovery gave them before `source` existed.
+export const getNewlyDiscovered = query({
+  args: {},
+  handler: async (ctx) => {
+    const stores = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(300);
+    return stores.filter((s) => s.source === "product_discovery" || s.logoUrl.includes("google.com/s2/favicons")).slice(0, 12);
+  },
+});
+
 // Compare up to 4 stores side by side
 export const getByIds = query({
   args: { ids: v.array(v.id("stores")) },

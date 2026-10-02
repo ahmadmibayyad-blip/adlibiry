@@ -17,6 +17,7 @@ import FilterSelect from "@/components/FilterSelect.tsx";
 import FilterNumberInput from "@/components/FilterNumberInput.tsx";
 import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
+import { storeImage } from "@/lib/storeImage.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -42,6 +43,7 @@ export default function StoreTrackerPage() {
 
   const niches = useQuery(api.stores.getNiches, {});
   const recentlySpotted = useQuery(api.stores.getRecentlySpotted, {});
+  const newlyDiscovered = useQuery(api.stores.getNewlyDiscovered, {});
   const trackedStores = useQuery(api.stores.getTrackedStores, {});
   const seedStores = useMutation(api.stores.seedStores);
   const isAdmin = useQuery(api.users.isAdmin, {});
@@ -117,6 +119,35 @@ export default function StoreTrackerPage() {
         </p>
       </motion.div>
 
+      {/* Stores added by product discovery (Shopify stores running Facebook ads) */}
+      {!showWatchlist && newlyDiscovered && newlyDiscovered.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-sm">Newly discovered</h2>
+            <span className="text-xs text-muted-foreground">Shopify stores selling products we found running Facebook ads</span>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {newlyDiscovered.map((store) => (
+              <button
+                key={store._id}
+                onClick={() => handleOpenStore(store)}
+                className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
+              >
+                <img src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium leading-snug line-clamp-1">{store.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {store.bestSellers.length} best-seller{store.bestSellers.length === 1 ? "" : "s"}
+                    {store.activeAdsCount > 0 ? ` · ${store.activeAdsCount} ads` : ""}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Recently spotted high-traffic feed */}
       {!showWatchlist && recentlySpotted && recentlySpotted.length > 0 && (
         <motion.div
@@ -136,7 +167,7 @@ export default function StoreTrackerPage() {
                 onClick={() => handleOpenStore(store)}
                 className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
               >
-                <img src={store.logoUrl} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                <img src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                 <div className="min-w-0">
                   <div className="text-sm font-medium leading-snug line-clamp-1">{store.name}</div>
                   <div className="text-xs text-muted-foreground">{store.estimatedRevenueRange}</div>

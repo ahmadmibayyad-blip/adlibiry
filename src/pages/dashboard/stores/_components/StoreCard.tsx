@@ -6,6 +6,7 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { toast } from "sonner";
 import { Authenticated } from "convex/react";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
+import { storeImage } from "@/lib/storeImage.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -55,7 +56,7 @@ export default function StoreCard({
     <div className="group bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all">
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         <img
-          src={store.logoUrl}
+          src={storeImage(store)}
           alt={store.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
           onClick={onClick}
