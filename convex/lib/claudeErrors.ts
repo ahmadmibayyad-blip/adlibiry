@@ -21,5 +21,13 @@ export function claudeErrorMessage(error: InstanceType<typeof Anthropic.APIError
               : error instanceof Anthropic.InternalServerError || error.status === 529
                 ? "The AI service is overloaded right now. Please try again in a minute."
                 : "The AI had a problem. Please try again.";
-  return isAdmin ? `${reason} (Anthropic ${error.status}: ${error.message.slice(0, 300)})` : reason;
+  return isAdmin ? `${reason} (Anthropic ${error.status}: ${error.message.slice(0, 300)}) [${setupHint()}]` : reason;
+}
+
+// Admin-only: which key and workspace this deployment actually loaded, so a
+// value set on the wrong Convex deployment (dev vs prod) is easy to spot.
+// Shows only the last 4 characters of each.
+function setupHint(): string {
+  const tail = (v?: string) => (v?.trim() ? `…${v.trim().slice(-4)}` : "not set");
+  return `server key ${tail(process.env.ANTHROPIC_API_KEY)}, ANTHROPIC_WORKSPACE_ID ${tail(process.env.ANTHROPIC_WORKSPACE_ID)}`;
 }
