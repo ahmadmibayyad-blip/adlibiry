@@ -165,7 +165,12 @@ export default function AdDetailPage() {
               <StatTile label="Views" value={adViews(ad) ? compactNumber(adViews(ad)) : "—"} />
               <StatTile label="Likes" value={ad.likes ? compactNumber(ad.likes) : "—"} />
               <StatTile label="Comments" value={ad.comments ? compactNumber(ad.comments) : "—"} />
-              <StatTile label="Spend (est.)" value={spend ?? "—"} />
+              {/* "up to $45K" doesn't fit the tile: the "up to" goes in the label. */}
+              <StatTile
+                label={spend && /^up to /i.test(spend) ? "Spend (est., max)" : "Spend (est.)"}
+                value={spend ? spend.replace(/^up to\s*/i, "") : "—"}
+                hint={spend ?? undefined}
+              />
               <StatTile label="GMV" value={gmv ? money(gmv) : "—"} />
             </div>
           </div>
