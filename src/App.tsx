@@ -14,6 +14,8 @@ import AdDetailPage from "./pages/dashboard/ads/[id].tsx";
 import WinnersPage from "./pages/dashboard/winners/page.tsx";
 import AgentsPage from "./pages/dashboard/agents/page.tsx";
 import HooksPage from "./pages/dashboard/hooks/page.tsx";
+import InfoPage from "./pages/info/page.tsx";
+import { INFO_PAGES } from "./pages/info/content.ts";
 import ResearchPage from "./pages/dashboard/research/page.tsx";
 import StoreTrackerPage from "./pages/dashboard/stores/page.tsx";
 import AlertsPage from "./pages/dashboard/alerts/page.tsx";
@@ -96,6 +98,9 @@ export default function App() {
             <Route path="admin" element={<AdminPage />} />
           </Route>
 
+          {INFO_PAGES.map((p) => (
+            <Route key={p.slug} path={`/${p.slug}`} element={<InfoPage />} />
+          ))}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
