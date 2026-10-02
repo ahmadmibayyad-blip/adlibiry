@@ -328,6 +328,7 @@ export default defineSchema({
     })),
     isHighTraffic: v.boolean(),         // surfaces in "recently spotted" feed
     spottedAt: v.string(),              // ISO 8601 UTC — when this store was first spotted/added
+    source: v.optional(v.string()),     // "product_discovery" = added from a discovered Shopify product
   })
     .index("by_niche", ["niche"])
     .index("by_spotted", ["spottedAt"])

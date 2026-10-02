@@ -436,9 +436,12 @@ export const upsertProductStore = internalMutation({
     const existing = link ? await ctx.db.get("stores", link.docId as Id<"stores">) : null;
     if (link && existing) {
       const others = existing.bestSellers.filter((b) => b.title !== args.bestSeller.title);
+      const iconOnly = !existing.logoUrl || existing.logoUrl.includes("google.com/s2/favicons");
       await ctx.db.patch("stores", existing._id, {
         bestSellers: [args.bestSeller, ...others].slice(0, 8),
         activeAdsCount: Math.max(existing.activeAdsCount, args.activeAdsCount),
+        // A site icon is blurry as a store picture; use the product photo.
+        ...(iconOnly && args.bestSeller.imageUrl ? { logoUrl: args.bestSeller.imageUrl } : {}),
       });
       await ctx.db.patch("syncLinks", link._id, { lastSyncedAt: now });
       return "updated";
@@ -447,7 +450,7 @@ export const upsertProductStore = internalMutation({
     const storeId = await ctx.db.insert("stores", {
       name: args.name,
       url: args.url,
-      logoUrl: args.logoUrl,
+      logoUrl: args.bestSeller.imageUrl || args.logoUrl,
       niche: args.niche,
       country: "US",
       platform: "Shopify",
@@ -457,6 +460,7 @@ export const upsertProductStore = internalMutation({
       bestSellers: [args.bestSeller],
       isHighTraffic: false,
       spottedAt: now,
+      source: "product_discovery",
     });
     await ctx.db.insert("syncLinks", { kind: "store", externalId: args.externalId, docId: storeId, source: "nexscope", lastSyncedAt: now });
     return "created";

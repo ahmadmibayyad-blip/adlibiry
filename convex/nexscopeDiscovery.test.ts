@@ -2,7 +2,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { NICHE_DISCOVERY_KEYWORDS } from "./nexscope/client";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -96,5 +96,8 @@ describe("Nexscope product discovery", () => {
     expect(stores[0]).toMatchObject({ name: "store.example.com", url: "https://store.example.com", platform: "Shopify", activeAdsCount: 14 });
     expect(stores[0].bestSellers).toHaveLength(8); // capped
     expect(stores[0].bestSellers[0]).toMatchObject({ price: 29.9, estSalesRange: "~320 orders/week" });
+    expect(stores[0]).toMatchObject({ logoUrl: "https://img.example.com/sh.jpg", source: "product_discovery" });
+    const discovered = await t.query(api.stores.getNewlyDiscovered, {});
+    expect(discovered.map((x) => x.name)).toEqual(["store.example.com"]);
   });
 });
