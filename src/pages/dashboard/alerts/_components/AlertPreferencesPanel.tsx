@@ -87,6 +87,7 @@ export default function AlertPreferencesPanel() {
     notifyNewWinners: boolean;
     notifyNewAdsInNiches: boolean;
     notifyTrackedStoreUpdates: boolean;
+    notifyFollowedAdvertisers: boolean;
     emailDigestEnabled: boolean;
   }>) => {
     setSaving(true);
@@ -96,6 +97,7 @@ export default function AlertPreferencesPanel() {
         notifyNewWinners: prefs.notifyNewWinners,
         notifyNewAdsInNiches: prefs.notifyNewAdsInNiches,
         notifyTrackedStoreUpdates: prefs.notifyTrackedStoreUpdates,
+        notifyFollowedAdvertisers: prefs.notifyFollowedAdvertisers !== false,
         emailDigestEnabled: prefs.emailDigestEnabled,
         ...overrides,
       });
@@ -137,9 +139,15 @@ export default function AlertPreferencesPanel() {
         />
         <ToggleRow
           label="Tracked store updates"
-          description="Get notified when a store on your Store Tracker watchlist changes."
+          description="New products or a sales jump at a store on your Store Tracker watchlist."
           checked={prefs.notifyTrackedStoreUpdates}
           onCheckedChange={(v) => save({ notifyTrackedStoreUpdates: v })}
+        />
+        <ToggleRow
+          label="Followed advertisers"
+          description="Once a day, when an advertiser you follow launches new ads."
+          checked={prefs.notifyFollowedAdvertisers !== false}
+          onCheckedChange={(v) => save({ notifyFollowedAdvertisers: v })}
         />
         <ToggleRow
           label="Daily email digest"

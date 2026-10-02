@@ -155,6 +155,7 @@ export default defineSchema({
     })),
   })
     .index("by_first_seen", ["firstSeenAt"])
+    .index("by_advertiser", ["advertiserName"])
     .index("by_product", ["productId"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
@@ -401,7 +402,18 @@ export default defineSchema({
     trackedAt: v.string(), // ISO 8601 UTC
   })
     .index("by_user", ["userId"])
+    .index("by_store", ["storeId"])
     .index("by_user_and_store", ["userId", "storeId"]),
+
+  // Follow alerts: advertisers a user follows (convex/follows.ts).
+  followedAdvertisers: defineTable({
+    userId: v.id("users"),
+    name: v.string(),        // exact ads.advertiserName
+    followedAt: v.string(),  // ISO 8601 UTC
+  })
+    .index("by_user", ["userId"])
+    .index("by_name", ["name"])
+    .index("by_user_and_name", ["userId", "name"]),
 
   // Alerts: per-user notification feed (new winners, new ads in watched niches, tracked store updates)
   notifications: defineTable({
@@ -423,6 +435,7 @@ export default defineSchema({
     notifyNewWinners: v.boolean(),
     notifyNewAdsInNiches: v.boolean(),
     notifyTrackedStoreUpdates: v.boolean(),
+    notifyFollowedAdvertisers: v.optional(v.boolean()), // missing = on
     emailDigestEnabled: v.boolean(),
     updatedAt: v.string(), // ISO 8601 UTC
   })

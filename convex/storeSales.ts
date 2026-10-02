@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery, query, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { monthlyRevenueRange, storeOrigin, summarizeCatalog, utcDay, type CatalogSummary, type ShopifyProduct } from "./lib/storeSales";
+import { monthlyRevenueRange, storeAlert, storeOrigin, summarizeCatalog, utcDay, type CatalogSummary, type ShopifyProduct } from "./lib/storeSales";
 
 // ── Store sales tracking ────────────────────────────────────────────────────
 // Once a day we read each store's public Shopify catalog (/products.json) and
@@ -205,6 +205,18 @@ export const saveSnapshot = internalMutation({
       .withIndex("by_store_day", (q) => q.eq("storeId", args.storeId))
       .order("desc")
       .take(30);
+    // Alert the store's trackers on the first check of the day only.
+    if (!existing) {
+      const alert = storeAlert(store.name, row, recent.slice(1, 8));
+      if (alert) {
+        await ctx.scheduler.runAfter(0, internal.notifications.notifyTrackersOfStoreUpdate, {
+          storeId: args.storeId,
+          ...alert,
+          link: `/dashboard/stores?store=${args.storeId}`,
+        });
+      }
+    }
+
     const patch: Partial<Doc<"stores">> = { salesCheck: { at: args.takenAt, ok: true, failures: 0 } };
     if (recent.length >= 3) {
       // Per 24 hours, so a longer gap between checks doesn't inflate it.

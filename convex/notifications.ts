@@ -99,6 +99,7 @@ const defaultPreferences = {
   notifyNewWinners: true,
   notifyNewAdsInNiches: true,
   notifyTrackedStoreUpdates: true,
+  notifyFollowedAdvertisers: true,
   emailDigestEnabled: false,
 };
 
@@ -126,6 +127,7 @@ export const updatePreferences = mutation({
     notifyNewWinners: v.boolean(),
     notifyNewAdsInNiches: v.boolean(),
     notifyTrackedStoreUpdates: v.boolean(),
+    notifyFollowedAdvertisers: v.optional(v.boolean()),
     emailDigestEnabled: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -227,8 +229,10 @@ export const notifyAllForNewWinner = internalMutation({
 export const notifyTrackersOfStoreUpdate = internalMutation({
   args: { storeId: v.id("stores"), title: v.string(), body: v.string(), link: v.string() },
   handler: async (ctx, args): Promise<void> => {
-    const trackers = await ctx.db.query("trackedStores").take(2000);
-    const relevant = trackers.filter((t) => t.storeId === args.storeId);
+    const relevant = await ctx.db
+      .query("trackedStores")
+      .withIndex("by_store", (q) => q.eq("storeId", args.storeId))
+      .take(2000);
     const visitorIds: string[] = [];
     for (const t of relevant) {
       const pref = await ctx.db
