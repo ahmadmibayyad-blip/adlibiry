@@ -222,7 +222,7 @@ export default function ProductsFeed() {
   // ?search=… (e.g. from image search) presets the search box.
   const [search, setSearch] = useState(() => params.get("search") ?? "");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [view, setView] = useState<"table" | "grid">("table");
+  const [view, setView] = useState<"table" | "grid">("grid");
 
   const stats = useQuery(api.stats.get, {});
   const categories = stats?.products.categories ?? [];
@@ -427,7 +427,7 @@ export default function ProductsFeed() {
           <div className="flex-1" />
           <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
           <div className="flex items-center bg-background border border-border rounded-lg p-0.5">
-            {([["table", Table2], ["grid", LayoutGrid]] as const).map(([v, Icon]) => (
+            {([["grid", LayoutGrid], ["table", Table2]] as const).map(([v, Icon]) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
