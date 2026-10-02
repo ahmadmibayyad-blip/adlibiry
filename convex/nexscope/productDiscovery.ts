@@ -8,7 +8,7 @@ import { classifyNiche } from "../lib/category";
 import { findPayload, nestedError } from "../lib/nexscopeReply";
 import {
   NEXSCOPE_AMAZON_DISCOVERY_URL,
-  NICHE_TO_AMAZON_KEYWORD,
+  NICHE_DISCOVERY_KEYWORDS,
   scoreFromAmazonSignals,
   trendFromClickGrowth,
   deriveCostFromMargin,
@@ -21,6 +21,9 @@ import {
 // image, and price (unlike the AdLibrary-derived products, which have no
 // price and get a category-average benchmark instead). Deduped by ASIN so
 // re-running updates existing rows instead of creating duplicates.
+// Each run searches the next keyword for every niche (NICHE_DISCOVERY_KEYWORDS)
+// and saves every usable listing it gets back (up to 10 per niche), so the
+// catalog grows; the top PRODUCTS_PER_NICHE are that niche's daily picks.
 
 type DiscoveryResult = {
   created: number;
@@ -40,8 +43,10 @@ export const discoverProducts = internalAction({
     }
 
     const result: DiscoveryResult = { created: 0, updated: 0, skipped: 0, errors: [] };
+    const run = await ctx.runMutation(internal.nexscope.productDiscovery.nextRun, {});
 
-    for (const [niche, keyword] of Object.entries(NICHE_TO_AMAZON_KEYWORD)) {
+    for (const [niche, keywords] of Object.entries(NICHE_DISCOVERY_KEYWORDS)) {
+      const keyword = keywords[run % keywords.length];
       try {
         const response = await fetch(NEXSCOPE_AMAZON_DISCOVERY_URL, {
           method: "POST",
@@ -86,8 +91,9 @@ export const discoverProducts = internalAction({
           continue;
         }
 
+        result.skipped += products.length - candidates.length;
         const keepIds: Id<"products">[] = [];
-        for (const product of candidates.slice(0, PRODUCTS_PER_NICHE)) {
+        for (const [i, product] of candidates.entries()) {
           const price = Math.round(product.price * 100) / 100;
           const outcome = await ctx.runMutation(internal.nexscope.productDiscovery.upsertAmazonProduct, {
             niche,
@@ -100,8 +106,9 @@ export const discoverProducts = internalAction({
             aiScore: scoreFromAmazonSignals(product),
             trend: trendFromClickGrowth(product.clickCountGrowthT30),
             reviewCount: product.ratings,
+            isPick: i < PRODUCTS_PER_NICHE,
           });
-          keepIds.push(outcome.productId);
+          if (i < PRODUCTS_PER_NICHE) keepIds.push(outcome.productId);
           if (outcome.outcome === "created") result.created += 1;
           else result.updated += 1;
         }
@@ -140,6 +147,7 @@ export const upsertAmazonProduct = internalMutation({
     aiScore: v.number(),
     trend: v.string(),
     reviewCount: v.optional(v.number()),
+    isPick: v.optional(v.boolean()), // one of this niche's daily picks (default true)
   },
   handler: async (ctx, args): Promise<{ outcome: "created" | "updated"; productId: Id<"products"> }> => {
     // The listing's own title decides its category (a "resistance bands"
@@ -164,7 +172,7 @@ export const upsertAmazonProduct = internalMutation({
       trend: args.trend,
       supplierUrl: args.supplierUrl,
       adExamples: [] as { platform: string; impressions: string; imageUrl: string }[],
-      isWinnerOfDay: true,
+      isWinnerOfDay: args.isPick ?? true,
       source: "nexscope_api",
       priceSource: "exact" as const,
     };
@@ -192,6 +200,20 @@ export const upsertAmazonProduct = internalMutation({
       lastSyncedAt: new Date().toISOString(),
     });
     return { outcome: "created", productId };
+  },
+});
+
+// Which keyword each niche searches next (counts up once per run).
+export const nextRun = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "nexscopeDiscovery")).unique();
+    const run = (doc?.data as { run?: number } | undefined)?.run ?? 0;
+    const data = { run: run + 1 };
+    const updatedAt = new Date().toISOString();
+    if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
+    else await ctx.db.insert("siteStats", { key: "nexscopeDiscovery", data, updatedAt });
+    return run;
   },
 });
 
