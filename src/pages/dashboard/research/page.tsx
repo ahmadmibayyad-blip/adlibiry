@@ -15,6 +15,7 @@ import AINicheReportModal from "../_components/ai/AINicheReportModal.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { toast } from "sonner";
+import FilterSelect from "@/components/FilterSelect.tsx";
 
 type Supplier = Doc<"supplierListings">;
 type Niche = Doc<"niches">;
@@ -235,29 +236,13 @@ function SourcingTab({ initialNiche }: { initialNiche?: string }) {
             className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
           />
         </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-          <button
-            onClick={() => setNiche(undefined)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
-              !niche ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"
-            )}
-          >
-            All niches
-          </button>
-          {nicheNames.map((n) => (
-            <button
-              key={n}
-              onClick={() => setNiche(niche === n ? undefined : n)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
-                niche === n ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
+        <FilterSelect
+          label="Niche"
+          value={niche ?? "all"}
+          onChange={(v) => setNiche(v === "all" ? undefined : v)}
+          active={!!niche}
+          options={[{ value: "all", label: "All niches" }, ...nicheNames.map((n) => ({ value: n, label: n }))]}
+        />
       </div>
 
       {!lookFor ? (
