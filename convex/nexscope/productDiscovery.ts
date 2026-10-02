@@ -15,7 +15,7 @@ import {
   type NexscopeAmazonProduct,
   type NexscopeAmazonDiscoveryResponse,
 } from "./client";
-import { fromShopify, fromTikTokShop, nexscopeSkillUrl, storeFromShopify, type ShopifyProduct, type TikTokShopProduct } from "./marketplaces";
+import { fromShopify, fromTikTokShop, nexscopeSkillUrl, normalizeShopify, storeFromShopify, type TikTokShopProduct } from "./marketplaces";
 
 // Winning Products: discovers real Amazon bestseller candidates per niche
 // from Nexscope.ai — each one a real, single ASIN with its own real title,
@@ -165,6 +165,10 @@ export const discoverProducts = internalAction({
           count("TikTok Shop", outcome.outcome);
         }
         if (!reply.products.length) result.errors.push("TikTok Shop: no products in the reply");
+        else if (!result.bySource!["TikTok Shop"]) {
+          const first = reply.products[0] as Record<string, unknown>;
+          result.errors.push(`TikTok Shop: ${reply.products.length} products skipped. Fields sent: ${Object.keys(first ?? {}).slice(0, 25).join(", ")}`);
+        }
       }
     } catch (error) {
       result.errors.push(`TikTok Shop: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -193,25 +197,37 @@ export const discoverProducts = internalAction({
     for (const [niche, keywords] of Object.entries(NICHE_DISCOVERY_KEYWORDS)) {
       const keyword = keywords[run % keywords.length];
       try {
-        const reply = await runSkill(apiKey, "shopify-product-query", { searchKey: keyword, facebookAd: 1, showDeleted: 0, page: 1, pageSize: 10 });
+        const reply = await runSkill(apiKey, "shopify-product-query", { searchKey: keyword, keyword, facebookAd: 1, showDeleted: 0, page: 1, pageSize: 10 });
         if ("error" in reply) {
           result.errors.push(`Shopify ${niche}: ${reply.error}`);
           continue;
         }
+        let saved = 0;
         for (const raw of reply.products) {
-          const d = fromShopify(raw as ShopifyProduct, niche);
+          const p = normalizeShopify(raw as Record<string, unknown>);
+          const d = fromShopify(p, niche);
           if (!d) {
             result.skipped += 1;
             continue;
           }
+          saved += 1;
           const outcome = await ctx.runMutation(internal.nexscope.productDiscovery.upsertDiscovered, { ...d, source: "shopify" });
           count("Shopify", outcome.outcome);
           // …and its store goes to the Stores tracker, with this product as a best-seller.
-          const store = storeFromShopify(raw as ShopifyProduct, d);
+          const store = storeFromShopify(p, d);
           if (store) {
             const s = await ctx.runMutation(internal.nexscope.productDiscovery.upsertProductStore, store);
             result.stores = (result.stores ?? 0) + (s === "created" ? 1 : 0);
           }
+        }
+        // Say what came back when nothing was usable, so a changed reply shape is visible.
+        if (!saved && result.errors.filter((e) => e.startsWith("Shopify")).length < 2) {
+          const first = reply.products[0] as Record<string, unknown> | undefined;
+          result.errors.push(
+            reply.products.length
+              ? `Shopify ${niche}: ${reply.products.length} products skipped (no id, title or link). Fields sent: ${Object.keys(first ?? {}).slice(0, 25).join(", ")}`
+              : `Shopify ${niche}: no products for "${keyword}"`,
+          );
         }
       } catch (error) {
         result.errors.push(`Shopify ${niche}: ${error instanceof Error ? error.message : "Unknown error"}`);
