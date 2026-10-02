@@ -190,6 +190,29 @@ export default defineSchema({
     count: v.number(),
   }).index("by_user_day", ["userId", "day"]),
 
+  // AI agents (convex/agents.ts, convex/agentRunner.ts): a customer's standing
+  // research goal that Claude works on every morning, writing a briefing.
+  agents: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    goal: v.string(),
+    niches: v.array(v.string()),
+    enabled: v.boolean(),
+    createdAt: v.string(),
+    lastRunAt: v.optional(v.string()),
+    lastStatus: v.optional(v.string()), // "ok" | "error"
+  })
+    .index("by_user", ["userId"])
+    .index("by_enabled", ["enabled"]),
+
+  agentBriefings: defineTable({
+    agentId: v.id("agents"),
+    userId: v.id("users"),
+    createdAt: v.string(),
+    status: v.string(), // "ok" | "error"
+    text: v.string(),
+  }).index("by_agent", ["agentId"]),
+
   // Personal access keys for the MCP server (convex/mcp.ts). Only a SHA-256
   // hash of each key is stored; the key itself is shown once at creation.
   mcpKeys: defineTable({

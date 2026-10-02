@@ -76,4 +76,8 @@ crons.daily("link ads to products, rebuild winners, save history", { hourUTC: 8,
 // Rebuild filter counts / admin totals once a day as a backstop.
 crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.recompute);
 
+// AI agents: each enabled agent writes its morning briefing, after the
+// products pipeline and Research rebuild (convex/agentRunner.ts).
+crons.daily("run AI agents", { hourUTC: 9, minuteUTC: 20 }, internal.agentRunner.runAll);
+
 export default crons;
