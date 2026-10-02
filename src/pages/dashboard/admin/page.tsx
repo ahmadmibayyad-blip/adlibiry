@@ -302,7 +302,7 @@ function ProductsTab() {
               <h3 className="font-semibold text-sm">Nexscope.ai product discovery</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Pulls real Amazon bestseller candidates per niche (2 each) as new Winning Products, each with its own real title, image, and price. Also runs automatically once a day. Each run uses Nexscope credits.
+              Pulls up to 10 real Amazon bestsellers per niche, each with its own real title, image and price. Every run searches a different product keyword per niche, so it keeps finding new products. Also runs automatically once a day. Each run uses Nexscope credits (one search per niche).
             </p>
           </div>
           <Button size="sm" onClick={handleDiscovery} disabled={discovering}>
