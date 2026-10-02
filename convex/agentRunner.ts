@@ -7,6 +7,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { claudeErrorMessage } from "./lib/claudeErrors";
+import { claudeClient } from "./lib/claudeClient";
 import { listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
 
 // Runs AI agents (see convex/agents.ts): Claude looks through the app's data
@@ -40,7 +41,7 @@ function tools(ctx: ActionCtx) {
 
 async function work(ctx: ActionCtx, agent: Doc<"agents">, lastBriefing: string | undefined): Promise<{ status: string; text: string }> {
   if (!process.env.ANTHROPIC_API_KEY) return { status: "error", text: "AI isn't set up yet (missing ANTHROPIC_API_KEY)." };
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = claudeClient();
   const today = new Date().toISOString().slice(0, 10);
   const prompt = [
     `Agent: ${agent.name}`,

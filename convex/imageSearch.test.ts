@@ -92,6 +92,33 @@ describe("image search", () => {
     ).rejects.toThrow(/image too small/);
   });
 
+  it("sends the workspace header when ANTHROPIC_WORKSPACE_ID is set", async () => {
+    process.env.ANTHROPIC_API_KEY = "test";
+    process.env.ANTHROPIC_WORKSPACE_ID = "wrkspc_123";
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+    });
+    let header: string | null = null;
+    vi.stubGlobal("fetch", async (_url: unknown, init: { headers: HeadersInit }) => {
+      header = new Headers(init.headers).get("anthropic-workspace-id");
+      return new Response(
+        JSON.stringify({
+          id: "msg_3", type: "message", role: "assistant", model: "claude-opus-5-5",
+          content: [{ type: "text", text: JSON.stringify({ isProduct: false, productName: "", searchTerms: [], niche: "Other" }) }],
+          stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    try {
+      await t.withIdentity({ subject: "u1|s" }).action(api.imageSearch.search, { imageBase64: "aGVsbG8=", mediaType: "image/jpeg" });
+      expect(header).toBe("wrkspc_123");
+    } finally {
+      delete process.env.ANTHROPIC_WORKSPACE_ID;
+    }
+  });
+
   it("rejects non-images and signed-out users", async () => {
     process.env.ANTHROPIC_API_KEY = "test";
     const t = convexTest(schema, modules);
