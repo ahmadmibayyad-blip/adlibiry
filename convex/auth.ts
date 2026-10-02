@@ -1,10 +1,14 @@
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
+import Google from "@auth/core/providers/google";
 import type { MutationCtx } from "./_generated/server";
-import { initNewUser } from "./lib/userRole";
+import { upsertAuthUser } from "./lib/authUser";
 
-// Email + password sign-in, handled entirely by this Convex deployment.
-// Replaces the Hercules-hosted OIDC login.
+// Email + password sign-in, plus "Continue with Google" once AUTH_GOOGLE_ID
+// and AUTH_GOOGLE_SECRET are set on the deployment. Which user a sign-in
+// belongs to (and Google ↔ password account linking): lib/authUser.ts.
+export const googleEnabled = !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password({
@@ -16,11 +20,19 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         return profile as { email: string } & Record<string, string>;
       },
     }),
+    ...(googleEnabled
+      ? [
+          Google({
+            profile(p) {
+              return { id: p.sub, name: p.name, email: p.email, image: p.picture, emailVerified: p.email_verified === true };
+            },
+          }),
+        ]
+      : []),
   ],
   callbacks: {
-    // Stable lookup key + role for new accounts — see lib/userRole.ts.
-    async afterUserCreatedOrUpdated(ctx, { userId }) {
-      await initNewUser(ctx as unknown as MutationCtx, userId);
+    async createOrUpdateUser(ctx, args) {
+      return await upsertAuthUser(ctx as unknown as MutationCtx, args as Parameters<typeof upsertAuthUser>[1]);
     },
   },
 });
