@@ -49,6 +49,8 @@ const SOURCES = [
   { value: "winninghunter", label: "WinningHunter" },
   { value: "adlibrary_api", label: "Live ads" },
   { value: "nexscope_api", label: "Amazon" },
+  { value: "tiktok_shop", label: "TikTok Shop" },
+  { value: "shopify", label: "Shopify" },
   { value: "csv_import", label: "CSV import" },
   { value: "curated", label: "Curated" },
 ];

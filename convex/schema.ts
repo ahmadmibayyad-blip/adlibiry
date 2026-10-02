@@ -45,7 +45,7 @@ export default defineSchema({
     })),
     isWinnerOfDay: v.boolean(),
     publishedAt: v.string(),   // ISO 8601 UTC
-    source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api" — absent means legacy curated row
+    source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api" (Amazon) | "tiktok_shop" | "shopify" — absent means legacy curated row
     priceSource: v.optional(v.string()), // "exact" | "estimated_market" — absent means legacy curated row (exact); "estimated_market" means price/cost are a Nexscope-derived category benchmark, not this exact product's real price
     // PiPiAds-style product metrics (CSV imports, discovery). Optional.
     adsCount: v.optional(v.number()),

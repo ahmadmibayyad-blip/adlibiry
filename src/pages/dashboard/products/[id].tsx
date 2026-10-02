@@ -184,6 +184,16 @@ export default function ProductDetail() {
                   Real Amazon listing via Nexscope.ai
                 </span>
               )}
+              {product.source === "tiktok_shop" && (
+                <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20">
+                  TikTok Shop best-seller via Nexscope.ai
+                </span>
+              )}
+              {product.source === "shopify" && (
+                <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20">
+                  Shopify store running Facebook ads
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-bold leading-tight mb-2">{product.title}</h1>
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
@@ -289,7 +299,11 @@ export default function ProductDetail() {
                   ? "View Live Store"
                   : product.source === "nexscope_api"
                     ? "View on Amazon"
-                    : product.storeUrl
+                    : product.source === "tiktok_shop"
+                      ? "View on TikTok Shop"
+                      : product.source === "shopify"
+                        ? "View store page"
+                        : product.storeUrl
                       ? "Open landing page"
                       : "Find Supplier on AliExpress"}
               </a>
