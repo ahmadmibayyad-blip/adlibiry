@@ -231,7 +231,7 @@ function ProductsTab() {
   const [pricing, setPricing] = useState(false);
   const [lastPricing, setLastPricing] = useState<{ updated: number; skipped: number; errors: string[] } | null>(null);
   const [discovering, setDiscovering] = useState(false);
-  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[]; bySource?: Record<string, { created: number; updated: number }>; stores?: number } | null>(null);
+  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[]; bySource?: Record<string, { created: number; updated: number }>; stores?: number; sample?: string } | null>(null);
   const deleteProduct = useMutation(api.admin.products.deleteProduct);
   const backfillPricing = useAction(api.nexscope.pricing.backfillPricingNow);
   const discoverProducts = useAction(api.nexscope.productDiscovery.discoverProductsNow);
@@ -320,6 +320,12 @@ function ProductsTab() {
                 {source}: <strong className="text-foreground">{c.created}</strong> new, {c.updated} updated
               </span>
             ))}
+            {lastDiscovery.sample && (
+              <details className="w-full text-muted-foreground">
+                <summary className="cursor-pointer">What Nexscope sent for one Shopify product</summary>
+                <div className="mt-1 break-all font-mono text-[11px]">{lastDiscovery.sample}</div>
+              </details>
+            )}
             {lastDiscovery.stores !== undefined && (
               <span className="text-muted-foreground">New stores <strong className="text-foreground">{lastDiscovery.stores}</strong></span>
             )}
