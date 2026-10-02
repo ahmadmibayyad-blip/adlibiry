@@ -52,4 +52,33 @@ describe("video download", () => {
     vi.setSystemTime(Date.now() + 11 * 60_000);
     expect((await t.fetch(path)).status).toBe(410);
   });
+
+  it("downloads TikTok ads through TikTok's video page", async () => {
+    process.env.CONVEX_SITE_URL = "https://site.example";
+    const t = convexTest(schema, modules);
+    const adId = await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+      return ctx.db.insert("ads", { ...adBase, externalKey: "tiktok_7412345678901234567" });
+    });
+    const me = t.withIdentity({ subject: "u1|s" });
+    const html = `<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">${JSON.stringify({
+      __DEFAULT_SCOPE__: { "webapp.video-detail": { itemInfo: { itemStruct: { video: { playAddr: "https://v16.tiktokcdn.com/x.mp4" } } } } },
+    })}</script>`;
+    const calls: { url: string; cookie: string | null }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), cookie: new Headers(init?.headers).get("cookie") });
+      if (String(url).includes("www.tiktok.com")) {
+        return new Response(html, { status: 200, headers: { "content-type": "text/html", "set-cookie": "tt_chain_token=abc; Path=/" } });
+      }
+      return new Response("TT", { status: 200, headers: { "content-type": "video/mp4", "content-length": "2" } });
+    });
+    const link = await me.action(api.videoDownload.downloadUrl, { adId });
+    const res = await t.fetch(link.replace("https://site.example", ""));
+    expect(await res.text()).toBe("TT");
+    expect(calls.map((c) => c.url)).toEqual(["https://www.tiktok.com/@_/video/7412345678901234567", "https://v16.tiktokcdn.com/x.mp4"]);
+    expect(calls[1].cookie).toBe("tt_chain_token=abc");
+
+    vi.stubGlobal("fetch", async () => new Response("<html>captcha</html>", { status: 200 }));
+    await expect(me.action(api.videoDownload.downloadUrl, { adId })).rejects.toThrow(/TikTok didn't give us the file/);
+  });
 });

@@ -46,7 +46,7 @@ export default function DownloadVideoButton(props: { adId: Id<"ads">; className?
 // For ads with a stored video file: Download. For video ads whose source gave
 // no file (e.g. TikTok via Nexscope): a link to watch it at the source.
 export function AdVideoAction({ ad, className, label }: { ad: Doc<"ads">; className?: string; label?: string }) {
-  if (ad.videoUrl) return <DownloadVideoButton adId={ad._id} className={className} label={label} />;
+  if (ad.videoUrl || tiktokVideoId(ad)) return <DownloadVideoButton adId={ad._id} className={className} label={label} />;
   // TikTok embeds have their own "Watch on TikTok" link under the player.
   const watch = ad.mediaType === "video" && !tiktokVideoId(ad) ? ad.adLibraryUrl : undefined;
   if (!watch) return null;
