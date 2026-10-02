@@ -293,3 +293,17 @@ describe("Research tab", () => {
     expect(left.map((s) => s.title)).toEqual(["Real"]);
   });
 });
+
+describe("Ad Spy sort", () => {
+  it("'Recently added' lists the newest imports first, whatever their first-seen date", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ads", ad({ headline: "older import", firstSeenAt: "2026-09-29T00:00:00.000Z" }));
+      await ctx.db.insert("ads", ad({ headline: "just imported, ran since June", firstSeenAt: "2026-06-01T00:00:00.000Z", source: "nexscope" }));
+    });
+    const added = await t.query(api.ads.list, { paginationOpts: { numItems: 5, cursor: null }, sort: "added" });
+    expect(added.page[0].headline).toBe("just imported, ran since June");
+    const newest = await t.query(api.ads.list, { paginationOpts: { numItems: 5, cursor: null }, sort: "newest" });
+    expect(newest.page[0].headline).toBe("older import");
+  });
+});

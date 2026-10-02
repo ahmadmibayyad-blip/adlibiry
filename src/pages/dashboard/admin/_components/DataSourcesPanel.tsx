@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { Download, Store, Clapperboard, Trophy, Tags, FileUp } from "lucide-react";
@@ -18,7 +19,7 @@ const META_COUNTRIES = ["DK", "SE", "NO", "DE", "GB", "NL", "FR", "US"];
 const selectCls =
   "h-9 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
-function Result({ lines, errors }: { lines: [string, number | string][]; errors: string[] }) {
+function Result({ lines, errors, view }: { lines: [string, number | string][]; errors: string[]; view?: { to: string; label: string } }) {
   return (
     <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap text-xs">
       {lines.map(([label, value]) => (
@@ -26,6 +27,11 @@ function Result({ lines, errors }: { lines: [string, number | string][]; errors:
           {label} <strong className="text-foreground">{value}</strong>
         </span>
       ))}
+      {view && (
+        <Link to={view.to} className="text-primary font-medium hover:underline">
+          {view.label} →
+        </Link>
+      )}
       {errors.length > 0 && (
         <div className="w-full text-destructive">
           {errors.map((e, i) => (
@@ -235,7 +241,7 @@ export default function DataSourcesPanel() {
             {ttBusy ? "Importing..." : "Import"}
           </Button>
         </div>
-        {ttRes && <Result lines={[["Fetched", ttRes.fetched], ["Created", ttRes.created], ["Updated", ttRes.updated], ["Available", ttRes.totalAvailable]]} errors={ttRes.errors} />}
+        {ttRes && <Result lines={[["Fetched", ttRes.fetched], ["Created", ttRes.created], ["Updated", ttRes.updated], ["Available", ttRes.totalAvailable]]} errors={ttRes.errors} view={{ to: "/dashboard/ad-spy?source=nexscope&sort=added", label: "View in Ad Spy" }} />}
       </Card>
 
       <Card icon={Store} title="Shopify stores that advertise (Nexscope)" text="Shopify stores with active ads, traffic and order estimates. They appear in Store Tracker. The search box matches store names/domains, not products — leave it empty for the top advertisers.">
@@ -268,7 +274,7 @@ export default function DataSourcesPanel() {
             {stBusy ? "Importing..." : "Import"}
           </Button>
         </div>
-        {stRes && <Result lines={[["Fetched", stRes.fetched], ["Created", stRes.created], ["Updated", stRes.updated]]} errors={stRes.errors} />}
+        {stRes && <Result lines={[["Fetched", stRes.fetched], ["Created", stRes.created], ["Updated", stRes.updated]]} errors={stRes.errors} view={{ to: "/dashboard/stores", label: "View in Store Tracker" }} />}
       </Card>
 
       <Card icon={Download} title="Meta Ad Library (Apify)" text="Facebook + Instagram ads for any country incl. DK/SE/NO. Runs on Apify; results arrive automatically in a few minutes.">
@@ -330,7 +336,7 @@ export default function DataSourcesPanel() {
           </Button>
         </div>
         {apMsg && <p className="text-xs text-muted-foreground mt-2">{apMsg}</p>}
-        {apRes && <Result lines={[["Fetched", apRes.fetched], ["Created", apRes.created], ["Updated", apRes.updated], ["Skipped", apRes.skipped]]} errors={apRes.errors} />}
+        {apRes && <Result lines={[["Fetched", apRes.fetched], ["Created", apRes.created], ["Updated", apRes.updated], ["Skipped", apRes.skipped]]} errors={apRes.errors} view={{ to: "/dashboard/ad-spy?source=apify&sort=added", label: "View in Ad Spy" }} />}
       </Card>
     </div>
   );
