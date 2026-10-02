@@ -251,7 +251,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
             {result && (
               <p className="text-xs">
                 Done: <strong>{result.created}</strong> new, <strong>{result.updated}</strong> updated. They are at the
-                top of the ads list below and of Ad Spy (Newest). In Ad Spy you can also pick Source → "CSV import" to see only these.
+                top of the ads list below and of Ad Spy (Newest).
               </p>
             )}
           </div>

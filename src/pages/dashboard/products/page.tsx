@@ -45,14 +45,14 @@ const ORIGINS = [
   { value: "ads" as const, label: "From ads" },
 ];
 
+// WinningHunter and CSV imports run in the background: their products show
+// under All, but they get no filter button of their own.
 const SOURCES = [
   { value: undefined, label: "All" },
-  { value: "winninghunter", label: "WinningHunter" },
   { value: "adlibrary_api", label: "Live ads" },
   { value: "nexscope_api", label: "Amazon" },
   { value: "tiktok_shop", label: "TikTok Shop" },
   { value: "shopify", label: "Shopify" },
-  { value: "csv_import", label: "CSV import" },
   { value: "curated", label: "Curated" },
 ];
 

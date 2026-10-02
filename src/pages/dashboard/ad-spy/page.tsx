@@ -64,14 +64,14 @@ const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
 const MEDIA = [ANY, opt("video", "Video"), opt("image", "Image"), opt("carousel", "Carousel")];
 const LANDING = [ANY, opt("has", "Has store link")];
 const AUDIENCE = [ANY, opt("All", "All genders"), opt("Female", "Mostly women"), opt("Male", "Mostly men")];
+// WinningHunter and CSV imports run in the background: their ads show under
+// Any source, but they aren't listed as a choice.
 const SOURCES = [
   ANY,
   opt("adlibrary_api", "AdLibrary"),
   opt("apify", "Meta (Apify)"),
-  opt("winninghunter", "WinningHunter"),
   opt("nexscope", "TikTok (Nexscope)"),
   opt("extension", "Extension"),
-  opt("csv_import", "CSV import"),
 ];
 const SORTS = [
   opt("added", "Recently added"),
