@@ -13,6 +13,7 @@ import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
+import AdMedia from "../_components/AdMedia.tsx";
 import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
 import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
 import { dailyChange, money, pct, SERIES, type Point, type Range } from "../_components/chartUtils.ts";
@@ -119,13 +120,7 @@ export default function AdDetailPage() {
       <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className="space-y-3">
           <div className="rounded-xl overflow-hidden border border-border bg-black">
-            {ad.videoUrl ? (
-              <video src={ad.videoUrl} poster={ad.creativeUrl || undefined} controls playsInline className="w-full max-h-[70vh]" />
-            ) : ad.creativeUrl ? (
-              <img src={ad.creativeUrl} alt={ad.headline} className="w-full max-h-[70vh] object-contain" />
-            ) : (
-              <div className="aspect-square flex items-center justify-center text-sm text-muted-foreground">No creative</div>
-            )}
+            <AdMedia ad={ad} />
           </div>
           <div className="flex gap-2">
             <Authenticated>

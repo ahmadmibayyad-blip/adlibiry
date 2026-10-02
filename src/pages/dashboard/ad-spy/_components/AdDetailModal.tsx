@@ -15,6 +15,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
+import AdMedia from "../../_components/AdMedia.tsx";
 import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
 
 type Ad = Doc<"ads">;
@@ -119,13 +120,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
             </div>
 
             <div className="rounded-xl overflow-hidden border border-border bg-muted">
-              {ad.videoUrl ? (
-                <video src={ad.videoUrl} poster={ad.creativeUrl} controls playsInline className="w-full max-h-[60vh] bg-black" />
-              ) : ad.creativeUrl ? (
-                <img src={ad.creativeUrl} alt={ad.headline} className="w-full max-h-[60vh] object-contain bg-black" />
-              ) : (
-                <div className="aspect-square flex items-center justify-center text-sm text-muted-foreground">No creative</div>
-              )}
+              <AdMedia ad={ad} maxHeight="60vh" />
             </div>
             <AdVideoAction ad={ad} className="w-full" />
 
