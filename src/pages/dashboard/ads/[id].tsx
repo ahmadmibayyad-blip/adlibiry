@@ -13,7 +13,7 @@ import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
-import DownloadVideoButton from "../_components/DownloadVideoButton.tsx";
+import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
 import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
 import { dailyChange, money, pct, SERIES, type Point, type Range } from "../_components/chartUtils.ts";
 
@@ -131,7 +131,7 @@ export default function AdDetailPage() {
             <Authenticated>
               <SaveAd adId={ad._id} />
             </Authenticated>
-            {ad.videoUrl && <DownloadVideoButton adId={ad._id} label="Video" />}
+            <AdVideoAction ad={ad} label="Video" />
             {ad.landingPageUrl && (
               <Button asChild variant="outline" className="flex-1">
                 <a href={ad.landingPageUrl} target="_blank" rel="noopener noreferrer">

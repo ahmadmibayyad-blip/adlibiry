@@ -4,6 +4,7 @@ import { api, internal } from "../_generated/api";
 import { NICHE_KEYWORDS } from "../adlibrary/client";
 import { classifyNiche } from "../lib/category";
 import { findPayload, nestedError, describeReply } from "../lib/nexscopeReply";
+import { findVideoUrl } from "../lib/videoUrl";
 
 // Nexscope.ai → TikTok ads (chuhaijiang-tiktok-ad-search / -ad-detail) and
 // Shopify stores that advertise (shopify-store-query).
@@ -178,6 +179,7 @@ export const importTikTokAds = internalAction({
             aiScore: score(views, days, gmv),
             firstSeenAt: toIso(d.ad_create_time || d.create_time),
             mediaType: "video",
+            ...(findVideoUrl(d) ? { videoUrl: findVideoUrl(d) } : {}),
             ...(imgUrl(d.advertiser_avatar) ? { advertiserAvatar: imgUrl(d.advertiser_avatar) } : {}),
             ...(d.button_text ? { ctaText: String(d.button_text) } : {}),
             ...(gmv ? { gmv: Math.round(gmv) } : {}),

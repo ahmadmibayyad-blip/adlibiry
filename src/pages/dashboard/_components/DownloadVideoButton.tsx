@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Authenticated, useAction } from "convex/react";
 import { ConvexError } from "convex/values";
-import { Download } from "lucide-react";
+import { Download, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
-import type { Id } from "@/convex/_generated/dataModel.d.ts";
+import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 
@@ -39,5 +39,21 @@ export default function DownloadVideoButton(props: { adId: Id<"ads">; className?
     <Authenticated>
       <DownloadButton {...props} />
     </Authenticated>
+  );
+}
+
+// For ads with a stored video file: Download. For video ads whose source gave
+// no file (e.g. TikTok via Nexscope): a link to watch it at the source.
+export function AdVideoAction({ ad, className, label }: { ad: Doc<"ads">; className?: string; label?: string }) {
+  if (ad.videoUrl) return <DownloadVideoButton adId={ad._id} className={className} label={label} />;
+  const watch = ad.mediaType === "video" ? ad.adLibraryUrl : undefined;
+  if (!watch) return null;
+  return (
+    <Button asChild variant="outline" className={className} title="The source didn't give us the video file, so it can't be downloaded here.">
+      <a href={watch} target="_blank" rel="noopener noreferrer">
+        <PlayCircle className="w-4 h-4 mr-1.5" />
+        Watch video
+      </a>
+    </Button>
   );
 }
