@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
 import { Search, Sparkles, X } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
@@ -74,6 +74,7 @@ const SOURCES = [
 ];
 const SORTS = [
   opt("newest", "Newest"),
+  opt("added", "Recently added"),
   opt("lastSeen", "Last seen"),
   opt("score", "Winning score"),
   opt("impressions", "Most impressions"),
@@ -127,7 +128,13 @@ const SAVED_KEY = "adspy.savedSearches";
 const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code === code)?.name ?? code;
 
 export default function AdSpyPage() {
-  const [f, setF] = useState<Filters>({});
+  // ?source=…&sort=…&platform=… (e.g. from an admin import's "View" link) preset the filters.
+  const [params] = useSearchParams();
+  const [f, setF] = useState<Filters>(() => ({
+    ...(params.get("source") ? { source: params.get("source")! } : {}),
+    ...(params.get("sort") ? { sort: params.get("sort")! } : {}),
+    ...(params.get("platform") ? { platform: params.get("platform")! } : {}),
+  }));
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
 

@@ -21,7 +21,7 @@ export const list = query({
     minAiScore: v.optional(v.number()), // 0-100
     source: v.optional(v.string()), // "meta_ad_library" | "curated" | "adlibrary_api"
     gender: v.optional(v.string()), // from ad.targeting.gender, e.g. "All", "Male", "Female"
-    sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" | "longestRunning" | "impressions" | "comments" | "shares" | "lastSeen" | "copies" | "score"
+    sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" | "longestRunning" | "impressions" | "comments" | "shares" | "lastSeen" | "copies" | "score" | "added" (newest in AdSpy Pro)
     mediaType: v.optional(v.string()), // "video" | "image" | "carousel"
     activeOnly: v.optional(v.boolean()),
     firstSeenWithinDays: v.optional(v.number()),
@@ -96,6 +96,7 @@ export const list = query({
         : args.sort === "lastSeen" ? base.withIndex("by_last_seen")
         : args.sort === "comments" ? base.withIndex("by_comments")
         : args.sort === "shares" ? base.withIndex("by_shares")
+        : args.sort === "added" ? base.withIndex("by_creation_time")
         : base.withIndex("by_first_seen");
       result = await sorted.order("desc").filter(conds).paginate(args.paginationOpts);
     }
