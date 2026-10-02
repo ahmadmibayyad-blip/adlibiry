@@ -17,12 +17,53 @@ import { NICHES } from "./lib/category";
 
 const MAX_BYTES = 4_000_000; // base64 length; the page shrinks photos first
 
+// Niche is a plain string (mapped to NICHES below) to keep the schema simple.
 const Identified = z.object({
   isProduct: z.boolean(),
   productName: z.string(),
   searchTerms: z.array(z.string()),
-  niche: z.enum(NICHES as unknown as [string, ...string[]]),
+  niche: z.string(),
 });
+type Found = z.infer<typeof Identified>;
+
+const SYSTEM = `You identify e-commerce products in photos for a product-research tool. Give a short generic product name (no brand unless it is the product), 3-5 short search terms a store would use in a product title (most specific first, 1-3 words each), and the best niche, one of: ${NICHES.join(", ")}. If the photo shows no sellable product, set isProduct to false.`;
+
+const toNiche = (n: string) => NICHES.find((x) => x.toLowerCase() === n.trim().toLowerCase()) ?? "Other";
+
+// Ask Claude what the product is. Uses structured outputs; if the API rejects
+// that request (400), asks again for plain JSON and validates it here.
+async function identify(client: Anthropic, image: Anthropic.ImageBlockParam): Promise<Found | null> {
+  const content: Anthropic.ContentBlockParam[] = [image, { type: "text", text: "What product is this?" }];
+  try {
+    const response = await client.messages.parse({
+      model: "claude-opus-5-5",
+      max_tokens: 2000,
+      output_config: { effort: "low", format: zodOutputFormat(Identified) },
+      system: SYSTEM,
+      messages: [{ role: "user", content }],
+    });
+    return response.stop_reason === "refusal" ? null : response.parsed_output;
+  } catch (error) {
+    if (!(error instanceof Anthropic.BadRequestError)) throw error;
+    console.error("Image search: structured output rejected, retrying as plain JSON", error.message);
+  }
+  const response = await client.messages.create({
+    model: "claude-opus-5-5",
+    max_tokens: 2000,
+    output_config: { effort: "low" },
+    system: `${SYSTEM}\nReply with only a JSON object: {"isProduct": boolean, "productName": string, "searchTerms": string[], "niche": string}`,
+    messages: [{ role: "user", content }],
+  });
+  const text = response.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+  const json = text.match(/\{[\s\S]*\}/)?.[0];
+  if (!json) return null;
+  try {
+    const parsed = Identified.safeParse(JSON.parse(json));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 type Result = {
   identified: { productName: string; searchTerms: string[]; niche: string } | null;
@@ -42,35 +83,21 @@ export const search = action({
     if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI requests for today. Come back tomorrow.` });
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    let found: z.infer<typeof Identified>;
+    let found: Found | null;
     try {
-      const response = await client.messages.parse({
-        model: "claude-opus-5-5",
-        max_tokens: 2000,
-        output_config: { effort: "low", format: zodOutputFormat(Identified) },
-        system:
-          "You identify e-commerce products in photos for a product-research tool. Give a short generic product name (no brand unless it is the product), 3-5 short search terms a store would use in a product title (most specific first, 1-3 words each), and the best niche. If the photo shows no sellable product, set isProduct to false.",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: args.mediaType as "image/jpeg", data: args.imageBase64 } },
-              { type: "text", text: "What product is this?" },
-            ],
-          },
-        ],
+      found = await identify(client, {
+        type: "image",
+        source: { type: "base64", media_type: args.mediaType as "image/jpeg", data: args.imageBase64 },
       });
-      if (response.stop_reason === "refusal" || !response.parsed_output) {
-        throw new ConvexError({ code: "AI_ERROR", message: "The AI couldn't read this image. Try another photo." });
-      }
-      found = response.parsed_output;
     } catch (error) {
       if (error instanceof Anthropic.APIError) {
         console.error("Claude API error (image search)", error.status, error.message);
-        throw new ConvexError({ code: "AI_ERROR", message: claudeErrorMessage(error, false) });
+        const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
+        throw new ConvexError({ code: "AI_ERROR", message: claudeErrorMessage(error, user?.role === "admin") });
       }
       throw error;
     }
+    if (!found) throw new ConvexError({ code: "AI_ERROR", message: "The AI couldn't read this image. Try another photo." });
     if (!found.isProduct) return { identified: null, products: [], ads: [] };
 
     const terms = [...new Set([found.productName, ...found.searchTerms].map((t) => t.trim()).filter(Boolean))].slice(0, 5);
@@ -87,7 +114,7 @@ export const search = action({
       }
     }
     return {
-      identified: { productName: found.productName, searchTerms: terms, niche: found.niche },
+      identified: { productName: found.productName, searchTerms: terms, niche: toNiche(found.niche) },
       products: [...products.values()],
       ads: [...ads.values()],
     };
