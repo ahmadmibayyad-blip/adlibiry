@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
+import { isPlayable } from "@/lib/adVideo.ts";
 
 type Ad = Doc<"ads">;
 
@@ -62,7 +63,8 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hovering, setHovering] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
-  const isVideo = !!ad.videoUrl || ad.mediaType === "video";
+  // Play icon only when the popup can actually play it (file or TikTok embed).
+  const isVideo = isPlayable(ad);
   const spend = spendLabel(ad.spendEstimate);
   const countries = (ad.countries?.length ? ad.countries : ad.country && ad.country !== "INTL" ? [ad.country] : []).slice(0, 4);
   const moreCountries = (ad.countries?.length ?? 0) - countries.length;
@@ -137,7 +139,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
             {ad.headline}
           </div>
         )}
-        {isVideo && !hovering && (
+        {isVideo && !(ad.videoUrl && hovering) && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-11 h-11 rounded-full bg-black/55 flex items-center justify-center">
               <Play className="w-5 h-5 text-white fill-white ml-0.5" />
