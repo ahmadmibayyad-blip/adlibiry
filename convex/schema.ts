@@ -415,6 +415,22 @@ export default defineSchema({
     connectedAt: v.string(),  // ISO 8601 UTC
   }).index("by_user", ["userId"]),
 
+  // Hooks of the week (convex/hooks.ts): top ad opening lines per niche.
+  weeklyHooks: defineTable({
+    week: v.string(),        // ISO week, "2026-W40"
+    niche: v.string(),
+    rank: v.number(),        // 1 = best
+    adId: v.id("ads"),
+    hook: v.string(),
+    type: v.optional(v.string()),     // HOOK_TYPES, from Claude
+    why: v.optional(v.string()),      // why it works
+    template: v.optional(v.string()), // reusable fill-in-the-blank version
+    score: v.number(),                // engagement used for ranking
+    createdAt: v.string(),
+  })
+    .index("by_week", ["week"])
+    .index("by_week_niche", ["week", "niche", "rank"]),
+
   // Short-lived video download links (convex/videoDownload.ts).
   downloadTokens: defineTable({
     token: v.string(),
