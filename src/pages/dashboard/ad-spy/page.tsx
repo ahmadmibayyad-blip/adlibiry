@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api.js";
 import { Search, Sparkles, X } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdCard, { AdCardSkeleton } from "./_components/AdCard.tsx";
+import ImageSearchDialog from "../_components/ImageSearchDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
@@ -234,6 +235,7 @@ export default function AdSpyPage() {
               className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
           </div>
+          <ImageSearchDialog trigger="icon" />
         </div>
 
         {/* Niches */}

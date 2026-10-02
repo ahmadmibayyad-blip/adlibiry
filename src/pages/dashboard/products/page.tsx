@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import ImageSearchDialog from "../_components/ImageSearchDialog.tsx";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { compactNumber, domainOf } from "@/lib/adFormat.ts";
@@ -209,7 +210,9 @@ export default function ProductsFeed() {
   const [f, setF] = useState<Filters>({});
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
-  const [search, setSearch] = useState("");
+  const [params] = useSearchParams();
+  // ?search=… (e.g. from image search) presets the search box.
+  const [search, setSearch] = useState(() => params.get("search") ?? "");
   const [debouncedSearch] = useDebounce(search, 300);
   const [view, setView] = useState<"table" | "grid">("table");
 
@@ -306,6 +309,7 @@ export default function ProductsFeed() {
               className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
           </div>
+          <ImageSearchDialog trigger="icon" />
         </div>
 
         {/* Niches */}
