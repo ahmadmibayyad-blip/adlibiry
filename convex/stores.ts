@@ -5,6 +5,7 @@ import { paginateFilteredArray } from "./lib/pagination";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
+import { internal } from "./_generated/api";
 
 // ── Store search & profiles ─────────────────────────────────────────────────
 
@@ -169,6 +170,12 @@ export const toggleTrackStore = mutation({
         storeId: args.storeId,
         trackedAt: new Date().toISOString(),
       });
+      // Start sales tracking now unless the store was checked in the last 6 hours.
+      const store = await ctx.db.get("stores", args.storeId);
+      const checkedAt = store?.salesCheck?.at;
+      if (store && (!checkedAt || Date.now() - Date.parse(checkedAt) > 6 * 3_600_000)) {
+        await ctx.scheduler.runAfter(0, internal.storeSales.checkOne, { storeId: args.storeId });
+      }
       return { tracked: true };
     }
   },

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { storeImage } from "@/lib/storeImage.ts";
+import StoreSales from "./StoreSales.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -72,6 +73,8 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
             <div className="text-[11px] text-muted-foreground">Active ads</div>
           </div>
         </div>
+
+        <StoreSales storeId={store._id} />
 
         <div className="mb-5">
           <h3 className="font-semibold text-sm mb-3">Best Sellers</h3>
