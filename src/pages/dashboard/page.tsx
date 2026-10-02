@@ -7,7 +7,7 @@ import { Area, AreaChart } from "recharts";
 import {
   TrendingUp, TrendingDown, Bookmark, Zap, Trophy, ArrowRight, Package, Sparkles, Megaphone, Flame, ExternalLink,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { ChartContainer } from "@/components/ui/chart.tsx";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils.ts";
 import { compactNumber } from "@/lib/adFormat.ts";
 import { openAssistant } from "@/lib/assistant.ts";
 import ProductCard, { ProductCardSkeleton } from "./_components/ProductCard.tsx";
+import AdCard, { AdCardSkeleton } from "./ad-spy/_components/AdCard.tsx";
 import { ChartCard, TimeChart } from "./_components/charts.tsx";
 import type { Point } from "./_components/chartUtils.ts";
 import { useAuth } from "@/hooks/use-auth.ts";
@@ -282,6 +283,64 @@ function TopNiches({ niches }: { niches: { niche: string; thisWeek: number; last
   );
 }
 
+// The newest ads and products in AdSpy Pro, so an import shows up here first.
+function JustAdded() {
+  const data = useQuery(api.dashboard.justAdded, {});
+  const [tab, setTab] = useState<"ads" | "products">("ads");
+  const navigate = useNavigate();
+  const items = data?.[tab];
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold">Just added</h2>
+          <div className="flex bg-muted rounded-full p-0.5 text-xs" role="tablist" aria-label="Just added">
+            {(["ads", "products"] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "px-3 h-7 rounded-full font-medium cursor-pointer transition-colors",
+                  tab === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t === "ads" ? "Ads" : "Products"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Link
+          to={tab === "ads" ? "/dashboard/ad-spy" : "/dashboard/products"}
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          See all
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+      {items === undefined ? (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {Array.from({ length: 3 }).map((_, i) => (tab === "ads" ? <AdCardSkeleton key={i} /> : <ProductCardSkeleton key={i} />))}
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing added yet.</p>
+      ) : data && tab === "ads" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {data.ads.map((ad) => (
+            <AdCard key={ad._id} ad={ad} onClick={() => navigate(`/dashboard/ads/${ad._id}`)} />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+          {data?.products.map((p) => <ProductCard key={p._id} product={p} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) {
   const summary = useQuery(api.winners.summary, {});
   const [niche, setNiche] = useState<string | undefined>(undefined);
@@ -428,6 +487,11 @@ export default function DashboardHome() {
           sub={<Change now={adsThisWeek} before={adsLastWeek} />}
         />
         <StatCard icon={Bookmark} label="Saved by you" value={stats?.savedCount} tint="bg-purple-500/10 text-purple-500" />
+      </motion.div>
+
+      {/* Newest imports */}
+      <motion.div {...fadeUp(0.08)}>
+        <JustAdded />
       </motion.div>
 
       {/* Top winner + trending keywords */}

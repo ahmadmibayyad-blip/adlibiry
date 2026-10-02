@@ -306,4 +306,17 @@ describe("Ad Spy sort", () => {
     const newest = await t.query(api.ads.list, { paginationOpts: { numItems: 5, cursor: null }, sort: "newest" });
     expect(newest.page[0].headline).toBe("older import");
   });
+
+  it("the home page's Just added shows the newest ads and products first", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ads", ad({ headline: "first" }));
+      await ctx.db.insert("ads", ad({ headline: "latest import", firstSeenAt: "2026-01-01T00:00:00.000Z" }));
+      await ctx.db.insert("products", product({ title: "old product" }));
+      await ctx.db.insert("products", product({ title: "new product" }));
+    });
+    const j = await t.query(api.dashboard.justAdded, {});
+    expect(j.ads[0].headline).toBe("latest import");
+    expect(j.products[0].title).toBe("new product");
+  });
 });

@@ -73,8 +73,8 @@ const SOURCES = [
   opt("csv_import", "CSV import"),
 ];
 const SORTS = [
-  opt("newest", "Newest"),
   opt("added", "Recently added"),
+  opt("newest", "Newest (first seen)"),
   opt("lastSeen", "Last seen"),
   opt("score", "Winning score"),
   opt("impressions", "Most impressions"),
@@ -103,7 +103,7 @@ function toQueryArgs(f: Filters, search: string) {
     gender: f.gender,
     source: f.source,
     search: search || undefined,
-    sort: f.sort,
+    sort: f.sort ?? "added", // default: what was added to AdSpy Pro last comes first
     firstSeenWithinDays: firstSeenDays.length ? Math.min(...firstSeenDays) : undefined,
     lastSeenWithinDays: f.lastSeen ? Number(f.lastSeen) : undefined,
     minDaysRunning: run.min,
@@ -287,7 +287,7 @@ export default function AdSpyPage() {
 
         {/* Sort + saved searches */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          <FilterSelect label="Sort by" value={f.sort ?? "added"} onChange={(v) => set("sort", v === "added" ? undefined : v)} options={SORTS} active={!!f.sort} />
           {activeCount > 0 && (
             <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
               <X className="w-3.5 h-3.5" />Clear filters ({activeCount})
