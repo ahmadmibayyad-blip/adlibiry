@@ -6,13 +6,14 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { compactNumber, domainOf } from "@/lib/adFormat.ts";
 import { api } from "@/convex/_generated/api.js";
-import { TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight, ChevronDown } from "lucide-react";
+import { TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight, ChevronDown, EyeOff } from "lucide-react";
+import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { cn } from "@/lib/utils.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
-import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
+import { SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range } from "@/lib/filterUtils.ts";
 
 // ── Filter model (same layout as Ad Spy) ────────────────────────────────────
@@ -56,6 +57,12 @@ const SOURCES = [
   { value: "shopify", label: "Shopify" },
   { value: "curated", label: "Curated" },
 ];
+
+const HIDE = [
+  { key: "hideBrands", label: "Big brands (Apple, Bissell…)" },
+  { key: "hidePersonalised", label: "Personalised / print-on-demand" },
+  { key: "hideServices", label: "Services & gift cards" },
+] as const;
 
 const ADDED = [
   { value: undefined, label: "All" },
@@ -248,6 +255,7 @@ export default function ProductsFeed() {
       return { ...prev, category: undefined, categories: next.length ? next : undefined };
     });
 
+  const hiddenCount = HIDE.filter((h) => f[h.key]).length;
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
 
@@ -281,39 +289,41 @@ export default function ProductsFeed() {
         )}
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
-        {/* Where the product comes from */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1 shrink-0">Show</span>
-          {ORIGINS.map((o) => (
-            <Chip key={o.label} on={f.origin === o.value} onClick={() => set("origin", o.value)}>{o.label}</Chip>
-          ))}
-          <span className="text-[11px] text-muted-foreground ml-1">"From ads" = products we found inside running ads; several ads for one product are merged.</span>
-        </div>
-
-        {/* Source + search */}
-        <div className="flex flex-col lg:flex-row gap-2">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {SOURCES.map((s) => (
-              <Chip key={s.label} on={f.source === s.value} onClick={() => set("source", s.value)}>
-                {s.label}
-                {s.value && sourceCounts[s.value] !== undefined && <span className="opacity-60 tabular-nums">{compactNumber(sourceCounts[s.value])}</span>}
-              </Chip>
-            ))}
-          </div>
+      <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-2.5 shadow-sm">
+        {/* Search, image search, and where products come from */}
+        <div className="flex flex-col md:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search product names…"
-              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
           </div>
-          <ImageSearchDialog trigger="icon" />
+          <div className="flex items-center gap-2">
+            <ImageSearchDialog trigger="icon" />
+            <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-9" role="tablist" aria-label="Show">
+              {ORIGINS.map((o) => (
+                <button
+                  key={o.label}
+                  role="tab"
+                  aria-selected={f.origin === o.value}
+                  onClick={() => set("origin", o.value)}
+                  title={o.value === "ads" ? "Products we found inside running ads (several ads for one product are merged)" : undefined}
+                  className={cn(
+                    "px-3 h-full rounded-md text-xs font-medium whitespace-nowrap cursor-pointer transition-colors",
+                    f.origin === o.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Niche (pick several) and date added */}
+        {/* Every filter as a dropdown */}
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -351,46 +361,72 @@ export default function ProductsFeed() {
             </DropdownMenuContent>
           </DropdownMenu>
           <FilterSelect
+            label="Source"
+            value={f.source ?? "all"}
+            onChange={(v) => set("source", v === "all" ? undefined : v)}
+            active={f.source !== undefined}
+            options={SOURCES.map((o) => ({
+              value: o.value ?? "all",
+              label: o.value && sourceCounts[o.value] !== undefined ? `${o.label} (${compactNumber(sourceCounts[o.value])})` : o.label,
+            }))}
+          />
+          <FilterSelect
             label="Added"
             value={f.added ?? "all"}
             onChange={(v) => set("added", v === "all" ? undefined : v)}
             active={f.added !== undefined}
             options={ADDED.map((o) => ({ value: o.value ?? "all", label: o.label }))}
           />
-        </div>
-
-        {/* Metrics */}
-        <div className="flex flex-wrap items-center gap-2">
           <FilterSelect label="Price" value={f.price ?? "any"} onChange={setAny("price")} options={PRICE} active={!!f.price} />
           <FilterSelect label="Margin" value={f.margin ?? "any"} onChange={setAny("margin")} options={MARGIN} active={!!f.margin} />
           <FilterSelect label="Ads running" value={f.ads ?? "any"} onChange={setAny("ads")} options={ADS} active={!!f.ads} />
           <FilterSelect label="Likes" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
           <FilterSelect label="Growth" value={f.growth ?? "any"} onChange={setAny("growth")} options={GROWTH} active={!!f.growth} />
-          <FilterSelect label="Winning score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+          <FilterSelect label="Score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
           <FilterSelect label="Trend" value={f.trend ?? "any"} onChange={setAny("trend")} options={TREND} active={!!f.trend} />
           <FilterSelect label="Saturation" value={f.saturation ?? "any"} onChange={setAny("saturation")} options={SATURATION} active={!!f.saturation} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Check label="Winner of the day" checked={!!f.winner} onChange={(v) => set("winner", v || undefined)} />
-          <Check label="Has price" checked={!!f.hasPrice} onChange={(v) => set("hasPrice", v || undefined)} />
-          <Check label="Has store link" checked={!!f.hasStore} onChange={(v) => set("hasStore", v || undefined)} />
-          <span className="text-xs text-muted-foreground ml-2">Hide</span>
-          <Check label="Big brands (Apple, Bissell…)" checked={!!f.hideBrands} onChange={(v) => set("hideBrands", v || undefined)} />
-          <Check label="Personalised / print-on-demand" checked={!!f.hidePersonalised} onChange={(v) => set("hidePersonalised", v || undefined)} />
-          <Check label="Services & gift cards" checked={!!f.hideServices} onChange={(v) => set("hideServices", v || undefined)} />
-        </div>
-
-        {/* Sort, view, saved searches */}
-        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+        {/* Quick toggles, hide, sort, view, saved searches */}
+        <div className="flex flex-wrap items-center gap-2 pt-2.5 border-t border-border">
+          <FilterTogglePill label="Winner of the day" active={!!f.winner} onToggle={() => set("winner", f.winner ? undefined : true)} />
+          <FilterTogglePill label="Has price" active={!!f.hasPrice} onToggle={() => set("hasPrice", f.hasPrice ? undefined : true)} />
+          <FilterTogglePill label="Has store link" active={!!f.hasStore} onToggle={() => set("hasStore", f.hasStore ? undefined : true)} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "h-8 text-xs rounded-full px-3 inline-flex items-center gap-1 border bg-card border-border cursor-pointer",
+                  hiddenCount > 0 && "border-primary text-primary bg-primary/10",
+                )}
+              >
+                <EyeOff className="w-3.5 h-3.5 opacity-70" />
+                Hide{hiddenCount > 0 && ` (${hiddenCount})`}
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {HIDE.map((h) => (
+                <DropdownMenuCheckboxItem
+                  key={h.key}
+                  checked={!!f[h.key]}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={(v) => set(h.key, v ? true : undefined)}
+                >
+                  {h.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {activeCount > 0 && (
             <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
-              <X className="w-3.5 h-3.5" />Clear filters ({activeCount})
+              <X className="w-3.5 h-3.5" />Clear ({activeCount})
             </button>
           )}
           <div className="flex-1" />
-          <div className="flex items-center bg-background border border-border rounded-lg p-1">
+          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          <div className="flex items-center bg-background border border-border rounded-lg p-0.5">
             {([["table", Table2], ["grid", LayoutGrid]] as const).map(([v, Icon]) => (
               <button
                 key={v}
