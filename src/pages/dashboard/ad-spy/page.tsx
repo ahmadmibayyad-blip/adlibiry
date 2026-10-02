@@ -238,25 +238,22 @@ export default function AdSpyPage() {
           <ImageSearchDialog trigger="icon" />
         </div>
 
-        {/* Niches */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1 shrink-0">Niche</span>
-          <Chip on={!f.niche} onClick={() => set("niche", undefined)}>All</Chip>
-          {niches.map((n) => (
-            <Chip key={n.value} on={f.niche === n.value} onClick={() => set("niche", f.niche === n.value ? undefined : n.value)}>
-              {n.value}
-              <span className="opacity-60 tabular-nums">{compactNumber(n.n)}</span>
-            </Chip>
-          ))}
-        </div>
-
-        {/* Dates */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">First seen</span>
-          {FIRST_SEEN.map((o) => (
-            <Chip key={o.label} on={f.firstSeen === o.value} onClick={() => set("firstSeen", o.value)}>{o.label}</Chip>
-          ))}
-          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+        {/* Niche and dates */}
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect
+            label="Niche"
+            value={f.niche ?? "all"}
+            onChange={(v) => set("niche", v === "all" ? undefined : v)}
+            options={[{ value: "all", label: "All" }, ...niches.map((n) => ({ value: n.value, label: `${n.value} (${compactNumber(n.n)})` }))]}
+            active={!!f.niche}
+          />
+          <FilterSelect
+            label="First seen"
+            value={f.firstSeen ?? "all"}
+            onChange={(v) => set("firstSeen", v === "all" ? undefined : v)}
+            options={FIRST_SEEN.map((o) => ({ value: o.value ?? "all", label: o.label }))}
+            active={f.firstSeen !== undefined}
+          />
           <FilterSelect label="Last seen" value={f.lastSeen ?? "any"} onChange={setAny("lastSeen")} options={LAST_SEEN} active={!!f.lastSeen} />
           <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
         </div>
