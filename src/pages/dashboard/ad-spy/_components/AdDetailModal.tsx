@@ -15,7 +15,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
-import DownloadVideoButton from "../../_components/DownloadVideoButton.tsx";
+import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -127,7 +127,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                 <div className="aspect-square flex items-center justify-center text-sm text-muted-foreground">No creative</div>
               )}
             </div>
-            {ad.videoUrl && <DownloadVideoButton adId={ad._id} className="w-full" />}
+            <AdVideoAction ad={ad} className="w-full" />
 
             <div className="text-sm whitespace-pre-line leading-relaxed max-h-56 overflow-y-auto pr-1">
               {ad.headline && ad.headline !== ad.bodyText && <div className="font-semibold mb-1">{ad.headline}</div>}
