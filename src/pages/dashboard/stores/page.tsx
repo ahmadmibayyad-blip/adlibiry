@@ -263,32 +263,14 @@ export default function StoreTrackerPage() {
       )}
 
       {!showWatchlist && niches && niches.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-6 overflow-x-auto pb-1">
-          <button
-            onClick={() => setNiche(undefined)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
-              !niche
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card border-border text-muted-foreground hover:text-foreground"
-            )}
-          >
-            All niches
-          </button>
-          {niches.map((n) => (
-            <button
-              key={n}
-              onClick={() => setNiche(n)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
-                niche === n
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card border-border text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {n}
-            </button>
-          ))}
+        <div className="mb-6">
+          <FilterSelect
+            label="Niche"
+            value={niche ?? "all"}
+            onChange={(v) => setNiche(v === "all" ? undefined : v)}
+            active={!!niche}
+            options={[{ value: "all", label: "All niches" }, ...niches.map((n) => ({ value: n, label: n }))]}
+          />
         </div>
       )}
 
