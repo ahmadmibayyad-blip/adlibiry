@@ -1,8 +1,8 @@
 import { markStatsDirty } from "../stats";
 import { v, ConvexError } from "convex/values";
-import { internalAction, action, internalMutation } from "../_generated/server";
+import { internalAction, action, internalMutation, internalQuery } from "../_generated/server";
 import { internal, api } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { retireStaleWinners, winnerSlot } from "../lib/winners";
 import { classifyNiche } from "../lib/category";
 import { findPayload, nestedError } from "../lib/nexscopeReply";
@@ -15,7 +15,7 @@ import {
   type NexscopeAmazonProduct,
   type NexscopeAmazonDiscoveryResponse,
 } from "./client";
-import { fromShopify, fromTikTokShop, nexscopeSkillUrl, type ShopifyProduct, type TikTokShopProduct } from "./marketplaces";
+import { fromShopify, fromTikTokShop, nexscopeSkillUrl, storeFromShopify, type ShopifyProduct, type TikTokShopProduct } from "./marketplaces";
 
 // Winning Products: discovers real Amazon bestseller candidates per niche
 // from Nexscope.ai — each one a real, single ASIN with its own real title,
@@ -33,6 +33,7 @@ type DiscoveryResult = {
   skipped: number;
   errors: string[];
   bySource?: Record<string, SourceCount>; // "Amazon" | "TikTok Shop" | "Shopify"
+  stores?: number; // new stores added to the Stores tracker
 };
 
 // POST one Nexscope skill; returns its product list or an error message.
@@ -66,7 +67,7 @@ export const discoverProducts = internalAction({
       c[outcome] += 1;
       result[outcome] += 1;
     };
-    const run = await ctx.runMutation(internal.nexscope.productDiscovery.nextRun, {});
+    const { run, storesBackfilled } = await ctx.runMutation(internal.nexscope.productDiscovery.nextRun, {});
 
     for (const [niche, keywords] of Object.entries(NICHE_DISCOVERY_KEYWORDS)) {
       const keyword = keywords[run % keywords.length];
@@ -169,6 +170,24 @@ export const discoverProducts = internalAction({
       result.errors.push(`TikTok Shop: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
 
+    // One time: Shopify products saved before stores were tracked get their store.
+    if (!storesBackfilled) {
+      let cursor: string | null = null;
+      for (;;) {
+        const page: { items: Doc<"products">[]; isDone: boolean; cursor: string } = await ctx.runQuery(
+          internal.nexscope.productDiscovery.shopifyProductsPage,
+          { cursor },
+        );
+        for (const p of page.items) {
+          const store = storeFromShopify({}, p);
+          if (store) await ctx.runMutation(internal.nexscope.productDiscovery.upsertProductStore, store);
+        }
+        if (page.isDone) break;
+        cursor = page.cursor;
+      }
+      await ctx.runMutation(internal.nexscope.productDiscovery.markStoresBackfilled, {});
+    }
+
     // Shopify: store products for the same rotating keyword per niche, only
     // ones running Facebook ads, best weekly sales first.
     for (const [niche, keywords] of Object.entries(NICHE_DISCOVERY_KEYWORDS)) {
@@ -187,6 +206,12 @@ export const discoverProducts = internalAction({
           }
           const outcome = await ctx.runMutation(internal.nexscope.productDiscovery.upsertDiscovered, { ...d, source: "shopify" });
           count("Shopify", outcome.outcome);
+          // …and its store goes to the Stores tracker, with this product as a best-seller.
+          const store = storeFromShopify(raw as ShopifyProduct, d);
+          if (store) {
+            const s = await ctx.runMutation(internal.nexscope.productDiscovery.upsertProductStore, store);
+            result.stores = (result.stores ?? 0) + (s === "created" ? 1 : 0);
+          }
         }
       } catch (error) {
         result.errors.push(`Shopify ${niche}: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -280,14 +305,32 @@ export const upsertAmazonProduct = internalMutation({
 // Which keyword each niche searches next (counts up once per run).
 export const nextRun = internalMutation({
   args: {},
-  handler: async (ctx): Promise<number> => {
+  handler: async (ctx): Promise<{ run: number; storesBackfilled: boolean }> => {
     const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "nexscopeDiscovery")).unique();
-    const run = (doc?.data as { run?: number } | undefined)?.run ?? 0;
-    const data = { run: run + 1 };
+    const state = (doc?.data ?? {}) as { run?: number; storesBackfilled?: boolean };
+    const run = state.run ?? 0;
+    const data = { ...state, run: run + 1 };
     const updatedAt = new Date().toISOString();
     if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
     else await ctx.db.insert("siteStats", { key: "nexscopeDiscovery", data, updatedAt });
-    return run;
+    return { run, storesBackfilled: !!state.storesBackfilled };
+  },
+});
+
+export const markStoresBackfilled = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "nexscopeDiscovery")).unique();
+    if (doc) await ctx.db.patch("siteStats", doc._id, { data: { ...(doc.data as object), storesBackfilled: true } });
+  },
+});
+
+// Products imported from Shopify, a page at a time (for the store backfill).
+export const shopifyProductsPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("products").paginate({ numItems: 500, cursor: args.cursor });
+    return { items: page.page.filter((p) => p.source === "shopify"), isDone: page.isDone, cursor: page.continueCursor };
   },
 });
 
@@ -333,6 +376,55 @@ export const upsertDiscovered = internalMutation({
     const productId = await ctx.db.insert("products", { ...productDoc, publishedAt: new Date().toISOString() });
     await ctx.db.insert("nexscopeSyncedProducts", { externalId, productId, lastSyncedAt: new Date().toISOString() });
     return { outcome: "created", productId };
+  },
+});
+
+// The store of a discovered Shopify product. New stores start with what the
+// product tells us; an existing store (e.g. from the Shopify store import)
+// keeps its numbers and only gains the product as a best-seller.
+export const upsertProductStore = internalMutation({
+  args: {
+    externalId: v.string(),
+    name: v.string(),
+    url: v.string(),
+    logoUrl: v.string(),
+    niche: v.string(),
+    activeAdsCount: v.number(),
+    bestSeller: v.object({ title: v.string(), imageUrl: v.string(), price: v.number(), estSalesRange: v.string() }),
+  },
+  handler: async (ctx, args): Promise<"created" | "updated"> => {
+    const now = new Date().toISOString();
+    const link = await ctx.db
+      .query("syncLinks")
+      .withIndex("by_kind_external", (q) => q.eq("kind", "store").eq("externalId", args.externalId))
+      .unique();
+    const existing = link ? await ctx.db.get("stores", link.docId as Id<"stores">) : null;
+    if (link && existing) {
+      const others = existing.bestSellers.filter((b) => b.title !== args.bestSeller.title);
+      await ctx.db.patch("stores", existing._id, {
+        bestSellers: [args.bestSeller, ...others].slice(0, 8),
+        activeAdsCount: Math.max(existing.activeAdsCount, args.activeAdsCount),
+      });
+      await ctx.db.patch("syncLinks", link._id, { lastSyncedAt: now });
+      return "updated";
+    }
+    if (link) await ctx.db.delete("syncLinks", link._id);
+    const storeId = await ctx.db.insert("stores", {
+      name: args.name,
+      url: args.url,
+      logoUrl: args.logoUrl,
+      niche: args.niche,
+      country: "US",
+      platform: "Shopify",
+      estimatedRevenueRange: "Unknown",
+      trafficRange: "Unknown",
+      activeAdsCount: args.activeAdsCount,
+      bestSellers: [args.bestSeller],
+      isHighTraffic: false,
+      spottedAt: now,
+    });
+    await ctx.db.insert("syncLinks", { kind: "store", externalId: args.externalId, docId: storeId, source: "nexscope", lastSyncedAt: now });
+    return "created";
   },
 });
 

@@ -43,6 +43,23 @@ function stubNexscope(searched: string[]) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Nexscope product discovery", () => {
+  it("adds stores for Shopify products saved before stores were tracked (once)", async () => {
+    process.env.NEXSCOPE_API_KEY = "test";
+    const t = convexTest(schema, modules);
+    stubNexscope([]);
+    await t.run((ctx) =>
+      ctx.db.insert("products", {
+        title: "Old shopify product", description: "", imageUrl: "i", price: 10, category: "Beauty", tags: [], aiScore: 50,
+        saturation: "Unknown", trend: "Unknown", supplierUrl: "https://www.oldshop.com/products/a", adExamples: [],
+        isWinnerOfDay: false, source: "shopify", publishedAt: "2026-10-01T00:00:00.000Z",
+      }),
+    );
+    await t.action(internal.nexscope.productDiscovery.discoverProducts, {});
+    const old = await t.run((ctx) => ctx.db.query("stores").filter((q) => q.eq(q.field("name"), "oldshop.com")).collect());
+    expect(old).toHaveLength(1);
+    expect(old[0].bestSellers[0].title).toBe("Old shopify product");
+  });
+
   it("saves every usable listing and searches a new keyword each run", async () => {
     process.env.NEXSCOPE_API_KEY = "test";
     const t = convexTest(schema, modules);
@@ -69,5 +86,13 @@ describe("Nexscope product discovery", () => {
     expect(tt).toMatchObject({ category: "Pet Supplies", price: 12.5, trend: "Rising", isWinnerOfDay: false });
     const sh = await t.run((ctx) => ctx.db.query("products").filter((q) => q.eq(q.field("source"), "shopify")).first());
     expect(sh).toMatchObject({ price: 29.9, supplierUrl: "https://store.example.com/products/x", trend: "Rising" });
+
+    // The Shopify products' store is in the Stores tracker once, with them as best-sellers.
+    expect(first.stores).toBe(1);
+    const stores = await t.run((ctx) => ctx.db.query("stores").collect());
+    expect(stores).toHaveLength(1);
+    expect(stores[0]).toMatchObject({ name: "store.example.com", url: "https://store.example.com", platform: "Shopify", activeAdsCount: 14 });
+    expect(stores[0].bestSellers).toHaveLength(8); // capped
+    expect(stores[0].bestSellers[0]).toMatchObject({ price: 29.9, estSalesRange: "~320 orders/week" });
   });
 });
