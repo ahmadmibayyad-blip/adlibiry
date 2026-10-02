@@ -113,8 +113,40 @@ export function fromTikTokShop(p: TikTokShopProduct): Discovered | null {
   };
 }
 
+// Field names vary between Nexscope's docs and live replies; accept the
+// common spellings (camelCase and snake_case).
+function pick(p: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = p[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number") return String(v);
+  }
+  return undefined;
+}
+
+export function normalizeShopify(raw: Record<string, unknown>): ShopifyProduct {
+  const domain = pick(raw, "storeDomain", "store_domain", "domain", "shopDomain");
+  const handle = pick(raw, "handle", "productHandle", "product_handle");
+  const storeLink = pick(raw, "storeLink", "store_link", "storeUrl", "store_url", "shopUrl") ?? (domain ? `https://${domain.replace(/^https?:\/\//, "")}` : undefined);
+  return {
+    productId: pick(raw, "productId", "product_id", "id"),
+    title: pick(raw, "title", "productTitle", "product_title", "name"),
+    productLink:
+      pick(raw, "productLink", "product_link", "productUrl", "product_url", "url", "link") ??
+      (storeLink && handle ? `${storeLink.replace(/\/$/, "")}/products/${handle}` : storeLink),
+    previewImageUrl: pick(raw, "previewImageUrl", "preview_image_url", "imageUrl", "image_url", "image", "mainImage", "img"),
+    minPrice: pick(raw, "minPrice", "min_price", "price"),
+    storeLink,
+    competitorCount: pick(raw, "competitorCount", "competitor_count"),
+    facebookAdCount: pick(raw, "facebookAdCount", "facebook_ad_count", "adCount", "ad_count"),
+    weekOrderCount: pick(raw, "weekOrderCount", "week_order_count", "weeklyOrders"),
+    weekRevenueGrowth: pick(raw, "weekRevenueGrowth", "week_revenue_growth"),
+    isDeleted: pick(raw, "isDeleted", "is_deleted"),
+  };
+}
+
 export function fromShopify(p: ShopifyProduct, fallbackNiche: string): Discovered | null {
-  if (!p.productId || !p.title || !p.previewImageUrl || !p.productLink || String(p.isDeleted ?? "0") === "1") return null;
+  if (!p.productId || !p.title || !p.productLink || String(p.isDeleted ?? "0") === "1") return null;
   const price = num(p.minPrice);
   const orders = num(p.weekOrderCount);
   const ads = num(p.facebookAdCount);
@@ -125,7 +157,7 @@ export function fromShopify(p: ShopifyProduct, fallbackNiche: string): Discovere
     externalId: `shopify_${p.productId}`,
     title: p.title,
     price: price && price > 0 ? Math.round(price * 100) / 100 : undefined,
-    imageUrl: p.previewImageUrl,
+    imageUrl: p.previewImageUrl ?? "",
     supplierUrl: p.productLink,
     storeUrl: p.productLink,
     category,

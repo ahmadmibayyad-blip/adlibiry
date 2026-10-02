@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromShopify, fromTikTokShop, nicheFromTikTokCategory, trendFromGrowthPercent } from "./marketplaces";
+import { fromShopify, fromTikTokShop, nicheFromTikTokCategory, normalizeShopify, storeFromShopify, trendFromGrowthPercent } from "./marketplaces";
 
 describe("Nexscope marketplaces", () => {
   it("maps a TikTok Shop best-seller", () => {
@@ -18,6 +18,14 @@ describe("Nexscope marketplaces", () => {
     const d = fromShopify({ productId: "9", title: "Dog cooling mat", productLink: "https://s.example.com/p", previewImageUrl: "i", minPrice: "$34.95", facebookAdCount: "3", weekOrderCount: "120", weekRevenueGrowth: "-20" }, "Pet Supplies");
     expect(d).toMatchObject({ externalId: "shopify_9", price: 34.95, category: "Pet Supplies", trend: "Declining" });
     expect(fromShopify({ productId: "9", title: "x", productLink: "l", previewImageUrl: "i", isDeleted: "1" }, "Beauty")).toBeNull();
+  });
+
+  it("reads snake_case Shopify replies and builds the product link from domain + handle", () => {
+    const p = normalizeShopify({ product_id: 7, title: "Gua sha set", store_domain: "glowshop.com", handle: "gua-sha", image_url: "i", min_price: "19.00", facebook_ad_count: 5 });
+    expect(p).toMatchObject({ productId: "7", productLink: "https://glowshop.com/products/gua-sha", storeLink: "https://glowshop.com", facebookAdCount: "5" });
+    const d = fromShopify(p, "Beauty")!;
+    expect(d.price).toBe(19);
+    expect(storeFromShopify(p, d)).toMatchObject({ externalId: "shopify:glowshop.com", activeAdsCount: 5 });
   });
 
   it("reads TikTok categories and growth", () => {
