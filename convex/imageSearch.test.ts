@@ -89,7 +89,7 @@ describe("image search", () => {
     );
     await expect(
       t.withIdentity({ subject: "a1|s" }).action(api.imageSearch.search, { imageBase64: "aGVsbG8=", mediaType: "image/jpeg" }),
-    ).rejects.toThrow(/image too small/);
+    ).rejects.toThrow(/image too small.*server key …test, ANTHROPIC_WORKSPACE_ID not set/);
   });
 
   it("sends the workspace header when ANTHROPIC_WORKSPACE_ID is set", async () => {
