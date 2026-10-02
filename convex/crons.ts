@@ -88,4 +88,7 @@ crons.daily("send follow alerts", { hourUTC: 8, minuteUTC: 35 }, internal.follow
 // catalogs and save today's estimate (convex/storeSales.ts).
 crons.daily("track Shopify store sales", { hourUTC: 10, minuteUTC: 5 }, internal.storeSales.runAll, {});
 
+// Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
+crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});
+
 export default crons;
