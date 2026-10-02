@@ -7,10 +7,10 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import { Link } from "react-router-dom";
 
 const navLinks = [
-  { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Features", href: "/#features" },
+  { label: "How It Works", href: "/#how-it-works" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "FAQ", href: "/#faq" },
 ];
 
 export default function Navbar() {
@@ -69,7 +69,7 @@ export default function Navbar() {
             <Unauthenticated>
               <SignInButton variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" />
               <Button asChild size="sm" className="bg-primary text-primary-foreground font-semibold px-5">
-                <a href="#pricing">Start Free Trial</a>
+                <a href="/#pricing">Start Free Trial</a>
               </Button>
             </Unauthenticated>
           </div>
@@ -116,7 +116,7 @@ export default function Navbar() {
                 <Unauthenticated>
                   <SignInButton variant="ghost" className="w-full justify-start" />
                   <Button asChild className="w-full bg-primary text-primary-foreground font-semibold">
-                    <a href="#pricing">Start Free Trial</a>
+                    <a href="/#pricing">Start Free Trial</a>
                   </Button>
                 </Unauthenticated>
               </div>

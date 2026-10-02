@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import Navbar from "./_components/Navbar.tsx";
 import Hero from "./_components/Hero.tsx";
 import StatsBar from "./_components/StatsBar.tsx";
@@ -13,6 +14,12 @@ import { usePostLoginRedirect } from "@/hooks/use-post-login-redirect.ts";
 
 export default function Index() {
   usePostLoginRedirect();
+  // Arriving from another page via /#pricing etc.: scroll once the section exists.
+  useEffect(() => {
+    if (!window.location.hash) return;
+    const t = setTimeout(() => document.querySelector(window.location.hash)?.scrollIntoView({ behavior: "smooth" }), 150);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
