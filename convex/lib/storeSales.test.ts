@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { monthlyRevenueRange, storeOrigin, summarizeCatalog } from "./storeSales";
+import { monthlyRevenueRange, storeAlert, storeOrigin, summarizeCatalog } from "./storeSales";
 
 const since = Date.parse("2026-10-01T10:00:00Z");
 
@@ -42,5 +42,29 @@ describe("monthlyRevenueRange", () => {
     expect(monthlyRevenueRange([{ estRevenueLow: 100, estRevenueHigh: 300 }, { estRevenueLow: 300, estRevenueHigh: 900 }])).toBe("$6K–$18K/mo");
     expect(monthlyRevenueRange([{ estRevenueLow: 10, estRevenueHigh: 20 }])).toBe("$300–$600/mo");
     expect(monthlyRevenueRange([])).toBeNull();
+  });
+});
+
+describe("storeAlert", () => {
+  const day = (updatedCount: number, estRevenueHigh: number, newCount = 0) => ({
+    windowHours: 24, updatedCount, newCount, estRevenueLow: estRevenueHigh / 3, estRevenueHigh,
+  });
+  const quietWeek = [day(2, 100), day(3, 120), day(2, 80)];
+
+  it("flags a sales jump against the recent average", () => {
+    expect(storeAlert("Paw Shop", day(8, 400), quietWeek)).toEqual({
+      title: "Paw Shop sales jumped",
+      body: "8 products changed in the last day, about 4× its recent daily average (est. $133–$400).",
+    });
+  });
+
+  it("needs 3 days of history and at least 5 changed products", () => {
+    expect(storeAlert("Paw Shop", day(8, 400), quietWeek.slice(0, 2))).toBeNull();
+    expect(storeAlert("Paw Shop", day(4, 400), quietWeek)).toBeNull();
+  });
+
+  it("reports new products otherwise", () => {
+    expect(storeAlert("Paw Shop", day(1, 50, 3), quietWeek)?.title).toBe("Paw Shop added 3 new products");
+    expect(storeAlert("Paw Shop", day(1, 50, 0), quietWeek)).toBeNull();
   });
 });

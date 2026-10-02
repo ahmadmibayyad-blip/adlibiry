@@ -76,3 +76,25 @@ describe("store sales tracking", () => {
     expect(await me.action(api.storeSales.checkNow, { storeId })).toEqual({ status: "recent" });
   });
 });
+
+describe("store alerts", () => {
+  it("tells trackers about new products on the first check of the day", async () => {
+    const t = convexTest(schema, modules);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-02T10:00:00Z"));
+    const storeId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+      const id = await ctx.db.insert("stores", { ...baseStore, name: "Paw Shop", url: "pawshop.com" });
+      await ctx.db.insert("trackedStores", { userId, storeId: id, trackedAt: "2026-10-01T00:00:00Z" });
+      return id;
+    });
+    stubCatalog([{ title: "New Mat", handle: "mat", created_at: "2026-10-02T07:00:00Z", updated_at: "2026-10-02T07:00:00Z", variants: [{ price: "15" }] }]);
+    await t.action(internal.storeSales.checkOne, { storeId });
+    vi.setSystemTime(new Date("2026-10-02T12:00:00Z"));
+    await t.action(internal.storeSales.checkOne, { storeId }); // same day: no second alert
+    const jobs = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    const alerts = jobs.filter((j) => j.name.includes("notifyTrackersOfStoreUpdate"));
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].args[0]).toMatchObject({ title: "Paw Shop added 1 new product", link: `/dashboard/stores?store=${storeId}` });
+  });
+});

@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import { Store, Search, Sparkles, TrendingUp, Bookmark, Scale, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
-import type { Doc } from "@/convex/_generated/dataModel.d.ts";
+import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import StoreCard, { StoreCardSkeleton } from "./_components/StoreCard.tsx";
 import StoreDetailModal from "./_components/StoreDetailModal.tsx";
 import StoreCompareModal from "./_components/StoreCompareModal.tsx";
@@ -40,6 +41,19 @@ export default function StoreTrackerPage() {
   const [compareIds, setCompareIds] = useState<Array<StoreDoc["_id"]>>([]);
   const [compareOpen, setCompareOpen] = useState(false);
   const [showWatchlist, setShowWatchlist] = useState(false);
+
+  // Alerts link to /dashboard/stores?store=<id>: open that store's popup.
+  const [params, setParams] = useSearchParams();
+  const linkedId = /^[a-z0-9]{20,40}$/.test(params.get("store") ?? "") ? params.get("store") : null;
+  const linkedStore = useQuery(api.stores.getById, linkedId ? { id: linkedId as Id<"stores"> } : "skip");
+  const closeLinked = () =>
+    setParams(
+      (p) => {
+        p.delete("store");
+        return p;
+      },
+      { replace: true },
+    );
 
   const niches = useQuery(api.stores.getNiches, {});
   const recentlySpotted = useQuery(api.stores.getRecentlySpotted, {});
@@ -372,7 +386,14 @@ export default function StoreTrackerPage() {
         </p>
       )}
 
-      <StoreDetailModal store={selectedStore} open={modalOpen} onOpenChange={setModalOpen} />
+      <StoreDetailModal
+        store={linkedStore ?? selectedStore}
+        open={!!linkedStore || modalOpen}
+        onOpenChange={(open) => {
+          if (!open && linkedStore) closeLinked();
+          setModalOpen(open);
+        }}
+      />
       <StoreCompareModal
         storeIds={compareIds}
         open={compareOpen}

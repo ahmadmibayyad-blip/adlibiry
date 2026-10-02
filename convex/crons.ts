@@ -80,6 +80,10 @@ crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.r
 // products pipeline and Research rebuild (convex/agentRunner.ts).
 crons.daily("run AI agents", { hourUTC: 9, minuteUTC: 20 }, internal.agentRunner.runAll);
 
+// Follow alerts: one alert per followed advertiser that launched new ads
+// since the last run, after the imports and the products pipeline.
+crons.daily("send follow alerts", { hourUTC: 8, minuteUTC: 35 }, internal.follows.sendDailyAlerts, {});
+
 // Store sales tracking: read tracked and discovered Shopify stores' public
 // catalogs and save today's estimate (convex/storeSales.ts).
 crons.daily("track Shopify store sales", { hourUTC: 10, minuteUTC: 5 }, internal.storeSales.runAll, {});

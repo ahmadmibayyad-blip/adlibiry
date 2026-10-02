@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Authenticated, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Info, Package } from "lucide-react";
@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils.ts";
 import { compactNumber, flag, spendLabel } from "@/lib/adFormat.ts";
 import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
+import AdCard from "../ad-spy/_components/AdCard.tsx";
+import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
 import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
 import { dailyChange, money, pct, SERIES, type Point, type Range } from "../_components/chartUtils.ts";
 
@@ -151,11 +153,15 @@ export default function AdDetailPage() {
               <span className="text-xs px-2 py-0.5 rounded bg-muted">{ad.niche}</span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/15 text-primary">Ad score {ad.aiScore}</span>
             </div>
+            <div className="flex items-center gap-2 mb-2 min-w-0">
+              {ad.advertiserAvatar && <img src={ad.advertiserAvatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />}
+              <span className="text-sm font-semibold truncate">{ad.advertiserName}</span>
+              <FollowAdvertiser name={ad.advertiserName} className="shrink-0" />
+            </div>
             <h1 className="text-2xl font-bold leading-tight mb-1">“{ad.headline}”</h1>
             <p className="text-sm text-muted-foreground line-clamp-3">
-              {ad.advertiserName}
-              {ad.bodyText && ` · ${ad.bodyText}`}
-              {ad.ctaText && ` · CTA: ${ad.ctaText}`}
+              {ad.bodyText}
+              {ad.ctaText && `${ad.bodyText ? " · " : ""}CTA: ${ad.ctaText}`}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-4">
               <StatTile label="Running" value={ad.daysRunning > 0 ? `${ad.daysRunning} d` : "—"} />
@@ -222,7 +228,28 @@ export default function AdDetailPage() {
         </div>
       </div>
 
+      <MoreFromAdvertiser name={ad.advertiserName} adId={ad._id} />
+
       <AdDetailModal ad={ad} open={details} onOpenChange={setDetails} />
     </div>
+  );
+}
+
+function MoreFromAdvertiser({ name, adId }: { name: string; adId: Id<"ads"> }) {
+  const ads = useQuery(api.follows.advertiserAds, { name, excludeId: adId });
+  const navigate = useNavigate();
+  if (!ads?.length) return null;
+  return (
+    <section className="mt-8">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h2 className="text-xl font-bold truncate">More from {name}</h2>
+        <FollowAdvertiser name={name} className="shrink-0" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {ads.map((a) => (
+          <AdCard key={a._id} ad={a} onClick={() => navigate(`/dashboard/ads/${a._id}`)} />
+        ))}
+      </div>
+    </section>
   );
 }

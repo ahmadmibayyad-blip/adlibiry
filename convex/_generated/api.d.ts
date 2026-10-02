@@ -31,6 +31,7 @@ import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as emailDigest from "../emailDigest.js";
 import type * as emailSender from "../emailSender.js";
+import type * as follows from "../follows.js";
 import type * as history from "../history.js";
 import type * as http from "../http.js";
 import type * as imageSearch from "../imageSearch.js";
@@ -105,6 +106,7 @@ declare const fullApi: ApiFromModules<{
   dashboard: typeof dashboard;
   emailDigest: typeof emailDigest;
   emailSender: typeof emailSender;
+  follows: typeof follows;
   history: typeof history;
   http: typeof http;
   imageSearch: typeof imageSearch;

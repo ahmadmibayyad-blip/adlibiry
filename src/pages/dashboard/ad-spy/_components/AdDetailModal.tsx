@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
+import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -113,6 +114,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                   <span>· {ad.niche}</span>
                 </div>
               </div>
+              <FollowAdvertiser name={ad.advertiserName} className="ml-auto shrink-0" />
             </div>
 
             <div className="rounded-xl overflow-hidden border border-border bg-muted">

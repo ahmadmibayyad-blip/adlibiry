@@ -98,3 +98,30 @@ export function monthlyRevenueRange(days: { estRevenueLow: number; estRevenueHig
 }
 
 export const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+// Store alert for trackers: a sales jump (≥ 2× the recent daily average, at
+// least 5 products changed) or new products. Null when nothing stands out.
+export const SPIKE_FACTOR = 2;
+export const SPIKE_MIN_CHANGES = 5;
+type Day = { windowHours: number; updatedCount: number; newCount: number; estRevenueLow: number; estRevenueHigh: number };
+const perDayHigh = (d: Day) => d.estRevenueHigh * (24 / Math.max(1, d.windowHours));
+
+export function storeAlert(storeName: string, today: Day, previous: Day[]): { title: string; body: string } | null {
+  if (previous.length >= 3 && today.updatedCount >= SPIKE_MIN_CHANGES) {
+    const avg = previous.reduce((a, d) => a + perDayHigh(d), 0) / previous.length;
+    if (avg > 0 && perDayHigh(today) >= SPIKE_FACTOR * avg) {
+      const x = Math.round((perDayHigh(today) / avg) * 10) / 10;
+      return {
+        title: `${storeName} sales jumped`,
+        body: `${today.updatedCount} products changed in the last day, about ${x}× its recent daily average (est. ${money(today.estRevenueLow)}–${money(today.estRevenueHigh)}).`,
+      };
+    }
+  }
+  if (today.newCount > 0) {
+    return {
+      title: `${storeName} added ${today.newCount} new product${today.newCount === 1 ? "" : "s"}`,
+      body: "New products often mean a new test. See what they added.",
+    };
+  }
+  return null;
+}
