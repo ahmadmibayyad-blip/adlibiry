@@ -18,6 +18,7 @@ import AIAdAnglesCard from "../_components/ai/AIAdAnglesCard.tsx";
 import AICompetitorFinderCard from "../_components/ai/AICompetitorFinderCard.tsx";
 import CountrySaturationCard from "../_components/ai/CountrySaturationCard.tsx";
 import ProductPerformance, { ProductHeadline } from "./_components/ProductPerformance.tsx";
+import AddToShopify from "./_components/AddToShopify.tsx";
 
 const saturationColors: Record<string, string> = {
   Low: "text-green-400 bg-green-400/10 border-green-400/20",
@@ -319,6 +320,7 @@ export default function ProductDetail() {
                 </a>
               </Button>
             )}
+            <AddToShopify product={product} />
             <Authenticated>
               <SaveButtonDetail productId={product._id} />
             </Authenticated>
