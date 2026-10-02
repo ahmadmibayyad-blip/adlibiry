@@ -124,15 +124,26 @@ function pick(p: Record<string, unknown>, ...keys: string[]): string | undefined
   return undefined;
 }
 
+// Links can come without a scheme ("shop.com/products/x", "//shop.com/…");
+// make them full https addresses. A path ("/products/x") is joined to the store.
+export function absoluteUrl(link: string | undefined, base?: string): string | undefined {
+  if (!link) return undefined;
+  const l = link.trim();
+  if (/^https?:\/\//i.test(l)) return l;
+  if (l.startsWith("//")) return `https:${l}`;
+  if (l.startsWith("/")) return base ? `${base.replace(/\/$/, "")}${l}` : undefined;
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(l) ? `https://${l}` : undefined;
+}
+
 export function normalizeShopify(raw: Record<string, unknown>): ShopifyProduct {
   const domain = pick(raw, "storeDomain", "store_domain", "domain", "shopDomain");
   const handle = pick(raw, "handle", "productHandle", "product_handle");
-  const storeLink = pick(raw, "storeLink", "store_link", "storeUrl", "store_url", "shopUrl") ?? (domain ? `https://${domain.replace(/^https?:\/\//, "")}` : undefined);
+  const storeLink = absoluteUrl(pick(raw, "storeLink", "store_link", "storeUrl", "store_url", "shopUrl") ?? domain);
   return {
     productId: pick(raw, "productId", "product_id", "id"),
     title: pick(raw, "title", "productTitle", "product_title", "name"),
     productLink:
-      pick(raw, "productLink", "product_link", "productUrl", "product_url", "url", "link") ??
+      absoluteUrl(pick(raw, "productLink", "product_link", "productUrl", "product_url", "url", "link"), storeLink) ??
       (storeLink && handle ? `${storeLink.replace(/\/$/, "")}/products/${handle}` : storeLink),
     previewImageUrl: pick(raw, "previewImageUrl", "preview_image_url", "imageUrl", "image_url", "image", "mainImage", "img"),
     minPrice: pick(raw, "minPrice", "min_price", "price"),
@@ -194,7 +205,7 @@ export function storeFromShopify(
 ): DiscoveredStore | null {
   let host: string;
   try {
-    host = new URL(p.storeLink || product.supplierUrl).hostname.toLowerCase();
+    host = new URL(absoluteUrl(p.storeLink) ?? absoluteUrl(product.supplierUrl) ?? "").hostname.toLowerCase();
   } catch {
     return null;
   }

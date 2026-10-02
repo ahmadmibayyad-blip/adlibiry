@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromShopify, fromTikTokShop, nicheFromTikTokCategory, normalizeShopify, storeFromShopify, trendFromGrowthPercent } from "./marketplaces";
+import { absoluteUrl, fromShopify, fromTikTokShop, nicheFromTikTokCategory, normalizeShopify, storeFromShopify, trendFromGrowthPercent } from "./marketplaces";
 
 describe("Nexscope marketplaces", () => {
   it("maps a TikTok Shop best-seller", () => {
@@ -26,6 +26,17 @@ describe("Nexscope marketplaces", () => {
     const d = fromShopify(p, "Beauty")!;
     expect(d.price).toBe(19);
     expect(storeFromShopify(p, d)).toMatchObject({ externalId: "shopify:glowshop.com", activeAdsCount: 5 });
+  });
+
+  it("turns scheme-less links into full addresses", () => {
+    expect(absoluteUrl("shop.com/products/a")).toBe("https://shop.com/products/a");
+    expect(absoluteUrl("//cdn.shop.com/x")).toBe("https://cdn.shop.com/x");
+    expect(absoluteUrl("/products/a", "https://shop.com/")).toBe("https://shop.com/products/a");
+    expect(absoluteUrl("not a url")).toBeUndefined();
+    const p = normalizeShopify({ productId: "1", title: "Mat", productLink: "petshop.co/products/mat", storeLink: "petshop.co" });
+    const d = fromShopify(p, "Pet Supplies")!;
+    expect(d.supplierUrl).toBe("https://petshop.co/products/mat");
+    expect(storeFromShopify(p, d)?.externalId).toBe("shopify:petshop.co");
   });
 
   it("reads TikTok categories and growth", () => {

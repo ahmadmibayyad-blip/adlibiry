@@ -50,7 +50,7 @@ describe("Nexscope product discovery", () => {
     await t.run((ctx) =>
       ctx.db.insert("products", {
         title: "Old shopify product", description: "", imageUrl: "i", price: 10, category: "Beauty", tags: [], aiScore: 50,
-        saturation: "Unknown", trend: "Unknown", supplierUrl: "https://www.oldshop.com/products/a", adExamples: [],
+        saturation: "Unknown", trend: "Unknown", supplierUrl: "www.oldshop.com/products/a", adExamples: [],
         isWinnerOfDay: false, source: "shopify", publishedAt: "2026-10-01T00:00:00.000Z",
       }),
     );
@@ -58,6 +58,8 @@ describe("Nexscope product discovery", () => {
     const old = await t.run((ctx) => ctx.db.query("stores").filter((q) => q.eq(q.field("name"), "oldshop.com")).collect());
     expect(old).toHaveLength(1);
     expect(old[0].bestSellers[0].title).toBe("Old shopify product");
+    const fixed = await t.run((ctx) => ctx.db.query("products").filter((q) => q.eq(q.field("title"), "Old shopify product")).first());
+    expect(fixed?.supplierUrl).toBe("https://www.oldshop.com/products/a");
   });
 
   it("saves every usable listing and searches a new keyword each run", async () => {

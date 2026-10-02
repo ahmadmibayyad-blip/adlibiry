@@ -15,7 +15,7 @@ import {
   type NexscopeAmazonProduct,
   type NexscopeAmazonDiscoveryResponse,
 } from "./client";
-import { fromShopify, fromTikTokShop, nexscopeSkillUrl, normalizeShopify, storeFromShopify, type TikTokShopProduct } from "./marketplaces";
+import { absoluteUrl, fromShopify, fromTikTokShop, nexscopeSkillUrl, normalizeShopify, storeFromShopify, type TikTokShopProduct } from "./marketplaces";
 
 // Winning Products: discovers real Amazon bestseller candidates per niche
 // from Nexscope.ai — each one a real, single ASIN with its own real title,
@@ -61,7 +61,7 @@ export const discoverProducts = internalAction({
       return { created: 0, updated: 0, skipped: 0, errors: ["NEXSCOPE_API_KEY secret is not set. Add it in the Secrets tab."] };
     }
 
-    const result: DiscoveryResult = { created: 0, updated: 0, skipped: 0, errors: [], bySource: {} };
+    const result: DiscoveryResult = { created: 0, updated: 0, skipped: 0, errors: [], bySource: {}, stores: 0 };
     const count = (source: string, outcome: "created" | "updated") => {
       const c = (result.bySource![source] ??= { created: 0, updated: 0 });
       c[outcome] += 1;
@@ -183,8 +183,16 @@ export const discoverProducts = internalAction({
           { cursor },
         );
         for (const p of page.items) {
-          const store = storeFromShopify({}, p);
-          if (store) await ctx.runMutation(internal.nexscope.productDiscovery.upsertProductStore, store);
+          // Links saved without https:// are fixed on the product too.
+          const link = absoluteUrl(p.supplierUrl);
+          if (link && link !== p.supplierUrl) {
+            await ctx.runMutation(internal.nexscope.productDiscovery.fixProductLink, { id: p._id, url: link });
+          }
+          const store = storeFromShopify({}, { ...p, supplierUrl: link ?? p.supplierUrl });
+          if (store) {
+            const s = await ctx.runMutation(internal.nexscope.productDiscovery.upsertProductStore, store);
+            if (s === "created") result.stores! += 1;
+          }
         }
         if (page.isDone) break;
         cursor = page.cursor;
@@ -215,6 +223,9 @@ export const discoverProducts = internalAction({
           count("Shopify", outcome.outcome);
           // …and its store goes to the Stores tracker, with this product as a best-seller.
           const store = storeFromShopify(p, d);
+          if (!store && !result.errors.some((e) => e.startsWith("Shopify store"))) {
+            result.errors.push(`Shopify store skipped: can't read a web address from "${(p.storeLink ?? d.supplierUrl).slice(0, 80)}"`);
+          }
           if (store) {
             const s = await ctx.runMutation(internal.nexscope.productDiscovery.upsertProductStore, store);
             result.stores = (result.stores ?? 0) + (s === "created" ? 1 : 0);
@@ -323,13 +334,13 @@ export const nextRun = internalMutation({
   args: {},
   handler: async (ctx): Promise<{ run: number; storesBackfilled: boolean }> => {
     const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "nexscopeDiscovery")).unique();
-    const state = (doc?.data ?? {}) as { run?: number; storesBackfilled?: boolean };
+    const state = (doc?.data ?? {}) as { run?: number; storesBackfilledV2?: boolean };
     const run = state.run ?? 0;
     const data = { ...state, run: run + 1 };
     const updatedAt = new Date().toISOString();
     if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
     else await ctx.db.insert("siteStats", { key: "nexscopeDiscovery", data, updatedAt });
-    return { run, storesBackfilled: !!state.storesBackfilled };
+    return { run, storesBackfilled: !!state.storesBackfilledV2 };
   },
 });
 
@@ -337,7 +348,15 @@ export const markStoresBackfilled = internalMutation({
   args: {},
   handler: async (ctx) => {
     const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "nexscopeDiscovery")).unique();
-    if (doc) await ctx.db.patch("siteStats", doc._id, { data: { ...(doc.data as object), storesBackfilled: true } });
+    if (doc) await ctx.db.patch("siteStats", doc._id, { data: { ...(doc.data as object), storesBackfilledV2: true } });
+  },
+});
+
+export const fixProductLink = internalMutation({
+  args: { id: v.id("products"), url: v.string() },
+  handler: async (ctx, args) => {
+    const p = await ctx.db.get("products", args.id);
+    if (p) await ctx.db.patch("products", args.id, { supplierUrl: args.url, ...(p.storeUrl ? { storeUrl: args.url } : {}) });
   },
 });
 
