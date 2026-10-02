@@ -33,6 +33,7 @@ import type * as emailDigest from "../emailDigest.js";
 import type * as emailSender from "../emailSender.js";
 import type * as history from "../history.js";
 import type * as http from "../http.js";
+import type * as imageSearch from "../imageSearch.js";
 import type * as lib_adFields from "../lib/adFields.js";
 import type * as lib_aiTools from "../lib/aiTools.js";
 import type * as lib_authIdentity from "../lib/authIdentity.js";
@@ -104,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   emailSender: typeof emailSender;
   history: typeof history;
   http: typeof http;
+  imageSearch: typeof imageSearch;
   "lib/adFields": typeof lib_adFields;
   "lib/aiTools": typeof lib_aiTools;
   "lib/authIdentity": typeof lib_authIdentity;

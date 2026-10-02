@@ -17,6 +17,7 @@ import { openAssistant } from "@/lib/assistant.ts";
 import ProductCard, { ProductCardSkeleton } from "./_components/ProductCard.tsx";
 import AdCard, { AdCardSkeleton } from "./ad-spy/_components/AdCard.tsx";
 import { ChartCard, TimeChart } from "./_components/charts.tsx";
+import ImageSearchDialog from "./_components/ImageSearchDialog.tsx";
 import type { Point } from "./_components/chartUtils.ts";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { toast } from "sonner";
@@ -454,6 +455,7 @@ export default function DashboardHome() {
               Load Sample Products
             </Button>
           )}
+          <ImageSearchDialog />
           <Button size="sm" variant="outline" onClick={openAssistant} className="rounded-full">
             <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />
             Ask AI
