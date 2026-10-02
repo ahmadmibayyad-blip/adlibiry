@@ -15,6 +15,7 @@ import {
   type NexscopeAmazonProduct,
   type NexscopeAmazonDiscoveryResponse,
 } from "./client";
+import { fromShopify, fromTikTokShop, nexscopeSkillUrl, type ShopifyProduct, type TikTokShopProduct } from "./marketplaces";
 
 // Winning Products: discovers real Amazon bestseller candidates per niche
 // from Nexscope.ai — each one a real, single ASIN with its own real title,
@@ -25,12 +26,29 @@ import {
 // and saves every usable listing it gets back (up to 10 per niche), so the
 // catalog grows; the top PRODUCTS_PER_NICHE are that niche's daily picks.
 
+type SourceCount = { created: number; updated: number };
 type DiscoveryResult = {
   created: number;
   updated: number;
   skipped: number;
   errors: string[];
+  bySource?: Record<string, SourceCount>; // "Amazon" | "TikTok Shop" | "Shopify"
 };
+
+// POST one Nexscope skill; returns its product list or an error message.
+async function runSkill(apiKey: string, skill: string, body: unknown): Promise<{ products: unknown[] } | { error: string }> {
+  const response = await fetch(nexscopeSkillUrl(skill), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) return { error: `Nexscope API error ${response.status} — ${(await response.text()).slice(0, 200)}` };
+  const data: unknown = await response.json();
+  const providerError = nestedError(data);
+  if (providerError) return { error: `Nexscope returned error — ${providerError}` };
+  const found = findPayload(data, "products");
+  return { products: Array.isArray(found?.products) ? found.products : [] };
+}
 
 const PRODUCTS_PER_NICHE = 2;
 
@@ -42,7 +60,12 @@ export const discoverProducts = internalAction({
       return { created: 0, updated: 0, skipped: 0, errors: ["NEXSCOPE_API_KEY secret is not set. Add it in the Secrets tab."] };
     }
 
-    const result: DiscoveryResult = { created: 0, updated: 0, skipped: 0, errors: [] };
+    const result: DiscoveryResult = { created: 0, updated: 0, skipped: 0, errors: [], bySource: {} };
+    const count = (source: string, outcome: "created" | "updated") => {
+      const c = (result.bySource![source] ??= { created: 0, updated: 0 });
+      c[outcome] += 1;
+      result[outcome] += 1;
+    };
     const run = await ctx.runMutation(internal.nexscope.productDiscovery.nextRun, {});
 
     for (const [niche, keywords] of Object.entries(NICHE_DISCOVERY_KEYWORDS)) {
@@ -109,13 +132,64 @@ export const discoverProducts = internalAction({
             isPick: i < PRODUCTS_PER_NICHE,
           });
           if (i < PRODUCTS_PER_NICHE) keepIds.push(outcome.productId);
-          if (outcome.outcome === "created") result.created += 1;
-          else result.updated += 1;
+          count("Amazon", outcome.outcome);
         }
         // Today's picks are this niche's Nexscope winners; earlier picks retire.
         await ctx.runMutation(internal.nexscope.productDiscovery.retireOldWinners, { niche, keepIds });
       } catch (error) {
         result.errors.push(`${niche}: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }
+
+    // TikTok Shop: the top sellers across all categories (one page per run,
+    // a different page each run), from two days ago so the day is complete.
+    try {
+      const day = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+      const reply = await runSkill(apiKey, "tiktok-top-selling-products", {
+        region: "US",
+        dateInfo: { type: "day", value: day },
+        orderby: { field: "units_sold", order: "desc" },
+        page: (run % 5) + 1,
+        pageSize: 10,
+      });
+      if ("error" in reply) result.errors.push(`TikTok Shop: ${reply.error}`);
+      else {
+        for (const raw of reply.products) {
+          const d = fromTikTokShop(raw as TikTokShopProduct);
+          if (!d) {
+            result.skipped += 1;
+            continue;
+          }
+          const outcome = await ctx.runMutation(internal.nexscope.productDiscovery.upsertDiscovered, { ...d, source: "tiktok_shop" });
+          count("TikTok Shop", outcome.outcome);
+        }
+        if (!reply.products.length) result.errors.push("TikTok Shop: no products in the reply");
+      }
+    } catch (error) {
+      result.errors.push(`TikTok Shop: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+
+    // Shopify: store products for the same rotating keyword per niche, only
+    // ones running Facebook ads, best weekly sales first.
+    for (const [niche, keywords] of Object.entries(NICHE_DISCOVERY_KEYWORDS)) {
+      const keyword = keywords[run % keywords.length];
+      try {
+        const reply = await runSkill(apiKey, "shopify-product-query", { searchKey: keyword, facebookAd: 1, showDeleted: 0, page: 1, pageSize: 10 });
+        if ("error" in reply) {
+          result.errors.push(`Shopify ${niche}: ${reply.error}`);
+          continue;
+        }
+        for (const raw of reply.products) {
+          const d = fromShopify(raw as ShopifyProduct, niche);
+          if (!d) {
+            result.skipped += 1;
+            continue;
+          }
+          const outcome = await ctx.runMutation(internal.nexscope.productDiscovery.upsertDiscovered, { ...d, source: "shopify" });
+          count("Shopify", outcome.outcome);
+        }
+      } catch (error) {
+        result.errors.push(`Shopify ${niche}: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
     }
 
@@ -214,6 +288,51 @@ export const nextRun = internalMutation({
     if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
     else await ctx.db.insert("siteStats", { key: "nexscopeDiscovery", data, updatedAt });
     return run;
+  },
+});
+
+// A TikTok Shop or Shopify product from Nexscope (see marketplaces.ts).
+// Deduped by external id like the Amazon ones; these never take a daily
+// pick slot — the Winning Products list ranks them by score like any product.
+export const upsertDiscovered = internalMutation({
+  args: {
+    source: v.string(),
+    externalId: v.string(),
+    title: v.string(),
+    price: v.optional(v.number()),
+    originalPrice: v.optional(v.string()),
+    imageUrl: v.string(),
+    supplierUrl: v.string(),
+    storeUrl: v.optional(v.string()),
+    category: v.string(),
+    aiScore: v.number(),
+    trend: v.string(),
+    description: v.string(),
+    tags: v.array(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ outcome: "created" | "updated"; productId: Id<"products"> }> => {
+    const { externalId, ...fields } = args;
+    const productDoc = {
+      ...fields,
+      saturation: "Unknown",
+      adExamples: [] as { platform: string; impressions: string; imageUrl: string }[],
+      isWinnerOfDay: false,
+      ...(args.price !== undefined ? { priceSource: "exact" as const } : {}),
+    };
+    const link = await ctx.db
+      .query("nexscopeSyncedProducts")
+      .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+      .unique();
+    if (link && (await ctx.db.get("products", link.productId))) {
+      await ctx.db.patch("products", link.productId, productDoc);
+      await ctx.db.patch("nexscopeSyncedProducts", link._id, { lastSyncedAt: new Date().toISOString() });
+      return { outcome: "updated", productId: link.productId };
+    }
+    if (link) await ctx.db.delete("nexscopeSyncedProducts", link._id);
+    await markStatsDirty(ctx);
+    const productId = await ctx.db.insert("products", { ...productDoc, publishedAt: new Date().toISOString() });
+    await ctx.db.insert("nexscopeSyncedProducts", { externalId, productId, lastSyncedAt: new Date().toISOString() });
+    return { outcome: "created", productId };
   },
 });
 

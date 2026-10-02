@@ -7,10 +7,26 @@ import { NICHE_DISCOVERY_KEYWORDS } from "./nexscope/client";
 
 const modules = import.meta.glob("./**/*.ts");
 
-// Fake Nexscope: 3 usable listings per search, unique per keyword.
+// Fake Nexscope. Amazon: 3 usable listings per search, unique per keyword.
+// TikTok Shop: 2 products. Shopify: 1 product per keyword.
 function stubNexscope(searched: string[]) {
-  vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
-    const { keyword } = JSON.parse(String(init.body)) as { keyword: string };
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)) as { keyword?: string; searchKey?: string; page?: number };
+    if (url.includes("tiktok-top-selling-products")) {
+      const products = [1, 2].map((n) => ({
+        productId: `tt${body.page}-${n}`, title: `Pet hair remover roller ${n}`, price: 12.5, currency: "USD",
+        totalSaleCnt: 90_000, totalSale1dCnt: 1_200, growthRate: 40, categoryName: "Pet Supplies", imageUrl: "https://img.example.com/tt.jpg",
+      }));
+      return new Response(JSON.stringify({ errcode: 200, data: { products } }), { status: 200 });
+    }
+    if (url.includes("shopify-product-query")) {
+      const products = [{
+        productId: `sh-${body.searchKey}`, title: `${body.searchKey} deluxe`, productLink: "https://store.example.com/products/x",
+        previewImageUrl: "https://img.example.com/sh.jpg", minPrice: "29.90", facebookAdCount: "14", weekOrderCount: "320", weekRevenueGrowth: "25",
+      }];
+      return new Response(JSON.stringify({ total: 1, products }), { status: 200 });
+    }
+    const keyword = body.keyword!;
     searched.push(keyword);
     const slug = keyword.replace(/\W+/g, "-");
     const products = [1, 2, 3].map((n) => ({
@@ -35,13 +51,23 @@ describe("Nexscope product discovery", () => {
     const niches = Object.keys(NICHE_DISCOVERY_KEYWORDS).length;
 
     const first = await t.action(internal.nexscope.productDiscovery.discoverProducts, {});
-    expect(first).toMatchObject({ created: 3 * niches, updated: 0, skipped: niches, errors: [] });
+    expect(first).toMatchObject({ created: 3 * niches + 2 + niches, updated: 0, skipped: niches, errors: [] });
+    expect(first.bySource).toEqual({
+      Amazon: { created: 3 * niches, updated: 0 },
+      "TikTok Shop": { created: 2, updated: 0 },
+      Shopify: { created: niches, updated: 0 },
+    });
 
     const second = await t.action(internal.nexscope.productDiscovery.discoverProducts, {});
-    expect(second.created).toBe(3 * niches); // different keywords → new products
+    expect(second.created).toBe(3 * niches + 2 + niches); // new keywords and TikTok page → new products
     expect(new Set(searched).size).toBe(2 * niches);
 
     const picks = await t.run((ctx) => ctx.db.query("products").withIndex("by_winner", (q) => q.eq("isWinnerOfDay", true)).collect());
-    expect(picks).toHaveLength(2 * niches); // only the latest run's top 2 per niche
+    expect(picks).toHaveLength(2 * niches); // only the latest run's top 2 Amazon listings per niche
+
+    const tt = await t.run((ctx) => ctx.db.query("products").filter((q) => q.eq(q.field("source"), "tiktok_shop")).first());
+    expect(tt).toMatchObject({ category: "Pet Supplies", price: 12.5, trend: "Rising", isWinnerOfDay: false });
+    const sh = await t.run((ctx) => ctx.db.query("products").filter((q) => q.eq(q.field("source"), "shopify")).first());
+    expect(sh).toMatchObject({ price: 29.9, supplierUrl: "https://store.example.com/products/x", trend: "Rising" });
   });
 });

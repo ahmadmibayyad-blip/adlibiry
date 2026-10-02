@@ -231,7 +231,7 @@ function ProductsTab() {
   const [pricing, setPricing] = useState(false);
   const [lastPricing, setLastPricing] = useState<{ updated: number; skipped: number; errors: string[] } | null>(null);
   const [discovering, setDiscovering] = useState(false);
-  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[] } | null>(null);
+  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[]; bySource?: Record<string, { created: number; updated: number }> } | null>(null);
   const deleteProduct = useMutation(api.admin.products.deleteProduct);
   const backfillPricing = useAction(api.nexscope.pricing.backfillPricingNow);
   const discoverProducts = useAction(api.nexscope.productDiscovery.discoverProductsNow);
@@ -302,7 +302,7 @@ function ProductsTab() {
               <h3 className="font-semibold text-sm">Nexscope.ai product discovery</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Pulls up to 10 real Amazon bestsellers per niche, each with its own real title, image and price. Every run searches a different product keyword per niche, so it keeps finding new products. Also runs automatically once a day. Each run uses Nexscope credits (one search per niche).
+              Pulls real products from three places: Amazon bestsellers and Shopify store products running Facebook ads (up to 10 per niche each), plus the top 10 TikTok Shop best-sellers. Each with its own real title, image and price. Every run searches a different keyword per niche, so it keeps finding new products. Also runs automatically once a day. Each run uses Nexscope credits (13 searches).
             </p>
           </div>
           <Button size="sm" onClick={handleDiscovery} disabled={discovering}>
@@ -315,6 +315,11 @@ function ProductsTab() {
             <span className="text-muted-foreground">Created <strong className="text-foreground">{lastDiscovery.created}</strong></span>
             <span className="text-muted-foreground">Updated <strong className="text-foreground">{lastDiscovery.updated}</strong></span>
             <span className="text-muted-foreground">Skipped <strong className="text-foreground">{lastDiscovery.skipped}</strong></span>
+            {Object.entries(lastDiscovery.bySource ?? {}).map(([source, c]) => (
+              <span key={source} className="text-muted-foreground">
+                {source}: <strong className="text-foreground">{c.created}</strong> new, {c.updated} updated
+              </span>
+            ))}
             {lastDiscovery.errors.length > 0 && (
               <div className="w-full text-destructive">
                 {lastDiscovery.errors.map((err, i) => <div key={i}>{err}</div>)}
@@ -438,7 +443,7 @@ function ProductsTab() {
                       {product.isWinnerOfDay ? <Badge>Yes</Badge> : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Nexscope" : product.source === "csv_import" ? "CSV" : product.source === "winninghunter" ? "WinningHunter" : "Curated"}
+                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Amazon" : product.source === "tiktok_shop" ? "TikTok Shop" : product.source === "shopify" ? "Shopify" : product.source === "csv_import" ? "CSV" : product.source === "winninghunter" ? "WinningHunter" : "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
