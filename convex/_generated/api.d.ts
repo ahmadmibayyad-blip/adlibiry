@@ -47,6 +47,7 @@ import type * as lib_productMatch from "../lib/productMatch.js";
 import type * as lib_rangeParsing from "../lib/rangeParsing.js";
 import type * as lib_research from "../lib/research.js";
 import type * as lib_saturationScoring from "../lib/saturationScoring.js";
+import type * as lib_shopifyExport from "../lib/shopifyExport.js";
 import type * as lib_storeSales from "../lib/storeSales.js";
 import type * as lib_whTransform from "../lib/whTransform.js";
 import type * as mcp from "../mcp.js";
@@ -66,6 +67,7 @@ import type * as research from "../research.js";
 import type * as saturation_analyze from "../saturation/analyze.js";
 import type * as saturation_compare from "../saturation/compare.js";
 import type * as saturation_mutations from "../saturation/mutations.js";
+import type * as shopifyImport from "../shopifyImport.js";
 import type * as sources_links from "../sources/links.js";
 import type * as stats from "../stats.js";
 import type * as storeSales from "../storeSales.js";
@@ -73,6 +75,7 @@ import type * as stores from "../stores.js";
 import type * as submittedAds from "../submittedAds.js";
 import type * as trends from "../trends.js";
 import type * as users from "../users.js";
+import type * as videoDownload from "../videoDownload.js";
 import type * as winners from "../winners.js";
 import type * as winninghunter from "../winninghunter.js";
 
@@ -122,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   "lib/rangeParsing": typeof lib_rangeParsing;
   "lib/research": typeof lib_research;
   "lib/saturationScoring": typeof lib_saturationScoring;
+  "lib/shopifyExport": typeof lib_shopifyExport;
   "lib/storeSales": typeof lib_storeSales;
   "lib/whTransform": typeof lib_whTransform;
   mcp: typeof mcp;
@@ -141,6 +145,7 @@ declare const fullApi: ApiFromModules<{
   "saturation/analyze": typeof saturation_analyze;
   "saturation/compare": typeof saturation_compare;
   "saturation/mutations": typeof saturation_mutations;
+  shopifyImport: typeof shopifyImport;
   "sources/links": typeof sources_links;
   stats: typeof stats;
   storeSales: typeof storeSales;
@@ -148,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   submittedAds: typeof submittedAds;
   trends: typeof trends;
   users: typeof users;
+  videoDownload: typeof videoDownload;
   winners: typeof winners;
   winninghunter: typeof winninghunter;
 }>;

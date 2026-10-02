@@ -405,6 +405,26 @@ export default defineSchema({
     .index("by_store", ["storeId"])
     .index("by_user_and_store", ["userId", "storeId"]),
 
+  // One-click Shopify import (convex/shopifyImport.ts): the user's own store,
+  // via a custom-app Admin API token. The token never leaves the server.
+  shopifyConnections: defineTable({
+    userId: v.id("users"),
+    shopDomain: v.string(),   // "my-store.myshopify.com"
+    shopName: v.string(),
+    accessToken: v.string(),
+    connectedAt: v.string(),  // ISO 8601 UTC
+  }).index("by_user", ["userId"]),
+
+  // Short-lived video download links (convex/videoDownload.ts).
+  downloadTokens: defineTable({
+    token: v.string(),
+    adId: v.id("ads"),
+    userId: v.id("users"),
+    expiresAt: v.number(),    // ms
+  })
+    .index("by_token", ["token"])
+    .index("by_expires", ["expiresAt"]),
+
   // Follow alerts: advertisers a user follows (convex/follows.ts).
   followedAdvertisers: defineTable({
     userId: v.id("users"),
