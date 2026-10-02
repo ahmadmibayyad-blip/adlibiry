@@ -69,6 +69,12 @@ export default defineSchema({
     linkedComments: v.optional(v.number()),
     linkedSpend: v.optional(v.number()), // est. ad spend, upper bound, USD
     linkedGmv: v.optional(v.number()),
+    // Modelled numbers (convex/lib/estimates.ts), set by the daily pipeline.
+    unitsPerMonth: v.optional(v.number()),   // orders/month from the marketplace's own data (Amazon clicks × conversion, Shopify weekly orders, TikTok Shop daily sales)
+    estImpressions: v.optional(v.object({ low: v.number(), high: v.number() })),
+    estAdSpend: v.optional(v.object({ low: v.number(), high: v.number() })),
+    estRevenue: v.optional(v.object({ low: v.number(), high: v.number() })), // per month, USD
+    estBasis: v.optional(v.object({ impressions: v.optional(v.string()), adSpend: v.optional(v.string()), revenue: v.optional(v.string()) })),
     marginPercent: v.optional(v.number()),
     // Kept out of Winning Products; hideable in Products.
     isBigBrand: v.optional(v.boolean()),

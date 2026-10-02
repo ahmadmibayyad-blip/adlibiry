@@ -320,3 +320,22 @@ describe("Ad Spy sort", () => {
     expect(j.products[0].title).toBe("new product");
   });
 });
+
+describe("Estimates", () => {
+  it("the daily run fills in modelled impressions, spend and revenue", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ads", ad({ likes: 3000, views: "", spendEstimate: "Unknown", landingPageUrl: "https://paws.example.com/products/dog-cooling-mat" }));
+      await ctx.db.insert("products", product({ title: "Shopify mat", price: 40, description: "Shopify store product running Facebook ads · 100 orders last week (est.)" }));
+    });
+    await runPipeline(t);
+    const ps = await t.run((ctx) => ctx.db.query("products").collect());
+    const fromAd = ps.find((p) => (p.linkedAds ?? 0) > 0)!;
+    expect(fromAd.estBasis?.impressions).toBe("engagement");
+    expect(fromAd.estImpressions?.high).toBeGreaterThan(0);
+    const shop = ps.find((p) => p.title === "Shopify mat")!;
+    expect(shop.unitsPerMonth).toBe(430);
+    expect(shop.estRevenue).toEqual({ low: 12040, high: 22360 });
+    expect(shop.estBasis?.revenue).toBe("marketplace_sales");
+  });
+});

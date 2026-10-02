@@ -1,3 +1,4 @@
+import { estimateProduct, unitsPerMonthFromText } from "./lib/estimates";
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -159,7 +160,10 @@ export const step = internalMutation({
         cursor = page.continueCursor;
       } else if (stage === "aggregate") {
         const page = await ctx.db.query("products").paginate({ numItems: 40, cursor: args.cursor });
-        for (const p of page.page) if (p.adIds?.length || p.linkedAds) await aggregate(ctx, p, args.day);
+        for (const p of page.page) {
+          if (p.adIds?.length || p.linkedAds) await aggregate(ctx, p, args.day);
+          else await applyEstimates(ctx, p);
+        }
         done = page.isDone;
         cursor = page.continueCursor;
       } else if (stage === "winners") {
@@ -350,6 +354,38 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
       patch.growthPercent = Math.round(growth * 1000) / 10;
     }
   }
+  await ctx.db.patch("products", p._id, { ...patch, ...estimatesFor({ ...p, ...patch }, sum) });
+}
+
+// Modelled impressions / ad spend / monthly revenue (lib/estimates.ts) from
+// what the product has: its ads' numbers, marketplace sales, price, likes.
+function estimatesFor(
+  p: Doc<"products">,
+  ads?: { views: number; likes: number; comments: number; spend: number; gmv: number },
+): Partial<Doc<"products">> {
+  const units = p.unitsPerMonth ?? unitsPerMonthFromText(p.description ?? "");
+  const e = estimateProduct({
+    price: p.price,
+    views: ads?.views ?? p.linkedViews,
+    likes: ads?.likes ?? p.likes,
+    comments: ads?.comments ?? p.linkedComments,
+    spend: ads?.spend ?? p.linkedSpend,
+    gmv: ads?.gmv ?? p.linkedGmv,
+    unitsPerMonth: units,
+  });
+  return {
+    ...(units !== undefined ? { unitsPerMonth: units } : {}),
+    estImpressions: e.impressions,
+    estAdSpend: e.adSpend,
+    estRevenue: e.revenue,
+    estBasis: { impressions: e.impressionsBasis, adSpend: e.adSpendBasis, revenue: e.revenueBasis },
+  };
+}
+
+async function applyEstimates(ctx: MutationCtx, p: Doc<"products">) {
+  const patch = estimatesFor(p);
+  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  if (same(patch.estImpressions, p.estImpressions) && same(patch.estRevenue, p.estRevenue) && same(patch.estAdSpend, p.estAdSpend) && same(patch.unitsPerMonth, p.unitsPerMonth)) return;
   await ctx.db.patch("products", p._id, patch);
 }
 

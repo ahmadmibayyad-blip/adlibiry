@@ -5,6 +5,7 @@ import { ChevronRight, Play } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, flag } from "@/lib/adFormat.ts";
+import { BASIS_TEXT, rangeLabel } from "@/lib/estimateFormat.ts";
 import { ChartCard, RangeSwitch, SplitBars, StatTile, TimeChart } from "../../_components/charts.tsx";
 import { dailyChange, money, pct, type Point, type Range } from "../../_components/chartUtils.ts";
 
@@ -39,12 +40,36 @@ export function ProductHeadline({ product }: { product: Product }) {
       </div>
       <div className="grid grid-cols-3 gap-2">
         <StatTile label="Score" value={`${product.aiScore}`} />
-        <StatTile label="Est. GMV" value={product.linkedGmv ? money(product.linkedGmv) : "—"} hint="Estimated sales, from TikTok Shop data where available" />
-        <StatTile label="Views" value={product.linkedViews ? compactNumber(product.linkedViews) : "—"} />
+        <StatTile
+          label="Revenue / month (est.)"
+          value={rangeLabel(product.estRevenue, true) ?? "—"}
+          hint={BASIS_TEXT[product.estBasis?.revenue ?? ""] ?? "Needs a price and some ad or sales data"}
+        />
+        <StatTile
+          label={product.estBasis?.impressions === "reported" ? "Impressions" : "Impressions (est.)"}
+          value={rangeLabel(product.estImpressions) ?? (product.linkedViews ? compactNumber(product.linkedViews) : "—")}
+          hint={BASIS_TEXT[product.estBasis?.impressions ?? ""]}
+        />
         <StatTile label="Likes" value={product.likes ? compactNumber(product.likes) : "—"} />
         <StatTile label="Ads running" value={adsRunning ? `${adsRunning}` : "—"} />
-        <StatTile label="Ad spend (est.)" value={product.linkedSpend ? `≤${money(product.linkedSpend)}` : "—"} hint="Upper end of the estimated spend of all linked ads" />
+        <StatTile
+          label="Ad spend (est.)"
+          value={rangeLabel(product.estAdSpend, true) ?? (product.linkedSpend ? `≤${money(product.linkedSpend)}` : "—")}
+          hint={BASIS_TEXT[product.estBasis?.adSpend ?? ""] ?? "Upper end of the estimated spend of all linked ads"}
+        />
+        {product.linkedGmv ? <StatTile label="Total GMV (reported)" value={money(product.linkedGmv)} hint="TikTok Shop sales reported by Nexscope" /> : null}
+        {product.unitsPerMonth ? <StatTile label="Orders / month (est.)" value={compactNumber(product.unitsPerMonth)} hint="From the marketplace's own sales counts" /> : null}
       </div>
+      {(product.estRevenue || product.estImpressions) && (
+        <details className="text-[11px] text-muted-foreground">
+          <summary className="cursor-pointer">How we estimate these numbers</summary>
+          <p className="mt-1 leading-relaxed">
+            Like other ad-spy tools, we model numbers a store doesn't publish. Ad spend = impressions ÷ 1,000 × a $6–$15 CPM.
+            Revenue comes from the marketplace's own sales counts when we have them; otherwise impressions × 0.8–1.5% click rate × 1–3%
+            conversion × price. Treat them as ranges for comparing products. They can be 2× off either way.
+          </p>
+        </details>
+      )}
     </div>
   );
 }

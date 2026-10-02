@@ -132,6 +132,10 @@ export const discoverProducts = internalAction({
             trend: trendFromClickGrowth(product.clickCountGrowthT30),
             reviewCount: product.ratings,
             isPick: i < PRODUCTS_PER_NICHE,
+            // Amazon's own 30-day clicks × conversion rate ≈ orders a month.
+            ...(product.clickCountT30 && product.clickConversionRateComposite
+              ? { unitsPerMonth: Math.round(product.clickCountT30 * Math.min(product.clickConversionRateComposite, 1)) }
+              : {}),
           });
           if (i < PRODUCTS_PER_NICHE) keepIds.push(outcome.productId);
           count("Amazon", outcome.outcome);
@@ -281,6 +285,7 @@ export const upsertAmazonProduct = internalMutation({
     trend: v.string(),
     reviewCount: v.optional(v.number()),
     isPick: v.optional(v.boolean()), // one of this niche's daily picks (default true)
+    unitsPerMonth: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<{ outcome: "created" | "updated"; productId: Id<"products"> }> => {
     // The listing's own title decides its category (a "resistance bands"
@@ -306,6 +311,7 @@ export const upsertAmazonProduct = internalMutation({
       supplierUrl: args.supplierUrl,
       adExamples: [] as { platform: string; impressions: string; imageUrl: string }[],
       isWinnerOfDay: args.isPick ?? true,
+      ...(args.unitsPerMonth !== undefined ? { unitsPerMonth: args.unitsPerMonth } : {}),
       source: "nexscope_api",
       priceSource: "exact" as const,
     };
