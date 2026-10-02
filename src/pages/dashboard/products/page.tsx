@@ -6,7 +6,8 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { compactNumber, domainOf } from "@/lib/adFormat.ts";
 import { api } from "@/convex/_generated/api.js";
-import { TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { cn } from "@/lib/utils.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -312,24 +313,50 @@ export default function ProductsFeed() {
           <ImageSearchDialog trigger="icon" />
         </div>
 
-        {/* Niches */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1 shrink-0">Niche</span>
-          <Chip on={!selectedNiches.length} onClick={() => setF((prev) => ({ ...prev, categories: undefined, category: undefined }))}>All</Chip>
-          {categories.map((c) => (
-            <Chip key={c.value} on={selectedNiches.includes(c.value)} onClick={() => toggleNiche(c.value)}>
-              {c.value}
-              <span className="opacity-60 tabular-nums">{compactNumber(c.n)}</span>
-            </Chip>
-          ))}
-        </div>
-
-        {/* Date added */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">Added</span>
-          {ADDED.map((o) => (
-            <Chip key={o.label} on={f.added === o.value} onClick={() => set("added", o.value)}>{o.label}</Chip>
-          ))}
+        {/* Niche (pick several) and date added */}
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "h-8 text-xs rounded-full px-3 inline-flex items-center gap-1 border bg-card border-border cursor-pointer",
+                  selectedNiches.length > 0 && "border-primary text-primary bg-primary/10",
+                )}
+              >
+                <span className="text-muted-foreground font-normal mr-0.5">Niche:</span>
+                {selectedNiches.length === 0 ? "All" : selectedNiches.length === 1 ? selectedNiches[0] : `${selectedNiches.length} niches`}
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
+              <DropdownMenuCheckboxItem
+                checked={selectedNiches.length === 0}
+                onSelect={(e) => e.preventDefault()}
+                onCheckedChange={() => setF((prev) => ({ ...prev, categories: undefined, category: undefined }))}
+              >
+                All niches
+              </DropdownMenuCheckboxItem>
+              {categories.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c.value}
+                  checked={selectedNiches.includes(c.value)}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={() => toggleNiche(c.value)}
+                >
+                  <span className="flex-1">{c.value}</span>
+                  <span className="text-muted-foreground tabular-nums ml-3">{compactNumber(c.n)}</span>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <FilterSelect
+            label="Added"
+            value={f.added ?? "all"}
+            onChange={(v) => set("added", v === "all" ? undefined : v)}
+            active={f.added !== undefined}
+            options={ADDED.map((o) => ({ value: o.value ?? "all", label: o.label }))}
+          />
         </div>
 
         {/* Metrics */}
