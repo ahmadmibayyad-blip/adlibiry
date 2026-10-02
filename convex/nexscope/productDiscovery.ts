@@ -34,6 +34,7 @@ type DiscoveryResult = {
   errors: string[];
   bySource?: Record<string, SourceCount>; // "Amazon" | "TikTok Shop" | "Shopify"
   stores?: number; // new stores added to the Stores tracker
+  sample?: string; // the fields (and short values) of the first Shopify product Nexscope sent, for checking the mapping
 };
 
 // POST one Nexscope skill; returns its product list or an error message.
@@ -211,6 +212,12 @@ export const discoverProducts = internalAction({
           continue;
         }
         let saved = 0;
+        if (!result.sample && reply.products[0]) {
+          result.sample = Object.entries(reply.products[0] as Record<string, unknown>)
+            .map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v)?.slice(0, 40) : String(v).slice(0, 40)}`)
+            .join(" · ")
+            .slice(0, 1500);
+        }
         for (const raw of reply.products) {
           const p = normalizeShopify(raw as Record<string, unknown>);
           const d = fromShopify(p, niche);
