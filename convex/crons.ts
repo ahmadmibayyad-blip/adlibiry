@@ -80,4 +80,8 @@ crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.r
 // products pipeline and Research rebuild (convex/agentRunner.ts).
 crons.daily("run AI agents", { hourUTC: 9, minuteUTC: 20 }, internal.agentRunner.runAll);
 
+// Store sales tracking: read tracked and discovered Shopify stores' public
+// catalogs and save today's estimate (convex/storeSales.ts).
+crons.daily("track Shopify store sales", { hourUTC: 10, minuteUTC: 5 }, internal.storeSales.runAll, {});
+
 export default crons;

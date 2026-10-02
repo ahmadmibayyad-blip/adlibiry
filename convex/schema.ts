@@ -358,10 +358,41 @@ export default defineSchema({
     isHighTraffic: v.boolean(),         // surfaces in "recently spotted" feed
     spottedAt: v.string(),              // ISO 8601 UTC — when this store was first spotted/added
     source: v.optional(v.string()),     // "product_discovery" = added from a discovered Shopify product
+    // Sales tracking (convex/storeSales.ts): last catalog check.
+    salesCheck: v.optional(v.object({
+      at: v.string(),                   // ISO 8601 UTC
+      ok: v.boolean(),
+      error: v.optional(v.string()),
+      failures: v.number(),             // failed checks in a row; skipped after 3
+    })),
   })
     .index("by_niche", ["niche"])
     .index("by_spotted", ["spottedAt"])
     .searchIndex("search_name", { searchField: "name", filterFields: ["niche"] }),
+
+  // Store sales tracking: one row per store per day (kept 90 days).
+  storeSalesSnapshots: defineTable({
+    storeId: v.id("stores"),
+    day: v.string(),                    // "YYYY-MM-DD" (UTC)
+    takenAt: v.string(),                // ISO 8601 UTC
+    windowHours: v.number(),            // hours since the previous check
+    productCount: v.number(),
+    updatedCount: v.number(),
+    newCount: v.number(),
+    avgPrice: v.number(),
+    estOrdersLow: v.number(),
+    estOrdersHigh: v.number(),
+    estRevenueLow: v.number(),
+    estRevenueHigh: v.number(),
+    topProducts: v.array(v.object({
+      title: v.string(),
+      url: v.string(),
+      imageUrl: v.string(),
+      price: v.number(),
+      updatedAt: v.string(),
+    })),
+  })
+    .index("by_store_day", ["storeId", "day"]),
 
   // Store Tracker: user watchlist
   trackedStores: defineTable({
