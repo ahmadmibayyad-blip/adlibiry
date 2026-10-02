@@ -10,6 +10,8 @@ export function claudeErrorMessage(error: InstanceType<typeof Anthropic.APIError
       ? "The AI API key is invalid."
       : error instanceof Anthropic.RateLimitError
         ? "The AI is busy right now. Try again in a minute."
+        : /not scoped to a workspace/i.test(error.message)
+          ? "The AI API key isn't linked to a workspace. The site owner needs a workspace API key, or to set ANTHROPIC_WORKSPACE_ID."
         : /credit balance/i.test(error.message)
           ? "The AI is out of credit. The site owner needs to add credit at console.anthropic.com → Billing."
           : error instanceof Anthropic.NotFoundError

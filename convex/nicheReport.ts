@@ -7,6 +7,7 @@ import { ConvexError, v } from "convex/values";
 import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { claudeErrorMessage } from "./lib/claudeErrors";
+import { claudeClient } from "./lib/claudeClient";
 
 // ── AI niche report (Research → Niche Explorer) ─────────────────────────────
 // Claude writes a short market analysis for one niche from the app's own
@@ -52,7 +53,7 @@ export const generate = action({
       .filter(Boolean)
       .join("\n");
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = claudeClient();
     try {
       const response = await client.messages.parse({
         model: "claude-opus-5-5",

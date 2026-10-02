@@ -8,6 +8,7 @@ import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { claudeErrorMessage } from "./lib/claudeErrors";
+import { claudeClient } from "./lib/claudeClient";
 import { NICHES } from "./lib/category";
 
 // ── Image search ────────────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ export const search = action({
     if (!claim.signedIn) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to search by image." });
     if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI requests for today. Come back tomorrow.` });
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = claudeClient();
     let found: Found | null;
     try {
       found = await identify(client, {

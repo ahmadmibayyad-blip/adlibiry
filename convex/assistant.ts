@@ -6,6 +6,7 @@ import { ConvexError, v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { claudeErrorMessage } from "./lib/claudeErrors";
+import { claudeClient } from "./lib/claudeClient";
 import { listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ export const chat = action({
       throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI messages for today. Come back tomorrow.` });
     }
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = claudeClient();
     const ask = (withFallback: boolean) =>
       client.beta.messages.toolRunner({
         model: MODEL,
