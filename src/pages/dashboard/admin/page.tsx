@@ -231,7 +231,7 @@ function ProductsTab() {
   const [pricing, setPricing] = useState(false);
   const [lastPricing, setLastPricing] = useState<{ updated: number; skipped: number; errors: string[] } | null>(null);
   const [discovering, setDiscovering] = useState(false);
-  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[]; bySource?: Record<string, { created: number; updated: number }> } | null>(null);
+  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[]; bySource?: Record<string, { created: number; updated: number }>; stores?: number } | null>(null);
   const deleteProduct = useMutation(api.admin.products.deleteProduct);
   const backfillPricing = useAction(api.nexscope.pricing.backfillPricingNow);
   const discoverProducts = useAction(api.nexscope.productDiscovery.discoverProductsNow);
@@ -302,7 +302,7 @@ function ProductsTab() {
               <h3 className="font-semibold text-sm">Nexscope.ai product discovery</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Pulls real products from three places: Amazon bestsellers and Shopify store products running Facebook ads (up to 10 per niche each), plus the top 10 TikTok Shop best-sellers. Each with its own real title, image and price. Every run searches a different keyword per niche, so it keeps finding new products. Also runs automatically once a day. Each run uses Nexscope credits (13 searches).
+              Pulls real products from three places: Amazon bestsellers and Shopify store products running Facebook ads (up to 10 per niche each), plus the top 10 TikTok Shop best-sellers. Each with its own real title, image and price. Shopify products also add their store to the Stores tracker. Every run searches a different keyword per niche, so it keeps finding new products. Also runs automatically once a day. Each run uses Nexscope credits (13 searches).
             </p>
           </div>
           <Button size="sm" onClick={handleDiscovery} disabled={discovering}>
@@ -320,6 +320,9 @@ function ProductsTab() {
                 {source}: <strong className="text-foreground">{c.created}</strong> new, {c.updated} updated
               </span>
             ))}
+            {lastDiscovery.stores !== undefined && (
+              <span className="text-muted-foreground">New stores <strong className="text-foreground">{lastDiscovery.stores}</strong></span>
+            )}
             {lastDiscovery.errors.length > 0 && (
               <div className="w-full text-destructive">
                 {lastDiscovery.errors.map((err, i) => <div key={i}>{err}</div>)}

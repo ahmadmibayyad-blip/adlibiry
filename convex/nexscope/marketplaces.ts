@@ -143,3 +143,43 @@ export function fromShopify(p: ShopifyProduct, fallbackNiche: string): Discovere
     tags: [category, "Shopify", "Facebook ads"],
   };
 }
+
+// The store a Shopify product belongs to, for the Stores tracker. Keyed like
+// the store import (tiktokAds.ts importShopifyStores) so both update one row.
+export type DiscoveredStore = {
+  externalId: string;
+  name: string;
+  url: string;
+  logoUrl: string;
+  niche: string;
+  activeAdsCount: number;
+  bestSeller: { title: string; imageUrl: string; price: number; estSalesRange: string };
+};
+
+export function storeFromShopify(
+  p: ShopifyProduct,
+  product: Pick<Discovered, "title" | "imageUrl" | "price" | "supplierUrl" | "category">,
+): DiscoveredStore | null {
+  let host: string;
+  try {
+    host = new URL(p.storeLink || product.supplierUrl).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  const domain = host.replace(/^www\./, "");
+  const orders = num(p.weekOrderCount);
+  return {
+    externalId: `shopify:${domain}`,
+    name: domain,
+    url: `https://${domain}`,
+    logoUrl: `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+    niche: product.category,
+    activeAdsCount: Math.round(num(p.facebookAdCount) ?? 0),
+    bestSeller: {
+      title: product.title,
+      imageUrl: product.imageUrl,
+      price: product.price ?? 0,
+      estSalesRange: orders !== undefined ? `~${orders.toLocaleString("en-US")} orders/week` : "Unknown",
+    },
+  };
+}
