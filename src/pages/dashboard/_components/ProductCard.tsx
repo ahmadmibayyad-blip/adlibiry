@@ -7,6 +7,7 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { toast } from "sonner";
 import { Authenticated } from "convex/react";
+import { rangeLabel } from "@/lib/estimateFormat.ts";
 
 type Product = Doc<"products">;
 
@@ -131,6 +132,11 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           </div>
         )}
 
+        {rangeLabel(product.estRevenue, true) && (
+          <div className="text-[11px] text-muted-foreground" title="Estimated revenue per month (see the product page for how)">
+            <span className="font-semibold text-foreground">{rangeLabel(product.estRevenue, true)}</span>/mo est. revenue
+          </div>
+        )}
         <div className="mt-auto pt-1 flex items-end justify-between gap-2">
           {hasPrice ? (
             <div className="min-w-0">

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { OPEN_ASSISTANT_EVENT } from "@/lib/assistant.ts";
+import { linkify } from "@/lib/linkify.tsx";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet.tsx";
@@ -29,29 +30,6 @@ function loadChat(): Msg[] {
   } catch {
     return [];
   }
-}
-
-// Turns /dashboard/... paths into in-app links and http(s) URLs into external
-// links; everything else stays plain text.
-function linkify(text: string): ReactNode[] {
-  const parts = text.split(/(https?:\/\/[^\s)]+|\/dashboard\/[\w\-/]*)/g);
-  return parts.map((part, i) => {
-    if (/^https?:\/\//.test(part)) {
-      return (
-        <a key={i} href={part} target="_blank" rel="noreferrer" className="underline text-primary break-all">
-          {part}
-        </a>
-      );
-    }
-    if (part.startsWith("/dashboard/")) {
-      return (
-        <Link key={i} to={part.replace(/[.,]+$/, "")} className="underline text-primary">
-          {part}
-        </Link>
-      );
-    }
-    return part;
-  });
 }
 
 export default function AIAssistant() {

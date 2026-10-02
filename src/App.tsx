@@ -12,6 +12,7 @@ import SavedProducts from "./pages/dashboard/saved/page.tsx";
 import AdSpyPage from "./pages/dashboard/ad-spy/page.tsx";
 import AdDetailPage from "./pages/dashboard/ads/[id].tsx";
 import WinnersPage from "./pages/dashboard/winners/page.tsx";
+import AgentsPage from "./pages/dashboard/agents/page.tsx";
 import ResearchPage from "./pages/dashboard/research/page.tsx";
 import StoreTrackerPage from "./pages/dashboard/stores/page.tsx";
 import AlertsPage from "./pages/dashboard/alerts/page.tsx";
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="stores" element={<StoreTrackerPage />} />
             <Route path="saved" element={<SavedProducts />} />
             <Route path="alerts" element={<AlertsPage />} />
+            <Route path="agents" element={<AgentsPage />} />
             <Route path="extension" element={<ExtensionPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />

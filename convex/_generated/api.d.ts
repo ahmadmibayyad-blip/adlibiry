@@ -19,6 +19,8 @@ import type * as admin_reclassify from "../admin/reclassify.js";
 import type * as admin_products from "../admin/products.js";
 import type * as admin_stores from "../admin/stores.js";
 import type * as ads from "../ads.js";
+import type * as agentRunner from "../agentRunner.js";
+import type * as agents from "../agents.js";
 import type * as ai from "../ai.js";
 import type * as apify from "../apify.js";
 import type * as assistant from "../assistant.js";
@@ -88,6 +90,8 @@ declare const fullApi: ApiFromModules<{
   "admin/products": typeof admin_products;
   "admin/stores": typeof admin_stores;
   ads: typeof ads;
+  agentRunner: typeof agentRunner;
+  agents: typeof agents;
   ai: typeof ai;
   apify: typeof apify;
   assistant: typeof assistant;
