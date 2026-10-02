@@ -5,8 +5,8 @@ import { Check, Trophy } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
-import { Chip } from "@/components/filters.tsx";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
+import FilterSelect from "@/components/FilterSelect.tsx";
 
 type Mode = "mixed" | "byNiche";
 
@@ -78,17 +78,17 @@ export default function WinnersPage() {
           <RuleChip>Big brands, print-on-demand & services removed</RuleChip>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-5">
-          <Chip on={!niche} onClick={() => setNiche(undefined)}>
-            All niches
-            {summary && <span className="opacity-60 tabular-nums">{summary.total}</span>}
-          </Chip>
-          {summary?.perNiche.map((n) => (
-            <Chip key={n.niche} on={niche === n.niche} onClick={() => setNiche(niche === n.niche ? undefined : n.niche)}>
-              {n.niche}
-              <span className="opacity-60 tabular-nums">{n.filled}</span>
-            </Chip>
-          ))}
+        <div className="mb-5">
+          <FilterSelect
+            label="Niche"
+            value={niche ?? "all"}
+            onChange={(v) => setNiche(v === "all" ? undefined : v)}
+            active={!!niche}
+            options={[
+              { value: "all", label: `All niches${summary ? ` (${summary.total})` : ""}` },
+              ...(summary?.perNiche ?? []).map((n) => ({ value: n.niche, label: `${n.niche} (${n.filled})` })),
+            ]}
+          />
         </div>
 
         {status === "LoadingFirstPage" ? (
