@@ -92,7 +92,10 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
   } else {
     const base = ctx.db.query("products");
     const sorted =
-      args.sort === "score" ? base.withIndex("by_score")
+      args.sort === "score"
+        ? args.category
+          ? base.withIndex("by_category_score", (q) => q.eq("category", args.category!))
+          : base.withIndex("by_score")
       : args.sort === "ads" ? base.withIndex("by_ads")
       : args.sort === "likes" ? base.withIndex("by_likes")
       : args.sort === "growth" ? base.withIndex("by_growth")
