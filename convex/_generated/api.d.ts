@@ -40,6 +40,7 @@ import type * as hooksBuilder from "../hooksBuilder.js";
 import type * as http from "../http.js";
 import type * as imageSearch from "../imageSearch.js";
 import type * as lib_adFields from "../lib/adFields.js";
+import type * as lib_aiQuota from "../lib/aiQuota.js";
 import type * as lib_aiTools from "../lib/aiTools.js";
 import type * as lib_authIdentity from "../lib/authIdentity.js";
 import type * as lib_authUser from "../lib/authUser.js";
@@ -126,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   imageSearch: typeof imageSearch;
   "lib/adFields": typeof lib_adFields;
+  "lib/aiQuota": typeof lib_aiQuota;
   "lib/aiTools": typeof lib_aiTools;
   "lib/authIdentity": typeof lib_authIdentity;
   "lib/authUser": typeof lib_authUser;

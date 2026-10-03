@@ -5,7 +5,8 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import * as z from "zod";
 import { action } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
+import { claimAiRequest } from "./lib/aiQuota";
 
 const openai = new OpenAI({
   // Your own OpenAI (or any OpenAI-compatible) key. Set OPENAI_API_KEY in Convex.
@@ -37,7 +38,8 @@ export const scoreProduct = action({
     cost: v.number(),
     category: v.string(),
   },
-  handler: async (_ctx, args): Promise<z.infer<typeof ProductScoreSchema>> => {
+  handler: async (ctx, args): Promise<z.infer<typeof ProductScoreSchema>> => {
+    await claimAiRequest(ctx);
     const margin = Math.round(((args.price - args.cost) / args.price) * 100);
     try {
       const response = await openai.chat.completions.parse({
@@ -86,7 +88,8 @@ export const generateAdAngles = action({
     description: v.string(),
     category: v.string(),
   },
-  handler: async (_ctx, args): Promise<z.infer<typeof AdAnglesSchema>> => {
+  handler: async (ctx, args): Promise<z.infer<typeof AdAnglesSchema>> => {
+    await claimAiRequest(ctx);
     try {
       const response = await openai.chat.completions.parse({
         model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
@@ -103,59 +106,6 @@ export const generateAdAngles = action({
           },
         ],
         response_format: zodResponseFormat(AdAnglesSchema, "angles"),
-      });
-
-      const parsed = response.choices[0]?.message?.parsed;
-      if (!parsed) throw new Error("AI returned an empty response");
-      return parsed;
-    } catch (error) {
-      handleAiError(error);
-    }
-  },
-});
-
-// ── AI Niche Report ─────────────────────────────────────────────────────────
-
-const NicheReportSchema = z.object({
-  summary: z.string(),
-  opportunities: z.array(z.string()).max(4),
-  risks: z.array(z.string()).max(4),
-  recommendedAudience: z.string(),
-  competitionLevel: z.enum(["Low", "Medium", "High"]),
-});
-
-export const generateNicheReport = action({
-  args: {
-    niche: v.string(),
-    avgAiScore: v.optional(v.number()),
-    productCount: v.optional(v.number()),
-    trendDirection: v.optional(v.string()),
-  },
-  handler: async (_ctx, args): Promise<z.infer<typeof NicheReportSchema>> => {
-    try {
-      const context = [
-        args.avgAiScore !== undefined ? `Average product AI score in this niche: ${args.avgAiScore}/100.` : "",
-        args.productCount !== undefined ? `Tracked product count: ${args.productCount}.` : "",
-        args.trendDirection ? `Current trend direction: ${args.trendDirection}.` : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-
-      const response = await openai.chat.completions.parse({
-        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
-        reasoning_effort: "medium",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a dropshipping market analyst producing a niche intelligence report. Be concise, specific, and actionable — no generic filler. Base your competition level rating on ad saturation, entry barriers, and how commoditized the niche is.",
-          },
-          {
-            role: "user",
-            content: `Niche: ${args.niche}\n${context}\n\nProduce a market analysis: a 2-3 sentence summary of the current state of this niche for dropshippers, up to 4 concrete opportunities, up to 4 concrete risks, a recommended target audience description, and an overall competition level.`,
-          },
-        ],
-        response_format: zodResponseFormat(NicheReportSchema, "report"),
       });
 
       const parsed = response.choices[0]?.message?.parsed;
@@ -199,6 +149,7 @@ export const findCompetitors = action({
     matchedAds: AdMatch[];
     matchedStores: StoreMatch[];
   }> => {
+    await claimAiRequest(ctx);
     // Pull real tracked data from our own database — never invent competitors.
     const [adsResult, storesResult] = await Promise.all([
       ctx.runQuery(internal.ads.listInternal, {
