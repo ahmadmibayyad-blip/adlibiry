@@ -26,6 +26,8 @@ export const adFields = {
   ...richAdFields,
 };
 
+const REQUIRED_TEXT_DEFAULTS = { headline: "", bodyText: "", creativeUrl: "", landingPageUrl: "", spendEstimate: "Unknown", views: "0" };
+
 // Insert or update one ad coming from Nexscope or Apify. On repeat sightings
 // metrics (likes, views, days running, score) refresh; the original
 // first-seen date and any enriched targeting are kept.
@@ -63,6 +65,8 @@ export async function upsertAd(
     }
     await markStatsDirty(ctx);
     const adId = await ctx.db.insert("ads", {
+      // defined() drops empty strings; the ads table still needs these.
+      ...REQUIRED_TEXT_DEFAULTS,
       ...fields,
       externalKey: externalId,
       targeting: targeting ?? { ageRange: "Unknown", gender: "All", interests: [] },
