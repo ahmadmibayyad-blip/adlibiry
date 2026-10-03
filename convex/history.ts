@@ -3,6 +3,8 @@ import { query } from "./_generated/server";
 import { requireSignedIn, resultLimitFor } from "./lib/access";
 import type { Doc } from "./_generated/dataModel";
 import { adNumbers } from "./productPipeline";
+import { fillDays } from "./lib/snapshots";
+import type { QueryCtx } from "./_generated/server";
 
 // ── Chart data for the product and ad detail pages ──────────────────────────
 // Daily rows come from convex/productPipeline.ts (kept 90 days).
@@ -10,14 +12,28 @@ import { adNumbers } from "./productPipeline";
 const since = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 const range = v.union(v.literal(7), v.literal(30), v.literal(90));
 
+// Rows are only stored on days something changed, so fill the window back to
+// one row per day, starting from the latest row before it.
+async function history(ctx: QueryCtx, kind: "product" | "ad", entityId: string, days: number) {
+  const from = since(days);
+  const today = new Date().toISOString().slice(0, 10);
+  const seed = await ctx.db
+    .query("dailySnapshots")
+    .withIndex("by_entity_day", (q) => q.eq("kind", kind).eq("entityId", entityId).lt("day", from))
+    .order("desc")
+    .first();
+  const rows = await ctx.db
+    .query("dailySnapshots")
+    .withIndex("by_entity_day", (q) => q.eq("kind", kind).eq("entityId", entityId).gte("day", from))
+    .collect();
+  return fillDays(seed, rows, from, today);
+}
+
 export const productHistory = query({
   args: { productId: v.id("products"), days: range },
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    return await ctx.db
-      .query("dailySnapshots")
-      .withIndex("by_entity_day", (q) => q.eq("kind", "product").eq("entityId", args.productId).gte("day", since(args.days)))
-      .collect();
+    return await history(ctx, "product", args.productId, args.days);
   },
 });
 
@@ -25,10 +41,7 @@ export const adHistory = query({
   args: { adId: v.id("ads"), days: range },
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    return await ctx.db
-      .query("dailySnapshots")
-      .withIndex("by_entity_day", (q) => q.eq("kind", "ad").eq("entityId", args.adId).gte("day", since(args.days)))
-      .collect();
+    return await history(ctx, "ad", args.adId, args.days);
   },
 });
 
