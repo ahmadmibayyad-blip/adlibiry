@@ -176,6 +176,7 @@ export default defineSchema({
     .index("by_last_seen", ["lastSeenAt"])
     .index("by_comments", ["comments"])
     .index("by_shares", ["shares"])
+    .index("by_source_first_seen", ["source", "firstSeenAt"])
     .searchIndex("search_body", { searchField: "bodyText", filterFields: ["platform", "niche", "source"] }),
 
   // Links an outside record (Nexscope TikTok ad, Apify Meta ad, Nexscope

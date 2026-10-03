@@ -13,19 +13,20 @@ export const lastAdImport = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    let at: string | null = null;
-    for await (const ad of ctx.db.query("ads").withIndex("by_first_seen").order("desc")) {
-      if (ad.source === "csv_import") {
-        at = ad.firstSeenAt;
-        break;
-      }
-    }
-    if (!at) return null;
+    // Index on (source, firstSeenAt): jumps to the newest CSV import instead
+    // of walking every ad until one turns up.
+    const newest = await ctx.db
+      .query("ads")
+      .withIndex("by_source_first_seen", (q) => q.eq("source", "csv_import"))
+      .order("desc")
+      .first();
+    if (!newest) return null;
+    const at = newest.firstSeenAt;
     const rows = await ctx.db
       .query("ads")
-      .withIndex("by_first_seen", (q) => q.eq("firstSeenAt", at))
+      .withIndex("by_source_first_seen", (q) => q.eq("source", "csv_import").eq("firstSeenAt", at))
       .take(5000);
-    return { at, count: rows.filter((a) => a.source === "csv_import").length };
+    return { at, count: rows.length };
   },
 });
 
@@ -34,12 +35,10 @@ export const removeAdImport = mutation({
   args: { at: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const rows = (
-      await ctx.db
-        .query("ads")
-        .withIndex("by_first_seen", (q) => q.eq("firstSeenAt", args.at))
-        .take(5000)
-    ).filter((a) => a.source === "csv_import");
+    const rows = await ctx.db
+      .query("ads")
+      .withIndex("by_source_first_seen", (q) => q.eq("source", "csv_import").eq("firstSeenAt", args.at))
+      .take(5000);
     const now = rows.slice(0, BATCH);
     for (const ad of now) {
       if (ad.externalKey) {

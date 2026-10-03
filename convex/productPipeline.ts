@@ -161,7 +161,10 @@ export const step = internalMutation({
         done = page.isDone;
         cursor = page.continueCursor;
       } else if (stage === "aggregate") {
-        const page = await ctx.db.query("products").paginate({ numItems: 40, cursor: args.cursor });
+        // Each product loads up to MAX_ADS_PER_PRODUCT (200) full ads, so 10 per
+        // step reads at most ~2,000 ads, well inside a mutation's 16 MiB limit
+        // (40 per step could reach 8,000).
+        const page = await ctx.db.query("products").paginate({ numItems: 10, cursor: args.cursor });
         for (const p of page.page) {
           if (p.adIds?.length || p.linkedAds) await aggregate(ctx, p, args.day);
           else await applyEstimates(ctx, p);

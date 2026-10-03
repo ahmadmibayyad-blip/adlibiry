@@ -90,8 +90,12 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
       .paginate(args.paginationOpts);
   } else {
     const base = ctx.db.query("ads");
+    // Ad Spy's default view (newest added, often one niche) reads only that
+    // niche: every index is ordered by _creationTime after its fields.
+    const nicheByAdded = args.niche && (args.sort === "added" || args.sort === undefined);
     const sorted =
-      args.sort === "score" ? base.withIndex("by_score")
+      nicheByAdded ? base.withIndex("by_niche", (q) => q.eq("niche", args.niche!))
+      : args.sort === "score" ? base.withIndex("by_score")
       : args.sort === "impressions" || args.sort === "highestSpend" ? base.withIndex("by_impressions")
       : args.sort === "mostLiked" ? base.withIndex("by_likes")
       : args.sort === "longestRunning" ? base.withIndex("by_days")
