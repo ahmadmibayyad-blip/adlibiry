@@ -3,6 +3,7 @@ import { action, internalMutation, internalQuery, mutation, query, type QueryCtx
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
+import { resultLimit } from "./lib/billing";
 
 // ── Personal access keys for the MCP server ─────────────────────────────────
 // A customer creates a key in Settings and pastes it into their AI app
@@ -49,6 +50,9 @@ export const createKey = action({
   handler: async (ctx, args): Promise<{ key: string }> => {
     const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
     if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
+    if (resultLimit(user) !== null) {
+      throw new ConvexError({ code: "PLAN_REQUIRED", message: "Connecting an AI app is part of the paid plans. It unlocks when your paid plan starts." });
+    }
     const bytes = crypto.getRandomValues(new Uint8Array(32));
     const secret = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const key = `asp_${secret}`;
@@ -91,14 +95,15 @@ export const revokeKey = mutation({
 // Looks up a key for the MCP endpoint. Returns null for unknown or revoked keys.
 export const findKey = internalQuery({
   args: { keyHash: v.string() },
-  handler: async (ctx, args): Promise<{ keyId: Id<"mcpKeys">; userId: Id<"users"> } | null> => {
+  handler: async (ctx, args): Promise<{ keyId: Id<"mcpKeys">; userId: Id<"users">; paying: boolean } | null> => {
     const key = await ctx.db
       .query("mcpKeys")
       .withIndex("by_hash", (q) => q.eq("keyHash", args.keyHash))
       .unique();
     if (!key || key.revokedAt) return null;
     const user = await ctx.db.get("users", key.userId);
-    return user ? { keyId: key._id, userId: user._id } : null;
+    // Checked on every request, so a key stops working when its owner stops paying.
+    return user ? { keyId: key._id, userId: user._id, paying: resultLimit(user) === null } : null;
   },
 });
 

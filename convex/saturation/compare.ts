@@ -8,6 +8,7 @@
 import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { requireSignedIn } from "../lib/access";
 import { demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
 
 export type CountryComparisonRow = {
@@ -29,6 +30,7 @@ export const compareCountries = action({
     countries: v.array(v.string()), // ISO country codes
   },
   handler: async (ctx, args): Promise<CountryComparisonRow[]> => {
+    await requireSignedIn(ctx);
     const now = Date.now();
 
     const [adsResult, storesResult, trends, suppliers] = await Promise.all([

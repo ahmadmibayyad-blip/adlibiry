@@ -50,3 +50,17 @@ export function resultLimit(user: { role?: string; plan?: string; subscriptionSt
   const paying = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "past_due";
   return paying && effectivePlan(user) !== "none" ? null : TRIAL_RESULT_LIMIT;
 }
+
+// Where Stripe may send people back to: only pages on our own site
+// (SITE_URL). Anything else falls back to `fallbackPath` on the site, so a
+// crafted checkout link can't bounce a customer to a look-alike page.
+export function safeReturnUrl(url: string, siteUrl: string | undefined, fallbackPath: string): string {
+  const site = siteUrl?.trim().replace(/\/+$/, "");
+  if (!site) return url;
+  try {
+    if (new URL(url).origin === new URL(site).origin) return url;
+  } catch {
+    // not a URL: fall through
+  }
+  return site + fallbackPath;
+}

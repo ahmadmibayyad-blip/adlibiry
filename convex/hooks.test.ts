@@ -44,7 +44,7 @@ describe("hooks of the week", () => {
     const r = await t.action(internal.hooksBuilder.buildWeekly, {});
     expect(r).toMatchObject({ niches: 2, hooks: 3, analysed: 3, errors: [] });
 
-    const data = await t.query(api.hooks.latest, {});
+    const data = await t.withIdentity({ subject: "test|s" }).query(api.hooks.latest, {});
     expect(data?.week).toBe(r.week);
     const pets = data?.niches.find((n) => n.niche === "Pet Supplies");
     expect(pets?.hooks.map((h) => [h.rank, h.hook, h.type])).toEqual([
@@ -56,7 +56,7 @@ describe("hooks of the week", () => {
 
     // Rebuilding the same week replaces, never duplicates.
     await t.action(internal.hooksBuilder.buildWeekly, {});
-    const again = await t.query(api.hooks.latest, {});
+    const again = await t.withIdentity({ subject: "test|s" }).query(api.hooks.latest, {});
     expect(again?.niches.find((n) => n.niche === "Pet Supplies")?.hooks).toHaveLength(2);
   });
 
@@ -71,7 +71,7 @@ describe("hooks of the week", () => {
     await expect(t.withIdentity({ subject: "u1|s" }).action(api.hooksBuilder.buildNow, {})).rejects.toThrow(/Admin/);
     const r = await t.action(internal.hooksBuilder.buildWeekly, {});
     expect(r.errors).toHaveLength(1);
-    const data = await t.query(api.hooks.latest, {});
+    const data = await t.withIdentity({ subject: "test|s" }).query(api.hooks.latest, {});
     expect(data?.niches[0].hooks[0].hook).toBe("POV: your dog finally stops shedding");
     expect(data?.niches[0].hooks[0].type).toBeUndefined();
   });

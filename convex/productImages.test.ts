@@ -25,11 +25,11 @@ describe("product images", () => {
         headers: { "content-type": "application/json" },
       });
     });
-    expect(await t.action(api.productImages.load, { productId: id })).toBe(2);
+    expect(await t.withIdentity({ subject: "test|s" }).action(api.productImages.load, { productId: id })).toBe(2);
     expect(calls).toEqual(["https://shop.com/products/cool-mat.js"]);
     const p = await t.run((ctx) => ctx.db.get("products", id));
     expect(p?.images).toEqual(["https://cdn.shopify.com/2.jpg", "https://cdn.shopify.com/3.jpg"]);
-    expect(await t.action(api.productImages.load, { productId: id })).toBe(0);
+    expect(await t.withIdentity({ subject: "test|s" }).action(api.productImages.load, { productId: id })).toBe(0);
     expect(calls).toHaveLength(1);
   });
 
@@ -44,8 +44,8 @@ describe("product images", () => {
       calls.push(String(url));
       return new Response(`<meta property="og:image" content="https://store.example/a.jpg">`, { status: 200, headers: { "content-type": "text/html" } });
     });
-    expect(await t.action(api.productImages.load, { productId: page })).toBe(1);
-    expect(await t.action(api.productImages.load, { productId: search })).toBe(0);
+    expect(await t.withIdentity({ subject: "test|s" }).action(api.productImages.load, { productId: page })).toBe(1);
+    expect(await t.withIdentity({ subject: "test|s" }).action(api.productImages.load, { productId: search })).toBe(0);
     expect(calls).toEqual(["https://store.example/item/9"]);
   });
 });

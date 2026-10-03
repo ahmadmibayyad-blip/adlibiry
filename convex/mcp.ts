@@ -118,6 +118,9 @@ export const mcpPost = httpAction(async (ctx, request) => {
   if (!found) {
     return json(rpcError(null, -32001, "Missing or invalid AdSpy Pro key. Create one in Settings → Connect your AI app."), 401);
   }
+  if (!found.paying) {
+    return json(rpcError(null, -32003, "Connecting an AI app is part of the paid plans. It works again once your paid plan is active."), 403);
+  }
 
   let body: unknown;
   try {

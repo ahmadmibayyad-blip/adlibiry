@@ -21,6 +21,7 @@ export default defineSchema({
     subscriptionStatus: v.optional(v.string()), // Stripe status: "trialing", "active", "past_due", "canceled", …
     subscriptionId: v.optional(v.string()),
     planRenewsAt: v.optional(v.number()), // ms
+    subscriptionEventAt: v.optional(v.number()), // Stripe event.created (s) of the last applied change
     role: v.optional(v.string()), // "admin" | "user"
     avatarUrl: v.optional(v.string()),
   })
@@ -589,5 +590,7 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_submitted", ["submittedAt"])
-    .index("by_ad_key", ["adKey"]),
+    .index("by_ad_key", ["adKey"])
+    .index("by_visitor_status", ["submitterVisitorId", "status"])
+    .index("by_status_submitted", ["status", "submittedAt"]),
 });

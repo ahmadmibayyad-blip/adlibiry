@@ -46,7 +46,7 @@ describe("Stripe subscription changes update the user's plan", () => {
     const { t } = await setup();
     expect(
       await t.mutation(internal.billing.applySubscription, { customerId: "cus_other", subscriptionId: "sub_9", status: "active" }),
-    ).toEqual({ updated: false });
+    ).toEqual({ updated: false, reason: "unknown_customer" });
   });
 
   it("says signed-out visitors have no plan", async () => {

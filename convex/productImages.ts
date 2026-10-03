@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { cleanImages, imagesFromHtml, imagesFromShopifyJs, shopifyJsUrl } from "./lib/productImages";
+import { requireSignedIn } from "./lib/access";
 
 // More photos for a product: read once from its store page when someone opens
 // the product (re-checked after 7 days). Only the product's own stored link is
@@ -44,6 +45,7 @@ export const save = internalMutation({
 export const load = action({
   args: { productId: v.id("products") },
   handler: async (ctx, args): Promise<number> => {
+    await requireSignedIn(ctx);
     const p = await ctx.runQuery(internal.productImages.forImages, { productId: args.productId });
     if (!p || (p.checkedAt && Date.now() - Date.parse(p.checkedAt) < RECHECK_MS)) return 0;
     let found: string[] = [];
