@@ -13,6 +13,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import * as z from "zod";
 import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
+import { claimAiRequest } from "../lib/aiQuota";
 import { demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
 
 const openai = new OpenAI({
@@ -59,20 +60,21 @@ export const analyzeSaturation = action({
     country: v.string(), // ISO country code
   },
   handler: async (ctx, args): Promise<SaturationResult> => {
+    await claimAiRequest(ctx);
     const now = Date.now();
 
     // ── Pull real tracked data, scoped to the selected country where possible ──
     const [adsResult, storesResult, trends, suppliers] = await Promise.all([
-      ctx.runQuery(api.ads.list, {
+      ctx.runQuery(internal.ads.listInternal, {
         paginationOpts: { numItems: 200, cursor: null },
         niche: args.niche,
       }),
-      ctx.runQuery(api.stores.list, {
+      ctx.runQuery(internal.stores.listInternal, {
         paginationOpts: { numItems: 200, cursor: null },
         niche: args.niche,
       }),
-      ctx.runQuery(api.trends.list, { niche: args.niche }),
-      ctx.runQuery(api.trends.searchSuppliers, {
+      ctx.runQuery(internal.trends.listInternal, { niche: args.niche }),
+      ctx.runQuery(internal.trends.searchSuppliersInternal, {
         paginationOpts: { numItems: 50, cursor: null },
         niche: args.niche,
       }),

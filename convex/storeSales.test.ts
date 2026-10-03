@@ -37,10 +37,10 @@ describe("store sales tracking", () => {
       ]);
       const r = await t.action(internal.storeSales.checkOne, { storeId });
       expect(r).toEqual({ status: "ok", updatedCount: 1 });
-      const h = await t.query(api.storeSales.history, { storeId });
+      const h = await t.withIdentity({ subject: "test|s" }).query(api.storeSales.history, { storeId });
       expect(h?.days).toHaveLength(i + 1);
     }
-    const h = await t.query(api.storeSales.history, { storeId });
+    const h = await t.withIdentity({ subject: "test|s" }).query(api.storeSales.history, { storeId });
     expect(h?.days[2]).toMatchObject({ day: "2026-10-03", windowHours: 24, updatedCount: 1, estRevenueLow: 20, estRevenueHigh: 60 });
     expect(h?.days[2].topProducts[0].url).toBe("https://pawshop.com/products/cat-toy");
     expect(h?.check).toMatchObject({ ok: true, failures: 0 });
@@ -60,7 +60,7 @@ describe("store sales tracking", () => {
     }
     vi.setSystemTime(new Date("2026-10-04T10:00:00Z"));
     expect(await t.query(internal.storeSales.candidates, {})).toHaveLength(0);
-    expect((await t.query(api.storeSales.history, { storeId }))?.check).toMatchObject({ ok: false, failures: 3 });
+    expect((await t.withIdentity({ subject: "test|s" }).query(api.storeSales.history, { storeId }))?.check).toMatchObject({ ok: false, failures: 3 });
   });
 
   it("checkNow needs sign-in and is limited to once an hour", async () => {

@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
@@ -95,6 +96,7 @@ export const listFollowing = query({
 export const advertiserAds = query({
   args: { name: v.string(), excludeId: v.optional(v.id("ads")) },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const ads = await ctx.db
       .query("ads")
       .withIndex("by_advertiser", (q) => q.eq("advertiserName", args.name))

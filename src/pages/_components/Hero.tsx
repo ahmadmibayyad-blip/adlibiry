@@ -3,18 +3,16 @@ import { ArrowRight } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
+import HideOnError from "@/components/HideOnError.tsx";
 
 const fmt = (n: number | undefined) => (n === undefined ? "…" : n.toLocaleString("en-US"));
 
 // The hero shows the product itself: today's top-scoring winners, read live
 // from the same list the dashboard's Winning Products page uses.
 function TodaysWinners() {
-  const feed = useQuery(api.winners.feed, { mode: "mixed", paginationOpts: { numItems: 12, cursor: null } });
+  // Public preview: five winners, one per niche (see winners:homepagePreview).
+  const rows = useQuery(api.winners.homepagePreview, {});
   const summary = useQuery(api.winners.summary, {});
-  // One product per niche keeps the sample varied.
-  const rows = (feed?.page ?? [])
-    .filter((r, i, all) => all.findIndex((x) => x.niche === r.niche) === i && r.product.imageUrl)
-    .slice(0, 5);
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
@@ -22,8 +20,8 @@ function TodaysWinners() {
         <h2 className="font-display text-lg font-bold">Today's winners</h2>
         <span className="text-xs text-muted-foreground">Rebuilt every morning</span>
       </div>
-      <ul aria-busy={feed === undefined}>
-        {feed === undefined
+      <ul aria-busy={rows === undefined}>
+        {rows === undefined
           ? Array.from({ length: 5 }).map((_, i) => (
               <li key={i} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
                 <div className="w-12 h-12 rounded-lg bg-muted animate-pulse shrink-0" />
@@ -33,13 +31,13 @@ function TodaysWinners() {
                 </div>
               </li>
             ))
-          : rows.map(({ product, niche, nicheRank }) => (
+          : rows.map((product) => (
               <li key={product._id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
                 <img src={product.imageUrl} alt="" loading="lazy" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold truncate">{product.title}</div>
                   <div className="text-xs text-muted-foreground">
-                    #{nicheRank} in {niche}
+                    #{product.nicheRank} in {product.niche}
                   </div>
                 </div>
                 <div
@@ -88,7 +86,9 @@ export default function Hero() {
             </a>
           </div>
         </div>
-        <TodaysWinners />
+        <HideOnError>
+          <TodaysWinners />
+        </HideOnError>
       </div>
     </section>
   );

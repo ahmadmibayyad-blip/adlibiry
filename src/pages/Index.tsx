@@ -10,6 +10,7 @@ import FAQ from "./_components/FAQ.tsx";
 import FinalCTA from "./_components/FinalCTA.tsx";
 import Footer from "./_components/Footer.tsx";
 import { usePostLoginRedirect } from "@/hooks/use-post-login-redirect.ts";
+import HideOnError from "@/components/HideOnError.tsx";
 
 export default function Index() {
   usePostLoginRedirect();
@@ -23,10 +24,15 @@ export default function Index() {
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       <Hero />
-      <StatsBar />
+      {/* Live-data sections: if the backend can't answer, hide the section rather than blank the page. */}
+      <HideOnError>
+        <StatsBar />
+      </HideOnError>
       <Features />
       <HowItWorks />
-      <AdSpy />
+      <HideOnError>
+        <AdSpy />
+      </HideOnError>
       <Pricing />
       <FAQ />
       <FinalCTA />

@@ -3,9 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import { Component, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import Logo from "@/components/Logo.tsx";
+import HideOnError from "@/components/HideOnError.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -141,17 +141,6 @@ function GoogleSignIn({ onError }: { onError: (message: string | null) => void }
       </div>
     </>
   );
-}
-
-// Renders nothing if a child throws (e.g. a failed Convex query), so the rest of the page stays usable.
-class HideOnError extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
 }
 
 function GoogleIcon() {

@@ -71,7 +71,7 @@ describe("follow alerts", () => {
       await ctx.db.insert("ads", { ...adBase, advertiserName: "PawCo", headline: "Two" }),
       await ctx.db.insert("ads", { ...adBase, advertiserName: "OtherCo", headline: "Three" }),
     ]);
-    const more = await t.query(api.follows.advertiserAds, { name: "PawCo", excludeId: a1 });
+    const more = await t.withIdentity({ subject: "test|s" }).query(api.follows.advertiserAds, { name: "PawCo", excludeId: a1 });
     expect(more.map((a) => a.headline)).toEqual(["Two"]);
   });
 });

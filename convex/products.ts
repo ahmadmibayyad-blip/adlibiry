@@ -1,5 +1,8 @@
-import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { ConvexError, v, type ObjectType } from "convex/values";
+import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
+import type { Expression, FilterBuilder, NamedTableInfo } from "convex/server";
+import type { DataModel } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
@@ -7,111 +10,122 @@ import type { SiteStats } from "./stats";
 
 // ── Products ────────────────────────────────────────────────────────────────
 
+const listArgs = {
+  paginationOpts: paginationOptsValidator,
+  category: v.optional(v.string()),
+  categories: v.optional(v.array(v.string())), // any of these niches
+  origin: v.optional(v.union(v.literal("db"), v.literal("ads"))), // product database only / detected from ads
+  hideBigBrands: v.optional(v.boolean()),
+  hidePersonalised: v.optional(v.boolean()),
+  hideServices: v.optional(v.boolean()),
+  minPrice: v.optional(v.number()),
+  maxPrice: v.optional(v.number()),
+  minMargin: v.optional(v.number()), // percent, 0-100
+  minAiScore: v.optional(v.number()), // 0-100
+  trend: v.optional(v.string()), // "Rising" | "Stable" | "Declining" | "Unknown"
+  saturation: v.optional(v.string()), // "Low" | "Medium" | "High" | "Unknown"
+  source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api"
+  winnerOfDayOnly: v.optional(v.boolean()),
+  search: v.optional(v.string()),
+  sort: v.optional(v.string()), // "newest" | "score" | "ads" | "likes" | "growth" | "priceHigh" | "priceLow" | "margin"
+  minAds: v.optional(v.number()),
+  // Ad Spy-style range filters
+  maxAds: v.optional(v.number()),
+  minLikes: v.optional(v.number()),
+  maxLikes: v.optional(v.number()),
+  minGrowth: v.optional(v.number()), // percent
+  maxGrowth: v.optional(v.number()),
+  publishedWithinDays: v.optional(v.number()),
+  hasPrice: v.optional(v.boolean()),
+  hasStoreLink: v.optional(v.boolean()),
+};
+
+const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
+  // Index-backed (see ads.list): pages read only what they scan.
+  const conds = (q: FilterBuilder<NamedTableInfo<DataModel, "products">>) => {
+    const c: Expression<boolean>[] = [];
+    if (args.category) c.push(q.eq(q.field("category"), args.category));
+    if (args.categories?.length) c.push(q.or(...args.categories.map((n) => q.eq(q.field("category"), n))));
+    if (args.origin === "ads") c.push(q.gt(q.field("linkedAds"), 0));
+    if (args.origin === "db") c.push(q.or(q.eq(q.field("linkedAds"), undefined), q.eq(q.field("linkedAds"), 0)));
+    if (args.hideBigBrands) c.push(q.neq(q.field("isBigBrand"), true));
+    if (args.hidePersonalised) c.push(q.neq(q.field("isPersonalised"), true));
+    if (args.hideServices) c.push(q.neq(q.field("isService"), true));
+    if (args.trend) c.push(q.eq(q.field("trend"), args.trend));
+    if (args.saturation) c.push(q.eq(q.field("saturation"), args.saturation));
+    if (args.source === "curated") c.push(q.or(q.eq(q.field("source"), "curated"), q.eq(q.field("source"), undefined)));
+    else if (args.source) c.push(q.eq(q.field("source"), args.source));
+    if (args.winnerOfDayOnly) c.push(q.eq(q.field("isWinnerOfDay"), true));
+    if (args.minAiScore !== undefined) c.push(q.gte(q.field("aiScore"), args.minAiScore));
+    if (args.minPrice !== undefined) c.push(q.gte(q.field("price"), args.minPrice));
+    if (args.maxPrice !== undefined) c.push(q.and(q.gt(q.field("price"), 0), q.lte(q.field("price"), args.maxPrice)));
+    if (args.minAds !== undefined) c.push(q.gte(q.field("adsCount"), args.minAds));
+    // A missing value sorts below every number, so "at most X" must also
+    // require the field to exist (no growth data isn't "declining").
+    const atMost = (field: "adsCount" | "likes" | "growthPercent", max: number) => q.and(q.neq(q.field(field), undefined), q.lte(q.field(field), max));
+    if (args.maxAds !== undefined) c.push(atMost("adsCount", args.maxAds));
+    if (args.minLikes !== undefined) c.push(q.gte(q.field("likes"), args.minLikes));
+    if (args.maxLikes !== undefined) c.push(atMost("likes", args.maxLikes));
+    if (args.minGrowth !== undefined) c.push(q.gte(q.field("growthPercent"), args.minGrowth));
+    if (args.maxGrowth !== undefined) c.push(atMost("growthPercent", args.maxGrowth));
+    if (args.publishedWithinDays !== undefined)
+      c.push(q.gte(q.field("publishedAt"), new Date(Date.now() - args.publishedWithinDays * 86_400_000).toISOString()));
+    if (args.hasPrice) c.push(q.gt(q.field("price"), 0));
+    if (args.hasStoreLink) c.push(q.neq(q.field("supplierUrl"), ""));
+    return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
+  };
+
+  const term = args.search?.trim();
+  let result;
+  if (term) {
+    result = await ctx.db
+      .query("products")
+      .withSearchIndex("search_title", (q) => {
+        let s = q.search("title", term);
+        if (args.category) s = s.eq("category", args.category);
+        return s;
+      })
+      .filter(conds)
+      .paginate(args.paginationOpts);
+  } else if (args.sort === "priceLow") {
+    result = await ctx.db.query("products").withIndex("by_price", (q) => q.gt("price", 0)).order("asc").filter(conds).paginate(args.paginationOpts);
+  } else {
+    const base = ctx.db.query("products");
+    const sorted =
+      args.sort === "score" ? base.withIndex("by_score")
+      : args.sort === "ads" ? base.withIndex("by_ads")
+      : args.sort === "likes" ? base.withIndex("by_likes")
+      : args.sort === "growth" ? base.withIndex("by_growth")
+      : args.sort === "priceHigh" ? base.withIndex("by_price")
+      : args.sort === "margin" ? base.withIndex("by_margin")
+      : args.category && (!args.sort || args.sort === "newest")
+        ? base.withIndex("by_category_published", (q) => q.eq("category", args.category!))
+        : base.withIndex("by_published");
+    result = await sorted.order("desc").filter(conds).paginate(args.paginationOpts);
+  }
+
+  let page = result.page;
+  if (args.minMargin !== undefined) {
+    page = page.filter((p) => p.price !== undefined && p.cost !== undefined && p.price > 0 && ((p.price - p.cost) / p.price) * 100 >= args.minMargin!);
+  }
+  return { ...result, page };
+};
+
 export const list = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    category: v.optional(v.string()),
-    categories: v.optional(v.array(v.string())), // any of these niches
-    origin: v.optional(v.union(v.literal("db"), v.literal("ads"))), // product database only / detected from ads
-    hideBigBrands: v.optional(v.boolean()),
-    hidePersonalised: v.optional(v.boolean()),
-    hideServices: v.optional(v.boolean()),
-    minPrice: v.optional(v.number()),
-    maxPrice: v.optional(v.number()),
-    minMargin: v.optional(v.number()), // percent, 0-100
-    minAiScore: v.optional(v.number()), // 0-100
-    trend: v.optional(v.string()), // "Rising" | "Stable" | "Declining" | "Unknown"
-    saturation: v.optional(v.string()), // "Low" | "Medium" | "High" | "Unknown"
-    source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api"
-    winnerOfDayOnly: v.optional(v.boolean()),
-    search: v.optional(v.string()),
-    sort: v.optional(v.string()), // "newest" | "score" | "ads" | "likes" | "growth" | "priceHigh" | "priceLow" | "margin"
-    minAds: v.optional(v.number()),
-    // Ad Spy-style range filters
-    maxAds: v.optional(v.number()),
-    minLikes: v.optional(v.number()),
-    maxLikes: v.optional(v.number()),
-    minGrowth: v.optional(v.number()), // percent
-    maxGrowth: v.optional(v.number()),
-    publishedWithinDays: v.optional(v.number()),
-    hasPrice: v.optional(v.boolean()),
-    hasStoreLink: v.optional(v.boolean()),
-  },
+  args: listArgs,
   handler: async (ctx, args) => {
-    // Index-backed (see ads.list): pages read only what they scan.
-    const conds = (q: any) => {
-      const c: any[] = [];
-      if (args.category) c.push(q.eq(q.field("category"), args.category));
-      if (args.categories?.length) c.push(q.or(...args.categories.map((n) => q.eq(q.field("category"), n))));
-      if (args.origin === "ads") c.push(q.gt(q.field("linkedAds"), 0));
-      if (args.origin === "db") c.push(q.or(q.eq(q.field("linkedAds"), undefined), q.eq(q.field("linkedAds"), 0)));
-      if (args.hideBigBrands) c.push(q.neq(q.field("isBigBrand"), true));
-      if (args.hidePersonalised) c.push(q.neq(q.field("isPersonalised"), true));
-      if (args.hideServices) c.push(q.neq(q.field("isService"), true));
-      if (args.trend) c.push(q.eq(q.field("trend"), args.trend));
-      if (args.saturation) c.push(q.eq(q.field("saturation"), args.saturation));
-      if (args.source === "curated") c.push(q.or(q.eq(q.field("source"), "curated"), q.eq(q.field("source"), undefined)));
-      else if (args.source) c.push(q.eq(q.field("source"), args.source));
-      if (args.winnerOfDayOnly) c.push(q.eq(q.field("isWinnerOfDay"), true));
-      if (args.minAiScore !== undefined) c.push(q.gte(q.field("aiScore"), args.minAiScore));
-      if (args.minPrice !== undefined) c.push(q.gte(q.field("price"), args.minPrice));
-      if (args.maxPrice !== undefined) c.push(q.and(q.gt(q.field("price"), 0), q.lte(q.field("price"), args.maxPrice)));
-      if (args.minAds !== undefined) c.push(q.gte(q.field("adsCount"), args.minAds));
-      // A missing value sorts below every number, so "at most X" must also
-      // require the field to exist (no growth data isn't "declining").
-      const atMost = (field: string, max: number) => q.and(q.neq(q.field(field), undefined), q.lte(q.field(field), max));
-      if (args.maxAds !== undefined) c.push(atMost("adsCount", args.maxAds));
-      if (args.minLikes !== undefined) c.push(q.gte(q.field("likes"), args.minLikes));
-      if (args.maxLikes !== undefined) c.push(atMost("likes", args.maxLikes));
-      if (args.minGrowth !== undefined) c.push(q.gte(q.field("growthPercent"), args.minGrowth));
-      if (args.maxGrowth !== undefined) c.push(atMost("growthPercent", args.maxGrowth));
-      if (args.publishedWithinDays !== undefined)
-        c.push(q.gte(q.field("publishedAt"), new Date(Date.now() - args.publishedWithinDays * 86_400_000).toISOString()));
-      if (args.hasPrice) c.push(q.gt(q.field("price"), 0));
-      if (args.hasStoreLink) c.push(q.neq(q.field("supplierUrl"), ""));
-      return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
-    };
-
-    const term = args.search?.trim();
-    let result;
-    if (term) {
-      result = await ctx.db
-        .query("products")
-        .withSearchIndex("search_title", (q) => {
-          let s = q.search("title", term);
-          if (args.category) s = s.eq("category", args.category);
-          return s;
-        })
-        .filter(conds)
-        .paginate(args.paginationOpts);
-    } else if (args.sort === "priceLow") {
-      result = await ctx.db.query("products").withIndex("by_price", (q) => q.gt("price", 0)).order("asc").filter(conds).paginate(args.paginationOpts);
-    } else {
-      const base = ctx.db.query("products");
-      const sorted =
-        args.sort === "score" ? base.withIndex("by_score")
-        : args.sort === "ads" ? base.withIndex("by_ads")
-        : args.sort === "likes" ? base.withIndex("by_likes")
-        : args.sort === "growth" ? base.withIndex("by_growth")
-        : args.sort === "priceHigh" ? base.withIndex("by_price")
-        : args.sort === "margin" ? base.withIndex("by_margin")
-        : args.category && (!args.sort || args.sort === "newest")
-          ? base.withIndex("by_category_published", (q) => q.eq("category", args.category!))
-          : base.withIndex("by_published");
-      result = await sorted.order("desc").filter(conds).paginate(args.paginationOpts);
-    }
-
-    let page = result.page;
-    if (args.minMargin !== undefined) {
-      page = page.filter((p) => p.price !== undefined && p.cost !== undefined && p.price > 0 && ((p.price - p.cost) / p.price) * 100 >= args.minMargin!);
-    }
-    return { ...result, page };
+    await requireSignedIn(ctx);
+    return await listImpl(ctx, args);
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const listInternal = internalQuery({ args: listArgs, handler: listImpl });
 
 export const getById = query({
   args: { id: v.id("products") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     return await ctx.db.get("products", args.id);
   },
 });
@@ -124,6 +138,7 @@ export const getById = query({
 export const nexscopeProductCountsByNiche = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     const products = await ctx.db.query("products").withIndex("by_published").order("desc").take(500);
     const counts: Record<string, number> = {};
     for (const product of products) {
@@ -141,6 +156,7 @@ export const nexscopeProductCountsByNiche = query({
 export const listNexscopeProductsByNiche = query({
   args: { niche: v.string() },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const products = await ctx.db.query("products").withIndex("by_published").order("desc").take(500);
     return products
       .filter((product) => product.source === "nexscope_api" && product.category === args.niche)
@@ -151,6 +167,7 @@ export const listNexscopeProductsByNiche = query({
 export const getWinnersOfDay = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     // The top of today's Winning Products list (mixed across niches); before
     // the first daily rebuild, the older per-source daily picks.
     const top = await ctx.db.query("winningProducts").withIndex("by_position").take(6);

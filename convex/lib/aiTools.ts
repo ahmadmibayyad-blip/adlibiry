@@ -1,6 +1,6 @@
 import * as z from "zod/v4";
 import type { ActionCtx } from "../_generated/server";
-import { api } from "../_generated/api";
+import { internal } from "../_generated/api";
 
 // Read-only data tools shared by the in-app AI assistant (convex/assistant.ts)
 // and the MCP server customers connect from their own AI apps (convex/mcp.ts).
@@ -27,7 +27,7 @@ export const searchAdsTool = {
     "Search the ad library (Facebook, Instagram, TikTok ads). Returns up to `limit` ads with advertiser, headline, text, niche, likes, views, days running, estimated spend, score and landing page. Use `search` for words in the ad text; leave it empty to browse by niche/platform and sort.",
   inputSchema: adSearchInput,
   async run(ctx: Ctx, { limit, search, ...filters }: z.infer<typeof adSearchInput>): Promise<string> {
-    const result = await ctx.runQuery(api.ads.list, {
+    const result = await ctx.runQuery(internal.ads.listInternal, {
       paginationOpts: { numItems: limit ?? 8, cursor: null },
       ...filters,
       ...(search?.trim() ? { search: search.trim() } : {}),
@@ -71,7 +71,7 @@ export const searchProductsTool = {
     "Search the winning-products database. Returns up to `limit` products with id, title, category, price, cost, margin, score, trend, saturation, ads running and likes. Use `search` for words in the product title.",
   inputSchema: productSearchInput,
   async run(ctx: Ctx, { limit, search, ...filters }: z.infer<typeof productSearchInput>): Promise<string> {
-    const result = await ctx.runQuery(api.products.list, {
+    const result = await ctx.runQuery(internal.products.listInternal, {
       paginationOpts: { numItems: limit ?? 8, cursor: null },
       ...filters,
       ...(search?.trim() ? { search: search.trim() } : {}),
@@ -102,7 +102,7 @@ export const listNichesTool = {
   description: "List the niche names used for ads and products, to pass as `niche` or `category` in the other tools.",
   inputSchema: z.object({}),
   async run(ctx: Ctx): Promise<string> {
-    return JSON.stringify(await ctx.runQuery(api.ads.getNiches, {}));
+    return JSON.stringify(await ctx.runQuery(internal.ads.getNichesInternal, {}));
   },
 };
 

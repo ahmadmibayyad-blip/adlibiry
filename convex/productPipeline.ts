@@ -1,6 +1,7 @@
 import { estimateProduct, unitsPerMonthFromText } from "./lib/estimates";
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { markStatsDirty } from "./stats";
@@ -95,6 +96,7 @@ export const runNow = mutation({
 export const status = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productPipeline")).unique();
     return (doc?.data as Status | undefined) ?? null;
   },

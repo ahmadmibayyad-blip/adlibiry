@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
 import type { Doc } from "./_generated/dataModel";
 import { adNumbers } from "./productPipeline";
 
@@ -11,26 +12,31 @@ const range = v.union(v.literal(7), v.literal(30), v.literal(90));
 
 export const productHistory = query({
   args: { productId: v.id("products"), days: range },
-  handler: async (ctx, args) =>
-    await ctx.db
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    return await ctx.db
       .query("dailySnapshots")
       .withIndex("by_entity_day", (q) => q.eq("kind", "product").eq("entityId", args.productId).gte("day", since(args.days)))
-      .collect(),
+      .collect();
+  },
 });
 
 export const adHistory = query({
   args: { adId: v.id("ads"), days: range },
-  handler: async (ctx, args) =>
-    await ctx.db
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    return await ctx.db
       .query("dailySnapshots")
       .withIndex("by_entity_day", (q) => q.eq("kind", "ad").eq("entityId", args.adId).gte("day", since(args.days)))
-      .collect(),
+      .collect();
+  },
 });
 
 // The ads linked to a product, with the numbers the detail page shows.
 export const productAds = query({
   args: { productId: v.id("products") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const ads = await ctx.db
       .query("ads")
       .withIndex("by_product", (q) => q.eq("productId", args.productId))
@@ -71,6 +77,7 @@ const engagement = (a: Doc<"ads">) => {
 export const adNicheComparison = query({
   args: { adId: v.id("ads") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const ad = await ctx.db.get("ads", args.adId);
     if (!ad) return null;
     const peers = await ctx.db

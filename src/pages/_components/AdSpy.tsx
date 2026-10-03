@@ -17,20 +17,12 @@ function Metric({ icon: Icon, label, value }: { icon: typeof Eye; label: string;
   );
 }
 
-// Three real ads from the database: the highest-scoring running image ads,
-// one per advertiser and niche so the sample isn't three of the same shop.
+// Three real running ads from the database, one per advertiser and niche.
 export default function AdSpy() {
   const stats = useQuery(api.stats.get, {});
-  const list = useQuery(api.ads.list, {
-    paginationOpts: { numItems: 40, cursor: null },
-    sort: "impressions",
-    activeOnly: true,
-    mediaType: "image",
-  });
-  const ads = (list?.page ?? [])
-    .filter((a) => a.creativeUrl)
-    .filter((a, i, all) => all.findIndex((b) => b.advertiserName === a.advertiserName || b.niche === a.niche) === i)
-    .slice(0, 3);
+  // Public preview: three real running ads (see ads:homepagePreview).
+  const list = useQuery(api.ads.homepagePreview, {});
+  const ads = list ?? [];
 
   return (
     <section className="py-24">

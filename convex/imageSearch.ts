@@ -106,11 +106,11 @@ export const search = action({
     const ads = new Map<string, Doc<"ads">>();
     for (const term of terms) {
       if (products.size < 12) {
-        const p = await ctx.runQuery(api.products.list, { paginationOpts: { numItems: 8, cursor: null }, search: term });
+        const p = await ctx.runQuery(internal.products.listInternal, { paginationOpts: { numItems: 8, cursor: null }, search: term });
         for (const x of p.page) if (products.size < 12) products.set(x._id, x);
       }
       if (ads.size < 9) {
-        const a = await ctx.runQuery(api.ads.list, { paginationOpts: { numItems: 6, cursor: null }, search: term });
+        const a = await ctx.runQuery(internal.ads.listInternal, { paginationOpts: { numItems: 6, cursor: null }, search: term });
         for (const x of a.page) if (ads.size < 9) ads.set(x._id, x);
       }
     }
