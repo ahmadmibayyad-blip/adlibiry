@@ -261,16 +261,21 @@ export const runSync = internalAction({
   },
 });
 
+// AdLibrary returns untyped JSON whose shape varies by endpoint; it is read
+// defensively, field by field (typeof / Array.isArray / Number() checks).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiJson = any;
+
 // Rich fields straight from a search result (all optional).
-function mediaUrl(item: any): { videoUrl?: string; imageUrl?: string } {
+function mediaUrl(item: ApiJson): { videoUrl?: string; imageUrl?: string } {
   const res = Array.isArray(item.resource_urls) ? item.resource_urls : [];
-  const withVideo = res.find((r: any) => typeof r?.video_url === "string" && r.video_url);
+  const withVideo = res.find((r: ApiJson) => typeof r?.video_url === "string" && r.video_url);
   return {
     videoUrl: item.video_url || withVideo?.video_url || undefined,
-    imageUrl: item.preview_img_url || res.find((r: any) => r?.image_url)?.image_url,
+    imageUrl: item.preview_img_url || res.find((r: ApiJson) => r?.image_url)?.image_url,
   };
 }
-function searchRich(item: any) {
+function searchRich(item: ApiJson) {
   const { videoUrl } = mediaUrl(item);
   const lastSeen = typeof item.last_seen === "number" && item.last_seen > 0 ? item.last_seen * 1000 : undefined;
   const type = Number(item.ads_type);
@@ -347,10 +352,10 @@ const supportedAlpha2 = (code: unknown): string | undefined => {
   return c && ALPHA2_TO_ALPHA3[c] ? c : undefined;
 };
 function parseAdDetail(json: unknown): AdDetail {
-  const root = (json ?? {}) as Record<string, any>;
-  const data = (root.data ?? root) as Record<string, any>;
-  const detail = (data.detail ?? {}) as Record<string, any>;
-  const audience = (data.audience ?? detail.audience ?? null) as Record<string, any> | null;
+  const root = (json ?? {}) as Record<string, ApiJson>;
+  const data = (root.data ?? root) as Record<string, ApiJson>;
+  const detail = (data.detail ?? {}) as Record<string, ApiJson>;
+  const audience = (data.audience ?? detail.audience ?? null) as Record<string, ApiJson> | null;
   const out: AdDetail = {};
 
   if (audience) {
@@ -361,7 +366,7 @@ function parseAdDetail(json: unknown): AdDetail {
     // Gender: the real reached split beats the targeting setting.
     let gender = "All";
     const split = Array.isArray(audience.sex_detail) ? audience.sex_detail : [];
-    const pct = (type: string) => Number(split.find((s: any) => s?.type === type)?.percent ?? 0);
+    const pct = (type: string) => Number(split.find((s: ApiJson) => s?.type === type)?.percent ?? 0);
     if (pct("female") >= 0.7) gender = "Female";
     else if (pct("male") >= 0.7) gender = "Male";
     else {
@@ -371,10 +376,10 @@ function parseAdDetail(json: unknown): AdDetail {
     }
     // Top age brackets by reach, as readable "interest" chips.
     const ages = (Array.isArray(audience.age_detail) ? audience.age_detail : [])
-      .filter((a: any) => Number(a?.count) > 0)
-      .sort((a: any, b: any) => Number(b.count) - Number(a.count))
+      .filter((a: ApiJson) => Number(a?.count) > 0)
+      .sort((a: ApiJson, b: ApiJson) => Number(b.count) - Number(a.count))
       .slice(0, 2)
-      .map((a: any) => `Most reached: ${a.type}`);
+      .map((a: ApiJson) => `Most reached: ${a.type}`);
     const reach = Number(audience.total_reach);
     const interests = [...ages, ...(reach > 0 ? [`EU reach ${formatViews(reach)}`] : [])];
     if (ageRange !== "Unknown" || gender !== "All" || interests.length) out.targeting = { ageRange, gender, interests };
@@ -382,7 +387,7 @@ function parseAdDetail(json: unknown): AdDetail {
     // Country with the most reach that AdSpy Pro covers.
     const locs = (Array.isArray(audience.location_detail) ? audience.location_detail : [])
       .slice()
-      .sort((a: any, b: any) => Number(b?.count) - Number(a?.count));
+      .sort((a: ApiJson, b: ApiJson) => Number(b?.count) - Number(a?.count));
     for (const l of locs) {
       const c = supportedAlpha2(l?.code);
       if (c) {
@@ -402,7 +407,7 @@ function parseAdDetail(json: unknown): AdDetail {
     const fmt = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${Math.round(n)}`);
     out.spendEstimate = `~${fmt(cost)} (AdLibrary est.)`;
   }
-  const cta = Array.isArray(detail.cta_redirect_urls) ? detail.cta_redirect_urls.find((u: any) => typeof u === "string" && /^https?:/.test(u)) : undefined;
+  const cta = Array.isArray(detail.cta_redirect_urls) ? detail.cta_redirect_urls.find((u: ApiJson) => typeof u === "string" && /^https?:/.test(u)) : undefined;
   const landing = cta ?? detail.store_url ?? detail.landing_page_url;
   if (typeof landing === "string" && /^https?:\/\//.test(landing)) out.landingPageUrl = landing;
   const impressions = Number(detail.impression);
@@ -417,8 +422,8 @@ function parseAdDetail(json: unknown): AdDetail {
   if (Array.isArray(detail.countries) && detail.countries.length) {
     out.countries = [...new Set(detail.countries.map((c: string) => toAlpha2(c) ?? String(c).toUpperCase()))].slice(0, 40) as string[];
   }
-  const cdn = Array.isArray(detail.cdn_url) ? detail.cdn_url.find((u: any) => typeof u === "string" && /^https?:/.test(u)) : undefined;
-  const resVideo = Array.isArray(detail.resource_urls) ? detail.resource_urls.find((r: any) => r?.video_url)?.video_url : undefined;
+  const cdn = Array.isArray(detail.cdn_url) ? detail.cdn_url.find((u: ApiJson) => typeof u === "string" && /^https?:/.test(u)) : undefined;
+  const resVideo = Array.isArray(detail.resource_urls) ? detail.resource_urls.find((r: ApiJson) => r?.video_url)?.video_url : undefined;
   if (cdn || resVideo) out.videoUrl = cdn || resVideo;
   if (typeof detail.language === "string" && detail.language) out.language = detail.language;
   if (typeof detail.last_seen === "number" && detail.last_seen > 0) {
@@ -429,14 +434,14 @@ function parseAdDetail(json: unknown): AdDetail {
   if (audience) {
     const split = Array.isArray(audience.sex_detail) ? audience.sex_detail : [];
     const pctOf = (type: string) => {
-      const p = Number(split.find((s: any) => s?.type === type)?.percent);
+      const p = Number(split.find((s: ApiJson) => s?.type === type)?.percent);
       return Number.isFinite(p) ? Math.round(p * 1000) / 10 : undefined;
     };
     const ages = (Array.isArray(audience.age_detail) ? audience.age_detail : [])
-      .filter((a: any) => typeof a?.type === "string")
-      .map((a: any) => ({ bracket: String(a.type), pct: Math.round(Number(a.percent || 0) * 1000) / 10 }));
+      .filter((a: ApiJson) => typeof a?.type === "string")
+      .map((a: ApiJson) => ({ bracket: String(a.type), pct: Math.round(Number(a.percent || 0) * 1000) / 10 }));
     const countries = (Array.isArray(audience.location_detail) ? audience.location_detail : [])
-      .map((l: any) => ({ code: toAlpha2(l?.code) ?? String(l?.code ?? "").toUpperCase(), pct: Math.round(Number(l?.percent || 0) * 1000) / 10 }))
+      .map((l: ApiJson) => ({ code: toAlpha2(l?.code) ?? String(l?.code ?? "").toUpperCase(), pct: Math.round(Number(l?.percent || 0) * 1000) / 10 }))
       .filter((c: { code: string }) => c.code)
       .slice(0, 12);
     const totalReach = Number(audience.total_reach);
@@ -506,20 +511,26 @@ export const upsertAd = internalMutation({
 
     if (existingLink) {
       const existing = await ctx.db.get("ads", existingLink.adId);
-      // Keep enrichment from earlier runs: don't reset targeting, and don't
-      // replace an ad-detail spend estimate with the rougher impression one.
-      const keepSpend = existing?.spendEstimate?.includes("AdLibrary est.") && !fields.spendEstimate.includes("AdLibrary est.");
-      await ctx.db.patch("ads", existingLink.adId, {
-        ...defined(fields),
-        spendEstimate: fields.spendEstimate,
-        ...(keepSpend ? { spendEstimate: existing!.spendEstimate } : {}),
-        ...(fields.country === "INTL" && existing && existing.country !== "INTL" ? { country: existing.country } : {}),
-        ...(!fields.landingPageUrl && existing?.landingPageUrl ? { landingPageUrl: existing.landingPageUrl } : {}),
-        ...(existing ? keepEarlierData(existing, fields, firstSeenKnown !== false) : {}),
-        source: "adlibrary_api",
-      });
-      await ctx.db.patch("adlibrarySyncedAds", existingLink._id, { lastSyncedAt: new Date().toISOString() });
-      return "updated";
+      if (existing) {
+        // Keep enrichment from earlier runs: don't reset targeting, and don't
+        // replace an ad-detail spend estimate with the rougher impression one.
+        const keepSpend = existing.spendEstimate?.includes("AdLibrary est.") && !fields.spendEstimate.includes("AdLibrary est.");
+        await ctx.db.patch("ads", existingLink.adId, {
+          ...defined(fields),
+          spendEstimate: fields.spendEstimate,
+          ...(keepSpend ? { spendEstimate: existing.spendEstimate } : {}),
+          ...(fields.country === "INTL" && existing.country !== "INTL" ? { country: existing.country } : {}),
+          ...(!fields.landingPageUrl && existing.landingPageUrl ? { landingPageUrl: existing.landingPageUrl } : {}),
+          ...keepEarlierData(existing, fields, firstSeenKnown !== false),
+          source: "adlibrary_api",
+        });
+        await ctx.db.patch("adlibrarySyncedAds", existingLink._id, { lastSyncedAt: new Date().toISOString() });
+        return "updated";
+      }
+      // The ad was deleted by an admin: recreate it, as the other sources do
+      // (sources/links.ts). Patching the missing ad threw and stopped the sync
+      // for the rest of the niche on every run.
+      await ctx.db.delete("adlibrarySyncedAds", existingLink._id);
     }
 
     await markStatsDirty(ctx);
@@ -681,7 +692,9 @@ export const debugAdDetail = action({
       let parsed: unknown = null;
       try {
         parsed = JSON.parse(text);
-      } catch {}
+      } catch {
+        // Not JSON: keep parsed = null and report the raw status below.
+      }
       detail = {
         httpStatus: res.status,
         topKeys: parsed && typeof parsed === "object" ? Object.keys(parsed as object) : [],

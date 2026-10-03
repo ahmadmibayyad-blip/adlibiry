@@ -46,9 +46,16 @@ function renderDigestHtml(winners: Doc<"products">[], appUrl: string): string {
 export const sendDailyDigest = internalAction({
   args: {},
   handler: async (ctx): Promise<{ sent: number }> => {
-    const recipients: { email: string; userId: string }[] = await ctx.runQuery(
-      internal.emailDigest.getDigestRecipients
-    );
+    const recipients: { email: string; userId: string }[] = [];
+    for (let cursor: string | null = null, done = false; !done; ) {
+      const page: { recipients: { email: string; userId: string }[]; continueCursor: string; isDone: boolean } = await ctx.runQuery(
+        internal.emailDigest.getDigestRecipients,
+        { cursor },
+      );
+      recipients.push(...page.recipients);
+      cursor = page.continueCursor;
+      done = page.isDone;
+    }
     if (recipients.length === 0) return { sent: 0 };
 
     const winners: Doc<"products">[] = await ctx.runQuery(internal.emailDigest.getTodaysWinners);
