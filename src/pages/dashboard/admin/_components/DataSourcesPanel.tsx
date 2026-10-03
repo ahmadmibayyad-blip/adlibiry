@@ -229,7 +229,8 @@ export default function DataSourcesPanel() {
               try {
                 const r = await importTikTok({ country: tt.country, keyword: tt.keyword.trim(), niche: tt.niche, maxPages: tt.pages });
                 setTtRes(r);
-                r.errors.length ? toast.error(`Imported with ${r.errors.length} error(s)`) : toast.success(`${r.created} new TikTok ads`);
+                if (r.errors.length) toast.error(`Imported with ${r.errors.length} error(s)`);
+                else toast.success(`${r.created} new TikTok ads`);
               } catch (e) {
                 fail(e, "TikTok import failed");
               } finally {
@@ -262,7 +263,8 @@ export default function DataSourcesPanel() {
               try {
                 const r = await importStores({ country: st.country, niche: st.niche, searchKey: st.searchKey.trim() || undefined, minAds: st.minAds });
                 setStRes(r);
-                r.errors.length ? toast.error(`Imported with ${r.errors.length} error(s)`) : toast.success(`${r.created} new stores`);
+                if (r.errors.length) toast.error(`Imported with ${r.errors.length} error(s)`);
+                else toast.success(`${r.created} new stores`);
               } catch (e) {
                 fail(e, "Store import failed");
               } finally {
@@ -324,7 +326,8 @@ export default function DataSourcesPanel() {
               try {
                 const r = await importDataset({ datasetId: ap.datasetId.trim(), country: ap.country, niche: ap.niche });
                 setApRes(r);
-                r.errors.length ? toast.error(`Imported with ${r.errors.length} error(s)`) : toast.success(`${r.created} new Meta ads`);
+                if (r.errors.length) toast.error(`Imported with ${r.errors.length} error(s)`);
+                else toast.success(`${r.created} new Meta ads`);
               } catch (e) {
                 fail(e, "Dataset import failed");
               } finally {
