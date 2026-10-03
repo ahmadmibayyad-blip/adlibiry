@@ -16,6 +16,11 @@ export type ProductRow = {
   likes?: number;
   growthPercent?: number;
   researchUrl?: string;
+  // Sales columns from TikTok Shop / product-finder exports (Kalodata, FastMoss…).
+  unitsPerMonth?: number;
+  totalGmv?: number;
+  rating?: number;
+  reviews?: number;
 };
 
 export const IMPORT_CATEGORIES = NICHES;
@@ -28,7 +33,7 @@ export function decodeCsvBytes(buf: ArrayBuffer): string {
   const head = b.subarray(0, 1024);
   const zeros = head.filter((x) => x === 0).length;
   if (zeros > head.length / 4) return new TextDecoder(head[0] === 0 ? "utf-16be" : "utf-16le").decode(b);
-  return new TextDecoder("utf-8").decode(b).replace(/^﻿/, "");
+  return new TextDecoder("utf-8").decode(b).replace(/^\uFEFF/, "");
 }
 
 export function detectDelimiter(text: string): string {
@@ -72,15 +77,17 @@ export function parseCsv(text: string, delimiter = detectDelimiter(text)): strin
   return rows;
 }
 
-type Field = keyof Omit<ProductRow, "category"> | "category";
+type Field =
+  | Exclude<keyof ProductRow, "unitsPerMonth">
+  | "itemsSold7d" | "itemsSold30d" | "gmv7d" | "gmv30d";
 const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 // Earlier aliases win. PiPiAds: Link=research page, Product Link=store page.
 const ALIASES: Record<Field, string[]> = {
-  title: ["title", "producttitle", "productname", "name", "product"],
-  imageUrl: ["productimage", "imageurl", "image", "imagesrc", "img", "thumbnail", "cover", "mainimage", "picture"],
-  productUrl: ["productlink", "producturl", "storeurl", "landingpage", "landingpageurl", "url", "shopurl", "link"],
+  title: ["title", "producttitle", "productname", "name", "product", "products"],
+  imageUrl: ["productimage", "productimageurl", "imageurl", "image", "imagesrc", "imagelink", "img", "thumbnail", "cover", "coverimage", "coverimageurl", "mainimage", "picture"],
+  productUrl: ["productlink", "producturl", "storeurl", "landingpage", "landingpageurl", "url", "shopurl", "tiktokurl", "tiktoklink", "tiktokshopurl", "link"],
   researchUrl: ["link", "pipiadslink", "detailurl", "sourceurl"],
-  priceUsd: ["usdprice", "priceusd", "pricein usd", "price", "saleprice", "retailprice", "variantprice"],
+  priceUsd: ["usdprice", "priceusd", "pricein usd", "price", "productprice", "saleprice", "retailprice", "variantprice"],
   originalPrice: ["price", "originalprice", "localprice"],
   cost: ["cost", "costprice", "suppliercost", "costperitem", "buyprice"],
   category: ["category", "niche", "producttype", "type", "collection"],
@@ -88,6 +95,13 @@ const ALIASES: Record<Field, string[]> = {
   ads: ["ads", "adcount", "activeads", "numberofads", "totalads"],
   likes: ["likes", "likecount", "totallikes", "engagement", "diggcount"],
   growthPercent: ["growthrate", "growth", "salesgrowth", "trend"],
+  itemsSold7d: ["itemssoldlast7days", "itemssold7d", "unitssoldlast7days", "unitssold7d", "sales7d", "sold7d"],
+  itemsSold30d: ["itemssoldlast30days", "itemssold30d", "unitssoldlast30days", "unitssold30d", "sales30d", "sold30d", "itemssold", "unitssold"],
+  gmv7d: ["gmvlast7days", "gmv7d", "revenuelast7days", "revenue7d"],
+  gmv30d: ["gmvlast30days", "gmv30d", "revenuelast30days", "revenue30d"],
+  totalGmv: ["totalgmv", "gmv", "totalrevenue", "totalsales"],
+  rating: ["productrating", "rating", "averagerating", "stars"],
+  reviews: ["productreviews", "reviews", "reviewcount", "numberofreviews", "ratings"],
 };
 
 export type ColumnMap = Partial<Record<Field, number>>;
@@ -96,7 +110,10 @@ export function autoMap(header: string[]): ColumnMap {
   const h = header.map(norm);
   const used = new Set<number>();
   const map: ColumnMap = {};
-  const order: Field[] = ["title", "imageUrl", "productUrl", "researchUrl", "priceUsd", "originalPrice", "cost", "category", "description", "ads", "likes", "growthPercent"];
+  const order: Field[] = [
+    "title", "imageUrl", "productUrl", "researchUrl", "priceUsd", "originalPrice", "cost", "category", "description", "ads", "likes",
+    "itemsSold7d", "itemsSold30d", "gmv7d", "gmv30d", "totalGmv", "rating", "reviews", "growthPercent",
+  ];
   for (const f of order) {
     for (const alias of ALIASES[f].map(norm)) {
       const idx = h.indexOf(alias);
@@ -138,6 +155,13 @@ export function toNumber(s: string | undefined): number | undefined {
 // otherwise match inside other words (e.g. "pain" in "painting").
 export { guessCategory } from "@/convex/lib/category.ts";
 import { guessCategory, NICHES } from "@/convex/lib/category.ts";
+
+// A month of sales: the 30-day column, else the 7-day column scaled up.
+function monthly(last30?: number, last7?: number): number | undefined {
+  if (last30 !== undefined && last30 >= 0) return Math.round(last30);
+  if (last7 !== undefined && last7 >= 0) return Math.round((last7 * 30) / 7);
+  return undefined;
+}
 
 export type BuildResult = {
   rows: ProductRow[];
@@ -185,6 +209,12 @@ export function buildRows(
         ? (hint && (IMPORT_CATEGORIES as readonly string[]).includes(hint) ? hint : guessCategory(title, hint))
         : opts.category;
     const researchUrl = get(r, "researchUrl");
+    // No items-sold column: a month of GMV ÷ price.
+    const unitsFromGmv = (row: string[]) => {
+      const gmv = monthly(toNumber(get(row, "gmv30d")), toNumber(get(row, "gmv7d")));
+      const price = toNumber(get(row, "priceUsd"));
+      return gmv !== undefined && price ? Math.round(gmv / price) : undefined;
+    };
     rows.push({
       title: title.slice(0, 300),
       imageUrl,
@@ -198,6 +228,10 @@ export function buildRows(
       likes: toNumber(get(r, "likes")),
       growthPercent: toNumber(get(r, "growthPercent")),
       researchUrl: researchUrl && researchUrl !== productUrl && /^https?:\/\//i.test(researchUrl) ? researchUrl : undefined,
+      unitsPerMonth: monthly(toNumber(get(r, "itemsSold30d")), toNumber(get(r, "itemsSold7d"))) ?? unitsFromGmv(r),
+      totalGmv: toNumber(get(r, "totalGmv")),
+      rating: toNumber(get(r, "rating")),
+      reviews: toNumber(get(r, "reviews")),
     });
   }
   return { rows, total: data.length, duplicates, invalid };

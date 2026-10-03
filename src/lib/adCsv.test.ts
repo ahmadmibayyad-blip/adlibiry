@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AD_TEMPLATE_CSV, autoMapAds, buildAdRows, parseCsv } from "./adCsv";
+import { AD_TEMPLATE_CSV, autoMapAds, buildAdRows, isProductExport, parseCsv } from "./adCsv";
 
 const now = new Date("2026-09-30T00:00:00Z");
 const opts = { niche: "auto", platform: "Facebook", country: "US", now };
@@ -64,6 +64,16 @@ describe("ad CSV import", () => {
     expect(rows[0].bodyText).toContain("Product Price: $51.99");
     expect(rows[0].bodyText).not.toContain("Brand");
     expect(rows[0].daysRunning).toBe(28);
+    // …and the dialog stops it: it's a product list with no engagement columns.
+    expect(isProductExport(table[0], map)).toBe(true);
+  });
+
+  it("doesn't flag ad exports as product exports", () => {
+    const table = parseCsv(AD_TEMPLATE_CSV);
+    expect(isProductExport(table[0], autoMapAds(table[0]))).toBe(false);
+    // A GMV column alongside real engagement is still an ad export.
+    const header = ["Video Cover", "Title", "Likes", "Views", "GMV"];
+    expect(isProductExport(header, autoMapAds(header))).toBe(false);
   });
 
   it("finds an image column by its values when the header gives no hint", () => {

@@ -34,6 +34,7 @@ import ImportRunsCard from "./_components/ImportRunsCard.tsx";
 import CsvImportDialog from "./_components/CsvImportDialog.tsx";
 import AdCsvImportDialog from "./_components/AdCsvImportDialog.tsx";
 import RemoveLastAdImport from "./_components/RemoveLastAdImport.tsx";
+import RemoveProductListingAds from "./_components/RemoveProductListingAds.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users";
 type Product = Doc<"products">;
@@ -643,6 +644,7 @@ function AdsTab() {
           Import CSV
         </Button>
         <RemoveLastAdImport />
+        <RemoveProductListingAds />
         <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-1.5" />
           Add ad
