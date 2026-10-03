@@ -7,7 +7,7 @@ const steps = [
     icon: Search,
     title: "Discover Winning Ads",
     description:
-      "Search our database of 10M+ active ads across Facebook, TikTok, and Pinterest. Use advanced filters — ad spend, engagement rate, country, niche — to pinpoint exactly what's working right now.",
+      "Search ads from Facebook, Instagram and TikTok. Filter by ad spend, engagement, country and niche to see exactly what's working right now.",
     color: "text-primary",
     bg: "bg-primary/10",
   },
@@ -17,8 +17,8 @@ const steps = [
     title: "Validate & Analyze",
     description:
       "Dig into any product or store with one click. See real revenue estimates, traffic breakdown, ad spend history, and our proprietary AI score to instantly know if a product is worth pursuing.",
-    color: "text-blue-400",
-    bg: "bg-blue-400/10",
+    color: "text-chart-3",
+    bg: "bg-chart-3/10",
   },
   {
     number: "03",
@@ -26,8 +26,8 @@ const steps = [
     title: "Scale with Confidence",
     description:
       "Build your campaign with proven creatives and tested angles. Import products directly, set competitor alerts, and track your market daily to stay ahead of the curve.",
-    color: "text-purple-400",
-    bg: "bg-purple-400/10",
+    color: "text-chart-4",
+    bg: "bg-chart-4/10",
   },
 ];
 
@@ -43,15 +43,11 @@ export default function HowItWorks() {
           transition={{ duration: 0.6 }}
           className="text-center mb-20"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
-            Simple 3-Step Process
-          </div>
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
-            From Research to
-            <span className="text-primary"> Revenue</span>
+            From an ad to a product to a launch
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Most sellers waste weeks testing random products. WinningHunter cuts that to minutes.
+            Most sellers spend weeks testing random products. AdSpy Pro starts you from products that are already selling.
           </p>
         </motion.div>
 

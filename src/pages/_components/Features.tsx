@@ -15,7 +15,7 @@ const features = [
     icon: Search,
     title: "Ad Spy",
     description:
-      "Browse millions of Facebook, TikTok, and Pinterest ads. Filter by spend, engagement, country, and niche to find the hottest creatives.",
+      "Browse Facebook, Instagram and TikTok ads. Filter by spend, engagement, country and niche to find the creatives that are working.",
     gradient: "from-chart-1/15 to-chart-1/5",
     accent: "text-chart-1",
   },
@@ -89,16 +89,11 @@ export default function Features() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
-            Everything You Need
-          </div>
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">
-            The Complete Ecommerce
-            <br />
-            <span className="text-primary">Intelligence Suite</span>
+            Every research tool in one place
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            From ad spy to product research to store analytics — all the tools elite dropshippers and brand builders use in one platform.
+            Ad search, product research, store tracking and AI checks, so you can go from an ad you saw to a product you can sell.
           </p>
         </motion.div>
 

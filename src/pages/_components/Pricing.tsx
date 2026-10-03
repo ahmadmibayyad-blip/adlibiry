@@ -126,12 +126,8 @@ export default function Pricing() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
-            Simple, Transparent Pricing
-          </div>
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
-            No Hidden Fees.
-            <span className="text-primary"> Cancel Anytime.</span>
+            Simple pricing, cancel anytime
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
             7-day free trial on all plans. No credit card required to start. See exactly what you get before paying.

@@ -21,7 +21,7 @@ const faqs = [
   },
   {
     q: "What platforms does WinningHunter support?",
-    a: "We currently support Facebook/Meta, TikTok, and Pinterest for ad research. Store tracking works for any Shopify-based store. We're actively adding support for more platforms.",
+    a: "We currently support Facebook, Instagram and TikTok for ad research. Store tracking works for any Shopify-based store. We're actively adding support for more platforms.",
   },
   {
     q: "Is WinningHunter suitable for beginners?",
@@ -80,12 +80,8 @@ export default function FAQ() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
-            Got Questions?
-          </div>
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
-            Frequently Asked
-            <span className="text-primary"> Questions</span>
+            Frequently asked questions
           </h2>
         </motion.div>
 
