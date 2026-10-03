@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import { SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range } from "@/lib/filterUtils.ts";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 // ── Filter model (same layout as Ad Spy) ────────────────────────────────────
 type Filters = {
@@ -288,6 +289,7 @@ export default function ProductsFeed() {
           </div>
         )}
       </div>
+      <TrialLimitNotice />
 
       <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-2.5 shadow-sm">
         {/* Search, image search, and where products come from */}

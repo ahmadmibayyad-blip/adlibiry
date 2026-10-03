@@ -19,6 +19,7 @@ import FilterNumberInput from "@/components/FilterNumberInput.tsx";
 import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 import { storeImage } from "@/lib/storeImage.ts";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -132,6 +133,7 @@ export default function StoreTrackerPage() {
           Spy on Shopify stores — see their best sellers, estimated revenue, traffic, and ad activity before you compete with them.
         </p>
       </motion.div>
+      <TrialLimitNotice />
 
       {/* Stores added by product discovery (Shopify stores running Facebook ads) */}
       {!showWatchlist && newlyDiscovered && newlyDiscovered.length > 0 && (

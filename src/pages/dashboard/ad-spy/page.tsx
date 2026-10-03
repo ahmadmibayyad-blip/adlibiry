@@ -14,6 +14,7 @@ import PlatformIcon from "@/components/PlatformIcon.tsx";
 import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range, readJson, writeJson } from "@/lib/filterUtils.ts";
 import { flag, compactNumber } from "@/lib/adFormat.ts";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -213,6 +214,7 @@ export default function AdSpyPage() {
           </div>
         )}
       </div>
+      <TrialLimitNotice />
 
       <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
         {/* Platform + search */}

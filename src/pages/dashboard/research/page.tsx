@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { toast } from "sonner";
 import FilterSelect from "@/components/FilterSelect.tsx";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 type Supplier = Doc<"supplierListings">;
 type Niche = Doc<"niches">;
@@ -49,6 +50,7 @@ export default function ResearchPage() {
           Trending keywords, niche breakdowns, and supplier sourcing — everything to validate a product before you spend on ads.
         </p>
       </motion.div>
+      <TrialLimitNotice />
 
       <div className="flex items-center gap-2 mb-6 border-b border-border overflow-x-auto">
         {tabs.map((t) => (

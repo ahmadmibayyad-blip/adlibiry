@@ -1,6 +1,6 @@
 import { v, type ObjectType } from "convex/values";
 import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
-import { requireSignedIn } from "./lib/access";
+import { limitedPage, requireSignedIn, resultLimitFor } from "./lib/access";
 import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin/helpers";
 
@@ -24,7 +24,9 @@ export const list = query({
   args: listArgs,
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    return await listImpl(ctx, args);
+    const trends = await listImpl(ctx, args);
+    const limit = await resultLimitFor(ctx);
+    return limit === null ? trends : trends.slice(0, limit);
   },
 });
 
@@ -101,7 +103,7 @@ export const searchSuppliers = query({
   args: searchSuppliersArgs,
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    return await searchSuppliersImpl(ctx, args);
+    return await limitedPage(ctx, args.paginationOpts, (paginationOpts) => searchSuppliersImpl(ctx, { ...args, paginationOpts }));
   },
 });
 
