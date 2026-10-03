@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./admin/helpers";
+import type { Doc } from "./_generated/dataModel";
 
 // Everything the UI needs that would otherwise require scanning whole tables
 // (filter-dropdown counts, niche lists, admin totals) is computed here at most
@@ -28,6 +29,9 @@ const count = (vals: (string | undefined)[]): Count[] => {
   return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([value, n]) => ({ value, n }));
 };
 
+// What scanPage keeps of each document (only the fields the counts need).
+type ScanRow = { a?: boolean; v?: boolean; cta?: string; c?: (string | undefined)[]; n?: string; p?: string; l?: string; s?: string; admin?: boolean };
+
 async function readStats(ctx: QueryCtx): Promise<SiteStats> {
   const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
   return (doc?.data as SiteStats | undefined) ?? EMPTY;
@@ -38,15 +42,22 @@ export const scanPage = internalQuery({
   args: { table: v.union(v.literal("ads"), v.literal("products"), v.literal("users"), v.literal("stores")), cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, { table, cursor }) => {
     const res = await ctx.db.query(table).paginate({ numItems: 1000, cursor });
-    const rows = res.page.map((d: any) =>
+    const rows: ScanRow[] =
       table === "ads"
-        ? { a: d.isActive === true, v: d.mediaType === "video" || !!d.videoUrl, cta: d.ctaText, c: [...new Set([d.country, ...(d.countries ?? [])])], n: d.niche, p: d.platform, l: d.language }
+        ? (res.page as Doc<"ads">[]).map((d) => ({
+            a: d.isActive === true,
+            v: d.mediaType === "video" || !!d.videoUrl,
+            cta: d.ctaText,
+            c: [...new Set([d.country, ...(d.countries ?? [])])],
+            n: d.niche,
+            p: d.platform,
+            l: d.language,
+          }))
         : table === "products"
-          ? { n: d.category, s: d.source ?? "curated" }
+          ? (res.page as Doc<"products">[]).map((d) => ({ n: d.category, s: d.source ?? "curated" }))
           : table === "users"
-            ? { admin: d.role === "admin" }
-            : {},
-    );
+            ? (res.page as Doc<"users">[]).map((d) => ({ admin: d.role === "admin" }))
+            : res.page.map(() => ({}));
     return { rows, isDone: res.isDone, cursor: res.continueCursor };
   },
 });
@@ -68,22 +79,24 @@ export const recompute = internalAction({
   args: {},
   handler: async (ctx) => {
     const stats: SiteStats = structuredClone(EMPTY);
-    const scan = async (table: "ads" | "products" | "users" | "stores", each: (r: any) => void) => {
+    const scan = async (table: "ads" | "products" | "users" | "stores", each: (r: ScanRow) => void) => {
       let cursor: string | null = null;
       for (;;) {
-        const res: { rows: any[]; isDone: boolean; cursor: string } = await ctx.runQuery(internal.stats.scanPage, { table, cursor });
+        const res: { rows: ScanRow[]; isDone: boolean; cursor: string } = await ctx.runQuery(internal.stats.scanPage, { table, cursor });
         res.rows.forEach(each);
         if (res.isDone) break;
         cursor = res.cursor;
       }
     };
-    const ctas: string[] = [], countries: string[] = [], niches: string[] = [], platforms: string[] = [], cats: string[] = [], langs: string[] = [], psources: string[] = [];
+    // count() skips empty values, so a missing field just isn't counted.
+    const ctas: string[] = [], countries: string[] = [], langs: string[] = [];
+    const niches: (string | undefined)[] = [], platforms: (string | undefined)[] = [], cats: (string | undefined)[] = [], psources: (string | undefined)[] = [];
     await scan("ads", (r) => {
       stats.ads.total++;
       if (r.a) stats.ads.activeCount++;
       if (r.v) stats.ads.videoCount++;
       if (r.cta) ctas.push(r.cta);
-      for (const c of r.c) if (c && c !== "INTL") countries.push(c);
+      for (const c of r.c ?? []) if (c && c !== "INTL") countries.push(c);
       niches.push(r.n);
       platforms.push(r.p);
       if (r.l) langs.push(r.l);
@@ -110,13 +123,19 @@ export const recompute = internalAction({
   },
 });
 
-// Call after writes that change counts. Schedules one rebuild ~5 minutes out;
-// further calls in that window are free (they only read a tiny flag row).
+// Call after writes that change counts. Schedules one rebuild REBUILD_DELAY_MS
+// out; further calls in that window are free (they only read a tiny flag row).
+// A rebuild scans ads, products, users and stores, so during a long import this
+// waits 30 minutes rather than 5: a few scans instead of a dozen or more. Counts
+// can lag by up to that much; the daily 09:05 rebuild (crons.ts) is always exact.
+// (Exact incremental counters would need every write path that touches these
+// fields to update them; one missed path and the numbers drift.)
+const REBUILD_DELAY_MS = 30 * 60 * 1000;
 export async function markStatsDirty(ctx: MutationCtx) {
   const pending = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "pending")).unique();
   if (pending) return;
   await ctx.db.insert("siteStats", { key: "pending", data: null, updatedAt: new Date().toISOString() });
-  await ctx.scheduler.runAfter(5 * 60 * 1000, internal.stats.recompute, {});
+  await ctx.scheduler.runAfter(REBUILD_DELAY_MS, internal.stats.recompute, {});
 }
 
 export const get = query({
