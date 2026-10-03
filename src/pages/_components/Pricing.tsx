@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Check, Zap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
+import { ConvexError } from "convex/values";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { toast } from "sonner";
@@ -88,10 +89,10 @@ function PlanButton({ variantId, cta, popular }: { variantId: string; cta: strin
         successUrl: window.location.origin + "/dashboard",
         cancelUrl: window.location.href,
       });
-      if (result.url) window.open(result.url, "_blank");
-    } catch {
-      toast.error("Failed to start checkout. Please try again.");
-    } finally {
+      // Same tab: a new tab opened after an await is usually blocked as a popup.
+      window.location.assign(result.url);
+    } catch (err) {
+      toast.error(err instanceof ConvexError ? err.data.message : "Couldn't open checkout. Please try again.");
       setLoading(false);
     }
   };

@@ -1,7 +1,6 @@
 // Drop-in stand-in for the parts of "@usehercules/sdk" this app used, so the
 // app runs without a Hercules account:
 // - email: sent through Resend when RESEND_API_KEY is set (free tier: 3,000/month)
-// - commerce (billing): disabled — admins keep full access, everyone else "none"
 // - push notifications: disabled
 // Every call fails loudly with a clear message instead of silently.
 
@@ -28,21 +27,6 @@ export class Hercules {
       if (!res.ok) throw new Error(`Resend error ${res.status}: ${(await res.text()).slice(0, 200)}`);
       return await res.json();
     },
-  };
-
-  commerce = {
-    customers: {
-      create: async (_args: { name?: string; email?: string }): Promise<{ id: string }> => {
-        throw new NotConfiguredError("Payments", "Checkout is disabled until a payment provider is connected.");
-      },
-      billingPortal: async (_customerId: string, _args: { return_url: string }): Promise<{ url: string }> => {
-        throw new NotConfiguredError("Payments", "Billing is disabled until a payment provider is connected.");
-      },
-    },
-    checkout: async (_args: unknown): Promise<{ url: string | null }> => {
-      throw new NotConfiguredError("Payments", "Checkout is disabled until a payment provider is connected.");
-    },
-    check: async (_args: { customer_id: string; resource_id: string }) => ({ has_access: false }),
   };
 
   pushNotifications = {
