@@ -9,7 +9,8 @@ const crons = cronJobs();
 crons.daily(
   "send winning products email digest",
   { hourUTC: 13, minuteUTC: 20 },
-  internal.emailSender.sendDailyDigest
+  internal.emailSender.sendDailyDigest,
+  {}
 );
 
 // Each import below runs through importRuns.run, which records the result

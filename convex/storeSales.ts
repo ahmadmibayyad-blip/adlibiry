@@ -25,25 +25,28 @@ type CheckResult = { status: "ok"; updatedCount: number } | { status: "error"; e
 async function fetchCatalog(origin: string): Promise<ShopifyProduct[]> {
   const all: ShopifyProduct[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
+    // The 15-second limit covers reading the body too, not just the headers.
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
-    let res: Response;
-    try {
-      res = await fetch(`${origin}/products.json?limit=250&page=${page}`, {
-        headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; AdSpyPro store tracker)" },
-        signal: controller.signal,
-      });
-    } catch {
-      throw new Error("The store didn't respond");
-    } finally {
-      clearTimeout(timer);
-    }
-    if (!res.ok) throw new Error(res.status === 404 ? "No public Shopify catalog" : `The store answered ${res.status}`);
     let body: unknown;
     try {
-      body = await res.json();
-    } catch {
-      throw new Error("No public Shopify catalog");
+      let res: Response;
+      try {
+        res = await fetch(`${origin}/products.json?limit=250&page=${page}`, {
+          headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; AdSpyPro store tracker)" },
+          signal: controller.signal,
+        });
+      } catch {
+        throw new Error("The store didn't respond");
+      }
+      if (!res.ok) throw new Error(res.status === 404 ? "No public Shopify catalog" : `The store answered ${res.status}`);
+      try {
+        body = await res.json();
+      } catch {
+        throw new Error(controller.signal.aborted ? "The store didn't respond" : "No public Shopify catalog");
+      }
+    } finally {
+      clearTimeout(timer);
     }
     const products = (body as { products?: unknown })?.products;
     if (!Array.isArray(products)) throw new Error("No public Shopify catalog");
@@ -104,21 +107,17 @@ export const candidates = internalQuery({
   },
 });
 
+// Each store is checked in its own scheduled action (PARALLEL at a time, 30 s
+// apart). Checking them all in one action could take ~19 minutes, past the
+// 10-minute action limit, and stop partway with no record of where.
 export const runAll = internalAction({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ scheduled: number }> => {
     const stores = await ctx.runQuery(internal.storeSales.candidates, {});
-    let ok = 0;
-    let failed = 0;
-    for (let i = 0; i < stores.length; i += PARALLEL) {
-      const results = await Promise.all(stores.slice(i, i + PARALLEL).map((s) => checkStore(ctx, s)));
-      for (const r of results) {
-        if (r.status === "ok") ok++;
-        else failed++;
-      }
+    for (const [i, store] of stores.entries()) {
+      await ctx.scheduler.runAfter(Math.floor(i / PARALLEL) * 30_000, internal.storeSales.checkOne, { storeId: store._id });
     }
-    console.log(`Store sales tracking: ${ok} checked, ${failed} failed, ${stores.length} due`);
-    return { checked: ok, failed };
+    return { scheduled: stores.length };
   },
 });
 

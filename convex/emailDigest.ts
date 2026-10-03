@@ -9,7 +9,7 @@ import type { Doc } from "./_generated/dataModel";
 export const getDigestRecipients = internalQuery({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args): Promise<{ recipients: { email: string; userId: string }[]; continueCursor: string; isDone: boolean }> => {
-    const prefs = await ctx.db.query("alertPreferences").paginate({ numItems: 500, cursor: args.cursor });
+    const prefs = await ctx.db.query("alertPreferences").paginate({ numItems: 100, cursor: args.cursor });
     const recipients: { email: string; userId: string }[] = [];
     for (const pref of prefs.page) {
       if (!pref.emailDigestEnabled) continue;

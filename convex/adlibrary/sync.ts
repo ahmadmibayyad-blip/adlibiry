@@ -623,22 +623,37 @@ export const listUnenriched = internalQuery({
 
 // Background: enrich up to ~50 ads per run (6.5s apart = AdLibrary's
 // 10 req/min limit), then reschedule itself until nothing is left.
+// Leaves ~3 minutes of the 10-minute action limit for one slow request plus a
+// 60-second rate-limit wait.
+const ENRICH_TIME_BUDGET_MS = 7 * 60_000;
+
 export const enrichPending = internalAction({
   args: {},
   handler: async (ctx): Promise<{ enriched: number; remaining: boolean }> => {
     const apiKey = process.env.ADLIBRARY_API_KEY;
     if (!apiKey) return { enriched: 0, remaining: false };
     const keys: string[] = await ctx.runQuery(internal.adlibrary.sync.listUnenriched, { limit: 50 });
+    // An action is stopped after 10 minutes, and then nothing reschedules the
+    // chain. Stop well before that and let the next run pick up the rest.
+    const started = Date.now();
     let enriched = 0;
     let failures = 0;
+    let rateLimited = 0;
+    let stoppedEarly = false;
     for (const adKey of keys) {
+      if (Date.now() - started > ENRICH_TIME_BUDGET_MS || rateLimited >= 3) {
+        stoppedEarly = true;
+        break;
+      }
       await sleep(REQUEST_GAP_MS);
       try {
         // Verified 2026-09-27: GET with query params + Bearer key (POST → 405).
         const response = await fetch(`${ADLIBRARY_DETAIL_URL}?${new URLSearchParams({ creative_key: adKey, app_type: "3" })}`, {
           headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(20_000),
         });
         if (response.status === 429) {
+          rateLimited += 1;
           await sleep(60_000);
           continue;
         }
@@ -655,7 +670,12 @@ export const enrichPending = internalAction({
         failures += 1;
       }
     }
-    const remaining = keys.length === 50 && failures < 25;
+    if (rateLimited >= 3) {
+      // AdLibrary keeps saying "too many requests": back off for a while.
+      await ctx.scheduler.runAfter(15 * 60_000, internal.adlibrary.sync.enrichPending, {});
+      return { enriched, remaining: true };
+    }
+    const remaining = (keys.length === 50 || stoppedEarly) && failures < 25;
     if (remaining) await ctx.scheduler.runAfter(5_000, internal.adlibrary.sync.enrichPending, {});
     return { enriched, remaining };
   },

@@ -4,6 +4,8 @@ import { api, internal } from "./_generated/api";
 import { NICHE_KEYWORDS } from "./adlibrary/client";
 import { toAlpha2List } from "./lib/countryCodes";
 import { classifyNiche } from "./lib/category";
+import { adFields } from "./sources/links";
+import type { Infer } from "convex/values";
 
 // Untyped JSON from an external API, read defensively field by field.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,17 +158,31 @@ export const handleWebhook = internalAction({
       await ctx.runMutation(internal.apify.setRunInfo, { token: args.token, status: "failed", result: args.eventType ?? "no dataset" });
       return { ok: true };
     }
-    const result = await ctx.runAction(internal.apify.importDataset, {
-      datasetId: args.datasetId,
-      country: run.country,
-      niche: run.niche,
-    });
+    let result: ImportResult;
+    try {
+      result = await ctx.runAction(internal.apify.importDataset, {
+        datasetId: args.datasetId,
+        country: run.country,
+        niche: run.niche,
+      });
+    } catch (e) {
+      await ctx.runMutation(internal.apify.setRunInfo, {
+        token: args.token,
+        status: "failed",
+        result: `Import stopped: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300),
+      });
+      return { ok: false };
+    }
+    // Nothing fetched and errors (e.g. the dataset request failed) is a failure, not an import.
+    const failed = result.fetched === 0 && result.errors.length > 0;
     await ctx.runMutation(internal.apify.setRunInfo, {
       token: args.token,
-      status: "imported",
-      result: `${result.created} created, ${result.updated} updated, ${result.errors.length} errors`,
+      status: failed ? "failed" : "imported",
+      result: failed
+        ? result.errors[0].slice(0, 300)
+        : `${result.created} created, ${result.updated} updated, ${result.errors.length} errors`,
     });
-    return { ok: true };
+    return { ok: !failed };
   },
 });
 
@@ -186,6 +202,7 @@ export const startImportNow = action({
 });
 
 type ImportResult = { fetched: number; created: number; updated: number; skipped: number; errors: string[] };
+const externalAd = v.object(adFields);
 
 export const importDataset = internalAction({
   args: { datasetId: v.string(), country: v.string(), niche: v.string() },
@@ -209,6 +226,14 @@ export const importDataset = internalAction({
       if (!items.length) break;
       result.fetched += items.length;
 
+      const batch: Infer<typeof externalAd>[] = [];
+      const flush = async () => {
+        if (!batch.length) return;
+        const r = await ctx.runMutation(internal.sources.links.upsertExternalAds, { ads: batch.splice(0) });
+        result.created += r.created;
+        result.updated += r.updated;
+        for (const e of r.errors) if (result.errors.length < 10) result.errors.push(e);
+      };
       for (const it of items) {
         const archiveId = pick(it, "ad_archive_id", "adArchiveID", "adArchiveId", "adId");
         const s = pick(it, "snapshot") ?? {};
@@ -244,42 +269,38 @@ export const importDataset = internalAction({
 
         // Honest score from what Meta exposes: longevity + number of ad copies (scaling).
         const aiScore = Math.max(1, Math.min(100, Math.round((Math.min(days, 60) / 60) * 60 + (Math.min(copies, 20) / 20) * 40)));
-        try {
-          const outcome = await ctx.runMutation(internal.sources.links.upsertExternalAd, {
-            externalId: `meta_${archiveId}`,
-            source: "apify",
-            advertiserName: pageName.slice(0, 200),
-            platform: platforms.length === 1 && platforms[0] === "instagram" ? "Instagram" : "Facebook",
-            country: args.country.toUpperCase(),
-            // What the ad actually sells; the searched niche only when unclear.
-            niche: classifyNiche({ title, body, url: link, advertiser: pageName }, args.niche),
-            headline: (title || body.split("\n")[0] || "Sponsored ad").slice(0, 500),
-            bodyText: String(body ?? "").slice(0, 2000),
-            creativeUrl: String(image),
-            landingPageUrl: link,
-            spendEstimate: "Unknown",
-            likes: 0,
-            views: reach ? compact(reach) : "0",
-            daysRunning: days,
-            aiScore,
-            firstSeenAt: new Date(start ?? Date.now()).toISOString(),
-            mediaType: (pick(s, "cards") ?? []).length > 1 ? "carousel" : video ? "video" : "image",
-            ...(video ? { videoUrl: String(video) } : {}),
-            ...(avatar ? { advertiserAvatar: String(avatar) } : {}),
-            ...(cta ? { ctaText: String(cta) } : {}),
-            ...(reach ? { impressions: reach } : {}),
-            relatedAdsCount: copies,
-            ...(isActive !== undefined ? { isActive: !!isActive } : {}),
-            ...(end && isActive === false ? { lastSeenAt: new Date(end).toISOString() } : { lastSeenAt: new Date().toISOString() }),
-            ...(countryList.length ? { countries: countryList } : {}),
-            adLibraryUrl: `https://www.facebook.com/ads/library/?id=${archiveId}`,
-          });
-          if (outcome === "created") result.created += 1;
-          else result.updated += 1;
-        } catch (e) {
-          if (result.errors.length < 10) result.errors.push(`save ${archiveId}: ${e instanceof Error ? e.message : e}`);
-        }
+        batch.push({
+          externalId: `meta_${archiveId}`,
+          source: "apify",
+          advertiserName: pageName.slice(0, 200),
+          platform: platforms.length === 1 && platforms[0] === "instagram" ? "Instagram" : "Facebook",
+          country: args.country.toUpperCase(),
+          // What the ad actually sells; the searched niche only when unclear.
+          niche: classifyNiche({ title, body, url: link, advertiser: pageName }, args.niche),
+          headline: (title || body.split("\n")[0] || "Sponsored ad").slice(0, 500),
+          bodyText: String(body ?? "").slice(0, 2000),
+          creativeUrl: String(image),
+          landingPageUrl: link,
+          spendEstimate: "Unknown",
+          likes: 0,
+          views: reach ? compact(reach) : "0",
+          daysRunning: days,
+          aiScore,
+          firstSeenAt: new Date(start ?? Date.now()).toISOString(),
+          mediaType: (pick(s, "cards") ?? []).length > 1 ? "carousel" : video ? "video" : "image",
+          ...(video ? { videoUrl: String(video) } : {}),
+          ...(avatar ? { advertiserAvatar: String(avatar) } : {}),
+          ...(cta ? { ctaText: String(cta) } : {}),
+          ...(reach ? { impressions: reach } : {}),
+          relatedAdsCount: copies,
+          ...(isActive !== undefined ? { isActive: !!isActive } : {}),
+          ...(end && isActive === false ? { lastSeenAt: new Date(end).toISOString() } : { lastSeenAt: new Date().toISOString() }),
+          ...(countryList.length ? { countries: countryList } : {}),
+          adLibraryUrl: `https://www.facebook.com/ads/library/?id=${archiveId}`,
+        });
+        if (batch.length >= 50) await flush();
       }
+      await flush();
       if (items.length < limit) break;
     }
     return result;
