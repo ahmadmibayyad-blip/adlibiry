@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { cn } from "@/lib/utils.ts";
 import {
@@ -24,6 +23,7 @@ import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar.tsx";
 import AIAssistant from "./ai/AIAssistant.tsx";
+import Logo from "@/components/Logo.tsx";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -47,25 +47,7 @@ const planColors: Record<string, string> = {
   none: "bg-muted text-muted-foreground border-border",
 };
 
-function Logo() {
-  return (
-    <span className="flex items-center gap-2 font-display font-bold text-[17px] tracking-tight">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 12 L19 5" />
-      </svg>
-      AdSpy Pro
-    </span>
-  );
-}
-
 export default function DashboardLayout() {
-  // The dashboard look lives on <html> so dialogs and menus (rendered in portals) get it too.
-  useEffect(() => {
-    document.documentElement.classList.add("theme-adspy");
-    return () => document.documentElement.classList.remove("theme-adspy");
-  }, []);
 
   const location = useLocation();
   const { user, signout } = useAuth();

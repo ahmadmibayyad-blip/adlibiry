@@ -83,7 +83,7 @@ export default function FAQ() {
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
             Got Questions?
           </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
             Frequently Asked
             <span className="text-primary"> Questions</span>
           </h2>

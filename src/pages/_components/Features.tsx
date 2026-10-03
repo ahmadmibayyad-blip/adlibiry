@@ -16,40 +16,40 @@ const features = [
     title: "Ad Spy",
     description:
       "Browse millions of Facebook, TikTok, and Pinterest ads. Filter by spend, engagement, country, and niche to find the hottest creatives.",
-    gradient: "from-green-500/20 to-emerald-500/10",
-    accent: "text-green-400",
+    gradient: "from-chart-1/15 to-chart-1/5",
+    accent: "text-chart-1",
   },
   {
     icon: TrendingUp,
     title: "Product Research",
     description:
       "Discover trending products before they go mainstream. See real-time sales velocity, saturation scores, and profit potential.",
-    gradient: "from-blue-500/20 to-cyan-500/10",
-    accent: "text-blue-400",
+    gradient: "from-chart-3/15 to-chart-3/5",
+    accent: "text-chart-3",
   },
   {
     icon: Store,
     title: "Store Tracker",
     description:
       "Analyze any Shopify store. See their revenue estimates, traffic sources, best-sellers, and ad strategies at a glance.",
-    gradient: "from-purple-500/20 to-pink-500/10",
-    accent: "text-purple-400",
+    gradient: "from-chart-4/15 to-chart-4/5",
+    accent: "text-chart-4",
   },
   {
     icon: BarChart3,
     title: "Ad Spend Analytics",
     description:
       "See exactly how much competitors are spending on ads. Identify scaling brands and emerging niches before they blow up.",
-    gradient: "from-orange-500/20 to-yellow-500/10",
-    accent: "text-orange-400",
+    gradient: "from-brand/15 to-brand/5",
+    accent: "text-brand-ink",
   },
   {
     icon: Globe,
     title: "Market Intelligence",
     description:
       "Explore product trends across 180+ countries. Find untapped markets and understand demand by region.",
-    gradient: "from-teal-500/20 to-green-500/10",
-    accent: "text-teal-400",
+    gradient: "from-chart-5/15 to-chart-5/5",
+    accent: "text-chart-5",
   },
   {
     icon: Sparkles,
@@ -64,16 +64,16 @@ const features = [
     title: "Creative Library",
     description:
       "Save winning ads to your personal library. Organize by niche, platform, and performance for instant creative inspiration.",
-    gradient: "from-rose-500/20 to-pink-500/10",
-    accent: "text-rose-400",
+    gradient: "from-chart-2/15 to-chart-2/5",
+    accent: "text-chart-2",
   },
   {
     icon: Target,
     title: "Competitor Alerts",
     description:
       "Set up real-time alerts when competitors launch new ads or products. Never miss a market move again.",
-    gradient: "from-indigo-500/20 to-blue-500/10",
-    accent: "text-indigo-400",
+    gradient: "from-chart-3/15 to-chart-1/5",
+    accent: "text-chart-3",
   },
 ];
 
@@ -92,7 +92,7 @@ export default function Features() {
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
             Everything You Need
           </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">
             The Complete Ecommerce
             <br />
             <span className="text-primary">Intelligence Suite</span>

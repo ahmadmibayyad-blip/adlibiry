@@ -143,8 +143,8 @@
   --brand-ink: #e58a4e;
 }
 
-/* Dashboard look. DashboardLayout puts this class on <html> (so dialogs and
-   menus rendered in portals get it too); the marketing pages keep the theme above. */
+/* AdSpy Pro look, used site-wide: index.html puts this class on <html>, so
+   dialogs and menus rendered in portals get it too. */
 .theme-adspy {
   --background: #f4f2ec;
   --foreground: #15171c;

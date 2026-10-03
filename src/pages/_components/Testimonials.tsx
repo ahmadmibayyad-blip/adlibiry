@@ -66,7 +66,7 @@ export default function Testimonials() {
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
             Success Stories
           </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
             Sellers Are Winning
             <span className="text-primary"> Every Day</span>
           </h2>
@@ -96,7 +96,7 @@ export default function Testimonials() {
                     <div className="text-xs text-muted-foreground">{t.role}</div>
                   </div>
                 </div>
-                <div className="text-sm font-bold text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg px-2 py-1">
+                <div className="text-sm font-bold text-good bg-good/10 border border-good/20 rounded-lg px-2 py-1">
                   {t.revenue}
                 </div>
               </div>

@@ -22,7 +22,7 @@ function LiveStatus() {
     <div className="grid sm:grid-cols-3 gap-3 not-prose">
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center gap-2 text-sm font-semibold">
-          <span className={cn("w-2.5 h-2.5 rounded-full", stats === undefined ? "bg-muted-foreground" : "bg-green-500")} />
+          <span className={cn("w-2.5 h-2.5 rounded-full", stats === undefined ? "bg-muted-foreground" : "bg-good")} />
           {stats === undefined ? "Checking…" : "Database online"}
         </div>
         <div className="text-xs text-muted-foreground mt-1">Live from AdSpy Pro</div>
@@ -48,7 +48,7 @@ export default function InfoPage() {
       <Navbar />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-28 pb-20 grid gap-10 md:grid-cols-[180px_minmax(0,1fr)]">
         <nav aria-label={page.group} className="md:sticky md:top-28 self-start">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{page.group}</div>
+          <div className="text-sm font-semibold mb-2">{page.group}</div>
           <ul className="flex md:flex-col flex-wrap gap-1">
             {siblings.map((p) => (
               <li key={p.slug}>

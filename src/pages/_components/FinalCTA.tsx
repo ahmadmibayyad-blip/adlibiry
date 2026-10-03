@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
-import { ArrowRight, Zap } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { LogoMark } from "@/components/Logo.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 export default function FinalCTA() {
@@ -17,9 +18,9 @@ export default function FinalCTA() {
           className="bg-gradient-to-b from-card to-background border border-border rounded-3xl p-12 md:p-16"
         >
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mx-auto mb-6">
-            <Zap className="w-7 h-7 text-primary" />
+            <LogoMark size={30} />
           </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">
             Start Finding Winning
             <br />
             <span className="text-primary">Products Today</span>

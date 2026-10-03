@@ -45,7 +45,7 @@ const mockAds = [
 ];
 
 function ScoreRing({ score }: { score: number }) {
-  const color = score >= 90 ? "text-green-400" : score >= 75 ? "text-yellow-400" : "text-red-400";
+  const color = score >= 90 ? "text-good" : score >= 75 ? "text-warn" : "text-bad";
   return (
     <div className={`text-xs font-bold ${color} bg-background/60 rounded-lg px-2 py-1 border border-border`}>
       AI {score}
@@ -71,7 +71,7 @@ export default function AdSpy() {
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
             Live Ad Intelligence
           </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
             Spy on Any Ad.
             <span className="text-primary"> Anywhere.</span>
           </h2>
@@ -148,7 +148,7 @@ export default function AdSpy() {
 
                 <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3 text-green-400" />
+                    <TrendingUp className="w-3 h-3 text-good" />
                     Running {ad.days} days
                   </span>
                   <span className="text-primary font-medium cursor-pointer hover:underline">View Ad →</span>
