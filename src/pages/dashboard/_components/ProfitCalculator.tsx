@@ -52,13 +52,13 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
       <div className="border-t border-border pt-4 space-y-2">
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Profit per order</span>
-          <span className={cn("font-bold text-sm", profit >= 0 ? "text-green-400" : "text-red-400")}>
+          <span className={cn("font-bold text-sm", profit >= 0 ? "text-good" : "text-bad")}>
             ${profit.toFixed(2)}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Margin</span>
-          <span className={cn("font-bold text-sm", margin >= 30 ? "text-green-400" : margin >= 15 ? "text-yellow-400" : "text-red-400")}>
+          <span className={cn("font-bold text-sm", margin >= 30 ? "text-good" : margin >= 15 ? "text-warn" : "text-bad")}>
             {margin}%
           </span>
         </div>

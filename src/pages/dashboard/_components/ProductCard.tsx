@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bookmark, BookmarkCheck, TrendingUp, Zap } from "lucide-react";
+import { Bookmark, BookmarkCheck, TrendingUp } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { cn } from "@/lib/utils.ts";
@@ -12,22 +12,23 @@ import { rangeLabel } from "@/lib/estimateFormat.ts";
 type Product = Doc<"products">;
 
 const saturationColors: Record<string, string> = {
-  Low: "text-green-400 bg-green-400/10",
-  Medium: "text-yellow-400 bg-yellow-400/10",
-  High: "text-red-400 bg-red-400/10",
+  Low: "text-good bg-good/10",
+  Medium: "text-warn bg-warn/10",
+  High: "text-bad bg-bad/10",
 };
 
 const trendColors: Record<string, string> = {
-  Rising: "text-green-400",
-  Stable: "text-blue-400",
-  Declining: "text-red-400",
+  Rising: "text-good",
+  Stable: "text-chart-3",
+  Declining: "text-bad",
   Unknown: "text-muted-foreground",
 };
 
-function scoreColor(score: number) {
-  if (score >= 85) return "text-green-400";
-  if (score >= 70) return "text-yellow-400";
-  return "text-red-400";
+// Score badge: dark for strong products, quieter below the winner range.
+function scoreTone(score: number) {
+  if (score >= 85) return "bg-good text-white dark:text-background";
+  if (score >= 65) return "bg-foreground text-background";
+  return "bg-background/90 text-foreground border border-border";
 }
 
 function SaveButton({ productId }: { productId: Id<"products"> }) {
@@ -86,11 +87,14 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
-          <div className="flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-full px-2 py-0.5 shadow-sm" title="AI score">
-            <Zap className="w-3 h-3 text-primary" />
-            <span className={cn("text-xs font-bold tabular-nums", scoreColor(product.aiScore))}>{product.aiScore}</span>
+          <div
+            className={cn("flex items-baseline gap-1.5 rounded-lg px-2 py-1 shadow-sm", scoreTone(product.aiScore))}
+            title="AdSpy score out of 100: ad spend, trend, saturation and margin"
+          >
+            <span className="text-[10px] font-medium opacity-80">Score</span>
+            <span className="text-sm font-bold leading-none tabular-nums">{product.aiScore}</span>
           </div>
-          {isNewToday && <div className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-orange-500 text-white">New today</div>}
+          {isNewToday && <div className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-brand text-[#15171c]">New today</div>}
         </div>
         <div className="absolute top-2 right-2">
           <Authenticated>
@@ -125,7 +129,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
               </span>
             )}
             {ads > 0 && (
-              <span className="text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400">
+              <span className="text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-full bg-brand/15 text-brand-ink">
                 {ads} ad{ads === 1 ? "" : "s"}
               </span>
             )}
@@ -143,7 +147,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
               <div className="flex items-baseline gap-1">
                 <span className="text-base font-bold tabular-nums">${product.price}</span>
                 {product.priceSource === "estimated_market" && (
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wide">est.</span>
+                  <span className="text-[10px] text-muted-foreground">est.</span>
                 )}
               </div>
               {product.priceSource === "landing_page" && product.originalPrice && !product.originalPrice.startsWith("USD") && (
@@ -157,13 +161,13 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           )}
           {margin !== null && (
             <div className="text-right shrink-0">
-              <div className="text-sm font-bold text-primary tabular-nums">{margin}%</div>
+              <div className="text-sm font-bold text-good tabular-nums">{margin}%</div>
               <div className="text-[10px] text-muted-foreground">margin</div>
             </div>
           )}
           {margin === null && product.saturation !== "Unknown" && (
             <span className={cn("hidden sm:inline text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0", saturationColors[product.saturation] ?? "text-muted-foreground bg-muted")}>
-              {product.saturation} sat.
+              {product.saturation} saturation
             </span>
           )}
         </div>

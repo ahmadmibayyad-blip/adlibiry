@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { cn } from "@/lib/utils.ts";
 import {
@@ -9,8 +10,6 @@ import {
   Bot,
   Sparkles,
   Settings,
-  Zap,
-  ChevronRight,
   LogOut,
   Store,
   LineChart,
@@ -42,13 +41,32 @@ const navItems = [
 ];
 
 const planColors: Record<string, string> = {
-  starter: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  starter: "bg-chart-3/10 text-chart-3 border-chart-3/20",
   pro: "bg-primary/10 text-primary border-primary/20",
-  agency: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  agency: "bg-chart-4/10 text-chart-4 border-chart-4/20",
   none: "bg-muted text-muted-foreground border-border",
 };
 
+function Logo() {
+  return (
+    <span className="flex items-center gap-2 font-display font-bold text-[17px] tracking-tight">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 12 L19 5" />
+      </svg>
+      AdSpy Pro
+    </span>
+  );
+}
+
 export default function DashboardLayout() {
+  // The dashboard look lives on <html> so dialogs and menus (rendered in portals) get it too.
+  useEffect(() => {
+    document.documentElement.classList.add("theme-adspy");
+    return () => document.documentElement.classList.remove("theme-adspy");
+  }, []);
+
   const location = useLocation();
   const { user, signout } = useAuth();
   const { plan } = useUserPlan();
@@ -68,13 +86,8 @@ export default function DashboardLayout() {
       {/* Sidebar — desktop */}
       <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar shrink-0">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 h-14 border-b border-border">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Zap className="w-3.5 h-3.5 text-primary-foreground" />
-          </div>
-          <span className="font-bold text-base tracking-tight">
-            AdSpy<span className="text-primary">Pro</span>
-          </span>
+        <div className="flex items-center px-5 h-14 border-b border-border">
+          <Logo />
         </div>
 
         {/* Nav */}
@@ -102,7 +115,6 @@ export default function DashboardLayout() {
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
-                    {active && <ChevronRight className="w-3 h-3 opacity-50" />}
                   </Link>
                 </li>
               );
@@ -129,6 +141,7 @@ export default function DashboardLayout() {
             </div>
             <button
               onClick={() => signout()}
+              aria-label="Sign out"
               className="p-1 rounded hover:bg-secondary transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
               title="Sign out"
             >
@@ -142,14 +155,7 @@ export default function DashboardLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar — mobile */}
         <header className="md:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-sidebar shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-base">
-              AdSpy<span className="text-primary">Pro</span>
-            </span>
-          </div>
+          <Logo />
           <div className="flex items-center gap-2">
             {isAdmin && (
               <Link

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Authenticated, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, ChevronRight, ExternalLink, Info, Package } from "lucide-react";
+import { Bookmark, BookmarkCheck, ExternalLink, Info, Package } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -56,15 +56,15 @@ function ProductInAd({ productId }: { productId: Id<"products"> }) {
         {product.imageUrl ? <img src={product.imageUrl} alt="" className="w-full h-full object-cover" /> : <Package className="w-5 h-5 text-primary" />}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-primary">Product in this ad</div>
+        <div className="text-xs font-semibold text-primary">Product in this ad</div>
         <div className="font-semibold truncate">{product.title}</div>
         <div className="text-xs text-muted-foreground">
-          {product.winnerRank !== undefined ? `Winner · #${product.winnerRank} in ${product.category}` : product.category}
-          {(product.linkedAds ?? 0) > 1 && ` · ${product.linkedAds} ads merged`}
+          {product.winnerRank !== undefined ? `Winner, #${product.winnerRank} in ${product.category}` : product.category}
+          {(product.linkedAds ?? 0) > 1 && `, ${product.linkedAds} ads grouped`}
         </div>
       </div>
       <span className="text-sm font-medium text-primary flex items-center shrink-0">
-        Open product <ChevronRight className="w-4 h-4" />
+        Open product
       </span>
     </Link>
   );
@@ -148,20 +148,20 @@ export default function AdDetailPage() {
               {ad.country && <span className="text-xs px-2 py-0.5 rounded bg-muted">{flag(ad.country)} {ad.country}</span>}
               {ad.mediaType && <span className="text-xs px-2 py-0.5 rounded bg-muted capitalize">{ad.mediaType}</span>}
               <span className="text-xs px-2 py-0.5 rounded bg-muted">{ad.niche}</span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/15 text-primary">Ad score {ad.aiScore}</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-foreground text-background">Ad score {ad.aiScore}</span>
             </div>
             <div className="flex items-center gap-2 mb-2 min-w-0">
               {ad.advertiserAvatar && <img src={ad.advertiserAvatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />}
               <span className="text-sm font-semibold truncate">{ad.advertiserName}</span>
               <FollowAdvertiser name={ad.advertiserName} className="shrink-0" />
             </div>
-            <h1 className="text-2xl font-bold leading-tight mb-1">“{ad.headline}”</h1>
+            <h1 className="font-display text-2xl font-bold leading-tight mb-1">“{ad.headline}”</h1>
             <p className="text-sm text-muted-foreground line-clamp-3">
               {ad.bodyText}
-              {ad.ctaText && `${ad.bodyText ? " · " : ""}CTA: ${ad.ctaText}`}
+              {ad.ctaText && `${ad.bodyText ? " " : ""}Button: ${ad.ctaText}`}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-4">
-              <StatTile label="Running" value={ad.daysRunning > 0 ? `${ad.daysRunning} d` : "—"} />
+              <StatTile label="Running" value={ad.daysRunning > 0 ? `${ad.daysRunning} days` : "—"} />
               <StatTile label="Views" value={adViews(ad) ? compactNumber(adViews(ad)) : "—"} />
               <StatTile label="Likes" value={ad.likes ? compactNumber(ad.likes) : "—"} />
               <StatTile label="Comments" value={ad.comments ? compactNumber(ad.comments) : "—"} />
