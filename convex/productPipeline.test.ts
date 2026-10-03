@@ -177,6 +177,30 @@ describe("daily history", () => {
     expect(history).toHaveLength(1);
   });
 
+  it("skips unchanged days but still charts every day, and trends from the last change", async () => {
+    const t = convexTest(schema, modules);
+    const adId = await t.run((ctx) => ctx.db.insert("ads", ad({ views: "10.0K", likes: 50 })));
+    await runPipeline(t); // 2026-09-30
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await runPipeline(t); // nothing changed
+    vi.setSystemTime(new Date("2026-10-02T08:05:00Z"));
+    await runPipeline(t); // nothing changed
+
+    const adRows = (await t.run((ctx) => ctx.db.query("dailySnapshots").collect())).filter((r) => r.kind === "ad");
+    expect(adRows.map((r) => r.day)).toEqual(["2026-09-30"]);
+    const history = await t.withIdentity({ subject: "test|s" }).query(api.history.adHistory, { adId: adId as Id<"ads">, days: 7 });
+    expect(history.map((r) => [r.day, r.views])).toEqual([
+      ["2026-09-30", 10_000], ["2026-10-01", 10_000], ["2026-10-02", 10_000],
+    ]);
+
+    // A week after the only stored product row, views grew 50%: still "Rising".
+    vi.setSystemTime(new Date("2026-10-07T08:05:00Z"));
+    await t.run((ctx) => ctx.db.patch("ads", adId, { views: "15.0K" }));
+    await runPipeline(t);
+    const [p] = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(p.trend).toBe("Rising");
+  });
+
   it("gives products from ads a trend once there is a week of history", async () => {
     const t = convexTest(schema, modules);
     await t.run((ctx) => ctx.db.insert("ads", ad({ views: "10.0K" })));

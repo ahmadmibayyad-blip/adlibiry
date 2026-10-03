@@ -12,6 +12,7 @@ import { priceFromAdText, priceLabel, toUsd } from "./lib/priceParse";
 import {
   adSellsProduct, gmvFromText, parseCompact, productFlags, productTitleForAd, roundRobin, titleKey, urlKey, isProductPage,
 } from "./lib/productMatch";
+import { shouldWriteSnapshot } from "./lib/snapshots";
 
 // ── Daily product pipeline ──────────────────────────────────────────────────
 // Runs once a day after the imports (see crons.ts), as a chain of small
@@ -349,10 +350,13 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
     patch.aiScore = Math.min(100, best + 3 * (ads.length - 1));
     patch.likes = sum.likes;
     if (!p.imageUrl) patch.imageUrl = ads.find((a) => a.creativeUrl)?.creativeUrl ?? "";
+    // The numbers as of a week ago: the latest row on or before that day (rows
+    // are only written on days something changed, see upsertSnapshot).
     const weekAgo = await ctx.db
       .query("dailySnapshots")
-      .withIndex("by_entity_day", (q) => q.eq("kind", "product").eq("entityId", p._id).eq("day", dayMinus(day, 7)))
-      .unique();
+      .withIndex("by_entity_day", (q) => q.eq("kind", "product").eq("entityId", p._id).lte("day", dayMinus(day, 7)))
+      .order("desc")
+      .first();
     if (weekAgo && weekAgo.views > 0) {
       const growth = (sum.views - weekAgo.views) / weekAgo.views;
       patch.trend = growth >= 0.2 ? "Rising" : growth >= 0.02 ? "Stable" : "Declining";
@@ -441,11 +445,15 @@ export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<num
 
 type SnapshotValues = Omit<Doc<"dailySnapshots">, "_id" | "_creationTime" | "day" | "kind" | "entityId">;
 
+// Writes today's row only when the numbers changed since the latest one (or it's
+// 30+ days old): frozen ads and products don't add a row a day. The history
+// queries fill the skipped days back in (lib/snapshots.ts fillDays).
 async function upsertSnapshot(ctx: MutationCtx, day: string, kind: "product" | "ad", entityId: string, values: SnapshotValues) {
-  const row = await ctx.db
+  const latest = await ctx.db
     .query("dailySnapshots")
-    .withIndex("by_entity_day", (q) => q.eq("kind", kind).eq("entityId", entityId).eq("day", day))
-    .unique();
-  if (row) await ctx.db.patch("dailySnapshots", row._id, values);
-  else await ctx.db.insert("dailySnapshots", { day, kind, entityId, ...values });
+    .withIndex("by_entity_day", (q) => q.eq("kind", kind).eq("entityId", entityId).lte("day", day))
+    .order("desc")
+    .first();
+  if (latest?.day === day) await ctx.db.patch("dailySnapshots", latest._id, values);
+  else if (shouldWriteSnapshot(latest, day, values)) await ctx.db.insert("dailySnapshots", { day, kind, entityId, ...values });
 }
