@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { query } from "./_generated/server";
-import { requireSignedIn } from "./lib/access";
+import { limitedPage, requireSignedIn } from "./lib/access";
 import { WINNERS_PER_NICHE, WINNER_MIN_SCORE } from "./productPipeline";
 
 // ── Winning Products (read side) ────────────────────────────────────────────
@@ -20,17 +20,19 @@ export const feed = query({
       : args.mode === "byNiche"
         ? ctx.db.query("winningProducts").withIndex("by_niche_rank")
         : ctx.db.query("winningProducts").withIndex("by_position");
-    const result = await rows.paginate(args.paginationOpts);
     const today = new Date().toISOString().slice(0, 10);
-    const page = (
-      await Promise.all(
-        result.page.map(async (r) => {
-          const product = await ctx.db.get("products", r.productId);
-          return product ? { niche: r.niche, nicheRank: r.nicheRank, isNewToday: r.enteredDay === today, product } : null;
-        }),
-      )
-    ).filter((x) => x !== null);
-    return { ...result, page };
+    return await limitedPage(ctx, args.paginationOpts, async (paginationOpts) => {
+      const result = await rows.paginate(paginationOpts);
+      const page = (
+        await Promise.all(
+          result.page.map(async (r) => {
+            const product = await ctx.db.get("products", r.productId);
+            return product ? { niche: r.niche, nicheRank: r.nicheRank, isNewToday: r.enteredDay === today, product } : null;
+          }),
+        )
+      ).filter((x) => x !== null);
+      return { ...result, page };
+    });
   },
 });
 

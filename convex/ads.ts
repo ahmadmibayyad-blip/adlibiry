@@ -1,6 +1,6 @@
 import { ConvexError, v, type ObjectType } from "convex/values";
 import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
-import { requireSignedIn } from "./lib/access";
+import { limitedPage, requireSignedIn } from "./lib/access";
 import type { Expression, FilterBuilder, NamedTableInfo } from "convex/server";
 import type { DataModel } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
@@ -127,7 +127,7 @@ export const list = query({
   args: listArgs,
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    return await listImpl(ctx, args);
+    return await limitedPage(ctx, args.paginationOpts, (paginationOpts) => listImpl(ctx, { ...args, paginationOpts }));
   },
 });
 

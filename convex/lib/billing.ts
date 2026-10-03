@@ -40,3 +40,13 @@ export function effectivePlan(user: { role?: string; plan?: string; subscription
   if (!user.subscriptionStatus || !ACCESS_STATUSES.has(user.subscriptionStatus)) return "none";
   return user.plan === "starter" || user.plan === "pro" || user.plan === "agency" ? user.plan : "none";
 }
+
+// Free and trial accounts see the first 10 results of each list; paying
+// customers (active, or past_due while Stripe retries) and admins see all.
+export const TRIAL_RESULT_LIMIT = 10;
+
+export function resultLimit(user: { role?: string; plan?: string; subscriptionStatus?: string } | null): number | null {
+  if (user?.role === "admin") return null;
+  const paying = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "past_due";
+  return paying && effectivePlan(user) !== "none" ? null : TRIAL_RESULT_LIMIT;
+}

@@ -42,6 +42,8 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`.
 - Trials are 7 days without a card (`payment_method_collection: "if_required"`); no card by day 7 cancels.
 - Access: trialing, active and past_due keep the plan; admins always get Agency.
+- Result limit: free and trialing accounts see the first 10 results of each list (`resultLimit` in `convex/lib/billing.ts`,
+  applied by `limitedPage` / `resultLimitFor` in `convex/lib/access.ts`); active and past_due subscribers and admins see all.
 
 ## Data
 

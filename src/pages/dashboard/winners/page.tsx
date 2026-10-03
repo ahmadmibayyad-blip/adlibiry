@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 type Mode = "mixed" | "byNiche";
 
@@ -71,6 +72,7 @@ export default function WinnersPage() {
           </div>
         </div>
 
+        <TrialLimitNotice />
         <div className="flex flex-wrap gap-2 mb-3">
           <RuleChip>Top {slots} per niche only</RuleChip>
           <RuleChip>Score {minScore} or higher</RuleChip>

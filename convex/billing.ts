@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { stableToken } from "./lib/authIdentity";
+import { resultLimitFor } from "./lib/access";
 import { effectivePlan, planForPrice, type Plan } from "./lib/billing";
 
 // The signed-in user's plan. A query (not an action) so the app updates the
@@ -16,6 +17,13 @@ export const myPlan = query({
       .unique();
     return effectivePlan(user);
   },
+});
+
+// How many results per list the signed-in user sees (null: all). The app shows
+// a notice on list pages when this is set.
+export const myResultLimit = query({
+  args: {},
+  handler: async (ctx): Promise<number | null> => await resultLimitFor(ctx),
 });
 
 export const setCustomerId = internalMutation({
