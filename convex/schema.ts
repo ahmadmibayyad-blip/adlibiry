@@ -454,6 +454,12 @@ export default defineSchema({
     .index("by_expires", ["expiresAt"]),
 
   // Follow alerts: advertisers a user follows (convex/follows.ts).
+  // All free accounts' AI requests per day (convex/assistantUsage.ts claimMessage).
+  aiFreeUsage: defineTable({
+    day: v.string(), // YYYY-MM-DD (UTC)
+    count: v.number(),
+  }).index("by_day", ["day"]),
+
   // One row per daily import run (convex/importRuns.ts); pruned after 60 days.
   importRuns: defineTable({
     job: v.string(),

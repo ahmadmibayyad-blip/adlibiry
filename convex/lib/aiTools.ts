@@ -106,4 +106,11 @@ export const listNichesTool = {
   },
 };
 
+// Caps a search tool's `limit` at the customer's per-list result limit
+// (free and trial accounts), so the assistant and agents can't return more
+// rows than the app shows. null: no cap.
+export function capLimit<T extends { limit?: number }>(input: T, max: number | null): T {
+  return max === null ? input : { ...input, limit: Math.min(input.limit ?? 8, max) };
+}
+
 export const DATA_TOOLS = [searchAdsTool, searchProductsTool, listNichesTool] as const;

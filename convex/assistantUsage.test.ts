@@ -13,9 +13,9 @@ describe("AI assistant daily limit", () => {
       await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
     });
     const user = t.withIdentity({ subject: "u1|session" });
-    expect(await user.mutation(internal.assistantUsage.claimMessage, { limit: 2 })).toEqual({ allowed: true, used: 1, signedIn: true });
-    expect(await user.mutation(internal.assistantUsage.claimMessage, { limit: 2 })).toEqual({ allowed: true, used: 2, signedIn: true });
-    expect(await user.mutation(internal.assistantUsage.claimMessage, { limit: 2 })).toEqual({ allowed: false, used: 2, signedIn: true });
+    expect(await user.mutation(internal.assistantUsage.claimMessage, { limit: 2 })).toMatchObject({ allowed: true, used: 1, signedIn: true, limit: 2 });
+    expect(await user.mutation(internal.assistantUsage.claimMessage, { limit: 2 })).toMatchObject({ allowed: true, used: 2, signedIn: true, limit: 2 });
+    expect(await user.mutation(internal.assistantUsage.claimMessage, { limit: 2 })).toMatchObject({ allowed: false, used: 2, signedIn: true, limit: 2 });
   });
 
   it("does not cap admins", async () => {
@@ -30,6 +30,6 @@ describe("AI assistant daily limit", () => {
 
   it("refuses signed-out visitors", async () => {
     const t = convexTest(schema, modules);
-    expect(await t.mutation(internal.assistantUsage.claimMessage, { limit: 5 })).toEqual({ allowed: false, used: 0, signedIn: false });
+    expect(await t.mutation(internal.assistantUsage.claimMessage, { limit: 5 })).toMatchObject({ allowed: false, used: 0, signedIn: false });
   });
 });

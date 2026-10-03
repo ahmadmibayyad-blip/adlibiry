@@ -81,7 +81,7 @@ export const search = action({
     const limit = Math.max(1, Number(process.env.ASSISTANT_DAILY_LIMIT ?? 30) || 30);
     const claim = await ctx.runMutation(internal.assistantUsage.claimMessage, { limit });
     if (!claim.signedIn) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to search by image." });
-    if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI requests for today. Come back tomorrow.` });
+    if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: claim.message ?? "You've reached today's AI limit. Come back tomorrow." });
 
     const client = claudeClient();
     let found: Found | null;
@@ -102,16 +102,20 @@ export const search = action({
     if (!found.isProduct) return { identified: null, products: [], ads: [] };
 
     const terms = [...new Set([found.productName, ...found.searchTerms].map((t) => t.trim()).filter(Boolean))].slice(0, 5);
+    // Free and trial accounts see at most their per-list result limit.
+    const resultLimit: number | null = await ctx.runQuery(api.billing.myResultLimit, {});
+    const maxProducts = Math.min(12, resultLimit ?? 12);
+    const maxAds = Math.min(9, resultLimit ?? 9);
     const products = new Map<string, Doc<"products">>();
     const ads = new Map<string, Doc<"ads">>();
     for (const term of terms) {
-      if (products.size < 12) {
+      if (products.size < maxProducts) {
         const p = await ctx.runQuery(internal.products.listInternal, { paginationOpts: { numItems: 8, cursor: null }, search: term });
-        for (const x of p.page) if (products.size < 12) products.set(x._id, x);
+        for (const x of p.page) if (products.size < maxProducts) products.set(x._id, x);
       }
-      if (ads.size < 9) {
+      if (ads.size < maxAds) {
         const a = await ctx.runQuery(internal.ads.listInternal, { paginationOpts: { numItems: 6, cursor: null }, search: term });
-        for (const x of a.page) if (ads.size < 9) ads.set(x._id, x);
+        for (const x of a.page) if (ads.size < maxAds) ads.set(x._id, x);
       }
     }
     return {

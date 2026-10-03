@@ -20,8 +20,10 @@ type Args = {
 
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 
-// Removes the password login and signs out every session of an account whose
-// email was never verified, before a verified Google sign-in takes it over.
+// Before a verified Google sign-in takes over an account whose email was never
+// verified: removes its password login and sessions, and everything else whoever
+// made it could have attached (MCP keys, a Shopify store, a Stripe customer and
+// subscription), so the real owner starts clean.
 async function revokeUnprovenLogins(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
   const passwords = await ctx.db
     .query("authAccounts")
@@ -40,6 +42,18 @@ async function revokeUnprovenLogins(ctx: MutationCtx, userId: Id<"users">): Prom
     for (const token of tokens) await ctx.db.delete("authRefreshTokens", token._id);
     await ctx.db.delete("authSessions", session._id);
   }
+  const keys = await ctx.db.query("mcpKeys").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+  for (const key of keys) if (!key.revokedAt) await ctx.db.patch("mcpKeys", key._id, { revokedAt: new Date().toISOString() });
+  const shops = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+  for (const shop of shops) await ctx.db.delete("shopifyConnections", shop._id);
+  await ctx.db.patch("users", userId, {
+    customerId: undefined,
+    plan: undefined,
+    subscriptionStatus: undefined,
+    subscriptionId: undefined,
+    planRenewsAt: undefined,
+    subscriptionEventAt: undefined,
+  });
 }
 
 export async function upsertAuthUser(ctx: MutationCtx, args: Args): Promise<Id<"users">> {

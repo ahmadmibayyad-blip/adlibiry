@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { requireSignedIn } from "./lib/access";
+import { requireSignedIn, resultLimitFor } from "./lib/access";
 import type { Doc } from "./_generated/dataModel";
 import { adNumbers } from "./productPipeline";
 
@@ -40,7 +40,7 @@ export const productAds = query({
     const ads = await ctx.db
       .query("ads")
       .withIndex("by_product", (q) => q.eq("productId", args.productId))
-      .take(100);
+      .take((await resultLimitFor(ctx)) ?? 100);
     return ads
       .map((a) => ({
         _id: a._id,

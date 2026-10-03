@@ -3,6 +3,7 @@ import { internalMutation, internalQuery, mutation, query, type QueryCtx } from 
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { NICHES } from "./lib/category";
+import { effectivePlan, resultLimit } from "./lib/billing";
 
 // ── AI agents ───────────────────────────────────────────────────────────────
 // A customer writes a standing goal ("watch Pet Supplies for products scoring
@@ -67,6 +68,9 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const user = await me(ctx);
     if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in." });
+    if (effectivePlan(user) === "none") {
+      throw new ConvexError({ code: "PLAN_REQUIRED", message: "AI agents are part of the free trial and paid plans. Start your free trial to create one." });
+    }
     const count = (await ctx.db.query("agents").withIndex("by_user", (q) => q.eq("userId", user._id)).collect()).length;
     const max = user.role === "admin" ? 10 : MAX_AGENTS;
     if (count >= max) throw new ConvexError({ code: "LIMIT", message: `You can have up to ${max} agents. Delete one to add another.` });
@@ -111,15 +115,28 @@ export const forRun = internalQuery({
     const agent = await ctx.db.get("agents", args.id);
     if (!agent) return null;
     const last = await ctx.db.query("agentBriefings").withIndex("by_agent", (q) => q.eq("agentId", args.id)).order("desc").first();
-    return { agent, lastBriefing: last?.status === "ok" ? last.text : undefined };
+    const owner = await ctx.db.get("users", agent.userId);
+    return {
+      agent,
+      lastBriefing: last?.status === "ok" ? last.text : undefined,
+      ownerFree: effectivePlan(owner) === "none",
+      ownerResultLimit: resultLimit(owner),
+    };
   },
 });
 
 export const enabledIds = internalQuery({
   args: { limit: v.number() },
   handler: async (ctx, args) => {
-    const rows = await ctx.db.query("agents").withIndex("by_enabled", (q) => q.eq("enabled", true)).take(args.limit);
-    return rows.map((a) => a._id);
+    // Only agents whose owner has a trial or paid plan run; free accounts'
+    // agents don't use the daily agent budget.
+    const rows = await ctx.db.query("agents").withIndex("by_enabled", (q) => q.eq("enabled", true)).take(args.limit * 3);
+    const ids = [];
+    for (const a of rows) {
+      if (ids.length >= args.limit) break;
+      if (effectivePlan(await ctx.db.get("users", a.userId)) !== "none") ids.push(a._id);
+    }
+    return ids;
   },
 });
 
