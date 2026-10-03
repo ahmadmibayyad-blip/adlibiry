@@ -82,6 +82,9 @@ export default defineSchema({
     isService: v.optional(v.boolean()),
     // Winning Products (rebuilt daily): rank inside its niche, absent if not in the list.
     winnerRank: v.optional(v.number()),
+    // More photos from the product's store page (convex/productImages.ts).
+    images: v.optional(v.array(v.string())),
+    imagesCheckedAt: v.optional(v.string()),
   })
     .index("by_url_key", ["urlKey"])
     .index("by_title_key", ["titleKey"])
