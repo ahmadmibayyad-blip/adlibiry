@@ -33,9 +33,9 @@ export const generate = action({
     if (!claim.signedIn) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to use AI reports." });
     if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI requests for today. Come back tomorrow.` });
 
-    const niches = await ctx.runQuery(api.trends.listNiches, {});
+    const niches = await ctx.runQuery(internal.trends.listNichesInternal, {});
     const stats = niches.find((n) => n.name === args.niche);
-    const top = await ctx.runQuery(api.products.list, {
+    const top = await ctx.runQuery(internal.products.listInternal, {
       paginationOpts: { numItems: 8, cursor: null },
       categories: [args.niche],
       sort: "score",

@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery, query, type ActionCtx } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { monthlyRevenueRange, storeAlert, storeOrigin, summarizeCatalog, utcDay, type CatalogSummary, type ShopifyProduct } from "./lib/storeSales";
@@ -247,6 +248,7 @@ export const recordFailure = internalMutation({
 export const history = query({
   args: { storeId: v.id("stores") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const store = await ctx.db.get("stores", args.storeId);
     if (!store) return null;
     const days = await ctx.db

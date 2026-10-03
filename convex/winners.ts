@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { query } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
 import { WINNERS_PER_NICHE, WINNER_MIN_SCORE } from "./productPipeline";
 
 // ── Winning Products (read side) ────────────────────────────────────────────
@@ -13,6 +14,7 @@ export const feed = query({
     mode: v.optional(v.union(v.literal("mixed"), v.literal("byNiche"))),
   },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const rows = args.niche
       ? ctx.db.query("winningProducts").withIndex("by_niche_rank", (q) => q.eq("niche", args.niche!))
       : args.mode === "byNiche"
@@ -55,10 +57,30 @@ export const summary = query({
 export const forProduct = query({
   args: { productId: v.id("products") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const row = await ctx.db
       .query("winningProducts")
       .withIndex("by_product", (q) => q.eq("productId", args.productId))
       .first();
     return row ? { niche: row.niche, nicheRank: row.nicheRank, enteredDay: row.enteredDay } : null;
+  },
+});
+
+// Public: the homepage's "Today's winners" panel. Five rows, one per niche,
+// with only the fields the panel shows. The full feed needs a signed-in user.
+export const homepagePreview = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("winningProducts").withIndex("by_position").take(40);
+    const seen = new Set<string>();
+    const out: { _id: string; niche: string; nicheRank: number; title: string; imageUrl: string; aiScore: number }[] = [];
+    for (const r of rows) {
+      if (out.length === 5 || seen.has(r.niche)) continue;
+      const p = await ctx.db.get("products", r.productId);
+      if (!p?.imageUrl) continue;
+      seen.add(r.niche);
+      out.push({ _id: p._id, niche: r.niche, nicheRank: r.nicheRank, title: p.title, imageUrl: p.imageUrl, aiScore: p.aiScore });
+    }
+    return out;
   },
 });

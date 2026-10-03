@@ -1,28 +1,40 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { v, type ObjectType } from "convex/values";
+import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
 import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin/helpers";
 
 // ── Trending keywords (Google Trends-style) ────────────────────────────────
 
+const listArgs = {
+  niche: v.optional(v.string()),
+  direction: v.optional(v.string()),
+};
+
+const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
+  let trends = await ctx.db.query("trends").withIndex("by_updated").order("desc").take(200);
+  if (args.niche) trends = trends.filter((t) => t.niche === args.niche);
+  if (args.direction) trends = trends.filter((t) => t.direction === args.direction);
+  // Rising first (biggest gain first), then steady, then falling.
+  const order: Record<string, number> = { Rising: 0, Stable: 1, Declining: 2 };
+  return trends.sort((a, b) => (order[a.direction] ?? 3) - (order[b.direction] ?? 3) || b.risingPercent - a.risingPercent);
+};
+
 export const list = query({
-  args: {
-    niche: v.optional(v.string()),
-    direction: v.optional(v.string()),
-  },
+  args: listArgs,
   handler: async (ctx, args) => {
-    let trends = await ctx.db.query("trends").withIndex("by_updated").order("desc").take(200);
-    if (args.niche) trends = trends.filter((t) => t.niche === args.niche);
-    if (args.direction) trends = trends.filter((t) => t.direction === args.direction);
-    // Rising first (biggest gain first), then steady, then falling.
-    const order: Record<string, number> = { Rising: 0, Stable: 1, Declining: 2 };
-    return trends.sort((a, b) => (order[a.direction] ?? 3) - (order[b.direction] ?? 3) || b.risingPercent - a.risingPercent);
+    await requireSignedIn(ctx);
+    return await listImpl(ctx, args);
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const listInternal = internalQuery({ args: listArgs, handler: listImpl });
 
 export const getById = query({
   args: { id: v.id("trends") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     return await ctx.db.get("trends", args.id);
   },
 });
@@ -30,6 +42,7 @@ export const getById = query({
 export const getRisingNiches = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     const niches = await ctx.db.query("niches").take(50);
     return niches
       .filter((n) => n.trendDirection === "Rising")
@@ -40,44 +53,65 @@ export const getRisingNiches = query({
 
 // ── Niche explorer ──────────────────────────────────────────────────────────
 
+const listNichesArgs = {};
+
+const listNichesImpl = async (ctx: QueryCtx) => {
+  return await ctx.db.query("niches").take(50);
+};
+
 export const listNiches = query({
-  args: {},
+  args: listNichesArgs,
   handler: async (ctx) => {
-    return await ctx.db.query("niches").take(50);
+    await requireSignedIn(ctx);
+    return await listNichesImpl(ctx);
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const listNichesInternal = internalQuery({ args: listNichesArgs, handler: listNichesImpl });
 
 // ── AliExpress-style supplier search ────────────────────────────────────────
 
-export const searchSuppliers = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    search: v.optional(v.string()),
-    niche: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    if (args.search) {
-      return await ctx.db
-        .query("supplierListings")
-        .withSearchIndex("search_title", (q) =>
-          args.niche
-            ? q.search("title", args.search!).eq("niche", args.niche)
-            : q.search("title", args.search!)
-        )
-        .paginate(args.paginationOpts);
-    }
+const searchSuppliersArgs = {
+  paginationOpts: paginationOptsValidator,
+  search: v.optional(v.string()),
+  niche: v.optional(v.string()),
+};
 
-    let q = ctx.db.query("supplierListings");
-    if (args.niche) {
-      return await q.withIndex("by_niche", (idx) => idx.eq("niche", args.niche!)).paginate(args.paginationOpts);
-    }
-    return await q.paginate(args.paginationOpts);
+const searchSuppliersImpl = async (ctx: QueryCtx, args: ObjectType<typeof searchSuppliersArgs>) => {
+  if (args.search) {
+    return await ctx.db
+      .query("supplierListings")
+      .withSearchIndex("search_title", (q) =>
+        args.niche
+          ? q.search("title", args.search!).eq("niche", args.niche)
+          : q.search("title", args.search!)
+      )
+      .paginate(args.paginationOpts);
+  }
+
+  let q = ctx.db.query("supplierListings");
+  if (args.niche) {
+    return await q.withIndex("by_niche", (idx) => idx.eq("niche", args.niche!)).paginate(args.paginationOpts);
+  }
+  return await q.paginate(args.paginationOpts);
+};
+
+export const searchSuppliers = query({
+  args: searchSuppliersArgs,
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    return await searchSuppliersImpl(ctx, args);
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const searchSuppliersInternal = internalQuery({ args: searchSuppliersArgs, handler: searchSuppliersImpl });
 
 export const getSupplierById = query({
   args: { id: v.id("supplierListings") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     return await ctx.db.get("supplierListings", args.id);
   },
 });

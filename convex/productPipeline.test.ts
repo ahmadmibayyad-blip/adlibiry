@@ -48,7 +48,7 @@ const product = (over: Partial<NewProduct>): NewProduct => ({
 async function runPipeline(t: ReturnType<typeof convexTest>) {
   await t.mutation(internal.productPipeline.start, {});
   await t.finishAllScheduledFunctions(vi.runAllTimers);
-  return await t.query(api.productPipeline.status, {});
+  return await t.withIdentity({ subject: "test|s" }).query(api.productPipeline.status, {});
 }
 
 // Product pages "served" to the price lookup; everything else has no price.
@@ -127,7 +127,7 @@ describe("Winning Products", () => {
     expect(summary.total).toBe(50 + 3 + 1);
     expect(Object.fromEntries(summary.perNiche.map((n) => [n.niche, n.filled]))).toEqual({ "Home & Living": 50, "Pet Supplies": 3, Sports: 1 });
 
-    const feed = await t.query(api.winners.feed, { paginationOpts: { numItems: 10, cursor: null } });
+    const feed = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 10, cursor: null } });
     const niches = feed.page.map((r) => r.niche);
     // Home & Living has the best product, so it leads; then the niches alternate.
     expect(niches.slice(0, 7)).toEqual(["Home & Living", "Pet Supplies", "Sports", "Home & Living", "Pet Supplies", "Home & Living", "Pet Supplies"]);
@@ -137,7 +137,7 @@ describe("Winning Products", () => {
     // Next day: still a winner, no longer "new today".
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
     await runPipeline(t);
-    const again = await t.query(api.winners.feed, { paginationOpts: { numItems: 1, cursor: null } });
+    const again = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 1, cursor: null } });
     expect(again.page[0].isNewToday).toBe(false);
   });
 
@@ -173,7 +173,7 @@ describe("daily history", () => {
     const productRow = rows.find((r) => r.kind === "product")!;
     expect(productRow).toMatchObject({ views: 10_000, likes: 50, adsRunning: 1 });
 
-    const history = await t.query(api.history.adHistory, { adId: adId as Id<"ads">, days: 7 });
+    const history = await t.withIdentity({ subject: "test|s" }).query(api.history.adHistory, { adId: adId as Id<"ads">, days: 7 });
     expect(history).toHaveLength(1);
   });
 
@@ -222,12 +222,12 @@ describe("Products filters", () => {
     });
     await runPipeline(t);
     const list = async (args: Record<string, unknown>) =>
-      (await t.query(api.products.list, { paginationOpts: { numItems: 50, cursor: null }, ...args })).page.map((p) => p.title).sort();
+      (await t.query(internal.products.listInternal, { paginationOpts: { numItems: 50, cursor: null }, ...args })).page.map((p) => p.title).sort();
 
     expect(await list({ categories: ["Pet Supplies", "Sports"] })).toEqual(["Ball", "Dog Cooling Mat"]);
     expect(await list({ origin: "ads" })).toEqual(["Dog Cooling Mat"]);
     expect(await list({ origin: "db", hidePersonalised: true })).toEqual(["Ball", "Cheap lamp", "Fancy lamp"]);
-    const byMargin = (await t.query(api.products.list, { paginationOpts: { numItems: 2, cursor: null }, sort: "margin" })).page.map((p) => p.title);
+    const byMargin = (await t.query(internal.products.listInternal, { paginationOpts: { numItems: 2, cursor: null }, sort: "margin" })).page.map((p) => p.title);
     expect(byMargin).toEqual(["Fancy lamp", "Cheap lamp"]);
   });
 });
@@ -275,9 +275,9 @@ describe("Research tab", () => {
     const niches = await t.run((ctx) => ctx.db.query("niches").collect());
     expect(niches.map((n) => n.name)).toEqual(["Pet Supplies"]);
     expect(niches[0].productCount).toBe(1); // the four ads are the same product
-    const trends = await t.query(api.trends.list, {});
+    const trends = await t.query(internal.trends.listInternal, {});
     expect(trends.map((r) => r.keyword)).toContain("dog cooling mat");
-    const overview = await t.query(api.dashboard.overview, {});
+    const overview = await t.withIdentity({ subject: "test|s" }).query(api.dashboard.overview, {});
     expect(overview?.topNiches[0]).toMatchObject({ niche: "Pet Supplies", thisWeek: 4 });
   });
 
@@ -301,9 +301,9 @@ describe("Ad Spy sort", () => {
       await ctx.db.insert("ads", ad({ headline: "older import", firstSeenAt: "2026-09-29T00:00:00.000Z" }));
       await ctx.db.insert("ads", ad({ headline: "just imported, ran since June", firstSeenAt: "2026-06-01T00:00:00.000Z", source: "nexscope" }));
     });
-    const added = await t.query(api.ads.list, { paginationOpts: { numItems: 5, cursor: null }, sort: "added" });
+    const added = await t.query(internal.ads.listInternal, { paginationOpts: { numItems: 5, cursor: null }, sort: "added" });
     expect(added.page[0].headline).toBe("just imported, ran since June");
-    const newest = await t.query(api.ads.list, { paginationOpts: { numItems: 5, cursor: null }, sort: "newest" });
+    const newest = await t.query(internal.ads.listInternal, { paginationOpts: { numItems: 5, cursor: null }, sort: "newest" });
     expect(newest.page[0].headline).toBe("older import");
   });
 
@@ -315,7 +315,7 @@ describe("Ad Spy sort", () => {
       await ctx.db.insert("products", product({ title: "old product" }));
       await ctx.db.insert("products", product({ title: "new product" }));
     });
-    const j = await t.query(api.dashboard.justAdded, {});
+    const j = await t.withIdentity({ subject: "test|s" }).query(api.dashboard.justAdded, {});
     expect(j.ads[0].headline).toBe("latest import");
     expect(j.products[0].title).toBe("new product");
   });

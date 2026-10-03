@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import * as z from "zod";
 import { action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 const openai = new OpenAI({
   // Your own OpenAI (or any OpenAI-compatible) key. Set OPENAI_API_KEY in Convex.
@@ -201,11 +201,11 @@ export const findCompetitors = action({
   }> => {
     // Pull real tracked data from our own database — never invent competitors.
     const [adsResult, storesResult] = await Promise.all([
-      ctx.runQuery(api.ads.list, {
+      ctx.runQuery(internal.ads.listInternal, {
         paginationOpts: { numItems: 50, cursor: null },
         niche: args.category,
       }),
-      ctx.runQuery(api.stores.list, {
+      ctx.runQuery(internal.stores.listInternal, {
         paginationOpts: { numItems: 50, cursor: null },
         niche: args.category,
       }),

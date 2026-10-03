@@ -178,7 +178,7 @@ describe("new Ad Spy filters", () => {
       await ctx.db.insert("ads", { ...base, headline: "no-spend", impressions: 50_000, spendEstimate: "Unknown", lastSeenAt: new Date(now).toISOString() });
     });
     const list = (extra: Record<string, unknown>) =>
-      t.query(api.ads.list, { paginationOpts: { numItems: 50, cursor: null }, ...extra }).then((r) => r.page.map((a) => a.headline).sort());
+      t.query(internal.ads.listInternal, { paginationOpts: { numItems: 50, cursor: null }, ...extra }).then((r) => r.page.map((a) => a.headline).sort());
     expect(await list({ lastSeenWithinDays: 3 })).toEqual(["fresh-small", "no-spend"]);
     expect(await list({ minImpressions: 10_000, maxImpressions: 100_000 })).toEqual(["no-spend"]);
     expect(await list({ maxSpend: 1_000 })).toEqual(["fresh-small"]);
@@ -191,7 +191,7 @@ describe("new Ad Spy filters", () => {
       await ctx.db.insert("ads", { ...base, headline: "small", impressions: 5_000 });
       await ctx.db.insert("ads", { ...base, headline: "no-data" });
     });
-    const r = await t.query(api.ads.list, { paginationOpts: { numItems: 50, cursor: null }, maxImpressions: 10_000 });
+    const r = await t.query(internal.ads.listInternal, { paginationOpts: { numItems: 50, cursor: null }, maxImpressions: 10_000 });
     expect(r.page.map((a) => a.headline)).toEqual(["small"]);
   });
 });
@@ -210,7 +210,7 @@ describe("Winning Products filters", () => {
       await ctx.db.insert("products", { ...base, title: "no-data", supplierUrl: "", publishedAt: new Date(now - 90 * 86_400_000).toISOString() });
     });
     const list = (extra: Record<string, unknown>) =>
-      t.query(api.products.list, { paginationOpts: { numItems: 50, cursor: null }, ...extra }).then((r) => r.page.map((p) => p.title).sort());
+      t.query(internal.products.listInternal, { paginationOpts: { numItems: 50, cursor: null }, ...extra }).then((r) => r.page.map((p) => p.title).sort());
     expect(await list({ minAds: 50, maxAds: 199 })).toEqual(["hot"]);
     expect(await list({ maxAds: 9 })).toEqual(["cooling"]); // no ad count ≠ "1–9 ads"
     expect(await list({ minLikes: 1_000 })).toEqual(["hot"]);

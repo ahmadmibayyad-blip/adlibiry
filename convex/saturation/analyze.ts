@@ -63,16 +63,16 @@ export const analyzeSaturation = action({
 
     // ── Pull real tracked data, scoped to the selected country where possible ──
     const [adsResult, storesResult, trends, suppliers] = await Promise.all([
-      ctx.runQuery(api.ads.list, {
+      ctx.runQuery(internal.ads.listInternal, {
         paginationOpts: { numItems: 200, cursor: null },
         niche: args.niche,
       }),
-      ctx.runQuery(api.stores.list, {
+      ctx.runQuery(internal.stores.listInternal, {
         paginationOpts: { numItems: 200, cursor: null },
         niche: args.niche,
       }),
-      ctx.runQuery(api.trends.list, { niche: args.niche }),
-      ctx.runQuery(api.trends.searchSuppliers, {
+      ctx.runQuery(internal.trends.listInternal, { niche: args.niche }),
+      ctx.runQuery(internal.trends.searchSuppliersInternal, {
         paginationOpts: { numItems: 50, cursor: null },
         niche: args.niche,
       }),

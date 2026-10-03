@@ -97,7 +97,7 @@ describe("Nexscope product discovery", () => {
     expect(stores[0].bestSellers).toHaveLength(8); // capped
     expect(stores[0].bestSellers[0]).toMatchObject({ price: 29.9, estSalesRange: "~320 orders/week" });
     expect(stores[0]).toMatchObject({ logoUrl: "https://img.example.com/sh.jpg", source: "product_discovery" });
-    const discovered = await t.query(api.stores.getNewlyDiscovered, {});
+    const discovered = await t.withIdentity({ subject: "test|s" }).query(api.stores.getNewlyDiscovered, {});
     expect(discovered.map((x) => x.name)).toEqual(["store.example.com"]);
   });
 });
