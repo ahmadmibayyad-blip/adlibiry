@@ -129,6 +129,15 @@ export function autoMapAds(header: string[], sample: string[][] = []): AdColumnM
   return map;
 }
 
+// Product-finder exports (Kalodata, FastMoss, TikTok Shop…) list products with
+// sales numbers, not ads: no likes, views or comments. Imported as ads they
+// show as empty cards, so the dialog sends them to the products import.
+const PRODUCT_EXPORT_COLUMNS = /^(itemssold|unitssold|gmv|totalgmv|productprice|productrating|productreviews|affiliatesalesshare|activeinfluencers)/;
+export function isProductExport(header: string[], map: AdColumnMap): boolean {
+  const hasEngagement = map.likes !== undefined || map.views !== undefined || map.comments !== undefined || map.shares !== undefined;
+  return !hasEngagement && header.some((h) => PRODUCT_EXPORT_COLUMNS.test(norm(h)));
+}
+
 // "-", "N/A" and similar placeholders count as empty.
 const clean = (s: string | undefined) => {
   const t = (s ?? "").trim();

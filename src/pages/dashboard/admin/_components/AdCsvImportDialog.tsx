@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import {
-  AD_PLATFORMS, AD_TEMPLATE_CSV, IMPORT_NICHES, autoMapAds, buildAdRows, decodeCsvBytes, parseCsv,
+  AD_PLATFORMS, AD_TEMPLATE_CSV, IMPORT_NICHES, autoMapAds, buildAdRows, decodeCsvBytes, isProductExport, parseCsv,
   type AdColumnMap, type AdField,
 } from "@/lib/adCsv.ts";
 
@@ -59,6 +59,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
   const header = table?.[0] ?? [];
   const hasMedia = map.creativeUrl !== undefined || map.videoUrl !== undefined;
   const hasText = map.headline !== undefined || map.bodyText !== undefined || map.advertiserName !== undefined;
+  const productExport = !!table && isProductExport(header, map);
 
   const reset = () => {
     setFileName(null);
@@ -224,6 +225,18 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
               </label>
             </div>
 
+            {productExport && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs">
+                <p className="font-medium text-destructive">This is a product export, not an ad export.</p>
+                <p className="mt-1 text-muted-foreground">
+                  It has sales columns (items sold, GMV, price) but no likes, views or comments, so as ads these would
+                  show empty numbers. Import it under <strong>Admin → Products → Import CSV</strong> instead: items sold
+                  and GMV become orders per month and revenue there. If the file does have engagement, pick its Likes or
+                  Views column above.
+                </p>
+              </div>
+            )}
+
             {built && built.rows.length > 0 && (
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="text-xs font-medium px-3 py-2 border-b border-border">Preview (first 5)</div>
@@ -262,7 +275,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
             {result ? "Close" : "Cancel"}
           </Button>
           {table && !result && (
-            <Button onClick={runImport} disabled={busy || !hasMedia || !hasText || !built?.rows.length}>
+            <Button onClick={runImport} disabled={busy || productExport || !hasMedia || !hasText || !built?.rows.length}>
               {busy ? `Importing… ${progress}%` : `Import ${built?.rows.length.toLocaleString() ?? 0} ads`}
             </Button>
           )}

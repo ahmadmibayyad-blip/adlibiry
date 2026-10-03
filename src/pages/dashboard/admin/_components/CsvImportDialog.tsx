@@ -24,6 +24,13 @@ const FIELD_LABELS: Record<string, string> = {
   ads: "Ads",
   likes: "Likes",
   growthPercent: "Growth",
+  itemsSold7d: "Items sold (7 days)",
+  itemsSold30d: "Items sold (30 days)",
+  gmv7d: "GMV (7 days)",
+  gmv30d: "GMV (30 days)",
+  totalGmv: "Total GMV",
+  rating: "Rating",
+  reviews: "Reviews",
   researchUrl: "Research link",
   description: "Description",
 };

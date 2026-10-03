@@ -4,6 +4,7 @@ import { mutation, internalMutation, type MutationCtx } from "../_generated/serv
 import type { Infer } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireAdmin } from "./helpers";
+import { estimateProduct } from "../lib/estimates";
 
 // ── Admin: bulk product import from CSV (PiPiAds, Minea, Kalodata, own sheets) ─
 // The browser parses the file and sends rows in batches of up to 200.
@@ -24,14 +25,22 @@ export const row = v.object({
   growthPercent: v.optional(v.number()),
   researchUrl: v.optional(v.string()), // e.g. the PiPiAds product page
   tags: v.optional(v.array(v.string())),
+  // TikTok Shop / product-finder exports
+  unitsPerMonth: v.optional(v.number()),
+  totalGmv: v.optional(v.number()),
+  rating: v.optional(v.number()),
+  reviews: v.optional(v.number()),
 });
 
 const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : `${Math.round(n)}`;
 
-// Honest 0-100 score from the export's own signals only (ads running, likes, growth).
-function scoreFrom(ads?: number, likes?: number, growth?: number): number {
-  const a = (Math.min(ads ?? 0, 50) / 50) * 100 * 0.45;
+// Honest 0-100 score from the export's own signals only (ads running or
+// sales, likes, growth).
+function scoreFrom(ads?: number, likes?: number, growth?: number, unitsPerMonth?: number): number {
+  const adsPart = (Math.min(ads ?? 0, 50) / 50) * 100 * 0.45;
+  const salesPart = (Math.min(Math.log10(1 + Math.max(0, unitsPerMonth ?? 0)) / 4, 1)) * 100 * 0.45; // 10K orders/mo ≈ full
+  const a = Math.max(adsPart, salesPart);
   const l = (Math.log10(1 + Math.max(0, likes ?? 0)) / 6) * 100 * 0.35; // 1M likes ≈ full
   const g = (Math.min(Math.max(growth ?? 0, 0), 100) / 100) * 100 * 0.2;
   return Math.max(1, Math.min(100, Math.round(a + Math.min(l, 35) + g)));
@@ -83,6 +92,9 @@ export async function upsertProductRows(
         r.likes ? `${compact(r.likes)} likes` : "",
         r.growthPercent !== undefined ? `${r.growthPercent.toFixed(1)}% growth` : "",
         r.originalPrice ? `listed at ${r.originalPrice}` : "",
+        r.unitsPerMonth ? `~${compact(r.unitsPerMonth)} sold/month` : "",
+        r.totalGmv ? `$${compact(r.totalGmv)} total GMV` : "",
+        r.rating ? `rated ${r.rating}${r.reviews ? ` (${compact(r.reviews)} reviews)` : ""}` : "",
       ].filter(Boolean);
       const description = (r.description?.trim() || `Imported from ${sourceTool}. ${signals.join(" · ")}.`).slice(0, 1000);
       const fields = {
@@ -93,7 +105,7 @@ export async function upsertProductRows(
         ...(r.cost !== undefined && r.cost > 0 ? { cost: Math.round(r.cost * 100) / 100 } : {}),
         category: r.category || "General",
         tags: [...new Set([r.category, sourceTool, sourceKey === "csv_import" ? "CSV import" : "", ...(r.tags ?? [])].filter(Boolean))].slice(0, 8),
-        aiScore: scoreFrom(r.ads, r.likes, r.growthPercent),
+        aiScore: scoreFrom(r.ads, r.likes, r.growthPercent, r.unitsPerMonth),
         trend: trendFrom(r.growthPercent),
         supplierUrl: r.productUrl || r.researchUrl || "",
         ...(r.ads !== undefined ? { adsCount: r.ads } : {}),
@@ -102,6 +114,25 @@ export async function upsertProductRows(
         ...(r.productUrl ? { storeUrl: r.productUrl } : {}),
         ...(r.researchUrl ? { researchUrl: r.researchUrl } : {}),
         ...(r.originalPrice ? { originalPrice: r.originalPrice } : {}),
+        ...(r.unitsPerMonth !== undefined ? { unitsPerMonth: r.unitsPerMonth } : {}),
+        ...(r.totalGmv !== undefined && r.totalGmv > 0 ? { linkedGmv: Math.round(r.totalGmv) } : {}),
+      };
+      // Revenue / impressions estimates right away (the pipeline refreshes them later).
+      const e = estimateProduct({
+        price: fields.price,
+        likes: r.likes,
+        gmv: fields.linkedGmv,
+        unitsPerMonth: fields.unitsPerMonth,
+      });
+      const estimates = {
+        ...(e.impressions ? { estImpressions: e.impressions } : {}),
+        ...(e.adSpend ? { estAdSpend: e.adSpend } : {}),
+        ...(e.revenue ? { estRevenue: e.revenue } : {}),
+        estBasis: {
+          ...(e.impressionsBasis ? { impressions: e.impressionsBasis } : {}),
+          ...(e.adSpendBasis ? { adSpend: e.adSpendBasis } : {}),
+          ...(e.revenueBasis ? { revenue: e.revenueBasis } : {}),
+        },
       };
 
       const link = await ctx.db
@@ -112,7 +143,7 @@ export async function upsertProductRows(
         const id = link.docId as Id<"products">;
         const existing = await ctx.db.get("products", id);
         if (existing) {
-          await ctx.db.patch("products", id, fields);
+          await ctx.db.patch("products", id, { ...fields, ...estimates });
           await ctx.db.patch("syncLinks", link._id, { lastSyncedAt: now });
           updated += 1;
           continue;
@@ -122,6 +153,7 @@ export async function upsertProductRows(
       await markStatsDirty(ctx);
       const id = await ctx.db.insert("products", {
         ...fields,
+        ...estimates,
         saturation: "Unknown",
         adExamples: [],
         isWinnerOfDay: !!opts.markWinners,

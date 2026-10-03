@@ -44,3 +44,52 @@ describe("remove last ad CSV import", () => {
     await expect(t.withIdentity({ subject: "u|s" }).query(api.admin.importCleanup.lastAdImport, {})).rejects.toThrow();
   });
 });
+
+describe("remove product listings from ads", () => {
+  it("deletes only CSV ads that are product listings", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a", role: "admin" }));
+    const admin = t.withIdentity({ subject: "a|s" });
+    const listing = (i: number) => ({
+      ...row(i, "2026-10-03T00:00:00.000Z"),
+      bodyText: "Product Price: $76.48 · Product Rating: 4.3 · Items Sold (Last 7 days): 6 · Total GMV: $22,477.40",
+    });
+    const realAd = { ...row(900, "2026-10-03T00:00:00.000Z"), bodyText: "Keep your dog cool", likes: 1500 };
+    // Same text but with engagement: a real ad, kept.
+    const withViews = { ...listing(901), views: "10K", impressions: 10_000 };
+    const ads = [...Array.from({ length: 250 }, (_, i) => listing(i)), realAd, withViews];
+    for (let i = 0; i < ads.length; i += 100) {
+      await admin.mutation(api.admin.externalImport.importAds, { ads: ads.slice(i, i + 100), refreshFirstSeen: true });
+    }
+
+    let cursor: string | null = null;
+    let deleted = 0;
+    for (;;) {
+      const r: { deleted: number; cursor: string; isDone: boolean } = await admin.mutation(api.admin.importCleanup.removeProductListingAds, { cursor });
+      deleted += r.deleted;
+      if (r.isDone) break;
+      cursor = r.cursor;
+    }
+    expect(deleted).toBe(250);
+    const left = await t.run(async (ctx) => (await ctx.db.query("ads").collect()).map((a) => a.headline).sort());
+    expect(left).toEqual(["Ad 900", "Ad 901"]);
+  });
+});
+
+describe("product import with sales columns", () => {
+  it("saves orders per month, GMV and a revenue estimate", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a", role: "admin" }));
+    await t.withIdentity({ subject: "a|s" }).mutation(api.admin.productImport.importProducts, {
+      rows: [{
+        title: "Truck Floor Mats", imageUrl: "https://x/mat.webp", productUrl: "https://www.tiktok.com/shop/pdp/1", category: "Automotive",
+        priceUsd: 76.48, unitsPerMonth: 30, totalGmv: 22477.4, rating: 4.3, reviews: 25,
+      }],
+    });
+    const p = await t.run(async (ctx) => (await ctx.db.query("products").collect())[0]);
+    expect(p).toMatchObject({ unitsPerMonth: 30, linkedGmv: 22477, estBasis: { revenue: "marketplace_sales" } });
+    expect(p.estRevenue).toEqual({ low: Math.round(30 * 76.48 * 0.7), high: Math.round(30 * 76.48 * 1.3) });
+    expect(p.description).toContain("~30 sold/month");
+    expect(p.aiScore).toBeGreaterThan(1);
+  });
+});

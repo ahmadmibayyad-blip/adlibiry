@@ -54,3 +54,47 @@ export const removeAdImport = mutation({
     return { deleted: now.length, remaining: rows.length - now.length };
   },
 });
+
+// Product listings imported as ads: rows from a product-finder export
+// (Kalodata, FastMoss, TikTok Shop) uploaded through the ads CSV import. The
+// import kept their columns as "Name: value · …" ad text, and they have no
+// likes or views, so they show as empty ad cards.
+const PRODUCT_LISTING_TEXT = /(^|· )(Items Sold \(|GMV \(Last|Total GMV:|Product Price:|Product Rating:)/;
+
+export function isProductListingAd(ad: { source?: string; bodyText: string; likes: number; impressions?: number; comments?: number }): boolean {
+  return (
+    ad.source === "csv_import" &&
+    ad.likes === 0 &&
+    !ad.impressions &&
+    !ad.comments &&
+    PRODUCT_LISTING_TEXT.test(ad.bodyText)
+  );
+}
+
+// Walks the CSV-imported ads one page per call and deletes the product
+// listings; call again with the returned cursor until isDone.
+export const removeProductListingAds = mutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const page = await ctx.db
+      .query("ads")
+      .withIndex("by_source_first_seen", (q) => q.eq("source", "csv_import"))
+      .paginate({ cursor: args.cursor, numItems: BATCH });
+    let deleted = 0;
+    for (const ad of page.page) {
+      if (!isProductListingAd(ad)) continue;
+      if (ad.externalKey) {
+        const link = await ctx.db
+          .query("syncLinks")
+          .withIndex("by_kind_external", (q) => q.eq("kind", "ad").eq("externalId", ad.externalKey!))
+          .unique();
+        if (link) await ctx.db.delete("syncLinks", link._id);
+      }
+      await ctx.db.delete("ads", ad._id);
+      deleted += 1;
+    }
+    if (deleted) await markStatsDirty(ctx);
+    return { deleted, cursor: page.continueCursor, isDone: page.isDone };
+  },
+});
