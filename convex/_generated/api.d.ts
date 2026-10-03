@@ -14,6 +14,7 @@ import type * as adlibrary_sync from "../adlibrary/sync.js";
 import type * as admin_ads from "../admin/ads.js";
 import type * as admin_externalImport from "../admin/externalImport.js";
 import type * as admin_helpers from "../admin/helpers.js";
+import type * as admin_importCleanup from "../admin/importCleanup.js";
 import type * as admin_productImport from "../admin/productImport.js";
 import type * as admin_reclassify from "../admin/reclassify.js";
 import type * as admin_products from "../admin/products.js";
@@ -99,6 +100,7 @@ declare const fullApi: ApiFromModules<{
   "admin/ads": typeof admin_ads;
   "admin/externalImport": typeof admin_externalImport;
   "admin/helpers": typeof admin_helpers;
+  "admin/importCleanup": typeof admin_importCleanup;
   "admin/productImport": typeof admin_productImport;
   "admin/reclassify": typeof admin_reclassify;
   "admin/products": typeof admin_products;

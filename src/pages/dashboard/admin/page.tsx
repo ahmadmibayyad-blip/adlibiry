@@ -32,6 +32,7 @@ import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
 import CsvImportDialog from "./_components/CsvImportDialog.tsx";
 import AdCsvImportDialog from "./_components/AdCsvImportDialog.tsx";
+import RemoveLastAdImport from "./_components/RemoveLastAdImport.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users";
 type Product = Doc<"products">;
@@ -639,6 +640,7 @@ function AdsTab() {
           <Upload className="w-4 h-4 mr-1.5" />
           Import CSV
         </Button>
+        <RemoveLastAdImport />
         <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-1.5" />
           Add ad
