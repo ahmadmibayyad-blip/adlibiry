@@ -1,129 +1,185 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <style>
-      body {
-        width: 290px;
-        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-        background: #0a0a12;
-        color: #f7f7f7;
-        margin: 0;
-        padding: 16px;
+      /* Same palette and type as the AdSpy Pro dashboard */
+      :root {
+        --ink: #15171c;
+        --muted: #5b5f68;
+        --paper: #f4f2ec;
+        --card: #ffffff;
+        --line: #e3e0d8;
+        --border: #d6d2c8;
+        --brand: #e07a3f;
+        --brand-ink: #b8531a;
+        --good: #0e6b5e;
+        --warn-bg: #fdebdd;
+        --warn-ink: #8a3a10;
+        --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+        --display: "Bricolage Grotesque", "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
       }
-      .header {
+      * { box-sizing: border-box; }
+      body {
+        width: 300px;
+        margin: 0;
+        font: 13px/1.45 var(--sans);
+        font-variant-numeric: tabular-nums;
+        background: var(--paper);
+        color: var(--ink);
+      }
+      :focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
+
+      header {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 12px;
+        padding: 12px 16px;
+        background: var(--ink);
+        color: #fff;
       }
-      .logo {
-        width: 24px;
-        height: 24px;
-        border-radius: 6px;
-        background: #1fbf6b;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        color: #0a0a12;
-        font-size: 13px;
-      }
-      h1 {
-        font-size: 14px;
-        margin: 0;
-      }
-      .row {
+      header h1 { margin: 0; font: 700 15px/1 var(--display); }
+      header small { margin-left: auto; color: #c9cbd1; font-size: 12px; }
+
+      main { padding: 14px 16px 16px; }
+
+      .switch-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 0;
-        border-top: 1px solid #222;
+        gap: 12px;
       }
-      .row:first-of-type {
-        border-top: none;
-      }
-      .label {
-        font-size: 12px;
-        color: #9a9aab;
-      }
-      .value {
-        font-size: 13px;
-        font-weight: 600;
-      }
-      .toggle {
+      .switch-row label { font-weight: 600; }
+      .state { display: block; font-size: 12px; color: var(--muted); font-weight: 400; }
+      .switch {
         position: relative;
-        width: 36px;
-        height: 20px;
-        background: #333;
-        border-radius: 10px;
+        flex: none;
+        width: 40px;
+        height: 22px;
+        padding: 0;
+        border: 0;
+        border-radius: 11px;
+        background: var(--border);
         cursor: pointer;
-        transition: background 0.2s;
+        transition: background 0.15s;
       }
-      .toggle.on {
-        background: #1fbf6b;
-      }
-      .toggle-thumb {
+      .switch::after {
+        content: "";
         position: absolute;
-        top: 2px;
-        left: 2px;
+        top: 3px;
+        left: 3px;
         width: 16px;
         height: 16px;
         border-radius: 50%;
         background: #fff;
-        transition: transform 0.2s;
+        box-shadow: 0 1px 2px rgba(21, 23, 28, 0.3);
+        transition: transform 0.15s;
       }
-      .toggle.on .toggle-thumb {
-        transform: translateX(16px);
+      .switch[aria-checked="true"] { background: var(--good); }
+      .switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+      .total {
+        margin: 14px 0 2px;
+        font: 700 34px/1 var(--display);
+        letter-spacing: -0.01em;
       }
-      .src { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; color:#cfcfdb; }
-      .src b { color:#1fbf6b; }
-      .muted { color:#666; }
-      .warn { display:none; font-size:11px; background:#3a2a00; color:#ffcf66; padding:8px; border-radius:6px; margin-top:8px; line-height:1.4; }
-      .err { font-size:11px; color:#ff7a7a; margin-top:6px; word-break:break-word; }
-      button { width:100%; margin-top:10px; background:#1b1b2a; color:#f7f7f7; border:1px solid #333; border-radius:6px; padding:7px; font-size:12px; cursor:pointer; }
-      button:hover { border-color:#1fbf6b; }
-      p.note {
-        font-size: 11px;
-        color: #666;
-        margin-top: 12px;
-        line-height: 1.5;
+      .total-label { margin: 0; color: var(--muted); }
+
+      dl.meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 12px 0 0;
+      }
+      dl.meta div { padding: 8px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+      dl.meta dt { font-size: 12px; color: var(--muted); }
+      dl.meta dd { margin: 0; font-weight: 600; }
+
+      h2 { margin: 16px 0 6px; font-size: 13px; font-weight: 600; }
+      #sources { margin: 0; padding: 0; list-style: none; }
+      #sources li {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        border-top: 1px solid var(--line);
+      }
+      #sources li:first-child { border-top: 0; }
+      #sources .empty { color: var(--muted); }
+
+      .notice {
+        margin: 12px 0 0;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: var(--warn-bg);
+        color: var(--warn-ink);
+        font-size: 12px;
+      }
+      .notice[hidden] { display: none; }
+      .notice code { font-size: 11px; word-break: break-word; }
+
+      button.send {
+        width: 100%;
+        margin-top: 14px;
+        padding: 8px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--ink);
+        color: #fff;
+        font: 600 13px var(--sans);
+        cursor: pointer;
+      }
+      button.send:hover:not(:disabled) { background: #2b2e36; }
+      button.send:disabled { background: var(--border); color: var(--muted); cursor: default; }
+
+      p.note { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .switch, .switch::after { transition: none; }
       }
     </style>
   </head>
   <body>
-    <div class="header">
-      <div class="logo">A</div>
-      <h1>AdSpy Pro Collector</h1>
-    </div>
-    <div class="row">
-      <span class="label">Collecting ads</span>
-      <div class="toggle" id="toggle"><div class="toggle-thumb"></div></div>
-    </div>
-    <div class="row">
-      <span class="label">Ads submitted</span>
-      <span class="value" id="count">0</span>
-    </div>
-    <div class="row">
-      <span class="label">Waiting in queue</span>
-      <span class="value" id="queue">0</span>
-    </div>
-    <div class="row">
-      <span class="label">Last submitted</span>
-      <span class="value" id="last">—</span>
-    </div>
-    <div class="row" style="display:block">
-      <span class="label">By source</span>
-      <div id="sources" style="margin-top:6px"></div>
-    </div>
-    <div class="warn" id="legacy">Server rejected the extended ad fields, so only the 7 basic fields are being sent.
-      Update the backend's submit-ad validator to accept the new fields (see README).</div>
-    <div class="err" id="err"></div>
-    <button id="flush">Send queued now</button>
-    <p class="note">
-      Runs on facebook.com (feed + Ad Library), tiktok.com, adlibrary.com and nexscope.ai. Collects only sponsored ad
-      content — never your personal posts, messages, account data or the page you're on.
-    </p>
+    <header>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E07A3F" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 12 L19 5" />
+      </svg>
+      <h1>AdSpy Pro</h1>
+      <small>Ad collector</small>
+    </header>
+
+    <main>
+      <div class="switch-row">
+        <label for="toggle">
+          Collect ads
+          <span class="state" id="state">On while you browse</span>
+        </label>
+        <button class="switch" id="toggle" role="switch" aria-checked="true" aria-describedby="state"></button>
+      </div>
+
+      <p class="total" id="count">0</p>
+      <p class="total-label">ads sent to AdSpy Pro</p>
+
+      <dl class="meta">
+        <div><dt>Waiting to send</dt><dd id="queue">0</dd></div>
+        <div><dt>Last sent</dt><dd id="last">Not yet</dd></div>
+      </dl>
+
+      <h2>Where ads came from</h2>
+      <ul id="sources"></ul>
+
+      <p class="notice" id="legacy" hidden>
+        Some ad details aren't being saved. Your AdSpy server is on an older version, so only the basic details go
+        through. Redeploy the server to save everything (see README).
+      </p>
+      <p class="notice" id="err" hidden></p>
+
+      <button class="send" id="flush">Send waiting ads now</button>
+
+      <p class="note">
+        Works on Facebook (feed and Ad Library), TikTok, adlibrary.com and nexscope.ai. Collects sponsored ads only,
+        never your own posts, messages or account details.
+      </p>
+    </main>
     <script src="popup.js"></script>
   </body>
 </html>
