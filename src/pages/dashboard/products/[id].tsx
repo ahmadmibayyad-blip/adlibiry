@@ -4,7 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { motion } from "motion/react";
 import {
-  ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, Zap, TrendingUp,
+  ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, TrendingUp,
   ShoppingCart, BarChart3, Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
@@ -22,22 +22,17 @@ import AddToShopify from "./_components/AddToShopify.tsx";
 import ProductGallery from "./_components/ProductGallery.tsx";
 
 const saturationColors: Record<string, string> = {
-  Low: "text-green-400 bg-green-400/10 border-green-400/20",
-  Medium: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-  High: "text-red-400 bg-red-400/10 border-red-400/20",
+  Low: "text-good bg-good/10 border-good/20",
+  Medium: "text-warn bg-warn/10 border-warn/20",
+  High: "text-bad bg-bad/10 border-bad/20",
 };
 const trendColors: Record<string, string> = {
-  Rising: "text-green-400 bg-green-400/10 border-green-400/20",
-  Stable: "text-blue-400 bg-blue-400/10 border-blue-400/20",
-  Declining: "text-red-400 bg-red-400/10 border-red-400/20",
+  Rising: "text-good bg-good/10 border-good/20",
+  Stable: "text-chart-3 bg-chart-3/10 border-chart-3/20",
+  Declining: "text-bad bg-bad/10 border-bad/20",
   Unknown: "text-muted-foreground bg-muted border-border",
 };
 
-function scoreColor(score: number) {
-  if (score >= 85) return "text-green-400";
-  if (score >= 70) return "text-yellow-400";
-  return "text-red-400";
-}
 
 function SaveButtonDetail({ productId }: { productId: Id<"products"> }) {
   const isSaved = useQuery(api.products.isSaved, { productId });
@@ -127,9 +122,7 @@ export default function ProductDetail() {
           <ProductGallery product={product} />
           {product.adExamples.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
-                Ad Examples
-              </h3>
+              <h3 className="text-sm font-semibold mb-3">Ad examples</h3>
               <div className="space-y-2">
                 {product.adExamples.map((ad, i) => (
                   <div key={i} className="flex items-center gap-3 bg-card border border-border rounded-lg p-3">
@@ -199,18 +192,15 @@ export default function ProductDetail() {
 
           {/* AI Score */}
           <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full border-4 border-primary/30 flex items-center justify-center">
-              <span className={cn("text-xl font-black", scoreColor(product.aiScore))}>
-                {product.aiScore}
-              </span>
+            <div className="w-16 h-16 rounded-xl bg-foreground flex flex-col items-center justify-center shrink-0">
+              <span className="font-display text-2xl font-bold leading-none text-background">{product.aiScore}</span>
+              <span className="text-[10px] text-background/70 mt-0.5">of 100</span>
             </div>
             <div>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <Zap className="w-3.5 h-3.5 text-primary" />
-                <span className="text-sm font-semibold">AI Intelligence Score</span>
-              </div>
+              <div className="text-sm font-semibold mb-0.5">AdSpy score</div>
               <p className="text-xs text-muted-foreground">
-                Based on ad spend, trend velocity, saturation, and margin analysis.
+                Based on ad spend, how fast the trend is growing, saturation and margin. Products scoring 65 or more can make
+                Winning Products.
               </p>
             </div>
           </div>
@@ -254,8 +244,8 @@ export default function ProductDetail() {
                   </div>
                 )}
                 {margin !== null && (
-                  <div className="text-center p-2 bg-green-400/10 rounded-lg border border-green-400/20">
-                    <div className="text-lg font-bold text-green-400">{margin}%</div>
+                  <div className="text-center p-2 bg-good/10 rounded-lg border border-good/20">
+                    <div className="text-lg font-bold text-good">{margin}%</div>
                     <div className="text-xs text-muted-foreground">Margin</div>
                   </div>
                 )}
@@ -326,9 +316,7 @@ export default function ProductDetail() {
 
           {/* AI Intelligence tools */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              AI Intelligence
-            </h3>
+            <h3 className="font-display text-lg font-bold">AI tools</h3>
             <AIProductScoreCard
               title={product.title}
               description={product.description}

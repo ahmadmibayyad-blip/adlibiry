@@ -182,7 +182,7 @@ function ProductTable({ products }: { products: Product[] }) {
                 <td className="px-3 py-2 text-right tabular-nums">{compactNumber(p.likes)}</td>
                 <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                   {g === undefined ? "—" : (
-                    <span className={cn("inline-flex items-center gap-0.5", g >= 0 ? "text-green-400" : "text-red-400")}>
+                    <span className={cn("inline-flex items-center gap-0.5", g >= 0 ? "text-good" : "text-bad")}>
                       {g >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                       {Math.abs(g).toFixed(0)}%
                     </span>

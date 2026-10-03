@@ -45,8 +45,8 @@ export default function WinnersPage() {
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div>
             <div className="flex items-center gap-2.5 mb-1">
-              <Trophy className="w-5 h-5 text-primary" />
-              <h1 className="text-2xl font-bold">Winning Products</h1>
+              <Trophy className="w-5 h-5 text-brand-ink" aria-hidden="true" />
+              <h1 className="font-display text-3xl font-bold tracking-tight">Winning Products</h1>
             </div>
             <p className="text-sm text-muted-foreground">
               The best {slots} from every niche, shuffled together so you see variety. Updated every morning. Everything else is in{" "}
@@ -135,15 +135,15 @@ export default function WinnersPage() {
 
       <aside className="space-y-4 xl:sticky xl:top-4 self-start">
         <div className="bg-card border border-border rounded-xl p-4">
-          <h2 className="font-semibold mb-1">Today's list</h2>
+          <h2 className="font-display text-lg font-bold mb-1">Today's list</h2>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-3xl font-bold tabular-nums">{summary?.total ?? "—"}</span>
+            <span className="font-display text-4xl font-bold tabular-nums">{summary?.total ?? "—"}</span>
             {summary && <span className="text-xs text-muted-foreground">{summary.newToday} new today</span>}
           </div>
           <p className="text-xs text-muted-foreground mb-4">
             A niche with fewer than {slots} products above score {minScore} shows fewer. It's never padded with weaker ones.
           </p>
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Slots filled per niche</div>
+          <h3 className="text-sm font-semibold mb-2">Slots filled per niche</h3>
           <div className="space-y-2.5">
             {summary?.perNiche.map((n) => (
               <button key={n.niche} className="block w-full text-left cursor-pointer group" onClick={() => setNiche(n.niche)}>
@@ -163,7 +163,7 @@ export default function WinnersPage() {
           )}
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">How a product gets in</div>
+          <h3 className="text-sm font-semibold mb-2">How a product gets in</h3>
           <ol className="space-y-2 text-xs list-decimal list-inside marker:text-primary">
             <li>Every product is ranked inside its niche by score.</li>
             <li>The top {slots} with score {minScore}+ are kept.</li>

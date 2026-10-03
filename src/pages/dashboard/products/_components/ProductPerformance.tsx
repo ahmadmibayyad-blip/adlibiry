@@ -31,10 +31,10 @@ export function ProductHeadline({ product }: { product: Product }) {
           </>
         )}
         {(product.linkedAds ?? 0) > 0 && (
-          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-orange-500/15 text-orange-400">
-            Detected from {product.linkedAds} ad{product.linkedAds === 1 ? "" : "s"}
-            {platforms.length > 0 && ` · ${platforms.join(", ")}`}
-            {countries.length > 0 && ` · ${countries.slice(0, 3).join(", ")}${countries.length > 3 ? "…" : ""}`}
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-brand/15 text-brand-ink">
+            Found in {product.linkedAds} ad{product.linkedAds === 1 ? "" : "s"}
+            {platforms.length > 0 && ` on ${platforms.join(", ")}`}
+            {countries.length > 0 && `, ${countries.slice(0, 3).join(", ")}${countries.length > 3 ? "…" : ""}`}
           </span>
         )}
       </div>
@@ -209,7 +209,7 @@ export default function ProductPerformance({ product }: { product: Product }) {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">“{a.headline}”</div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {a.advertiserName} · {a.platform} · {a.country} · {a.daysRunning} days
+                      {a.advertiserName} on {a.platform}, {a.country}, running {a.daysRunning} days
                     </div>
                   </div>
                   <div className="hidden sm:grid grid-cols-3 gap-6 text-xs text-right">

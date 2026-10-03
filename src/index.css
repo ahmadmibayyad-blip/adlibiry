@@ -13,6 +13,8 @@
     "Liberation Mono", "Courier New", monospace;
   --font-serif:
     "Noto Serif", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-display:
+    "Bricolage Grotesque", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -49,6 +51,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
 }
 
 :root {
@@ -118,6 +125,97 @@
   --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.65 0.22 155);
+}
+
+:root {
+  --good: #0e6b5e;
+  --warn: #8a6100;
+  --bad: #b42318;
+  --brand: #e07a3f;
+  --brand-ink: #b8531a;
+}
+
+.dark {
+  --good: #3fb59f;
+  --warn: #e0b341;
+  --bad: #f07a6a;
+  --brand: #e07a3f;
+  --brand-ink: #e58a4e;
+}
+
+/* Dashboard look. DashboardLayout puts this class on <html> (so dialogs and
+   menus rendered in portals get it too); the marketing pages keep the theme above. */
+.theme-adspy {
+  --background: #f4f2ec;
+  --foreground: #15171c;
+  --card: #ffffff;
+  --card-foreground: #15171c;
+  --popover: #ffffff;
+  --popover-foreground: #15171c;
+  --primary: #0e6b5e;
+  --primary-foreground: #ffffff;
+  --secondary: #ebe8e0;
+  --secondary-foreground: #15171c;
+  --muted: #ebe8e0;
+  --muted-foreground: #5b5f68;
+  --accent: #ebe8e0;
+  --accent-foreground: #15171c;
+  --destructive: #b42318;
+  --border: #e3e0d8;
+  --input: rgb(21 23 28 / 16%);
+  --ring: #0e6b5e;
+  --chart-1: #0e6b5e;
+  --chart-2: #b8531a;
+  --chart-3: #2a5bd7;
+  --chart-4: #7a4fb5;
+  --chart-5: #9a7a12;
+  --sidebar: #faf9f5;
+  --sidebar-foreground: #15171c;
+  --sidebar-primary: #0e6b5e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ebe8e0;
+  --sidebar-accent-foreground: #15171c;
+  --sidebar-border: #e3e0d8;
+  --sidebar-ring: #0e6b5e;
+}
+
+.dark.theme-adspy {
+  --background: #15171c;
+  --foreground: #f4f2ec;
+  --card: #1d2027;
+  --card-foreground: #f4f2ec;
+  --popover: #1d2027;
+  --popover-foreground: #f4f2ec;
+  --primary: #3fb59f;
+  --primary-foreground: #0b1f1b;
+  --secondary: #262a32;
+  --secondary-foreground: #f4f2ec;
+  --muted: #22252c;
+  --muted-foreground: #a3a7b0;
+  --accent: #262a32;
+  --accent-foreground: #f4f2ec;
+  --destructive: #f07a6a;
+  --border: rgb(255 255 255 / 9%);
+  --input: rgb(255 255 255 / 13%);
+  --ring: #3fb59f;
+  --chart-1: #3fb59f;
+  --chart-2: #e58a4e;
+  --chart-3: #6f93f0;
+  --chart-4: #a68ad6;
+  --chart-5: #c9a63a;
+  --sidebar: #111317;
+  --sidebar-foreground: #f4f2ec;
+  --sidebar-primary: #3fb59f;
+  --sidebar-primary-foreground: #0b1f1b;
+  --sidebar-accent: #262a32;
+  --sidebar-accent-foreground: #f4f2ec;
+  --sidebar-border: rgb(255 255 255 / 9%);
+  --sidebar-ring: #3fb59f;
+}
+
+.theme-adspy body {
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
 @layer base {
