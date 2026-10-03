@@ -13,6 +13,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import * as z from "zod";
 import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
+import { claimAiRequest } from "../lib/aiQuota";
 import { demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
 
 const openai = new OpenAI({
@@ -59,6 +60,7 @@ export const analyzeSaturation = action({
     country: v.string(), // ISO country code
   },
   handler: async (ctx, args): Promise<SaturationResult> => {
+    await claimAiRequest(ctx);
     const now = Date.now();
 
     // ── Pull real tracked data, scoped to the selected country where possible ──
