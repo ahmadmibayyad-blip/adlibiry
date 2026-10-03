@@ -5,7 +5,6 @@ import StatsBar from "./_components/StatsBar.tsx";
 import Features from "./_components/Features.tsx";
 import HowItWorks from "./_components/HowItWorks.tsx";
 import AdSpy from "./_components/AdSpy.tsx";
-import Testimonials from "./_components/Testimonials.tsx";
 import Pricing from "./_components/Pricing.tsx";
 import FAQ from "./_components/FAQ.tsx";
 import FinalCTA from "./_components/FinalCTA.tsx";
@@ -28,7 +27,6 @@ export default function Index() {
       <Features />
       <HowItWorks />
       <AdSpy />
-      <Testimonials />
       <Pricing />
       <FAQ />
       <FinalCTA />

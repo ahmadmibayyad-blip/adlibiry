@@ -126,12 +126,8 @@ export default function Pricing() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
-            Simple, Transparent Pricing
-          </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
-            No Hidden Fees.
-            <span className="text-primary"> Cancel Anytime.</span>
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
+            Simple pricing, cancel anytime
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
             7-day free trial on all plans. No credit card required to start. See exactly what you get before paying.
@@ -156,7 +152,7 @@ export default function Pricing() {
               )}
             >
               Yearly
-              <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-bold", yearly ? "bg-primary-foreground/20 text-primary-foreground" : "bg-green-400/10 text-green-400")}>
+              <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-bold", yearly ? "bg-primary-foreground/20 text-primary-foreground" : "bg-good/10 text-good")}>
                 -40%
               </span>
             </button>
@@ -197,7 +193,7 @@ export default function Pricing() {
                   <span className="text-muted-foreground text-sm">/mo</span>
                 </div>
                 {yearly && (
-                  <div className="text-xs text-green-400 mt-1">
+                  <div className="text-xs text-good mt-1">
                     Billed ${plan.yearlyPrice}/year · Save ${(plan.monthlyPrice * 12) - plan.yearlyPrice}/yr
                   </div>
                 )}

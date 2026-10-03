@@ -3,7 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import { Zap, Loader2 } from "lucide-react";
+import { Component, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
+import Logo from "@/components/Logo.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -17,20 +19,6 @@ export default function LoginPage() {
   const [flow, setFlow] = useState<Flow>("signIn");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const options = useQuery(api.authOptions.get, {});
-  const [googleBusy, setGoogleBusy] = useState(false);
-
-  async function withGoogle() {
-    setError(null);
-    setGoogleBusy(true);
-    try {
-      // Redirects to Google, then back to the app signed in.
-      await signIn("google", { redirectTo: "/dashboard" });
-    } catch {
-      setError("Couldn't start Google sign-in. Try again or use your email.");
-      setGoogleBusy(false);
-    }
-  }
 
   useEffect(() => {
     if (isAuthenticated) navigate("/dashboard", { replace: true });
@@ -67,32 +55,18 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-svh items-center justify-center px-4 bg-background">
       <div className="w-full max-w-sm">
-        <Link to="/" className="flex items-center gap-2 justify-center mb-8">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-            <Zap className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="font-bold text-xl">
-            AdSpy<span className="text-primary">Pro</span>
-          </span>
+        <Link to="/" className="flex justify-center mb-8" aria-label="AdSpy Pro home">
+          <Logo size={28} className="text-xl" />
         </Link>
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
-          <h1 className="text-lg font-semibold mb-1">{flow === "signIn" ? "Sign in" : "Create your account"}</h1>
+          <h1 className="font-display text-xl font-bold mb-1">{flow === "signIn" ? "Sign in" : "Create your account"}</h1>
           <p className="text-sm text-muted-foreground mb-5">
             {flow === "signIn" ? "Welcome back." : "Start finding winning products and ads."}
           </p>
-          {options?.google && (
-            <>
-              <Button type="button" variant="outline" className="w-full" onClick={withGoogle} disabled={googleBusy}>
-                {googleBusy ? <Loader2 className="size-4 animate-spin" /> : <GoogleIcon />}
-                Continue with Google
-              </Button>
-              <div className="flex items-center gap-3 my-4 text-xs text-muted-foreground">
-                <div className="h-px flex-1 bg-border" />
-                or with email
-                <div className="h-px flex-1 bg-border" />
-              </div>
-            </>
-          )}
+          {/* If the backend can't say whether Google is set up, skip the button: email sign-in still works. */}
+          <HideOnError>
+            <GoogleSignIn onError={setError} />
+          </HideOnError>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             {flow === "signUp" && (
               <div className="flex flex-col gap-1.5">
@@ -134,6 +108,50 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+function GoogleSignIn({ onError }: { onError: (message: string | null) => void }) {
+  const { signIn } = useAuthActions();
+  const options = useQuery(api.authOptions.get, {});
+  const [busy, setBusy] = useState(false);
+  if (!options?.google) return null;
+
+  async function withGoogle() {
+    onError(null);
+    setBusy(true);
+    try {
+      // Redirects to Google, then back to the app signed in.
+      await signIn("google", { redirectTo: "/dashboard" });
+    } catch {
+      onError("Couldn't start Google sign-in. Try again or use your email.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button type="button" variant="outline" className="w-full" onClick={withGoogle} disabled={busy}>
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <GoogleIcon />}
+        Continue with Google
+      </Button>
+      <div className="flex items-center gap-3 my-4 text-xs text-muted-foreground">
+        <div className="h-px flex-1 bg-border" />
+        or with email
+        <div className="h-px flex-1 bg-border" />
+      </div>
+    </>
+  );
+}
+
+// Renders nothing if a child throws (e.g. a failed Convex query), so the rest of the page stays usable.
+class HideOnError extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }
 
 function GoogleIcon() {

@@ -1,4 +1,4 @@
-import { Zap } from "lucide-react";
+import Logo from "@/components/Logo.tsx";
 import { Link } from "react-router-dom";
 
 // Product links open the app (signed-out visitors go to sign-in first);
@@ -44,13 +44,8 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-3 lg:col-span-2">
-            <a href="/" className="flex items-center gap-2 mb-4 cursor-pointer">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Zap className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <span className="text-lg font-bold">
-                AdSpy<span className="text-primary">Pro</span>
-              </span>
+            <a href="/" className="inline-flex mb-4 cursor-pointer" aria-label="AdSpy Pro home">
+              <Logo size={24} className="text-lg" />
             </a>
             <p className="text-sm text-muted-foreground max-w-xs leading-relaxed mb-5">
               The professional ad intelligence platform for serious dropshippers. Real data, honest estimates, zero BS.

@@ -1,33 +1,28 @@
-import { motion } from "motion/react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api.js";
 
-const stats = [
-  { value: "10M+", label: "Ads Tracked" },
-  { value: "2.4M+", label: "Products Indexed" },
-  { value: "500K+", label: "Stores Monitored" },
-  { value: "50K+", label: "Active Users" },
-  { value: "180+", label: "Countries Covered" },
-];
-
+// Live counts from the database, so the numbers are true and grow on their own.
 export default function StatsBar() {
+  const stats = useQuery(api.stats.get, {});
+  const n = (v: number | undefined) => (v === undefined ? "…" : v.toLocaleString("en-US"));
+  const items = [
+    { value: n(stats?.ads.total), label: "Ads tracked" },
+    { value: n(stats?.ads.activeCount), label: "Ads running now" },
+    { value: n(stats?.products.total), label: "Products scored" },
+    { value: n(stats?.ads.countries.length), label: "Countries" },
+    { value: n(stats?.products.categories.length), label: "Niches" },
+  ];
+
   return (
-    <section className="py-12 border-y border-border bg-card/40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.07 }}
-              className="text-center"
-            >
-              <div className="text-3xl font-extrabold text-primary mb-1">{stat.value}</div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+    <section className="py-10 border-y border-border bg-card/40" aria-label="AdSpy Pro in numbers">
+      <dl className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
+        {items.map((item) => (
+          <div key={item.label}>
+            <dt className="text-sm text-muted-foreground">{item.label}</dt>
+            <dd className="font-display text-3xl font-bold tabular-nums mt-1">{item.value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
