@@ -19,6 +19,7 @@ import AICompetitorFinderCard from "../_components/ai/AICompetitorFinderCard.tsx
 import CountrySaturationCard from "../_components/ai/CountrySaturationCard.tsx";
 import ProductPerformance, { ProductHeadline } from "./_components/ProductPerformance.tsx";
 import AddToShopify from "./_components/AddToShopify.tsx";
+import ProductGallery from "./_components/ProductGallery.tsx";
 
 const saturationColors: Record<string, string> = {
   Low: "text-green-400 bg-green-400/10 border-green-400/20",
@@ -123,13 +124,7 @@ export default function ProductDetail() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <div className="rounded-xl overflow-hidden border border-border bg-muted mb-4">
-            <img
-              src={product.imageUrl}
-              alt={product.title}
-              className="w-full aspect-[4/3] object-cover"
-            />
-          </div>
+          <ProductGallery product={product} />
           {product.adExamples.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">
