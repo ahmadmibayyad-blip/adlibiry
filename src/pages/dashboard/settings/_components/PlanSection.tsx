@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ConvexError } from "convex/values";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { toast } from "sonner";
@@ -34,10 +35,9 @@ export default function PlanSection() {
     setPortalLoading(true);
     try {
       const { url } = await getBillingPortal({ returnUrl: window.location.href });
-      window.open(url, "_blank");
-    } catch {
-      toast.error("No billing account found yet. Upgrade to a paid plan first.");
-    } finally {
+      window.location.assign(url);
+    } catch (err) {
+      toast.error(err instanceof ConvexError ? err.data.message : "Couldn't open billing. Please try again.");
       setPortalLoading(false);
     }
   };

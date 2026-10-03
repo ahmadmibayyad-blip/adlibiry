@@ -32,6 +32,17 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Never ask for API keys, client secrets or tokens in chat. Tell the user where to set them.
 - Claude API calls go through `claudeClient()` in `convex/lib/claudeClient.ts` (it adds the workspace header).
 
+## Billing (Stripe)
+
+- Checkout, the billing portal and the webhook are in `convex/commerce.ts`; plan rules in `convex/lib/billing.ts`;
+  the user's plan is stored by `convex/billing.ts` and read with `billing.myPlan` (`useUserPlan()` in the app).
+- Convex env vars (Production deployment): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and one price ID per plan:
+  `STRIPE_PRICE_{STARTER,PRO,AGENCY}_{MONTHLY,YEARLY}`. A plan whose price isn't set shows "isn't available yet".
+- Stripe webhook endpoint: `https://<deployment>.convex.site/stripe/webhook`, events
+  `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`.
+- Trials are 7 days without a card (`payment_method_collection: "if_required"`); no card by day 7 cancels.
+- Access: trialing, active and past_due keep the plan; admins always get Agency.
+
 ## Data
 
 - Ads come from source syncs (`convex/sources`, `convex/adlibrary`, `convex/nexscope`) and admin CSV imports (`source: "csv_import"`).

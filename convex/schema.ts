@@ -15,7 +15,12 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
-    customerId: v.optional(v.string()),
+    customerId: v.optional(v.string()), // Stripe customer ID
+    // Set by the Stripe webhook (convex/billing.ts applySubscription).
+    plan: v.optional(v.string()), // "starter" | "pro" | "agency" | "none"
+    subscriptionStatus: v.optional(v.string()), // Stripe status: "trialing", "active", "past_due", "canceled", …
+    subscriptionId: v.optional(v.string()),
+    planRenewsAt: v.optional(v.number()), // ms
     role: v.optional(v.string()), // "admin" | "user"
     avatarUrl: v.optional(v.string()),
   })
