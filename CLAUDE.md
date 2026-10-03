@@ -23,7 +23,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Call `markStatsDirty(ctx)` (`convex/stats.ts`) after adding or removing ads or products in bulk.
 - Read with `.withIndex(...)`, not `.filter(...)`; paginate or `.take(n)`. Files using Node APIs start with `"use node"`.
 - Pure logic goes in `convex/lib/*.ts` and is unit tested there; the Convex function files call it.
-- Crons are in `convex/crons.ts`.
+- Crons are in `convex/crons.ts`. Daily imports run through `internal.importRuns.run` ({ job }), which records each run (counts, errors,
+  "not set up") for Admin → Daily imports; a new import job returns `{ ..., errors: string[] }` or `{ notConfigured: "…" }`
+  and catches per-country/niche failures instead of throwing.
 
 ## Environment and secrets
 

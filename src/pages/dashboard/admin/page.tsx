@@ -30,6 +30,7 @@ import AdminGuard from "./_components/AdminGuard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
+import ImportRunsCard from "./_components/ImportRunsCard.tsx";
 import CsvImportDialog from "./_components/CsvImportDialog.tsx";
 import AdCsvImportDialog from "./_components/AdCsvImportDialog.tsx";
 import RemoveLastAdImport from "./_components/RemoveLastAdImport.tsx";
@@ -575,6 +576,7 @@ function AdsTab() {
 
   return (
     <div>
+      <ImportRunsCard />
       <DataSourcesPanel />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
