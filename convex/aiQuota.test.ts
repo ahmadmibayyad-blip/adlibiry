@@ -35,7 +35,7 @@ describe("AI actions require a signed-in user with requests left", () => {
       await ctx.db.insert("assistantUsage", { userId, day: new Date().toISOString().slice(0, 10), count: 1 });
     });
     const user = t.withIdentity({ subject: "u1|session" });
-    await expect(user.action(api.ai.scoreProduct, product)).rejects.toThrow(/used all 1 AI requests/);
+    await expect(user.action(api.ai.scoreProduct, product)).rejects.toThrow(/get 1 AI requests a day/);
     expect(fetchSpy).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
   });

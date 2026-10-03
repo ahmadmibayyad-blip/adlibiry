@@ -4,10 +4,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { ConvexError, v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { claudeClient } from "./lib/claudeClient";
-import { listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
+import { capLimit, listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
 // A chat assistant for signed-in customers. Claude answers from the app's own
@@ -34,10 +34,11 @@ When you mention a product from a tool result, link it as /dashboard/products/<i
 Keep answers short and practical: lead with the answer, use short lists, no long preambles. Reply in the customer's language.`;
 
 // The data tools live in lib/aiTools.ts (shared with the MCP server).
-function makeTools(ctx: ActionCtx) {
+// maxResults: the customer's per-list result limit (null: none).
+function makeTools(ctx: ActionCtx, maxResults: number | null) {
   return [
-    betaZodTool({ ...searchAdsTool, run: (input) => searchAdsTool.run(ctx, input) }),
-    betaZodTool({ ...searchProductsTool, run: (input) => searchProductsTool.run(ctx, input) }),
+    betaZodTool({ ...searchAdsTool, run: (input) => searchAdsTool.run(ctx, capLimit(input, maxResults)) }),
+    betaZodTool({ ...searchProductsTool, run: (input) => searchProductsTool.run(ctx, capLimit(input, maxResults)) }),
     betaZodTool({ ...listNichesTool, run: () => listNichesTool.run(ctx) }),
   ];
 }
@@ -63,9 +64,10 @@ export const chat = action({
     const claim = await ctx.runMutation(internal.assistantUsage.claimMessage, { limit });
     if (!claim.signedIn) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to use the AI assistant." });
     if (!claim.allowed) {
-      throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI messages for today. Come back tomorrow.` });
+      throw new ConvexError({ code: "LIMIT", message: claim.message ?? "You've reached today's AI limit. Come back tomorrow." });
     }
 
+    const maxResults: number | null = await ctx.runQuery(api.billing.myResultLimit, {});
     const client = claudeClient();
     const ask = (withFallback: boolean) =>
       client.beta.messages.toolRunner({
@@ -76,7 +78,7 @@ export const chat = action({
         // If a safety check declines a request, the API retries it on a suitable model.
         ...(withFallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
         system: SYSTEM,
-        tools: makeTools(ctx),
+        tools: makeTools(ctx, maxResults),
         max_iterations: 6,
         messages: history.map((m) => ({ role: m.role, content: m.content })),
       });
@@ -91,7 +93,7 @@ export const chat = action({
         final = await ask(false);
       }
       if (final.stop_reason === "refusal") {
-        return { reply: "Sorry, I can't help with that one. Try asking about products, ads or niches.", used: claim.used, limit };
+        return { reply: "Sorry, I can't help with that one. Try asking about products, ads or niches.", used: claim.used, limit: claim.limit };
       }
       const reply = final.content
         .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")

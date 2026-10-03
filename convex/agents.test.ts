@@ -8,8 +8,9 @@ const modules = import.meta.glob("./**/*.ts");
 
 async function setup(role = "user") {
   const t = convexTest(schema, modules);
-  await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u1", role }));
-  await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" }));
+  // Agents are for trial and paid accounts.
+  await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u1", role, plan: "pro", subscriptionStatus: "trialing" }));
+  await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u2", role: "user", plan: "pro", subscriptionStatus: "trialing" }));
   return { t, me: t.withIdentity({ subject: "u1|s" }), other: t.withIdentity({ subject: "u2|s" }) };
 }
 

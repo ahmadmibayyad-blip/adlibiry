@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { claudeClient } from "./lib/claudeClient";
-import { listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
+import { capLimit, listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
 
 // Runs AI agents (see convex/agents.ts): Claude looks through the app's data
 // with the same read-only tools as the assistant and writes a briefing.
@@ -31,15 +31,21 @@ Format (plain text with short lines, no tables):
 **Next step** — one concrete action for today.
 Keep it under 250 words. Write in the language the goal is written in.`;
 
-function tools(ctx: ActionCtx) {
+// maxResults: the agent owner's per-list result limit (null: none).
+function tools(ctx: ActionCtx, maxResults: number | null) {
   return [
-    betaZodTool({ ...searchAdsTool, run: (input) => searchAdsTool.run(ctx, input) }),
-    betaZodTool({ ...searchProductsTool, run: (input) => searchProductsTool.run(ctx, input) }),
+    betaZodTool({ ...searchAdsTool, run: (input) => searchAdsTool.run(ctx, capLimit(input, maxResults)) }),
+    betaZodTool({ ...searchProductsTool, run: (input) => searchProductsTool.run(ctx, capLimit(input, maxResults)) }),
     betaZodTool({ ...listNichesTool, run: () => listNichesTool.run(ctx) }),
   ];
 }
 
-async function work(ctx: ActionCtx, agent: Doc<"agents">, lastBriefing: string | undefined): Promise<{ status: string; text: string }> {
+async function work(
+  ctx: ActionCtx,
+  agent: Doc<"agents">,
+  lastBriefing: string | undefined,
+  maxResults: number | null,
+): Promise<{ status: string; text: string }> {
   if (!process.env.ANTHROPIC_API_KEY) return { status: "error", text: "AI isn't set up yet (missing ANTHROPIC_API_KEY)." };
   const client = claudeClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -56,7 +62,7 @@ async function work(ctx: ActionCtx, agent: Doc<"agents">, lastBriefing: string |
       max_tokens: 8000,
       output_config: { effort: "low" },
       system: SYSTEM,
-      tools: tools(ctx),
+      tools: tools(ctx, maxResults),
       max_iterations: 8,
       messages: [{ role: "user", content: prompt }],
     });
@@ -80,8 +86,8 @@ export const runOne = internalAction({
   args: { agentId: v.id("agents") },
   handler: async (ctx, args) => {
     const data = await ctx.runQuery(internal.agents.forRun, { id: args.agentId });
-    if (!data || !data.agent.enabled) return;
-    const result = await work(ctx, data.agent, data.lastBriefing);
+    if (!data || !data.agent.enabled || data.ownerFree) return;
+    const result = await work(ctx, data.agent, data.lastBriefing, data.ownerResultLimit);
     await ctx.runMutation(internal.agents.saveBriefing, { agentId: args.agentId, ...result });
   },
 });
@@ -103,11 +109,15 @@ export const runNow = action({
   handler: async (ctx, args): Promise<{ status: string; text: string }> => {
     const agent = await ctx.runQuery(internal.agents.ownedForRun, { id: args.agentId });
     if (!agent) throw new ConvexError({ code: "NOT_FOUND", message: "Agent not found" });
+    // Plan first, so a free account isn't charged a request for a refused run.
+    const data = await ctx.runQuery(internal.agents.forRun, { id: args.agentId });
+    if (!data || data.ownerFree) {
+      throw new ConvexError({ code: "PLAN_REQUIRED", message: "AI agents are part of the free trial and paid plans. Start your free trial to run them." });
+    }
     const limit = Math.max(1, Number(process.env.ASSISTANT_DAILY_LIMIT ?? 30) || 30);
     const claim = await ctx.runMutation(internal.assistantUsage.claimMessage, { limit });
-    if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI requests for today. Your agents still run tomorrow morning.` });
-    const data = await ctx.runQuery(internal.agents.forRun, { id: args.agentId });
-    const result = await work(ctx, agent, data?.lastBriefing);
+    if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: claim.message ?? "You've reached today's AI limit. Your agents still run tomorrow morning." });
+    const result = await work(ctx, agent, data.lastBriefing, data.ownerResultLimit);
     await ctx.runMutation(internal.agents.saveBriefing, { agentId: args.agentId, ...result });
     return result;
   },

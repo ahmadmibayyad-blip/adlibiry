@@ -10,5 +10,5 @@ export async function claimAiRequest(ctx: ActionCtx): Promise<void> {
   const limit = Math.max(1, Number(process.env.ASSISTANT_DAILY_LIMIT ?? 30) || 30);
   const claim = await ctx.runMutation(internal.assistantUsage.claimMessage, { limit });
   if (!claim.signedIn) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to use AI tools." });
-  if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: `You've used all ${limit} AI requests for today. Come back tomorrow.` });
+  if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: claim.message ?? "You've reached today's AI limit. Come back tomorrow." });
 }
