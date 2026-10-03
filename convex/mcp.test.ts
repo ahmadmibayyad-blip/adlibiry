@@ -9,7 +9,8 @@ const modules = import.meta.glob("./**/*.ts");
 async function setup(role = "user") {
   const t = convexTest(schema, modules);
   await t.run(async (ctx) => {
-    await ctx.db.insert("users", { tokenIdentifier: "u1", role });
+    // MCP is for paying customers: an active subscription.
+    await ctx.db.insert("users", { tokenIdentifier: "u1", role, plan: "pro", subscriptionStatus: "active" });
     await ctx.db.insert("products", {
       title: "ProGrip Posture Corrector",
       description: "Posture corrector",
@@ -103,7 +104,7 @@ describe("MCP server", () => {
   it("does not let one user delete another user's key", async () => {
     const { t } = await setup();
     await t.run(async (ctx) => {
-      await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" });
+      await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user", plan: "pro", subscriptionStatus: "active" });
     });
     const [k] = await t.withIdentity({ subject: "u1|session" }).query(api.mcpKeys.listMyKeys, {});
     await expect(t.withIdentity({ subject: "u2|session" }).mutation(api.mcpKeys.revokeKey, { id: k._id })).rejects.toThrow();

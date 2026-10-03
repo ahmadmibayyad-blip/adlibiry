@@ -3,7 +3,6 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin/helpers";
 import { upsertAd } from "./sources/links";
-import { defined } from "./lib/adFields";
 import { daysSince } from "./lib/extensionSubmission";
 
 // ── Chrome Extension: crowdsourced ad submissions ───────────────────────────
@@ -11,6 +10,14 @@ import { daysSince } from "./lib/extensionSubmission";
 // Rate-limit-lite: cap total pending queue growth per visitor to reduce spam risk
 // without needing a full rate limiter for this milestone's scope.
 const MAX_PENDING_PER_VISITOR = 50;
+// Across all visitors: at most this many new pending ads per window. The
+// endpoint can't authenticate an extension install, so this bounds a flood.
+const MAX_NEW_PER_WINDOW = 300;
+const WINDOW_MS = 10 * 60 * 1000;
+// A repeat sighting refreshes these metrics and fills fields that are still
+// empty, but never replaces a value already there (creative, links, text), so
+// nobody can swap an ad's content before a moderator approves it.
+const METRIC_FIELDS = new Set(["likes", "comments", "shares", "impressions", "isActive"]);
 
 const submissionFields = {
   submitterVisitorId: v.string(),
@@ -49,20 +56,32 @@ export const submitFromExtension = internalMutation({
         .first();
       if (existing) {
         if (existing.status === "pending") {
-          await ctx.db.patch("submittedAds", existing._id, defined({ ...args, submitterVisitorId: undefined }));
+          const update: Record<string, unknown> = {};
+          for (const [k, value] of Object.entries(args)) {
+            if (k === "submitterVisitorId" || value === undefined) continue;
+            const current = (existing as Record<string, unknown>)[k];
+            const empty = current === undefined || current === null || current === "" || (Array.isArray(current) && current.length === 0);
+            if (METRIC_FIELDS.has(k) || empty) update[k] = value;
+          }
+          await ctx.db.patch("submittedAds", existing._id, update);
         }
         return { success: true, duplicate: true };
       }
     }
 
-    const existingPending = await ctx.db
+    const fromSameVisitor = await ctx.db
       .query("submittedAds")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .take(500);
-    const fromSameVisitor = existingPending.filter(
-      (a) => a.submitterVisitorId === args.submitterVisitorId
-    );
+      .withIndex("by_visitor_status", (q) => q.eq("submitterVisitorId", args.submitterVisitorId).eq("status", "pending"))
+      .take(MAX_PENDING_PER_VISITOR);
     if (fromSameVisitor.length >= MAX_PENDING_PER_VISITOR) {
+      return { success: false, reason: "rate_limited" };
+    }
+    const since = new Date(Date.now() - WINDOW_MS).toISOString();
+    const recent = await ctx.db
+      .query("submittedAds")
+      .withIndex("by_status_submitted", (q) => q.eq("status", "pending").gte("submittedAt", since))
+      .take(MAX_NEW_PER_WINDOW);
+    if (recent.length >= MAX_NEW_PER_WINDOW) {
       return { success: false, reason: "rate_limited" };
     }
 

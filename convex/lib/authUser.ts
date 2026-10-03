@@ -6,7 +6,10 @@ import { initNewUser } from "./userRole";
 // - Existing account (same provider account) → that user, refreshed.
 // - Google sign-in whose email Google has verified → the user that already
 //   has that email (e.g. made with a password), so one person keeps one
-//   account and their role, saved items and alerts.
+//   account and their role, saved items and alerts. Password sign-up never
+//   proves the email, so if that account's email was never verified, its
+//   password login and sessions are removed first: otherwise someone could
+//   sign up with another person's email and share their account later.
 // - Otherwise a new user (first account becomes admin, see userRole.ts).
 
 type Args = {
@@ -16,6 +19,28 @@ type Args = {
 };
 
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+
+// Removes the password login and signs out every session of an account whose
+// email was never verified, before a verified Google sign-in takes it over.
+async function revokeUnprovenLogins(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
+  const passwords = await ctx.db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", "password"))
+    .collect();
+  for (const account of passwords) await ctx.db.delete("authAccounts", account._id);
+  const sessions = await ctx.db
+    .query("authSessions")
+    .withIndex("userId", (q) => q.eq("userId", userId))
+    .collect();
+  for (const session of sessions) {
+    const tokens = await ctx.db
+      .query("authRefreshTokens")
+      .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+      .collect();
+    for (const token of tokens) await ctx.db.delete("authRefreshTokens", token._id);
+    await ctx.db.delete("authSessions", session._id);
+  }
+}
 
 export async function upsertAuthUser(ctx: MutationCtx, args: Args): Promise<Id<"users">> {
   const email = str(args.profile.email)?.toLowerCase();
@@ -42,7 +67,10 @@ export async function upsertAuthUser(ctx: MutationCtx, args: Args): Promise<Id<"
       .query("users")
       .withIndex("email", (q) => q.eq("email", email))
       .first();
-    if (sameEmail && (await refresh(sameEmail._id))) return sameEmail._id;
+    if (sameEmail) {
+      if (!sameEmail.emailVerificationTime) await revokeUnprovenLogins(ctx, sameEmail._id);
+      if (await refresh(sameEmail._id)) return sameEmail._id;
+    }
   }
 
   const id = await ctx.db.insert("users", {

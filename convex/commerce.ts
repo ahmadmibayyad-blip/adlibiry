@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { ConvexError, v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { priceIdForVariant } from "./lib/billing";
+import { priceIdForVariant, safeReturnUrl } from "./lib/billing";
 
 // Billing runs on Stripe. Setup (keys, prices, webhook): see "Billing" in CLAUDE.md.
 function stripe(): Stripe {
@@ -49,8 +49,8 @@ export const createCheckout = action({
         trial_period_days: 7,
         trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
       },
-      success_url: args.successUrl,
-      cancel_url: args.cancelUrl,
+      success_url: safeReturnUrl(args.successUrl, process.env.SITE_URL, "/dashboard"),
+      cancel_url: safeReturnUrl(args.cancelUrl, process.env.SITE_URL, "/#pricing"),
     });
     if (!session.url) throw new ConvexError({ code: "CHECKOUT_FAILED", message: "Couldn't open checkout. Please try again." });
     return { url: session.url };
@@ -62,7 +62,7 @@ export const getBillingPortal = action({
   handler: async (ctx, args): Promise<{ url: string }> => {
     const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
     if (!user?.customerId) throw new ConvexError({ code: "NO_CUSTOMER", message: "No billing account yet. Start a plan first." });
-    const portal = await stripe().billingPortal.sessions.create({ customer: user.customerId, return_url: args.returnUrl });
+    const portal = await stripe().billingPortal.sessions.create({ customer: user.customerId, return_url: safeReturnUrl(args.returnUrl, process.env.SITE_URL, "/dashboard/settings") });
     return { url: portal.url };
   },
 });
@@ -87,13 +87,17 @@ export const handleWebhook = internalAction({
     ) {
       const sub = event.data.object;
       const item = sub.items.data[0];
-      await ctx.runMutation(internal.billing.applySubscription, {
+      const result = await ctx.runMutation(internal.billing.applySubscription, {
         customerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
         subscriptionId: sub.id,
         status: sub.status,
         priceId: item?.price.id,
         currentPeriodEnd: item?.current_period_end,
+        eventCreated: event.created,
       });
+      // No user has this customer yet: answer with an error so Stripe retries
+      // the event later instead of it being lost.
+      if (!result.updated && result.reason === "unknown_customer") return { ok: false, error: "Unknown customer" };
     }
     return { ok: true };
   },

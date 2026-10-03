@@ -50,18 +50,25 @@ export const applySubscription = internalMutation({
     status: v.string(),
     priceId: v.optional(v.string()),
     currentPeriodEnd: v.optional(v.number()), // seconds, as Stripe sends it
+    eventCreated: v.optional(v.number()), // Stripe event.created, seconds
   },
-  handler: async (ctx, args): Promise<{ updated: boolean }> => {
+  handler: async (ctx, args): Promise<{ updated: boolean; reason?: "unknown_customer" | "stale_event" }> => {
     const user = await ctx.db
       .query("users")
       .withIndex("by_customer_id", (q) => q.eq("customerId", args.customerId))
       .unique();
-    if (!user) return { updated: false };
+    if (!user) return { updated: false, reason: "unknown_customer" };
+    // Stripe doesn't guarantee delivery order: never let an older event
+    // (e.g. a late "updated") overwrite a newer one (e.g. "deleted").
+    if (args.eventCreated !== undefined && user.subscriptionEventAt !== undefined && args.eventCreated < user.subscriptionEventAt) {
+      return { updated: false, reason: "stale_event" };
+    }
     await ctx.db.patch("users", user._id, {
       plan: planForPrice(args.priceId, process.env),
       subscriptionStatus: args.status,
       subscriptionId: args.subscriptionId,
       planRenewsAt: args.currentPeriodEnd ? args.currentPeriodEnd * 1000 : undefined,
+      subscriptionEventAt: args.eventCreated ?? user.subscriptionEventAt,
     });
     return { updated: true };
   },

@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { NICHES } from "./lib/category";
 import { pickHooks } from "./lib/hooks";
 import { requireAdmin } from "./admin/helpers";
+import { requireSignedIn } from "./lib/access";
 
 // ── Hooks of the week ───────────────────────────────────────────────────────
 // Every Monday (convex/hooksBuilder.ts) we take the most engaging ads found or
@@ -55,6 +56,7 @@ export const saveNiche = internalMutation({
 export const latest = query({
   args: { week: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const week = args.week ?? (await ctx.db.query("weeklyHooks").withIndex("by_week").order("desc").first())?.week;
     if (!week) return null;
     const weeks = new Set<string>();

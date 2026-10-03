@@ -4,6 +4,7 @@ import { Hercules } from "./lib/herculesShim";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
+import { requireSignedIn } from "./lib/access";
 
 const hercules = new Hercules({ apiKey: process.env.HERCULES_API_KEY, apiVersion: "2025-12-09" });
 
@@ -27,6 +28,7 @@ export const getVapidPublicKey = action({
 export const subscribe = action({
   args: { subscription: v.string() },
   handler: async (ctx, args): Promise<{ secret: string }> => {
+    await requireSignedIn(ctx);
     const identity = await ctx.auth.getUserIdentity();
     const visitorId = identity?.subject ?? crypto.randomUUID();
 
