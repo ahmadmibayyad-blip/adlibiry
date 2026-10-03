@@ -454,6 +454,16 @@ export default defineSchema({
     .index("by_expires", ["expiresAt"]),
 
   // Follow alerts: advertisers a user follows (convex/follows.ts).
+  // One row per daily import run (convex/importRuns.ts); pruned after 60 days.
+  importRuns: defineTable({
+    job: v.string(),
+    startedAt: v.number(),
+    finishedAt: v.number(),
+    status: v.string(), // "ok" | "partial" | "failed" | "skipped"
+    summary: v.string(),
+    errors: v.array(v.string()), // at most 10
+  }).index("by_job_started", ["job", "startedAt"]),
+
   followedAdvertisers: defineTable({
     userId: v.id("users"),
     name: v.string(),        // exact ads.advertiserName

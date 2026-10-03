@@ -5,6 +5,10 @@ import { NICHE_KEYWORDS } from "./adlibrary/client";
 import { toAlpha2List } from "./lib/countryCodes";
 import { classifyNiche } from "./lib/category";
 
+// Untyped JSON from an external API, read defensively field by field.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiJson = any;
+
 // Apify → Meta Ad Library ads (works for DK / SE / NO, which AdLibrary and
 // Nexscope barely cover). Flow: start an actor run with a webhook → Apify
 // calls /apify/webhook when the run finishes → we import every dataset item.
@@ -14,7 +18,7 @@ import { classifyNiche } from "./lib/category";
 
 const DEFAULT_ACTOR = "curious_coder~facebook-ads-library-scraper";
 
-const pick = (o: any, ...keys: string[]): any => {
+const pick = (o: ApiJson, ...keys: string[]): ApiJson => {
   for (const k of keys) {
     let cur = o;
     for (const part of k.split(".")) cur = cur == null ? undefined : cur[part];
@@ -28,14 +32,14 @@ const compact = (n: number | undefined): string => {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return `${Math.round(n)}`;
 };
-const toMs = (t: any): number | undefined => {
+const toMs = (t: ApiJson): number | undefined => {
   if (t === undefined || t === null || t === "") return undefined;
   const n = typeof t === "number" ? t : /^\d+$/.test(String(t)) ? Number(t) : Date.parse(String(t));
   if (!Number.isFinite(n)) return undefined;
   return n < 1e12 ? n * 1000 : n;
 };
 // Strip l.facebook.com/l.php?u= wrappers and fbclid.
-function cleanLink(u: any): string {
+function cleanLink(u: ApiJson): string {
   if (typeof u !== "string" || !u) return "";
   try {
     const url = new URL(u);
@@ -201,7 +205,7 @@ export const importDataset = internalAction({
         result.errors.push(`Apify dataset ${res.status}: ${(await res.text()).slice(0, 160)}`);
         break;
       }
-      const items: any[] = await res.json();
+      const items: ApiJson[] = await res.json();
       if (!items.length) break;
       result.fetched += items.length;
 
@@ -212,7 +216,7 @@ export const importDataset = internalAction({
           result.skipped += 1;
           continue;
         }
-        const cards: any[] = pick(s, "cards") ?? [];
+        const cards: ApiJson[] = pick(s, "cards") ?? [];
         let body: string = pick(s, "body.text", "body.markup.__html") ?? (typeof s.body === "string" ? s.body : "") ?? "";
         if ((!body || /\{\{[^}]+\}\}/.test(body)) && cards[0]?.body) body = cards[0].body;
         let title: string = pick(s, "title") ?? "";
@@ -295,20 +299,25 @@ export const importDatasetNow = action({
 // Daily: only when APIFY_COUNTRIES is set (e.g. "DK,SE"). 50 ads per niche per country.
 export const dailyApifyImport = internalAction({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ started: number; errors: string[] } | { notConfigured: string }> => {
     const countries = (process.env.APIFY_COUNTRIES ?? "")
       .split(",")
       .map((c) => c.trim().toUpperCase())
       .filter(Boolean);
+    if (!countries.length) return { notConfigured: "APIFY_COUNTRIES is not set" };
+    // Runs only start here; their ads arrive later through /apify/webhook.
+    const total = { started: 0, errors: [] as string[] };
     for (const country of countries) {
       for (const { niche, keyword } of NICHE_KEYWORDS) {
         try {
           await ctx.runAction(internal.apify.startTrackedRun, { country, keyword, niche, maxAds: 50 });
+          total.started++;
         } catch (e) {
           console.error(`Apify start failed for ${country}/${niche}:`, e);
+          total.errors.push(`${country}/${niche}: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
     }
-    return null;
+    return total;
   },
 });

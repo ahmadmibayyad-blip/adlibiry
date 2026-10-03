@@ -3,6 +3,10 @@ import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { whToRecords } from "./lib/whTransform";
 
+// Untyped JSON from an external API, read defensively field by field.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiJson = any;
+
 // WinningHunter REST API (Basic plan+, 1 credit per call, 60 calls/min).
 // Key: Convex env WINNINGHUNTER_API_KEY. Daily import markets: WH_COUNTRIES
 // (default "DK,SE,NO,DE,GB,US"), pages per market: WH_PAGES (default 2 × 50 ads).
@@ -47,7 +51,7 @@ export const importAdLibrary = internalAction({
     let scroll: string | undefined;
     const pages = Math.max(1, Math.min(args.pages ?? 2, 10));
     for (let page = 0; page < pages; page++) {
-      let body: any;
+      let body: ApiJson;
       try {
         body = await whGet("/adlibrary", {
           countries: args.countries,
@@ -118,13 +122,23 @@ export const creditsNow = action({
 // Daily: winning + scaling active ads per market. Skips when no key is set.
 export const dailyImport = internalAction({
   args: {},
-  handler: async (ctx) => {
-    if (!process.env.WINNINGHUNTER_API_KEY) return null;
+  handler: async (ctx): Promise<{ fetched: number; adsCreated: number; adsUpdated: number; errors: string[] } | { notConfigured: string }> => {
+    if (!process.env.WINNINGHUNTER_API_KEY) return { notConfigured: "WINNINGHUNTER_API_KEY is not set" };
     const countries = (process.env.WH_COUNTRIES ?? "DK,SE,NO,DE,GB,US").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
     const pages = Number(process.env.WH_PAGES ?? 2) || 2;
+    const total = { fetched: 0, adsCreated: 0, adsUpdated: 0, errors: [] as string[] };
     for (const country of countries) {
-      await ctx.runAction(internal.winninghunter.importAdLibrary, { countries: country, adscorefilter: "winning", pages });
+      // One failing country (e.g. out of credits) must not stop the rest.
+      try {
+        const r: ImportResult = await ctx.runAction(internal.winninghunter.importAdLibrary, { countries: country, adscorefilter: "winning", pages });
+        total.fetched += r.fetched;
+        total.adsCreated += r.adsCreated;
+        total.adsUpdated += r.adsUpdated;
+        total.errors.push(...(r.errors ?? []).map((e) => `${country}: ${e}`));
+      } catch (e) {
+        total.errors.push(`${country}: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
-    return null;
+    return total;
   },
 });

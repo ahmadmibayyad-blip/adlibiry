@@ -6,6 +6,10 @@ import { classifyNiche } from "../lib/category";
 import { findPayload, nestedError, describeReply } from "../lib/nexscopeReply";
 import { findVideoUrl } from "../lib/videoUrl";
 
+// Untyped JSON from an external API, read defensively field by field.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiJson = any;
+
 // Nexscope.ai → TikTok ads (chuhaijiang-tiktok-ad-search / -ad-detail) and
 // Shopify stores that advertise (shopify-store-query).
 // Docs: https://github.com/nexscope-ai/nexscope-ecommerce-api
@@ -20,7 +24,7 @@ export const NEXSCOPE_TIKTOK_COUNTRIES = ["gb", "de", "fr", "es", "it", "us"] as
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function runSkill(slug: string, body: Record<string, unknown>, attempt = 0): Promise<any> {
+async function runSkill(slug: string, body: Record<string, unknown>, attempt = 0): Promise<ApiJson> {
   const key = process.env.NEXSCOPE_API_KEY;
   if (!key) throw new Error("NEXSCOPE_API_KEY is not set. Add it in the Convex dashboard → Settings → Environment Variables.");
   const res = await fetch(`${BASE}/${slug}/run`, {
@@ -33,7 +37,7 @@ async function runSkill(slug: string, body: Record<string, unknown>, attempt = 0
     return runSkill(slug, body, attempt + 1);
   }
   const text = await res.text();
-  let json: any;
+  let json: ApiJson;
   try {
     json = JSON.parse(text);
   } catch {
@@ -48,9 +52,9 @@ async function runSkill(slug: string, body: Record<string, unknown>, attempt = 0
 
 const num = (x: unknown): number | undefined => {
   if (typeof x === "number" && Number.isFinite(x)) return x;
-  if (x && typeof x === "object") return num((x as any).value ?? (x as any).amount);
+  if (x && typeof x === "object") return num((x as ApiJson).value ?? (x as ApiJson).amount);
   if (typeof x === "string" && x.trim()) {
-    const n = Number(x.replace(/[^0-9.\-]/g, ""));
+    const n = Number(x.replace(/[^0-9.-]/g, ""));
     return Number.isFinite(n) ? n : undefined;
   }
   return undefined;
@@ -58,7 +62,7 @@ const num = (x: unknown): number | undefined => {
 const imgUrl = (x: unknown): string => {
   if (typeof x === "string") return x;
   if (x && typeof x === "object") {
-    const o = x as any;
+    const o = x as ApiJson;
     return o.url ?? o.uri ?? (o.url_list ?? o.urlList ?? o.urls ?? [])[0] ?? "";
   }
   return "";
@@ -105,7 +109,7 @@ export const importTikTokAds = internalAction({
     const withDetail = args.withDetail ?? true;
 
     for (let page = 1; page <= maxPages; page++) {
-      let search: any;
+      let search: ApiJson;
       try {
         search = await runSkill("chuhaijiang-tiktok-ad-search", {
           country,
@@ -120,7 +124,7 @@ export const importTikTokAds = internalAction({
         break;
       }
       const found = findPayload(search, "items");
-      const items: any[] = Array.isArray(found?.items) ? (found.items as any[]) : [];
+      const items: ApiJson[] = Array.isArray(found?.items) ? (found.items as ApiJson[]) : [];
       result.totalAvailable = num(found?.total_count) ?? result.totalAvailable;
       if (!items.length) {
         // Say why instead of silently showing "0".
@@ -137,13 +141,13 @@ export const importTikTokAds = internalAction({
       result.fetched += items.length;
 
       for (const it of items) {
-        let detail: any = {};
-        let core: any = {};
+        let detail: ApiJson = {};
+        let core: ApiJson = {};
         if (withDetail && it.id) {
           try {
             const d = await runSkill("chuhaijiang-tiktok-ad-detail", { country, id: String(it.id), include: "core" });
-            detail = (findPayload(d, "items")?.items as any[] | undefined)?.[0] ?? {};
-            core = ((findPayload(d, "core")?.core as any)?.items as any[] | undefined)?.[0] ?? {};
+            detail = (findPayload(d, "items")?.items as ApiJson[] | undefined)?.[0] ?? {};
+            core = ((findPayload(d, "core")?.core as ApiJson)?.items as ApiJson[] | undefined)?.[0] ?? {};
           } catch (e) {
             if (result.errors.length < 10) result.errors.push(`detail ${it.id}: ${e instanceof Error ? e.message : e}`);
           }
@@ -215,17 +219,28 @@ export const importTikTokAdsNow = action({
 // page (10 ads + details) per niche per country, to keep Nexscope credits predictable.
 export const dailyTikTokImport = internalAction({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ fetched: number; created: number; updated: number; errors: string[] } | { notConfigured: string }> => {
     const countries = (process.env.NEXSCOPE_TIKTOK_COUNTRIES ?? "")
       .split(",")
       .map((c) => c.trim().toLowerCase())
       .filter(Boolean);
+    if (!countries.length) return { notConfigured: "NEXSCOPE_TIKTOK_COUNTRIES is not set" };
+    const total = { fetched: 0, created: 0, updated: 0, errors: [] as string[] };
     for (const country of countries) {
       for (const { niche, keyword } of NICHE_KEYWORDS) {
-        await ctx.runAction(internal.nexscope.tiktokAds.importTikTokAds, { country, keyword, niche, maxPages: 1 });
+        // One failing country/niche (e.g. out of credits) must not stop the rest.
+        try {
+          const r: ImportResult = await ctx.runAction(internal.nexscope.tiktokAds.importTikTokAds, { country, keyword, niche, maxPages: 1 });
+          total.fetched += r.fetched;
+          total.created += r.created;
+          total.updated += r.updated;
+          total.errors.push(...r.errors.map((e) => `${country}/${niche}: ${e}`));
+        } catch (e) {
+          total.errors.push(`${country}/${niche}: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
     }
-    return null;
+    return total;
   },
 });
 
@@ -247,7 +262,7 @@ export const importShopifyStores = internalAction({
     const result: StoreResult = { fetched: 0, created: 0, updated: 0, errors: [] };
     const maxPages = Math.min(10, Math.max(1, args.maxPages ?? 2));
     for (let page = 1; page <= maxPages; page++) {
-      let res: any;
+      let res: ApiJson;
       try {
         res = await runSkill("shopify-store-query", {
           country: args.country.toUpperCase(),
@@ -261,7 +276,7 @@ export const importShopifyStores = internalAction({
         break;
       }
       const found = findPayload(res, "stores");
-      const stores: any[] = Array.isArray(found?.stores) ? (found.stores as any[]) : [];
+      const stores: ApiJson[] = Array.isArray(found?.stores) ? (found.stores as ApiJson[]) : [];
       if (!stores.length) {
         if (page === 1) {
           result.errors.push(

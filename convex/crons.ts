@@ -12,14 +12,17 @@ crons.daily(
   internal.emailSender.sendDailyDigest
 );
 
+// Each import below runs through importRuns.run, which records the result
+// (counts, errors, skipped) so failures show up in Admin → Data sources.
+
 // Daily AdLibrary.com sync — pulls real running ads for each curated niche
 // (6 requests/day, well under AdLibrary's 10,000/day limit) and upserts them
 // into Ad Spy. Consumes AdLibrary API credits automatically every run.
 crons.daily(
   "sync ads from AdLibrary.com",
   { hourUTC: 6, minuteUTC: 15 },
-  internal.adlibrary.sync.runSync,
-  {}
+  internal.importRuns.run,
+  { job: "adlibrary" }
 );
 
 // Daily Nexscope.ai pricing backfill — runs 15 minutes after the AdLibrary
@@ -30,7 +33,8 @@ crons.daily(
 crons.daily(
   "backfill product pricing from Nexscope.ai",
   { hourUTC: 6, minuteUTC: 30 },
-  internal.nexscope.pricing.backfillProductPricing
+  internal.importRuns.run,
+  { job: "nexscopePricing" }
 );
 
 // Daily Nexscope.ai product discovery — pulls real Amazon bestseller
@@ -41,7 +45,8 @@ crons.daily(
 crons.daily(
   "discover winning products from Nexscope.ai",
   { hourUTC: 6, minuteUTC: 45 },
-  internal.nexscope.productDiscovery.discoverProducts
+  internal.importRuns.run,
+  { job: "nexscopeDiscovery" }
 );
 
 // Optional daily TikTok ads from Nexscope — only runs when the
@@ -49,7 +54,8 @@ crons.daily(
 crons.daily(
   "import TikTok ads from Nexscope.ai",
   { hourUTC: 7, minuteUTC: 5 },
-  internal.nexscope.tiktokAds.dailyTikTokImport
+  internal.importRuns.run,
+  { job: "nexscopeTikTok" }
 );
 
 // Optional daily Meta Ad Library runs on Apify — only runs when the
@@ -57,7 +63,8 @@ crons.daily(
 crons.daily(
   "start Meta Ad Library imports on Apify",
   { hourUTC: 7, minuteUTC: 25 },
-  internal.apify.dailyApifyImport
+  internal.importRuns.run,
+  { job: "apify" }
 );
 
 // WinningHunter REST import — only runs when WINNINGHUNTER_API_KEY is set.
@@ -65,7 +72,8 @@ crons.daily(
 crons.daily(
   "import winning Meta ads from WinningHunter",
   { hourUTC: 7, minuteUTC: 45 },
-  internal.winninghunter.dailyImport
+  internal.importRuns.run,
+  { job: "winninghunter" }
 );
 
 // Products pipeline, after all imports: link ads to products, rebuild
