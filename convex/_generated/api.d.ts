@@ -64,6 +64,7 @@ import type * as lib_saturationScoring from "../lib/saturationScoring.js";
 import type * as lib_shopifyExport from "../lib/shopifyExport.js";
 import type * as lib_snapshots from "../lib/snapshots.js";
 import type * as lib_storeSales from "../lib/storeSales.js";
+import type * as lib_stripeApi from "../lib/stripeApi.js";
 import type * as lib_whTransform from "../lib/whTransform.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpKeys from "../mcpKeys.js";
@@ -159,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   "lib/shopifyExport": typeof lib_shopifyExport;
   "lib/snapshots": typeof lib_snapshots;
   "lib/storeSales": typeof lib_storeSales;
+  "lib/stripeApi": typeof lib_stripeApi;
   "lib/whTransform": typeof lib_whTransform;
   mcp: typeof mcp;
   mcpKeys: typeof mcpKeys;

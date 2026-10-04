@@ -185,7 +185,24 @@ export async function startSubscription(
   throw new BackendError("unavailable", "Your payment went through, but Pro couldn't be switched on yet. Try again in a minute, or contact support.");
 }
 
-export type StripePaymentIntent = { id: string; status: string; amount: number; amount_received?: number; currency: string };
+export type StripePaymentIntent = {
+  id: string;
+  status: string;
+  amount: number;
+  amount_received?: number;
+  currency: string;
+  customer?: string | null;
+  payment_method?: string | null;
+  setup_future_usage?: string | null;
+};
+
+// When a paid period ends: one calendar month or year later.
+export function addPeriod(ms: number, period: BillingPeriod): number {
+  const d = new Date(ms);
+  if (period === "yearly") d.setUTCFullYear(d.getUTCFullYear() + 1);
+  else d.setUTCMonth(d.getUTCMonth() + 1);
+  return d.getTime();
+}
 
 // Reads a PaymentIntent from Stripe with the account's secret key: the browser
 // saying "paid" isn't proof. Null when Stripe doesn't know it.

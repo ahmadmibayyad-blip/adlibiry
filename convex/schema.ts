@@ -621,6 +621,21 @@ export default defineSchema({
     planCheckedAt: v.optional(v.number()), // last /user/checkSubscription (refreshMyPlan)
   }).index("by_user", ["userId"]),
 
+  // Pro auto-renewal (convex/proPlan.ts): the saved card and when the paid
+  // period ends. Renewal charges the card when the backend reports the
+  // subscription ended (not more than 2 days before periodEnd).
+  proBilling: defineTable({
+    userId: v.id("users"),
+    customerId: v.optional(v.string()),       // Stripe customer
+    paymentMethodId: v.optional(v.string()),  // saved card, set after the first payment
+    period: v.union(v.literal("monthly"), v.literal("yearly")),
+    periodEnd: v.optional(v.number()),        // ms
+    autoRenew: v.boolean(),
+    renewedFor: v.optional(v.number()),       // periodEnd a renewal was attempted for (once each)
+    lastError: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   // Stripe PaymentIntents that already activated Pro, so one payment can't be
   // used twice (convex/proPlan.ts).
   proPayments: defineTable({

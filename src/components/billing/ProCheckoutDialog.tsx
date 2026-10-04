@@ -38,13 +38,15 @@ export default function ProCheckoutDialog({
   // One payment per period, so switching back and forth doesn't create more.
   const [secrets, setSecrets] = useState<Partial<Record<BillingPeriod, string>>>({});
   const [errors, setErrors] = useState<Partial<Record<BillingPeriod, string>>>({});
+  const [autoRenew, setAutoRenew] = useState(true);
   const clientSecret = secrets[period];
   const error = errors[period];
 
   useEffect(() => {
     if (!open || clientSecret || error) return;
     let cancelled = false;
-    createProPayment({ period })
+    // The card is kept for renewals; whether it renews is the checkbox below.
+    createProPayment({ period, autoRenew: true })
       .then((r) => !cancelled && setSecrets((s) => ({ ...s, [period]: r.clientSecret })))
       .catch((err) => !cancelled && setErrors((e) => ({ ...e, [period]: message(err, "Couldn't start the payment. Please try again.") })));
     return () => {
@@ -91,6 +93,19 @@ export default function ProCheckoutDialog({
           ))}
         </div>
 
+        <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5 accent-[hsl(var(--primary))]"
+            checked={autoRenew}
+            onChange={(e) => setAutoRenew(e.target.checked)}
+          />
+          <span>
+            Renew automatically: €{proCharge(period)} every {period === "yearly" ? "year" : "month"} until you turn it off in
+            Settings.
+          </span>
+        </label>
+
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : !clientSecret ? (
@@ -99,7 +114,7 @@ export default function ProCheckoutDialog({
           </div>
         ) : (
           <Elements key={clientSecret} stripe={getStripe()} options={{ clientSecret, appearance: { theme: "stripe" } }}>
-            <PayForm period={period} onDone={() => close(false)} />
+            <PayForm period={period} autoRenew={autoRenew} onDone={() => close(false)} />
           </Elements>
         )}
       </DialogContent>
@@ -107,7 +122,7 @@ export default function ProCheckoutDialog({
   );
 }
 
-function PayForm({ period, onDone }: { period: BillingPeriod; onDone: () => void }) {
+function PayForm({ period, autoRenew, onDone }: { period: BillingPeriod; autoRenew: boolean; onDone: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const confirmProPayment = useAction(api.proPlan.confirmProPayment);
@@ -122,14 +137,14 @@ function PayForm({ period, onDone }: { period: BillingPeriod; onDone: () => void
     try {
       const result = await stripe.confirmPayment({
         elements,
-        confirmParams: { return_url: `${window.location.origin}${PRO_RETURN_PATH}?pro_period=${period}` },
+        confirmParams: { return_url: `${window.location.origin}${PRO_RETURN_PATH}?pro_period=${period}&pro_renew=${autoRenew ? 1 : 0}` },
         redirect: "if_required",
       });
       if (result.error) {
         setError(result.error.message ?? "The payment didn't go through.");
         return;
       }
-      await confirmProPayment({ paymentIntentId: result.paymentIntent.id, period });
+      await confirmProPayment({ paymentIntentId: result.paymentIntent.id, period, autoRenew });
       toast.success("You're on Pro. Every result is unlocked.");
       onDone();
     } catch (err) {

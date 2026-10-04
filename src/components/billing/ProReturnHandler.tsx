@@ -13,21 +13,22 @@ export default function ProReturnHandler() {
   const done = useRef(false);
   const paymentIntentId = params.get("payment_intent");
   const period = params.get("pro_period") === "yearly" ? "yearly" : "monthly";
+  const autoRenew = params.get("pro_renew") !== "0";
 
   useEffect(() => {
     if (!paymentIntentId || done.current) return;
     done.current = true;
     const next = new URLSearchParams(params);
-    for (const k of ["payment_intent", "payment_intent_client_secret", "redirect_status", "pro_period"]) next.delete(k);
+    for (const k of ["payment_intent", "payment_intent_client_secret", "redirect_status", "pro_period", "pro_renew"]) next.delete(k);
     setParams(next, { replace: true });
-    confirmProPayment({ paymentIntentId, period })
+    confirmProPayment({ paymentIntentId, period, autoRenew })
       .then(() => toast.success("You're on Pro. Every result is unlocked."))
       .catch((err) =>
         toast.error(
           err instanceof ConvexError ? ((err.data as { message?: string })?.message ?? "Couldn't finish the upgrade.") : "Couldn't finish the upgrade.",
         ),
       );
-  }, [paymentIntentId, period, params, setParams, confirmProPayment]);
+  }, [paymentIntentId, period, autoRenew, params, setParams, confirmProPayment]);
 
   return null;
 }

@@ -182,8 +182,7 @@ export default function Pricing() {
           viewport={{ once: true }}
           className="text-center text-sm text-muted-foreground mt-8"
         >
-          Pro is paid for a month or a year at a time and doesn't renew automatically: renew from Settings when it ends.
-          Payments by Stripe.
+          Pro renews automatically each month or year until you turn it off in Settings. Payments by Stripe.
         </motion.p>
       </div>
     </section>
