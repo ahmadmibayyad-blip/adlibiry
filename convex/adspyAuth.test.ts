@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { internal } from "./_generated/api";
+import type { FunctionReference } from "convex/server";
 import { authorizeWithBackend } from "./adspyAuth";
 import { appPlan, userIdFromToken } from "./lib/adspyBackend";
 
@@ -10,6 +11,15 @@ const modules = import.meta.glob("./**/*.ts");
 
 // base64url JWT like jsonwebtoken's sign({ id }, secret)
 const jwt = (id: string) => `eyJhbGciOiJIUzI1NiJ9.${btoa(JSON.stringify({ id, iat: 1 })).replace(/=+$/, "")}.sig`;
+
+type Deps = Parameters<typeof authorizeWithBackend>[1];
+const depsFor = (t: ReturnType<typeof convexTest>, extra: Partial<Deps> = {}): Deps => ({
+  env: {},
+  runQuery: (fn: FunctionReference<"query", "internal">, args: Record<string, unknown>) => t.query(fn, args as never),
+  runMutation: (fn: FunctionReference<"mutation", "internal">, args: Record<string, unknown>) => t.mutation(fn, args as never),
+  legacyUser: async () => null,
+  ...extra,
+});
 
 // In-memory stand-in for the Render backend.
 function fakeBackend() {
@@ -52,13 +62,7 @@ describe("AdSpy Pro backend sign-in", () => {
 
   const setup = async () => {
     const t = convexTest(schema, modules);
-    const deps = {
-      env: {},
-      runQuery: (fn: never, args: never) => t.query(fn, args),
-      runMutation: (fn: never, args: never) => t.mutation(fn, args),
-      legacyUser: async () => null,
-    };
-    const signIn = (params: Record<string, unknown>) => authorizeWithBackend(params, deps as never);
+    const signIn = (params: Record<string, unknown>) => authorizeWithBackend(params, depsFor(t));
     return { t, signIn };
   };
 
@@ -92,14 +96,11 @@ describe("AdSpy Pro backend sign-in", () => {
   it("moves an account made before the switch to the backend and keeps its user", async () => {
     const t = convexTest(schema, modules);
     const admin = await t.run((ctx) => ctx.db.insert("users", { email: "boss@x.com", role: "admin", tokenIdentifier: "boss" }));
-    const deps = {
-      env: {},
-      runQuery: (fn: never, args: never) => t.query(fn, args),
-      runMutation: (fn: never, args: never) => t.mutation(fn, args),
+    const deps = depsFor(t, {
       // The old "password" account: only this email + password match it.
       legacyUser: async (email: string, password: string) => (email === "boss@x.com" && password === "oldpass1" ? { id: admin } : null),
-    };
-    const { userId } = await authorizeWithBackend({ flow: "signIn", email: "boss@x.com", password: "oldpass1" }, deps as never);
+    });
+    const { userId } = await authorizeWithBackend({ flow: "signIn", email: "boss@x.com", password: "oldpass1" }, deps);
     expect(userId).toBe(admin);
     expect(backend.users.get("boss@x.com")).toMatchObject({ password: "oldpass1" });
     expect(await t.run((ctx) => ctx.db.get("users", admin))).toMatchObject({ role: "admin" });
@@ -107,7 +108,7 @@ describe("AdSpy Pro backend sign-in", () => {
     // Someone who registers the admin's email elsewhere can't reach the admin
     // user: their password doesn't match the old account.
     backend.users.delete("boss@x.com");
-    const other = await authorizeWithBackend({ flow: "signUp", email: "boss@x.com", password: "attacker1" }, deps as never);
+    const other = await authorizeWithBackend({ flow: "signUp", email: "boss@x.com", password: "attacker1" }, deps);
     expect(other.userId).not.toBe(admin);
     expect(await t.run((ctx) => ctx.db.get("users", other.userId))).toMatchObject({ role: "user" });
   });
@@ -121,12 +122,7 @@ describe("AdSpy Pro backend sign-in", () => {
 
     const { userId: again } = await authorizeWithBackend(
       { flow: "signIn", email: "pay@x.com", password: "secret123" },
-      {
-        env: { ADSPY_BACKEND_TOKEN_PREFIX: "wrong__" },
-        runQuery: (fn: never, args: never) => t.query(fn, args),
-        runMutation: (fn: never, args: never) => t.mutation(fn, args),
-        legacyUser: async () => null,
-      } as never,
+      depsFor(t, { env: { ADSPY_BACKEND_TOKEN_PREFIX: "wrong__" } }),
     );
     expect(again).toBe(userId);
   });
