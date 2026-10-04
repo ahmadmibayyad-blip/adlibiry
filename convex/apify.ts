@@ -173,8 +173,9 @@ export const handleWebhook = internalAction({
       });
       return { ok: false };
     }
-    // Nothing fetched and errors (e.g. the dataset request failed) is a failure, not an import.
-    const failed = result.fetched === 0 && result.errors.length > 0;
+    // No ads saved and errors (the dataset request failed, or the actor only
+    // wrote an error row) is a failure, not an import.
+    const failed = result.created + result.updated === 0 && result.errors.length > 0;
     await ctx.runMutation(internal.apify.setRunInfo, {
       token: args.token,
       status: failed ? "failed" : "imported",
@@ -238,6 +239,11 @@ export const importDataset = internalAction({
         const archiveId = pick(it, "ad_archive_id", "adArchiveID", "adArchiveId", "adId");
         const s = pick(it, "snapshot") ?? {};
         if (!archiveId) {
+          // The actor reports problems as an { error } row, e.g. when the
+          // Apify account is out of credit: "Maximum charged results option
+          // must be atleast 10". Surface it instead of a silent 0 imported.
+          const actorError = typeof it?.error === "string" ? `Apify actor: ${it.error}`.slice(0, 300) : "";
+          if (actorError && !result.errors.includes(actorError) && result.errors.length < 10) result.errors.push(actorError);
           result.skipped += 1;
           continue;
         }
