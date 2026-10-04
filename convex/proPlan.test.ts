@@ -73,10 +73,10 @@ describe("Pro plan payments", () => {
   it("asks the backend for exactly €35 and needs a backend session", async () => {
     const { mk } = await setup();
     const a = await mk("a", "tok-a");
-    expect(await a.as.action(api.proPlan.createProPayment, {})).toMatchObject({ clientSecret: "pi_test123456_secret_abc", amount: 3500 });
+    expect(await a.as.action(api.proPlan.createProPayment, { period: "monthly" })).toMatchObject({ clientSecret: "pi_test123456_secret_abc", amount: 3500 });
     expect(f.payBodies).toEqual([{ amount: 3500, subscriptionType: "monthly" }]);
     const b = await mk("b");
-    await expect(b.as.action(api.proPlan.createProPayment, {})).rejects.toMatchObject({ data: { code: "SIGN_IN_AGAIN" } });
+    await expect(b.as.action(api.proPlan.createProPayment, { period: "monthly" })).rejects.toMatchObject({ data: { code: "SIGN_IN_AGAIN" } });
   });
 
   it("switches Pro on only for a succeeded €35 payment, once", async () => {
@@ -87,28 +87,44 @@ describe("Pro plan payments", () => {
     f.intents.set("pi_cheap000001", { id: "pi_cheap000001", status: "succeeded", amount: 50, amount_received: 50, currency: "eur" });
     f.intents.set("pi_paid0000001", { id: "pi_paid0000001", status: "succeeded", amount: 3500, amount_received: 3500, currency: "eur" });
 
-    await expect(a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_unpaid00001" })).rejects.toMatchObject({ data: { code: "NOT_PAID" } });
-    await expect(a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_cheap000001" })).rejects.toMatchObject({ data: { code: "NOT_PAID" } });
-    await expect(a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_missing0001" })).rejects.toMatchObject({ data: { code: "BAD_REQUEST" } });
+    await expect(a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_unpaid00001", period: "monthly" })).rejects.toMatchObject({ data: { code: "NOT_PAID" } });
+    await expect(a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_cheap000001", period: "monthly" })).rejects.toMatchObject({ data: { code: "NOT_PAID" } });
+    await expect(a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_missing0001", period: "monthly" })).rejects.toMatchObject({ data: { code: "BAD_REQUEST" } });
     expect(f.started).toEqual([]);
     expect(await userOf(t, a.id)).not.toHaveProperty("plan");
 
-    await a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_paid0000001" });
+    await a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_paid0000001", period: "monthly" });
     expect(f.started).toEqual([{ token: "tok-a", body: { subscriptionType: "monthly", cost: 35, paymentIntentId: "pi_paid0000001" } }]);
     expect(await userOf(t, a.id)).toMatchObject({ plan: "pro", subscriptionStatus: "active" });
 
     // The same payment can't unlock another account.
-    await expect(b.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_paid0000001" })).rejects.toMatchObject({
+    await expect(b.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_paid0000001", period: "monthly" })).rejects.toMatchObject({
       data: { message: "This payment was already used." },
     });
     expect(await userOf(t, b.id)).not.toHaveProperty("plan");
+  });
+
+  it("yearly: asks for €30 × 12 = €360, and a monthly payment can't buy a year", async () => {
+    const { t, mk } = await setup();
+    const a = await mk("a", "tok-a");
+    expect(await a.as.action(api.proPlan.createProPayment, { period: "yearly" })).toMatchObject({ amount: 36000 });
+    expect(f.payBodies).toEqual([{ amount: 3000, subscriptionType: "yearly" }]);
+
+    f.intents.set("pi_month000001", { id: "pi_month000001", status: "succeeded", amount: 3500, amount_received: 3500, currency: "eur" });
+    await expect(a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_month000001", period: "yearly" })).rejects.toMatchObject({
+      data: { code: "NOT_PAID" },
+    });
+    f.intents.set("pi_year0000001", { id: "pi_year0000001", status: "succeeded", amount: 36000, amount_received: 36000, currency: "eur" });
+    await a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_year0000001", period: "yearly" });
+    expect(f.started).toEqual([{ token: "tok-a", body: { subscriptionType: "yearly", cost: 360, paymentIntentId: "pi_year0000001" } }]);
+    expect(await userOf(t, a.id)).toMatchObject({ plan: "pro", subscriptionStatus: "active" });
   });
 
   it("refuses to take payments when Stripe can't be checked", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     const { mk } = await setup();
     const a = await mk("a", "tok-a");
-    await expect(a.as.action(api.proPlan.createProPayment, {})).rejects.toMatchObject({ data: { code: "NOT_CONFIGURED" } });
+    await expect(a.as.action(api.proPlan.createProPayment, { period: "monthly" })).rejects.toMatchObject({ data: { code: "NOT_CONFIGURED" } });
     expect(f.payBodies).toEqual([]);
   });
 
@@ -116,7 +132,7 @@ describe("Pro plan payments", () => {
     const { t, mk } = await setup();
     const a = await mk("a", "tok-a");
     f.intents.set("pi_paid0000002", { id: "pi_paid0000002", status: "succeeded", amount: 3500, amount_received: 3500, currency: "eur" });
-    await a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_paid0000002" });
+    await a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_paid0000002", period: "monthly" });
     // A user with an old Stripe subscription isn't touched.
     const legacy = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", { email: "l@x.com", plan: "agency", subscriptionStatus: "active", subscriptionId: "sub_1" });

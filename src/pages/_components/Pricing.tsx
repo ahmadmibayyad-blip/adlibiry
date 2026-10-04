@@ -8,7 +8,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import { SignInButton } from "@/components/ui/signin.tsx";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import ProCheckoutDialog from "@/components/billing/ProCheckoutDialog.tsx";
-import { PRO_PRICE_EUR } from "@/lib/stripe.ts";
+import { PRO_PRICE_EUR, PRO_YEARLY_PER_MONTH_EUR, PRO_YEARLY_TOTAL_EUR, type BillingPeriod } from "@/lib/stripe.ts";
 
 const FREE_LIMIT = 10;
 
@@ -50,7 +50,7 @@ const buttonClass = (popular: boolean) =>
     popular ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-secondary text-secondary-foreground hover:bg-muted",
   );
 
-function ProButton() {
+function ProButton({ period }: { period: BillingPeriod }) {
   const { isPro, isLoading } = useUserPlan();
   const [open, setOpen] = useState(false);
   if (isPro) {
@@ -65,12 +65,14 @@ function ProButton() {
       <Button onClick={() => setOpen(true)} disabled={isLoading} className={buttonClass(true)}>
         Upgrade to Pro
       </Button>
-      <ProCheckoutDialog open={open} onOpenChange={setOpen} />
+      <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />
     </>
   );
 }
 
 export default function Pricing() {
+  const [yearly, setYearly] = useState(false);
+  const period: BillingPeriod = yearly ? "yearly" : "monthly";
   return (
     <section id="pricing" className="py-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -83,9 +85,28 @@ export default function Pricing() {
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">Simple pricing</h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Start free with the first {FREE_LIMIT} results of every list. Go Pro for €{PRO_PRICE_EUR} a month to unlock
-            everything.
+            Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
+            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly.
           </p>
+          <div className="inline-flex items-center gap-1 bg-card border border-border rounded-full p-1 mt-8">
+            {(["monthly", "yearly"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setYearly(p === "yearly")}
+                className={cn(
+                  "px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer flex items-center gap-2 capitalize",
+                  period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {p}
+                {p === "yearly" && (
+                  <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-bold", yearly ? "bg-primary-foreground/20" : "bg-good/10 text-good")}>
+                    Save €{PRO_PRICE_EUR * 12 - PRO_YEARLY_TOTAL_EUR}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
@@ -114,14 +135,17 @@ export default function Pricing() {
                 <h3 className="text-lg font-bold mb-1">{plan.name}</h3>
                 <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold">€{plan.price}</span>
+                  <span className="text-4xl font-extrabold">€{plan.id === "pro" && yearly ? PRO_YEARLY_PER_MONTH_EUR : plan.price}</span>
                   <span className="text-muted-foreground text-sm">/month</span>
                 </div>
+                {plan.id === "pro" && yearly && (
+                  <div className="text-xs text-good mt-1">Billed €{PRO_YEARLY_TOTAL_EUR} once a year</div>
+                )}
               </div>
 
               <Authenticated>
                 {plan.id === "pro" ? (
-                  <ProButton />
+                  <ProButton period={period} />
                 ) : (
                   <Button asChild className={buttonClass(false)}>
                     <Link to="/dashboard">Open dashboard</Link>
@@ -158,8 +182,8 @@ export default function Pricing() {
           viewport={{ once: true }}
           className="text-center text-sm text-muted-foreground mt-8"
         >
-          Pro is paid per month and doesn't renew automatically: renew from Settings when your month ends. Payments by
-          Stripe.
+          Pro is paid for a month or a year at a time and doesn't renew automatically: renew from Settings when it ends.
+          Payments by Stripe.
         </motion.p>
       </div>
     </section>

@@ -37,8 +37,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 
 ## Plans and payments
 
-- Free (first 10 results of each list) and Pro (€35/month, everything). Pro is a one-month payment, no auto-renewal.
-- Flow (`convex/proPlan.ts`): backend `POST /subscription/pay` creates the €35 PaymentIntent (amount set on the server) →
+- Free (first 10 results of each list) and Pro: €35 monthly or €360 yearly (€30/month), one payment per period,
+  no auto-renewal. Backend `/subscription/pay` multiplies the amount by 12 for yearly, so we send 3000 for yearly.
+- Flow (`convex/proPlan.ts`): backend `POST /subscription/pay` creates the PaymentIntent (amount set on the server) →
   the browser pays with Stripe Elements (`src/components/billing/ProCheckoutDialog.tsx`) → `confirmProPayment` checks the
   PaymentIntent with Stripe (`STRIPE_SECRET_KEY`, same Stripe account as the backend), uses it once (`proPayments`), then
   calls `POST /subscription/start`. A daily cron re-reads `/user/checkSubscription` so Pro ends after its month.
