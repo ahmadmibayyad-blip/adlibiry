@@ -79,4 +79,17 @@ describe("long jobs run as short scheduled steps", () => {
     const [run] = await t.run((ctx) => ctx.db.query("apifyRuns").collect());
     expect(run.status).toBe("failed");
   });
+
+  it("an Apify run that only wrote an error row (e.g. no credit left) is marked failed with the actor's message", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify_test");
+    const message = '"Maximum charged results" option must be atleast 10 to run this actor';
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      new Response(JSON.stringify(url.includes("offset=0") ? [{ error: message }] : []), { status: 200 }),
+    ));
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("apifyRuns", { token: "tok2", country: "US", niche: "Pet Supplies", keyword: "dog toy", status: "started", createdAt: "2026-10-04T00:00:00Z" }));
+    expect(await t.action(internal.apify.handleWebhook, { token: "tok2", datasetId: "d2", eventType: "ACTOR.RUN.SUCCEEDED" })).toEqual({ ok: false });
+    const [run] = await t.run((ctx) => ctx.db.query("apifyRuns").collect());
+    expect(run).toMatchObject({ status: "failed", result: `Apify actor: ${message}` });
+  });
 });
