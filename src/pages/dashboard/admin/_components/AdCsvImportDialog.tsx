@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import {
-  AD_PLATFORMS, AD_TEMPLATE_CSV, IMPORT_NICHES, autoMapAds, buildAdRows, decodeCsvBytes, isProductExport, parseCsv,
+  AD_PLATFORMS, AD_TEMPLATE_CSV, IMPORT_NICHES, autoMapAds, buildAdRows, decodeCsvBytes, isProductExport, lacksNumbers, parseCsv,
   type AdColumnMap, type AdField,
 } from "@/lib/adCsv.ts";
 
@@ -35,6 +35,7 @@ const FIELD_LABELS: Record<AdField, string> = {
   ctaText: "Call to action",
   adLibraryUrl: "Ad link (library/post)",
   adId: "Ad ID",
+  copies: "Ad copies / variations",
 };
 
 const selectCls =
@@ -60,6 +61,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
   const hasMedia = map.creativeUrl !== undefined || map.videoUrl !== undefined;
   const hasText = map.headline !== undefined || map.bodyText !== undefined || map.advertiserName !== undefined;
   const productExport = !!table && isProductExport(header, map);
+  const noNumbers = !!table && !productExport && lacksNumbers(map);
 
   const reset = () => {
     setFileName(null);
@@ -233,6 +235,17 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
                   show empty numbers. Import it under <strong>Admin → Products → Import CSV</strong> instead: items sold
                   and GMV become orders per month and revenue there. If the file does have engagement, pick its Likes or
                   Views column above.
+                </p>
+              </div>
+            )}
+
+            {noNumbers && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+                <p className="font-medium text-amber-600 dark:text-amber-400">These ads will show no numbers.</p>
+                <p className="mt-1 text-muted-foreground">
+                  The file has no likes, views, comments, start date or days-running column, so Running, Views and Likes
+                  will be empty and the score low. For Meta ads from Apify, import the run under{" "}
+                  <strong>Admin → Data sources → Apify dataset</strong> instead: it brings reach, start dates and ad copies.
                 </p>
               </div>
             )}

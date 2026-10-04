@@ -6,8 +6,8 @@ import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 
-// Removes product listings that were imported as ads (product-finder exports
-// uploaded through the ads CSV import): they have no likes or views.
+// Removes CSV-imported ads with no data: product listings imported as ads and
+// ads from files with no likes, views or dates.
 export default function RemoveProductListingAds() {
   const remove = useMutation(api.admin.importCleanup.removeProductListingAds);
   const [busy, setBusy] = useState(false);
@@ -15,7 +15,7 @@ export default function RemoveProductListingAds() {
   const run = async () => {
     if (
       !window.confirm(
-        "Remove every CSV-imported ad that is really a product listing (sales columns like Items Sold, GMV or Product Price, and no likes or views)? This can't be undone.",
+        "Remove CSV-imported ads with no data: product listings (Items Sold, GMV or Product Price, no likes or views) and ads with no likes, views, comments or days running? Ads with any numbers are kept. This can't be undone.",
       )
     )
       return;
@@ -29,8 +29,8 @@ export default function RemoveProductListingAds() {
         if (r.isDone) break;
         cursor = r.cursor;
       }
-      if (total) toast.success(`Removed ${total.toLocaleString()} product listings from Ads`);
-      else toast.info("No product listings found in Ads");
+      if (total) toast.success(`Removed ${total.toLocaleString()} empty ads`);
+      else toast.info("No empty CSV ads found");
     } catch {
       toast.error("Couldn't finish removing them. Try again.");
     } finally {
@@ -39,9 +39,9 @@ export default function RemoveProductListingAds() {
   };
 
   return (
-    <Button variant="outline" onClick={run} disabled={busy} title="Product-finder rows imported as ads">
+    <Button variant="outline" onClick={run} disabled={busy} title="CSV ads with no numbers, and product listings imported as ads">
       {busy ? <Spinner className="w-4 h-4 mr-1.5" /> : <PackageX className="w-4 h-4 mr-1.5" />}
-      Remove product listings
+      Remove empty CSV ads
     </Button>
   );
 }
