@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AD_TEMPLATE_CSV, autoMapAds, buildAdRows, isProductExport, parseCsv } from "./adCsv";
+import { AD_TEMPLATE_CSV, autoMapAds, buildAdRows, isProductExport, lacksNumbers, metaScore, parseCsv } from "./adCsv";
 
 const now = new Date("2026-09-30T00:00:00Z");
 const opts = { niche: "auto", platform: "Facebook", country: "US", now };
@@ -66,6 +66,24 @@ describe("ad CSV import", () => {
     expect(rows[0].daysRunning).toBe(28);
     // …and the dialog stops it: it's a product list with no engagement columns.
     expect(isProductExport(table[0], map)).toBe(true);
+  });
+
+  it("scores Meta Ad Library rows on days running and ad copies", () => {
+    const csv =
+      "ad_id,advertiser,page_likes,start_date,days_running,ad_variations,headline,ad_text,cta,landing_url,ad_library_url,image_url\n" +
+      "907487392096359,The Farmer's Dog,249552,2026-03-26,191,4,Sign up now,Dog food should be food,Shop now,https://www.thefarmersdog.com/ad50fb,https://www.facebook.com/ads/library/?id=907487392096359,https://scontent.xx.fbcdn.net/v/t39/1.jpg\n";
+    const table = parseCsv(csv);
+    const map = autoMapAds(table[0], table.slice(1));
+    expect(map.likes).toBeUndefined(); // page likes are followers, not ad likes
+    expect(lacksNumbers(map)).toBe(false);
+    const ad = buildAdRows(table, map, opts).rows[0];
+    expect(ad).toMatchObject({ daysRunning: 191, relatedAdsCount: 4, likes: 0, aiScore: metaScore(191, 4) });
+    expect(ad.aiScore).toBe(68);
+  });
+
+  it("flags files with no numbers at all", () => {
+    const header = ["Advertiser", "Image", "Headline", "Landing page"];
+    expect(lacksNumbers(autoMapAds(header))).toBe(true);
   });
 
   it("doesn't flag ad exports as product exports", () => {

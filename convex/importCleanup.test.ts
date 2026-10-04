@@ -45,8 +45,8 @@ describe("remove last ad CSV import", () => {
   });
 });
 
-describe("remove product listings from ads", () => {
-  it("deletes only CSV ads that are product listings", async () => {
+describe("remove empty CSV ads", () => {
+  it("deletes product listings and ads with no numbers, keeps the rest", async () => {
     const t = convexTest(schema, modules);
     await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a", role: "admin" }));
     const admin = t.withIdentity({ subject: "a|s" });
@@ -57,7 +57,11 @@ describe("remove product listings from ads", () => {
     const realAd = { ...row(900, "2026-10-03T00:00:00.000Z"), bodyText: "Keep your dog cool", likes: 1500 };
     // Same text but with engagement: a real ad, kept.
     const withViews = { ...listing(901), views: "10K", impressions: 10_000 };
-    const ads = [...Array.from({ length: 250 }, (_, i) => listing(i)), realAd, withViews];
+    // No numbers at all (a file without likes, views or dates): removed too.
+    const empty = { ...row(902, "2026-10-03T00:00:00.000Z"), bodyText: "Pet insurance from $16" };
+    // Running for 30 days but no engagement: has data, kept.
+    const running = { ...row(903, "2026-10-03T00:00:00.000Z"), bodyText: "Dog food", daysRunning: 30 };
+    const ads = [...Array.from({ length: 250 }, (_, i) => listing(i)), realAd, withViews, empty, running];
     for (let i = 0; i < ads.length; i += 100) {
       await admin.mutation(api.admin.externalImport.importAds, { ads: ads.slice(i, i + 100), refreshFirstSeen: true });
     }
@@ -70,9 +74,9 @@ describe("remove product listings from ads", () => {
       if (r.isDone) break;
       cursor = r.cursor;
     }
-    expect(deleted).toBe(250);
+    expect(deleted).toBe(251);
     const left = await t.run(async (ctx) => (await ctx.db.query("ads").collect()).map((a) => a.headline).sort());
-    expect(left).toEqual(["Ad 900", "Ad 901"]);
+    expect(left).toEqual(["Ad 900", "Ad 901", "Ad 903"]);
   });
 });
 

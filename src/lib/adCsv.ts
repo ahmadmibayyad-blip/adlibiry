@@ -38,12 +38,13 @@ export type AdRow = {
   isActive?: boolean;
   countries?: string[];
   adLibraryUrl?: string;
+  relatedAdsCount?: number;
 };
 
 export type AdField =
   | "advertiserName" | "headline" | "bodyText" | "creativeUrl" | "videoUrl" | "landingPageUrl"
   | "platform" | "country" | "niche" | "spend" | "likes" | "views" | "comments" | "shares"
-  | "daysRunning" | "firstSeen" | "lastSeen" | "ctaText" | "adLibraryUrl" | "adId";
+  | "daysRunning" | "firstSeen" | "lastSeen" | "ctaText" | "adLibraryUrl" | "adId" | "copies";
 
 const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 // Earlier aliases win.
@@ -67,11 +68,12 @@ const ALIASES: Record<AdField, string[]> = {
   firstSeen: ["firstseen", "firstseenat", "startdate", "adstartdate", "created", "createdat", "launchdate", "publishedat", "estimatedlisteddate", "listeddate", "listingdate", "date"],
   lastSeen: ["lastseen", "lastseenat", "enddate", "adenddate", "updatedat"],
   ctaText: ["cta", "ctatext", "calltoaction", "button", "buttontext"],
+  copies: ["advariations", "variations", "adcopies", "copies", "collationcount", "relatedadscount", "numberofcopies"],
   adLibraryUrl: ["adlibraryurl", "adlibrarylink", "adurl", "adlink", "sourceurl", "detailurl", "postlink", "posturl"],
 };
 const ORDER: AdField[] = [
   "adId", "advertiserName", "headline", "bodyText", "creativeUrl", "videoUrl", "adLibraryUrl", "landingPageUrl",
-  "platform", "country", "niche", "spend", "likes", "views", "comments", "shares", "daysRunning", "firstSeen", "lastSeen", "ctaText",
+  "platform", "country", "niche", "spend", "likes", "views", "comments", "shares", "daysRunning", "firstSeen", "lastSeen", "ctaText", "copies",
 ];
 
 export type AdColumnMap = Partial<Record<AdField, number>>;
@@ -138,6 +140,12 @@ export function isProductExport(header: string[], map: AdColumnMap): boolean {
   return !hasEngagement && header.some((h) => PRODUCT_EXPORT_COLUMNS.test(norm(h)));
 }
 
+// A file with no engagement (likes, views, comments, shares) and no dates
+// (start date, days running) gives ads with every number empty.
+export function lacksNumbers(map: AdColumnMap): boolean {
+  return (["likes", "views", "comments", "shares", "daysRunning", "firstSeen"] as AdField[]).every((f) => map[f] === undefined);
+}
+
 // "-", "N/A" and similar placeholders count as empty.
 const clean = (s: string | undefined) => {
   const t = (s ?? "").trim();
@@ -199,6 +207,12 @@ const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : `${Math.round(n)}`;
 
 // Honest 0-100 score from the file's own signals (likes, views, days running).
+// Meta Ad Library rows have no likes or views: score them like the Apify
+// import does, on longevity and the number of ad copies (scaling).
+export function metaScore(days: number, copies: number | undefined): number {
+  return Math.max(1, Math.min(100, Math.round((Math.min(days, 60) / 60) * 60 + (Math.min(copies ?? 1, 20) / 20) * 40)));
+}
+
 export function adScore(likes: number, views: number | undefined, days: number): number {
   const l = Math.min(Math.log10(1 + likes) / 6, 1) * 45; // 1M likes ≈ full
   const v = Math.min(Math.log10(1 + (views ?? 0)) / 7, 1) * 30; // 10M views ≈ full
@@ -288,6 +302,8 @@ export function buildAdRows(
     const firstSeenAt = now.toISOString();
 
     const likes = Math.max(0, Math.round(toNumber(get(r, "likes")) ?? 0));
+    const copiesNum = toNumber(get(r, "copies"));
+    const copies = copiesNum !== undefined && copiesNum >= 1 ? Math.round(copiesNum) : undefined;
     const viewsNum = toNumber(get(r, "views"));
     const spendRaw = get(r, "spend") ?? "";
     const spendNum = /^[$€£]?\s*[\d.,]+\s*[kKmM]?$/.test(spendRaw) ? toNumber(spendRaw) : undefined;
@@ -318,7 +334,10 @@ export function buildAdRows(
       likes,
       views: viewsNum !== undefined ? compact(viewsNum) : "—",
       daysRunning: days,
-      aiScore: adScore(likes, viewsNum, days),
+      aiScore:
+        likes === 0 && viewsNum === undefined && toNumber(get(r, "comments")) === undefined
+          ? metaScore(days, copies)
+          : adScore(likes, viewsNum, days),
       firstSeenAt,
       mediaType: isUrl(video) ? "video" : "image",
       ...(isUrl(video) ? { videoUrl: video } : {}),
@@ -329,6 +348,7 @@ export function buildAdRows(
       lastSeenAt: (lastSeen ?? now).toISOString(),
       ...(countries.length ? { countries } : {}),
       ...(isUrl(libraryUrl) ? { adLibraryUrl: libraryUrl } : {}),
+      ...(copies !== undefined ? { relatedAdsCount: copies } : {}),
     });
   }
   return { rows, total: data.length, duplicates, invalid };

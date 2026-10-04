@@ -61,18 +61,21 @@ export const removeAdImport = mutation({
 // likes or views, so they show as empty ad cards.
 const PRODUCT_LISTING_TEXT = /(^|· )(Items Sold \(|GMV \(Last|Total GMV:|Product Price:|Product Rating:)/;
 
-export function isProductListingAd(ad: { source?: string; bodyText: string; likes: number; impressions?: number; comments?: number }): boolean {
-  return (
-    ad.source === "csv_import" &&
-    ad.likes === 0 &&
-    !ad.impressions &&
-    !ad.comments &&
-    PRODUCT_LISTING_TEXT.test(ad.bodyText)
-  );
+type CleanupAd = { source?: string; bodyText: string; likes: number; impressions?: number; comments?: number; shares?: number; daysRunning: number };
+
+export function isProductListingAd(ad: CleanupAd): boolean {
+  return ad.source === "csv_import" && ad.likes === 0 && !ad.impressions && !ad.comments && PRODUCT_LISTING_TEXT.test(ad.bodyText);
+}
+
+// CSV ads with no numbers at all: no likes, views, comments, shares or days
+// running (files without those columns). They show as all-"—" cards.
+export function isEmptyCsvAd(ad: CleanupAd): boolean {
+  return ad.source === "csv_import" && ad.likes === 0 && !ad.impressions && !ad.comments && !ad.shares && ad.daysRunning === 0;
 }
 
 // Walks the CSV-imported ads one page per call and deletes the product
-// listings; call again with the returned cursor until isDone.
+// listings and the ads with no numbers; call again with the returned cursor
+// until isDone.
 export const removeProductListingAds = mutation({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args) => {
@@ -83,7 +86,7 @@ export const removeProductListingAds = mutation({
       .paginate({ cursor: args.cursor, numItems: BATCH });
     let deleted = 0;
     for (const ad of page.page) {
-      if (!isProductListingAd(ad)) continue;
+      if (!isProductListingAd(ad) && !isEmptyCsvAd(ad)) continue;
       if (ad.externalKey) {
         const link = await ctx.db
           .query("syncLinks")
