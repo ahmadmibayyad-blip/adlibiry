@@ -618,6 +618,7 @@ export default defineSchema({
     userId: v.id("users"),
     token: v.string(),
     updatedAt: v.number(),
+    planCheckedAt: v.optional(v.number()), // last /user/checkSubscription (refreshMyPlan)
   }).index("by_user", ["userId"]),
 
   // Stripe PaymentIntents that already activated Pro, so one payment can't be

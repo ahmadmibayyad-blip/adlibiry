@@ -120,9 +120,12 @@ export async function fetchSubscription(base: string, token: string, env: Env): 
     method: "GET",
     headers: { Accept: "application/json", ...auth },
   });
-  if ((status === 200 || status === 404) && typeof body.is_subscribed === "boolean") {
-    return { isSubscribed: body.is_subscribed, planName: typeof body.subscribed_plan === "string" ? body.subscribed_plan : "" };
-  }
+  const planName = typeof body.subscribed_plan === "string" ? body.subscribed_plan : "";
+  // The status decides: 200 = an active subscription, 404 = none (no row,
+  // isActive false, or past its end date). The 404 body can still carry the
+  // user's stale is_subscribed: true, so it isn't trusted.
+  if (status === 200 && typeof body.is_subscribed === "boolean") return { isSubscribed: true, planName };
+  if (status === 404 && typeof body.is_subscribed === "boolean") return { isSubscribed: false, planName: "Free" };
   return null;
 }
 

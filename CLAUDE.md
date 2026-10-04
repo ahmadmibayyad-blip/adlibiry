@@ -45,7 +45,8 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Flow (`convex/proPlan.ts`): backend `POST /subscription/pay` creates the PaymentIntent (amount set on the server) →
   the browser pays with Stripe Elements (`src/components/billing/ProCheckoutDialog.tsx`) → `confirmProPayment` checks the
   PaymentIntent with Stripe (`STRIPE_SECRET_KEY`, same Stripe account as the backend), uses it once (`proPayments`), then
-  calls `POST /subscription/start`. A daily cron re-reads `/user/checkSubscription` so Pro ends after its month.
+  calls `POST /subscription/start`. `/user/checkSubscription` is re-read hourly (cron) and when the dashboard opens
+  (`refreshMyPlan`, every 2 min at most); its HTTP status decides (200 = Pro, 404 = Free).
 - The backend token from sign-in is kept server-side in `backendSessions`; never send it to the browser.
 
 ## Environment and secrets
