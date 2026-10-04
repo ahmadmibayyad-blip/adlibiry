@@ -1,11 +1,14 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalAction, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { effectivePlan } from "./lib/billing";
 import {
   BackendError,
   PRO_PRICES,
+  addPeriod,
+  type BillingPeriod,
+  type BackendSubscription,
   appPlan,
   backendUrl,
   createPaymentIntent,
@@ -14,6 +17,8 @@ import {
   isProPayment,
   startSubscription,
 } from "./lib/adspyBackend";
+import { StripeApiError, chargeSavedCard, createCustomer, saveCardOnPayment } from "./lib/stripeApi";
+import { stableToken } from "./lib/authIdentity";
 
 // Pro (€35 / month, or €360 / year) through the AdSpy Pro backend and Stripe:
 // 1. createProPayment: the backend creates a PaymentIntent for €35
@@ -90,20 +95,39 @@ const backendCall = async <T>(run: () => Promise<T>): Promise<T> => {
 };
 
 export const createProPayment = action({
-  args: { period },
-  handler: async (ctx, args): Promise<{ clientSecret: string; amount: number; currency: string }> => {
+  args: { period, autoRenew: v.optional(v.boolean()) },
+  handler: async (ctx, args): Promise<{ clientSecret: string; amount: number; currency: string; autoRenew: boolean }> => {
     const user = await signedInUser(ctx);
     if (effectivePlan(user) !== "none" && user.subscriptionStatus === "active") throw fail("ALREADY_PRO", "You already have Pro.");
     // Check before anyone pays: without the key a payment couldn't be verified.
     stripeKey();
     const token = await tokenFor(ctx, user._id);
     const clientSecret = await backendCall(() => createPaymentIntent(backendUrl(process.env), token, process.env, args.period));
-    return { clientSecret, amount: PRO_PRICES[args.period].chargeCents, currency: "eur" };
+    // Auto-renew: keep the card on this payment for the renewal charges.
+    let autoRenew = false;
+    if (args.autoRenew !== false) {
+      const paymentIntentId = clientSecret.split("_secret_")[0];
+      try {
+        let customerId = await ctx.runQuery(internal.proPlan.billingCustomer, { userId: user._id });
+        if (!customerId) {
+          customerId = await createCustomer(stripeKey(), { email: user.email, name: user.name, userId: user._id });
+          await ctx.runMutation(internal.proPlan.saveBilling, { userId: user._id, period: args.period, customerId });
+        }
+        if (PAYMENT_INTENT_ID.test(paymentIntentId)) {
+          await saveCardOnPayment(stripeKey(), paymentIntentId, customerId, { userId: user._id, period: args.period, kind: "pro" });
+          autoRenew = true;
+        }
+      } catch (e) {
+        // The payment still works; it just won't renew by itself.
+        console.warn(`Pro auto-renew unavailable: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    return { clientSecret, amount: PRO_PRICES[args.period].chargeCents, currency: "eur", autoRenew };
   },
 });
 
 export const confirmProPayment = action({
-  args: { paymentIntentId: v.string(), period },
+  args: { paymentIntentId: v.string(), period, autoRenew: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<{ plan: "pro" }> => {
     const user = await signedInUser(ctx);
     if (!PAYMENT_INTENT_ID.test(args.paymentIntentId)) throw fail("BAD_REQUEST", "Unknown payment.");
@@ -133,6 +157,16 @@ export const confirmProPayment = action({
       /* the verified payment is enough */
     }
     await ctx.runMutation(internal.proPlan.setPro, { userId: user._id, ...(subscription ? { subscription } : {}) });
+    // The card is kept for renewals when the payment saved it.
+    const savedCard = pi.setup_future_usage === "off_session" && typeof pi.payment_method === "string" && typeof pi.customer === "string";
+    await ctx.runMutation(internal.proPlan.saveBilling, {
+      userId: user._id,
+      period: args.period,
+      periodEnd: addPeriod(Date.now(), args.period),
+      ...(savedCard ? { customerId: pi.customer as string, paymentMethodId: pi.payment_method as string } : {}),
+      autoRenew: savedCard && args.autoRenew !== false,
+      clearError: true,
+    });
     return { plan: "pro" };
   },
 });
@@ -178,7 +212,7 @@ export const refreshPlans = internalAction({
       try {
         const subscription = await fetchSubscription(base, token, process.env);
         if (subscription) {
-          await ctx.runMutation(internal.proPlan.applyBackendPlan, { userId, subscription });
+          await applyOrRenew(ctx, userId, token, subscription);
           checked += 1;
         }
       } catch {
@@ -221,7 +255,159 @@ export const refreshMyPlan = action({
     await ctx.runMutation(internal.proPlan.markPlanChecked, { userId: user._id });
     const subscription = await fetchSubscription(backendUrl(process.env), session.token, process.env).catch(() => null);
     if (!subscription) return { checked: false };
-    await ctx.runMutation(internal.proPlan.applyBackendPlan, { userId: user._id, subscription });
+    await applyOrRenew(ctx, user._id, session.token, subscription);
     return { checked: true };
+  },
+});
+
+// ── Auto-renewal ─────────────────────────────────────────────────────────────
+// When the backend says the subscription ended and auto-renew is on, the
+// saved card is charged for the same period (€35 / €360) without the
+// customer, the payment is verified like any other, and /subscription/start
+// renews it on the backend. One attempt per period (renewedFor, plus a Stripe
+// idempotency key). On failure the customer is told and drops to Free; they
+// can pay again from Settings.
+
+const RENEW_WINDOW_MS = 2 * 86_400_000; // don't charge more than 2 days before the period ends
+
+export const billingCustomer = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) =>
+    (await ctx.db.query("proBilling").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique())?.customerId ?? null,
+});
+
+export const billingFor = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => await ctx.db.query("proBilling").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique(),
+});
+
+export const saveBilling = internalMutation({
+  args: {
+    userId: v.id("users"),
+    period,
+    customerId: v.optional(v.string()),
+    paymentMethodId: v.optional(v.string()),
+    periodEnd: v.optional(v.number()),
+    autoRenew: v.optional(v.boolean()),
+    clearError: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { userId, clearError, ...fields }) => {
+    const row = await ctx.db.query("proBilling").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
+    const patch = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
+    if (row) await ctx.db.patch("proBilling", row._id, { ...patch, ...(clearError ? { lastError: undefined } : {}), updatedAt: Date.now() });
+    else await ctx.db.insert("proBilling", { userId, autoRenew: false, ...patch, period: fields.period, updatedAt: Date.now() });
+  },
+});
+
+// Claims the renewal of this period once; false if it was already tried.
+export const claimRenewal = internalMutation({
+  args: { userId: v.id("users"), periodEnd: v.number() },
+  handler: async (ctx, args): Promise<boolean> => {
+    const row = await ctx.db.query("proBilling").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique();
+    if (!row || row.renewedFor === args.periodEnd) return false;
+    await ctx.db.patch("proBilling", row._id, { renewedFor: args.periodEnd, updatedAt: Date.now() });
+    return true;
+  },
+});
+
+export const renewalFailed = internalMutation({
+  args: { userId: v.id("users"), message: v.string() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db.query("proBilling").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique();
+    if (row) await ctx.db.patch("proBilling", row._id, { lastError: args.message.slice(0, 300), updatedAt: Date.now() });
+    await ctx.db.insert("notifications", {
+      userId: args.userId,
+      type: "billing",
+      title: "Your Pro renewal didn't go through",
+      body: "We couldn't charge your saved card, so your account is back on Free. Renew Pro from Settings to unlock everything again.",
+      link: "/dashboard/settings",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+  },
+});
+
+async function renew(ctx: ActionCtx, userId: Id<"users">, token: string): Promise<boolean> {
+  const billing = await ctx.runQuery(internal.proPlan.billingFor, { userId });
+  if (!billing?.autoRenew || !billing.customerId || !billing.paymentMethodId || !billing.periodEnd) return false;
+  if (Date.now() < billing.periodEnd - RENEW_WINDOW_MS) return false;
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!key) return false;
+  if (!(await ctx.runMutation(internal.proPlan.claimRenewal, { userId, periodEnd: billing.periodEnd }))) return false;
+
+  const p: BillingPeriod = billing.period;
+  let pi;
+  try {
+    pi = await chargeSavedCard(key, {
+      customerId: billing.customerId,
+      paymentMethodId: billing.paymentMethodId,
+      amount: PRO_PRICES[p].chargeCents,
+      currency: "eur",
+      idempotencyKey: `pro-renew-${userId}-${billing.periodEnd}`,
+      meta: { userId, period: p, kind: "pro_renewal" },
+    });
+  } catch (e) {
+    const message = e instanceof StripeApiError ? `${e.code ?? "error"}: ${e.message}` : String(e);
+    await ctx.runMutation(internal.proPlan.renewalFailed, { userId, message });
+    return false;
+  }
+  if (!isProPayment(pi, p)) {
+    await ctx.runMutation(internal.proPlan.renewalFailed, { userId, message: `payment ${pi.status}` });
+    return false;
+  }
+  await ctx.runMutation(internal.proPlan.claimPayment, { paymentIntentId: pi.id, userId, amount: pi.amount_received ?? pi.amount, currency: pi.currency });
+  try {
+    await startSubscription(backendUrl(process.env), token, process.env, p, pi.id);
+  } catch (e) {
+    // Paid but not recorded on the backend: keep Pro here and say so; the
+    // next sign-in or support can finish it.
+    console.error(`Pro renewal paid (${pi.id}) but /subscription/start failed: ${e instanceof Error ? e.message : e}`);
+  }
+  await ctx.runMutation(internal.proPlan.setPro, { userId });
+  await ctx.runMutation(internal.proPlan.saveBilling, { userId, period: p, periodEnd: addPeriod(Date.now(), p), clearError: true });
+  return true;
+}
+
+// The backend's answer, but an ended subscription with auto-renew on is
+// renewed first.
+async function applyOrRenew(ctx: ActionCtx, userId: Id<"users">, token: string, subscription: BackendSubscription): Promise<void> {
+  if (!subscription.isSubscribed && (await renew(ctx, userId, token))) return;
+  await ctx.runMutation(internal.proPlan.applyBackendPlan, { userId, subscription });
+}
+
+// ── Settings: auto-renew status and switch ──────────────────────────────────
+
+export const myBilling = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique();
+    if (!user) return null;
+    const row = await ctx.db.query("proBilling").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
+    if (!row) return null;
+    return {
+      period: row.period,
+      periodEnd: row.periodEnd ?? null,
+      autoRenew: row.autoRenew,
+      canAutoRenew: !!(row.paymentMethodId && row.customerId),
+      lastError: row.lastError ?? null,
+    };
+  },
+});
+
+export const setAutoRenew = mutation({
+  args: { autoRenew: v.boolean() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw fail("UNAUTHENTICATED", "Please sign in.");
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique();
+    if (!user) throw fail("UNAUTHENTICATED", "Please sign in.");
+    const row = await ctx.db.query("proBilling").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
+    if (!row) throw fail("BAD_REQUEST", "No Pro subscription to change.");
+    if (args.autoRenew && !(row.paymentMethodId && row.customerId)) {
+      throw fail("NO_CARD", "No saved card yet. Auto-renew turns on with your next Pro payment.");
+    }
+    await ctx.db.patch("proBilling", row._id, { autoRenew: args.autoRenew, updatedAt: Date.now() });
   },
 });

@@ -8,20 +8,52 @@ import type { Id } from "./_generated/dataModel";
 const modules = import.meta.glob("./**/*.ts");
 const KEY = "testkey";
 
-type PI = { id: string; status: string; amount: number; amount_received?: number; currency: string };
+type PI = {
+  id: string;
+  status: string;
+  amount: number;
+  amount_received?: number;
+  currency: string;
+  customer?: string;
+  payment_method?: string;
+  setup_future_usage?: string;
+};
 
 // Fake AdSpy Pro backend + Stripe.
 function fakes() {
   const intents = new Map<string, PI>();
   const started: { token: string; body: Record<string, unknown> }[] = [];
   const payBodies: Record<string, unknown>[] = [];
+  const customers: Record<string, string>[] = [];
+  const updates: { id: string; form: Record<string, string> }[] = [];
+  const charges: { form: Record<string, string>; idempotencyKey?: string }[] = [];
   let subscribed = false;
   let stale = false;
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const u = new URL(url);
     const reply = (status: number, data: unknown) => new Response(JSON.stringify(data), { status });
     if (u.host === "api.stripe.com") {
-      const pi = intents.get(decodeURIComponent(u.pathname.split("/").pop()!));
+      const form = Object.fromEntries(new URLSearchParams(String(init?.body ?? "")));
+      if (init?.method === "POST" && u.pathname === "/v1/customers") {
+        customers.push(form);
+        return reply(200, { id: `cus_${customers.length}` });
+      }
+      if (init?.method === "POST" && u.pathname === "/v1/payment_intents") {
+        charges.push({ form, idempotencyKey: (init.headers as Record<string, string>)["Idempotency-Key"] });
+        if (form.payment_method === "pm_declined") return reply(402, { error: { code: "card_declined", message: "Your card was declined." } });
+        const pi: PI = { id: `pi_renew${String(charges.length).padStart(6, "0")}`, status: "succeeded", amount: Number(form.amount), amount_received: Number(form.amount), currency: form.currency };
+        intents.set(pi.id, pi);
+        return reply(200, pi);
+      }
+      const id = decodeURIComponent(u.pathname.split("/").pop()!);
+      if (init?.method === "POST") {
+        // Update before payment: attach customer, keep the card.
+        updates.push({ id, form });
+        const pi = intents.get(id);
+        if (pi) Object.assign(pi, { customer: form.customer, setup_future_usage: form.setup_future_usage });
+        return reply(200, pi ?? { id });
+      }
+      const pi = intents.get(id);
       return pi ? reply(200, pi) : reply(404, { error: { message: "No such payment_intent" } });
     }
     const auth = String((init?.headers as Record<string, string>)?.Authorization ?? "");
@@ -42,7 +74,7 @@ function fakes() {
     }
     return reply(404, {});
   });
-  return { intents, started, payBodies, fetchMock, expire: () => (subscribed = false), staleExpire: () => (stale = true) };
+  return { intents, started, payBodies, customers, updates, charges, fetchMock, expire: () => (subscribed = false), staleExpire: () => (stale = true) };
 }
 
 describe("Pro plan payments", () => {
@@ -163,5 +195,80 @@ describe("Pro plan payments", () => {
     expect(await userOf(t, a.id)).toMatchObject({ plan: "none", subscriptionStatus: "canceled" });
     // Checked again within 2 minutes: skipped.
     expect(await a.as.action(api.proPlan.refreshMyPlan, {})).toEqual({ checked: false });
+  });
+
+  describe("auto-renewal", () => {
+    // Pay once with auto-renew; returns the user.
+    const subscribeWithCard = async (paymentMethod: string) => {
+      const { t, mk } = await setup();
+      const a = await mk("a", "tok-a");
+      expect(await a.as.action(api.proPlan.createProPayment, { period: "monthly", autoRenew: true })).toMatchObject({ autoRenew: true });
+      expect(f.customers).toHaveLength(1);
+      expect(f.updates).toEqual([{ id: "pi_test123456", form: expect.objectContaining({ customer: "cus_1", setup_future_usage: "off_session" }) }]);
+      f.intents.set("pi_test123456", {
+        id: "pi_test123456", status: "succeeded", amount: 3500, amount_received: 3500, currency: "eur",
+        customer: "cus_1", payment_method: paymentMethod, setup_future_usage: "off_session",
+      });
+      await a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_test123456", period: "monthly", autoRenew: true });
+      const billing = await a.as.query(api.proPlan.myBilling, {});
+      expect(billing).toMatchObject({ period: "monthly", autoRenew: true, canAutoRenew: true });
+      expect(billing!.periodEnd).toBeGreaterThan(Date.now() + 27 * 86_400_000);
+      return { t, a };
+    };
+    // Move the paid period's end to now, and end it on the backend.
+    const endPeriod = async (t: ReturnType<typeof convexTest>) => {
+      await t.run(async (ctx) => {
+        const row = (await ctx.db.query("proBilling").collect())[0];
+        await ctx.db.patch("proBilling", row._id, { periodEnd: Date.now() });
+      });
+      f.expire();
+    };
+
+    it("charges the saved card when the period ends and renews on the backend, once", async () => {
+      const { t, a } = await subscribeWithCard("pm_card");
+      f.started.length = 0;
+      // Not due yet: the backend says active, nothing is charged.
+      await t.action(internal.proPlan.refreshPlans, {});
+      expect(f.charges).toEqual([]);
+
+      await endPeriod(t);
+      await t.action(internal.proPlan.refreshPlans, {});
+      expect(f.charges).toHaveLength(1);
+      expect(f.charges[0].form).toMatchObject({ amount: "3500", currency: "eur", customer: "cus_1", payment_method: "pm_card", off_session: "true", confirm: "true" });
+      expect(f.charges[0].idempotencyKey).toMatch(/^pro-renew-/);
+      expect(f.started).toEqual([{ token: "tok-a", body: { subscriptionType: "monthly", cost: 35, paymentIntentId: "pi_renew000001" } }]);
+      expect(await userOf(t, a.id)).toMatchObject({ plan: "pro", subscriptionStatus: "active" });
+      expect((await a.as.query(api.proPlan.myBilling, {}))!.periodEnd).toBeGreaterThan(Date.now() + 27 * 86_400_000);
+    });
+
+    it("a declined card drops to Free and tells the customer; no retry for the same period", async () => {
+      const { t, a } = await subscribeWithCard("pm_declined");
+      await endPeriod(t);
+      await t.action(internal.proPlan.refreshPlans, {});
+      expect(f.charges).toHaveLength(1);
+      expect(await userOf(t, a.id)).toMatchObject({ plan: "none" });
+      const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
+      expect(notes).toMatchObject([{ userId: a.id, type: "billing", link: "/dashboard/settings" }]);
+      expect(await a.as.query(api.proPlan.myBilling, {})).toMatchObject({ lastError: expect.stringContaining("card_declined") });
+      await a.as.action(api.proPlan.refreshMyPlan, {});
+      expect(f.charges).toHaveLength(1);
+    });
+
+    it("turning auto-renew off in Settings stops the charge", async () => {
+      const { t, a } = await subscribeWithCard("pm_card");
+      await a.as.mutation(api.proPlan.setAutoRenew, { autoRenew: false });
+      await endPeriod(t);
+      await t.action(internal.proPlan.refreshPlans, {});
+      expect(f.charges).toEqual([]);
+      expect(await userOf(t, a.id)).toMatchObject({ plan: "none" });
+    });
+
+    it("never charges early: a backend expiry long before the paid period ends isn't renewed", async () => {
+      const { t, a } = await subscribeWithCard("pm_card");
+      f.expire(); // e.g. an admin ended it on the backend
+      await t.action(internal.proPlan.refreshPlans, {});
+      expect(f.charges).toEqual([]);
+      expect(await userOf(t, a.id)).toMatchObject({ plan: "none" });
+    });
   });
 });

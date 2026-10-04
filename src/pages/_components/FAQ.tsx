@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Pro is paid for a month or a year at a time and never renews by itself, so there's nothing to cancel: it simply ends unless you renew.",
+    a: "Yes. Yes. Turn off auto-renew in Settings at any time: you keep Pro until the end of the month or year you paid for, and you aren't charged again.",
   },
   {
     q: "What platforms does WinningHunter support?",
