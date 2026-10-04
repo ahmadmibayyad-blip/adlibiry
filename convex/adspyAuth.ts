@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { FunctionReference } from "convex/server";
 import type { Id } from "./_generated/dataModel";
@@ -10,6 +10,8 @@ import {
   backendUrl,
   fetchSubscription,
   loginUser,
+  loginWithGoogle,
+  randomPassword,
   registerUser,
   userIdFromToken,
   type BackendSubscription,
@@ -152,3 +154,76 @@ export async function authorizeWithBackend(credentials: Record<string, unknown>,
     throw e;
   }
 }
+
+// ── "Continue with Google" → the backend ────────────────────────────────────
+// After every Google sign-in (Google verified the email; convex/auth.ts
+// schedules this), the person gets a backend account too:
+// - New email on the backend: registered with a random password nobody knows,
+//   then linked to this user as their "adspypro" account.
+// - Email already on the backend: NOT linked. That account may have been
+//   registered by someone else (the backend never verifies emails), and a link
+//   would let its password holder sign into this user. Its token is still kept
+//   so the plan and payments work.
+// Either way the token (POST /user/login?loginFrom=google) is saved for
+// payments and the plan is read from the backend.
+
+export const syncGoogleAccount = internalAction({
+  args: { userId: v.id("users"), email: v.string(), name: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<{ created: boolean } | { error: string }> => {
+    const env = process.env;
+    const base = backendUrl(env);
+    let created = false;
+    try {
+      await registerUser(base, { userName: args.name || args.email.split("@")[0], email: args.email, password: randomPassword() });
+      created = true;
+    } catch (e) {
+      if (!(e instanceof BackendError) || e.code !== "exists") return { error: e instanceof Error ? e.message : String(e) };
+    }
+    let token: string;
+    try {
+      token = await loginWithGoogle(base, args.email, env);
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+    const backendId = userIdFromToken(token);
+    if (!backendId) return { error: "unexpected token" };
+    let subscription: BackendSubscription | null = null;
+    try {
+      subscription = await fetchSubscription(base, token, env);
+    } catch {
+      /* the plan refreshes on the next sign-in */
+    }
+    await ctx.runMutation(internal.adspyAuth.attachGoogleAccount, {
+      userId: args.userId,
+      backendId,
+      token,
+      link: created,
+      ...(subscription ? { subscription } : {}),
+    });
+    return { created };
+  },
+});
+
+export const attachGoogleAccount = internalMutation({
+  args: {
+    userId: v.id("users"),
+    backendId: v.string(),
+    token: v.string(),
+    link: v.boolean(),
+    subscription: v.optional(subscriptionArg),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get("users", args.userId);
+    if (!user) return;
+    if (args.link) {
+      const existing = await ctx.db
+        .query("authAccounts")
+        .withIndex("providerAndAccountId", (q) => q.eq("provider", PROVIDER).eq("providerAccountId", args.backendId))
+        .unique();
+      if (!existing) await ctx.db.insert("authAccounts", { userId: args.userId, provider: PROVIDER, providerAccountId: args.backendId });
+    }
+    await saveBackendToken(ctx, args.userId, args.token);
+    const plan = args.subscription ? appPlan(args.subscription) : null;
+    if (plan && (plan.plan !== "none" || !user.subscriptionId)) await ctx.db.patch("users", args.userId, plan);
+  },
+});

@@ -70,6 +70,28 @@ export async function loginUser(base: string, u: { email: string; password: stri
   throw new BackendError("unavailable", "Could not sign in right now. Try again in a minute.");
 }
 
+// "Continue with Google": POST /user/login?loginFrom=google with the email
+// only. Only ever called from this server after Google verified the email.
+// ADSPY_BACKEND_SERVER_KEY, when set, goes in an `x-server-key` header so the
+// backend can refuse Google logins that don't come from this app.
+export async function loginWithGoogle(base: string, email: string, env: Env): Promise<string> {
+  const serverKey = env.ADSPY_BACKEND_SERVER_KEY?.trim();
+  const init = json({ email });
+  if (serverKey) init.headers = { ...(init.headers as Record<string, string>), "x-server-key": serverKey };
+  const { status, body } = await call(`${base}/user/login?loginFrom=google`, init);
+  if (status === 200 && typeof body.token === "string" && body.token) return body.token;
+  if (status === 404) throw new BackendError("invalid", "No account for this email on the backend.");
+  throw new BackendError("unavailable", "Could not sign in right now. Try again in a minute.");
+}
+
+// A long random password for backend accounts made through Google: nobody
+// knows it, so the account can't be signed into with email + password.
+export function randomPassword(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 // The backend's user id from the token it issued ({ id: user._id }). The token
 // comes straight from the backend over HTTPS, so reading it without the
 // signing key is safe here; it is never taken from the browser.
