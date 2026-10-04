@@ -13,12 +13,13 @@ export function backendUrl(env: Env): string {
   return (env.ADSPY_BACKEND_URL?.trim() || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
 }
 
-// How the token is sent to routes behind the backend's isUser middleware.
-// Default "Bearer " (Authorization: Bearer <token>); set ADSPY_BACKEND_TOKEN_PREFIX
-// to whatever prefix isUser expects. The token also goes in a `token` header.
-export function authHeaders(token: string, env: Env): Record<string, string> {
-  const prefix = env.ADSPY_BACKEND_TOKEN_PREFIX ?? "Bearer ";
-  return { Authorization: `${prefix}${token}`, token };
+// Routes behind the backend's isUser middleware read
+// `authorization: <AUTH_SECRET_KEY><token>` (the key glued to the token, no
+// space). The key is the backend's AUTH_SECRET_KEY, set here as the Convex env
+// var ADSPY_BACKEND_AUTH_KEY; never commit it. Null when it isn't set.
+export function authHeaders(token: string, env: Env): Record<string, string> | null {
+  const key = env.ADSPY_BACKEND_AUTH_KEY?.trim();
+  return key ? { Authorization: `${key}${token}` } : null;
 }
 
 export type BackendErrorCode = "exists" | "invalid" | "unavailable";
@@ -87,12 +88,15 @@ export function userIdFromToken(token: string): string | null {
 export type BackendSubscription = { isSubscribed: boolean; planName: string };
 
 // GET /user/checkSubscription answers 200 when subscribed and 404 when not,
-// both with is_subscribed and subscribed_plan. Null when it can't be read
-// (backend down, or the token header isn't what isUser expects).
+// both with is_subscribed and subscribed_plan. Null when it can't be read:
+// ADSPY_BACKEND_AUTH_KEY not set or wrong (401), a backend Admin account
+// (isUser only lets role "User" through: 403), or the backend is down.
 export async function fetchSubscription(base: string, token: string, env: Env): Promise<BackendSubscription | null> {
+  const auth = authHeaders(token, env);
+  if (!auth) return null;
   const { status, body } = await call(`${base}/user/checkSubscription`, {
     method: "GET",
-    headers: { Accept: "application/json", ...authHeaders(token, env) },
+    headers: { Accept: "application/json", ...auth },
   });
   if ((status === 200 || status === 404) && typeof body.is_subscribed === "boolean") {
     return { isSubscribed: body.is_subscribed, planName: typeof body.subscribed_plan === "string" ? body.subscribed_plan : "" };

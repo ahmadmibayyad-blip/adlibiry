@@ -32,8 +32,8 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Email sign-in and sign-up go through the AdSpy Pro backend on Render (`ADSPY_BACKEND_URL`, default
   https://adspypro.onrender.com): `convex/adspyAuth.ts` + `convex/lib/adspyBackend.ts`, Convex Auth provider `"adspypro"`.
   Each backend user id is linked to one app user; never link by email alone (anyone can register any email there).
-- The plan comes from the backend's `/user/checkSubscription` on every sign-in (`ADSPY_BACKEND_TOKEN_PREFIX` sets the
-  token header prefix, default `Bearer `).
+- The plan comes from the backend's `/user/checkSubscription` on every sign-in. Its `isUser` middleware reads
+  `authorization: <AUTH_SECRET_KEY><token>`; the key is the Convex env var `ADSPY_BACKEND_AUTH_KEY` (never commit it).
 
 ## Environment and secrets
 

@@ -13,8 +13,9 @@ const modules = import.meta.glob("./**/*.ts");
 const jwt = (id: string) => `eyJhbGciOiJIUzI1NiJ9.${btoa(JSON.stringify({ id, iat: 1 })).replace(/=+$/, "")}.sig`;
 
 type Deps = Parameters<typeof authorizeWithBackend>[1];
+const AUTH_KEY = "testkey";
 const depsFor = (t: ReturnType<typeof convexTest>, extra: Partial<Deps> = {}): Deps => ({
-  env: {},
+  env: { ADSPY_BACKEND_AUTH_KEY: AUTH_KEY },
   runQuery: (fn: FunctionReference<"query", "internal">, args: Record<string, unknown>) => t.query(fn, args as never),
   runMutation: (fn: FunctionReference<"mutation", "internal">, args: Record<string, unknown>) => t.mutation(fn, args as never),
   legacyUser: async () => null,
@@ -42,9 +43,12 @@ function fakeBackend() {
       return reply(200, { message: "User login success", token: jwt(u.id) });
     }
     if (path === "/user/checkSubscription") {
-      const token = String((init?.headers as Record<string, string>)?.Authorization ?? "").replace(/^Bearer /, "");
-      const u = [...users.values()].find((x) => x.id === userIdFromToken(token));
-      if (!u) return reply(401, { message: "unauthorized" });
+      // Like the backend's isUser: authorization = AUTH_SECRET_KEY + token.
+      const authorization = String((init?.headers as Record<string, string>)?.Authorization ?? "");
+      if (!authorization) return reply(401, { message: "Access token is missing" });
+      if (!authorization.startsWith(AUTH_KEY)) return reply(401, { message: "Invalid auth secret key" });
+      const u = [...users.values()].find((x) => x.id === userIdFromToken(authorization.slice(AUTH_KEY.length)));
+      if (!u) return reply(404, { message: "User not found" });
       return reply(u.subscribed ? 200 : 404, { user_name: "x", is_subscribed: u.subscribed, subscribed_plan: u.plan });
     }
     return reply(404, {});
@@ -122,9 +126,13 @@ describe("AdSpy Pro backend sign-in", () => {
 
     const { userId: again } = await authorizeWithBackend(
       { flow: "signIn", email: "pay@x.com", password: "secret123" },
-      depsFor(t, { env: { ADSPY_BACKEND_TOKEN_PREFIX: "wrong__" } }),
+      depsFor(t, { env: { ADSPY_BACKEND_AUTH_KEY: "wrong" } }),
     );
     expect(again).toBe(userId);
+    // No key set: the subscription isn't asked for at all, sign-in still works.
+    const calls = backend.calls.length;
+    await authorizeWithBackend({ flow: "signIn", email: "pay@x.com", password: "secret123" }, depsFor(t, { env: {} }));
+    expect(backend.calls.slice(calls)).toEqual(["/user/login"]);
   });
 
   it("maps backend plans and reads the user id from the token", () => {
