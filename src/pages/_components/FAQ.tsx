@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "Is there a free plan?",
-    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month.",
+    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month, or €30 a month paid yearly (€360).",
   },
   {
     q: "How accurate is the ad spend data?",
@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Pro is paid one month at a time and never renews by itself, so there's nothing to cancel: it simply ends after your month unless you renew.",
+    a: "Yes. Pro is paid for a month or a year at a time and never renews by itself, so there's nothing to cancel: it simply ends unless you renew.",
   },
   {
     q: "What platforms does WinningHunter support?",

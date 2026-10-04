@@ -7,33 +7,55 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
-import { PRO_PRICE_EUR, PRO_RETURN_PATH, getStripe } from "@/lib/stripe.ts";
+import { cn } from "@/lib/utils.ts";
+import {
+  PRO_PRICE_EUR,
+  PRO_RETURN_PATH,
+  PRO_YEARLY_PER_MONTH_EUR,
+  PRO_YEARLY_TOTAL_EUR,
+  getStripe,
+  proCharge,
+  type BillingPeriod,
+} from "@/lib/stripe.ts";
 
 const message = (err: unknown, fallback: string) =>
   err instanceof ConvexError ? ((err.data as { message?: string })?.message ?? fallback) : fallback;
 
-// Upgrade to Pro: the server asks the AdSpy Pro backend for a €35 payment,
-// the customer pays here with Stripe, then the server checks the payment with
-// Stripe and switches Pro on (convex/proPlan.ts).
-export default function ProCheckoutDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+// Upgrade to Pro: the server asks the AdSpy Pro backend for the payment
+// (€35 monthly or €360 yearly), the customer pays here with Stripe, then the
+// server checks the payment with Stripe and switches Pro on (convex/proPlan.ts).
+export default function ProCheckoutDialog({
+  open,
+  onOpenChange,
+  initialPeriod = "monthly",
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialPeriod?: BillingPeriod;
+}) {
   const createProPayment = useAction(api.proPlan.createProPayment);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<BillingPeriod>(initialPeriod);
+  // One payment per period, so switching back and forth doesn't create more.
+  const [secrets, setSecrets] = useState<Partial<Record<BillingPeriod, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<BillingPeriod, string>>>({});
+  const clientSecret = secrets[period];
+  const error = errors[period];
 
   useEffect(() => {
-    if (!open || clientSecret) return;
+    if (!open || clientSecret || error) return;
     let cancelled = false;
-    createProPayment({})
-      .then((r) => !cancelled && setClientSecret(r.clientSecret))
-      .catch((err) => !cancelled && setError(message(err, "Couldn't start the payment. Please try again.")));
+    createProPayment({ period })
+      .then((r) => !cancelled && setSecrets((s) => ({ ...s, [period]: r.clientSecret })))
+      .catch((err) => !cancelled && setErrors((e) => ({ ...e, [period]: message(err, "Couldn't start the payment. Please try again.") })));
     return () => {
       cancelled = true;
     };
-  }, [open, clientSecret, createProPayment]);
+  }, [open, period, clientSecret, error, createProPayment]);
 
   const close = (o: boolean) => {
     onOpenChange(o);
-    if (!o) setError(null);
+    // Reopening tries again.
+    if (!o) setErrors({});
   };
 
   return (
@@ -41,8 +63,34 @@ export default function ProCheckoutDialog({ open, onOpenChange }: { open: boolea
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upgrade to Pro</DialogTitle>
-          <DialogDescription>€{PRO_PRICE_EUR} for one month of Pro: every result, no limits.</DialogDescription>
+          <DialogDescription>Every result, no limits.</DialogDescription>
         </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Billing period">
+          {(
+            [
+              ["monthly", `€${PRO_PRICE_EUR}`, "per month"],
+              ["yearly", `€${PRO_YEARLY_PER_MONTH_EUR}/mo`, `€${PRO_YEARLY_TOTAL_EUR} billed yearly`],
+            ] as const
+          ).map(([p, price, note]) => (
+            <button
+              key={p}
+              type="button"
+              role="radio"
+              aria-checked={period === p}
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "rounded-lg border p-3 text-left transition-colors",
+                period === p ? "border-primary bg-primary/10" : "border-border hover:border-primary/40",
+              )}
+            >
+              <div className="text-xs text-muted-foreground capitalize">{p}</div>
+              <div className="font-bold">{price}</div>
+              <div className="text-[11px] text-muted-foreground">{note}</div>
+            </button>
+          ))}
+        </div>
+
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : !clientSecret ? (
@@ -50,8 +98,8 @@ export default function ProCheckoutDialog({ open, onOpenChange }: { open: boolea
             <Loader2 className="w-4 h-4 animate-spin" /> Preparing secure payment…
           </div>
         ) : (
-          <Elements stripe={getStripe()} options={{ clientSecret, appearance: { theme: "stripe" } }}>
-            <PayForm onDone={() => close(false)} />
+          <Elements key={clientSecret} stripe={getStripe()} options={{ clientSecret, appearance: { theme: "stripe" } }}>
+            <PayForm period={period} onDone={() => close(false)} />
           </Elements>
         )}
       </DialogContent>
@@ -59,7 +107,7 @@ export default function ProCheckoutDialog({ open, onOpenChange }: { open: boolea
   );
 }
 
-function PayForm({ onDone }: { onDone: () => void }) {
+function PayForm({ period, onDone }: { period: BillingPeriod; onDone: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const confirmProPayment = useAction(api.proPlan.confirmProPayment);
@@ -74,14 +122,14 @@ function PayForm({ onDone }: { onDone: () => void }) {
     try {
       const result = await stripe.confirmPayment({
         elements,
-        confirmParams: { return_url: window.location.origin + PRO_RETURN_PATH },
+        confirmParams: { return_url: `${window.location.origin}${PRO_RETURN_PATH}?pro_period=${period}` },
         redirect: "if_required",
       });
       if (result.error) {
         setError(result.error.message ?? "The payment didn't go through.");
         return;
       }
-      await confirmProPayment({ paymentIntentId: result.paymentIntent.id });
+      await confirmProPayment({ paymentIntentId: result.paymentIntent.id, period });
       toast.success("You're on Pro. Every result is unlocked.");
       onDone();
     } catch (err) {
@@ -97,7 +145,8 @@ function PayForm({ onDone }: { onDone: () => void }) {
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={!stripe || busy}>
         {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
-        Pay €{PRO_PRICE_EUR}
+        Pay €{proCharge(period)}
+        {period === "yearly" ? " for a year" : " for a month"}
       </Button>
       <p className="text-[11px] text-muted-foreground text-center">Payments are processed securely by Stripe.</p>
     </form>

@@ -115,18 +115,25 @@ export function appPlan(sub: BackendSubscription): { plan: "starter" | "pro" | "
 
 // ── Pro subscription (POST /subscription/pay, POST /subscription/start) ─────
 
-// Pro: €35 a month. Stripe amounts are in cents.
-export const PRO_PRICE_CENTS = 3500;
+// Pro: €35 a month, or €30 a month billed yearly (€360). Stripe amounts are
+// in cents. The backend's /subscription/pay takes the monthly amount and
+// multiplies it by 12 for "yearly", so `sendAmount` is what we send and
+// `chargeCents` what Stripe actually charges.
+export type BillingPeriod = "monthly" | "yearly";
+export const PRO_PRICES: Record<BillingPeriod, { sendAmount: number; chargeCents: number; cost: number }> = {
+  monthly: { sendAmount: 3500, chargeCents: 3500, cost: 35 },
+  yearly: { sendAmount: 3000, chargeCents: 36000, cost: 360 },
+};
 export const PRO_CURRENCY = "eur";
 
 // The backend creates a Stripe PaymentIntent and returns its client secret.
-export async function createPaymentIntent(base: string, token: string, env: Env): Promise<string> {
+export async function createPaymentIntent(base: string, token: string, env: Env, period: BillingPeriod): Promise<string> {
   const auth = authHeaders(token, env);
   if (!auth) throw new BackendError("unavailable", "Payments aren't set up yet. Please try again later.");
   const { status, body } = await call(`${base}/subscription/pay`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", ...auth },
-    body: JSON.stringify({ amount: PRO_PRICE_CENTS, subscriptionType: "monthly" }),
+    body: JSON.stringify({ amount: PRO_PRICES[period].sendAmount, subscriptionType: period }),
   });
   if (status === 200 && typeof body.clientSecret === "string" && body.clientSecret) return body.clientSecret;
   if (status === 401 || status === 403 || status === 404) throw new BackendError("invalid", "Please sign out and sign in again, then subscribe.");
@@ -135,13 +142,19 @@ export async function createPaymentIntent(base: string, token: string, env: Env)
 
 // Marks the user Pro on the backend after a verified payment. The payment's
 // id goes along so the backend can check it too.
-export async function startSubscription(base: string, token: string, env: Env, paymentIntentId: string): Promise<void> {
+export async function startSubscription(
+  base: string,
+  token: string,
+  env: Env,
+  period: BillingPeriod,
+  paymentIntentId: string,
+): Promise<void> {
   const auth = authHeaders(token, env);
   if (!auth) throw new BackendError("unavailable", "Payments aren't set up yet. Please try again later.");
   const { status } = await call(`${base}/subscription/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", ...auth },
-    body: JSON.stringify({ subscriptionType: "monthly", cost: PRO_PRICE_CENTS / 100, paymentIntentId }),
+    body: JSON.stringify({ subscriptionType: period, cost: PRO_PRICES[period].cost, paymentIntentId }),
   });
   if (status === 200 || status === 201) return;
   throw new BackendError("unavailable", "Your payment went through, but Pro couldn't be switched on yet. Try again in a minute, or contact support.");
@@ -166,7 +179,7 @@ export async function fetchPaymentIntent(secretKey: string, id: string): Promise
   return (await res.json()) as StripePaymentIntent;
 }
 
-// A payment that pays for one month of Pro.
-export function isProPayment(pi: StripePaymentIntent): boolean {
-  return pi.status === "succeeded" && (pi.amount_received ?? pi.amount) >= PRO_PRICE_CENTS && pi.currency === PRO_CURRENCY;
+// A payment that pays for that period of Pro (a monthly payment can't buy a year).
+export function isProPayment(pi: StripePaymentIntent, period: BillingPeriod): boolean {
+  return pi.status === "succeeded" && (pi.amount_received ?? pi.amount) >= PRO_PRICES[period].chargeCents && pi.currency === PRO_CURRENCY;
 }

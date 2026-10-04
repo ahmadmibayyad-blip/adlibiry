@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import ProCheckoutDialog from "@/components/billing/ProCheckoutDialog.tsx";
 import ProReturnHandler from "@/components/billing/ProReturnHandler.tsx";
-import { PRO_PRICE_EUR } from "@/lib/stripe.ts";
+import { PRO_PRICE_EUR, PRO_YEARLY_PER_MONTH_EUR } from "@/lib/stripe.ts";
 
 export default function PlanSection() {
   const { isPro, isLoading } = useUserPlan();
@@ -38,8 +38,8 @@ export default function PlanSection() {
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {isPro
-                  ? "Every result is unlocked. Pro runs a month per payment; renew here when it ends."
-                  : `You see the first 10 results of each list. Pro unlocks everything for €${PRO_PRICE_EUR}/month.`}
+                  ? "Every result is unlocked. Pro runs for the month or year you paid; renew here when it ends."
+                  : `You see the first 10 results of each list. Pro unlocks everything: €${PRO_PRICE_EUR}/month, or €${PRO_YEARLY_PER_MONTH_EUR}/month paid yearly.`}
               </p>
             </div>
           </div>

@@ -6,8 +6,13 @@ export const STRIPE_PUBLISHABLE_KEY =
   (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined) ||
   "pk_live_51SLFHgGZFEMwrk3hh5XdpIVw5V3OD1Mn4Chz9Q5pU8g1vsHMG8QLjhmR51XmJBl40fu3rwb2FCMAHE2iw5jttDlX00dOysY3fL";
 
-// Pro: €35 a month (the server sets the real amount).
+// Pro: €35 a month, or €30 a month billed yearly (€360). The server sets the
+// real amounts (convex/lib/adspyBackend.ts PRO_PRICES).
+export type BillingPeriod = "monthly" | "yearly";
 export const PRO_PRICE_EUR = 35;
+export const PRO_YEARLY_PER_MONTH_EUR = 30;
+export const PRO_YEARLY_TOTAL_EUR = PRO_YEARLY_PER_MONTH_EUR * 12;
+export const proCharge = (period: BillingPeriod) => (period === "yearly" ? PRO_YEARLY_TOTAL_EUR : PRO_PRICE_EUR);
 
 let stripePromise: Promise<Stripe | null> | null = null;
 export function getStripe(): Promise<Stripe | null> {

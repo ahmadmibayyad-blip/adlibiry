@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { effectivePlan } from "./lib/billing";
 import {
   BackendError,
-  PRO_PRICE_CENTS,
+  PRO_PRICES,
   appPlan,
   backendUrl,
   createPaymentIntent,
@@ -15,9 +15,9 @@ import {
   startSubscription,
 } from "./lib/adspyBackend";
 
-// Pro (€35 / month) through the AdSpy Pro backend and Stripe:
+// Pro (€35 / month, or €360 / year) through the AdSpy Pro backend and Stripe:
 // 1. createProPayment: the backend creates a PaymentIntent for €35
-//    (POST /subscription/pay) and the browser pays it with Stripe Elements.
+//    or €360 (POST /subscription/pay) and the browser pays it with Stripe Elements.
 // 2. confirmProPayment: this server checks with Stripe that the payment went
 //    through (status, amount, currency), that it wasn't used before, then
 //    starts the subscription on the backend (POST /subscription/start) and
@@ -28,6 +28,7 @@ import {
 
 const fail = (code: string, message: string) => new ConvexError({ code, message });
 const PAYMENT_INTENT_ID = /^pi_[A-Za-z0-9]{8,64}$/;
+const period = v.union(v.literal("monthly"), v.literal("yearly"));
 
 export const backendToken = internalQuery({
   args: { userId: v.id("users") },
@@ -89,26 +90,26 @@ const backendCall = async <T>(run: () => Promise<T>): Promise<T> => {
 };
 
 export const createProPayment = action({
-  args: {},
-  handler: async (ctx): Promise<{ clientSecret: string; amount: number; currency: string }> => {
+  args: { period },
+  handler: async (ctx, args): Promise<{ clientSecret: string; amount: number; currency: string }> => {
     const user = await signedInUser(ctx);
     if (effectivePlan(user) !== "none" && user.subscriptionStatus === "active") throw fail("ALREADY_PRO", "You already have Pro.");
     // Check before anyone pays: without the key a payment couldn't be verified.
     stripeKey();
     const token = await tokenFor(ctx, user._id);
-    const clientSecret = await backendCall(() => createPaymentIntent(backendUrl(process.env), token, process.env));
-    return { clientSecret, amount: PRO_PRICE_CENTS, currency: "eur" };
+    const clientSecret = await backendCall(() => createPaymentIntent(backendUrl(process.env), token, process.env, args.period));
+    return { clientSecret, amount: PRO_PRICES[args.period].chargeCents, currency: "eur" };
   },
 });
 
 export const confirmProPayment = action({
-  args: { paymentIntentId: v.string() },
+  args: { paymentIntentId: v.string(), period },
   handler: async (ctx, args): Promise<{ plan: "pro" }> => {
     const user = await signedInUser(ctx);
     if (!PAYMENT_INTENT_ID.test(args.paymentIntentId)) throw fail("BAD_REQUEST", "Unknown payment.");
     const pi = await backendCall(() => fetchPaymentIntent(stripeKey(), args.paymentIntentId));
     if (!pi) throw fail("BAD_REQUEST", "Unknown payment.");
-    if (!isProPayment(pi)) {
+    if (!isProPayment(pi, args.period)) {
       throw fail(
         "NOT_PAID",
         pi.status === "processing" ? "Your payment is still processing. Pro switches on as soon as it clears; check back in a few minutes." : "This payment didn't go through.",
@@ -124,7 +125,7 @@ export const confirmProPayment = action({
 
     const base = backendUrl(process.env);
     const token = await tokenFor(ctx, user._id);
-    await backendCall(() => startSubscription(base, token, process.env, pi.id));
+    await backendCall(() => startSubscription(base, token, process.env, args.period, pi.id));
     let subscription = null;
     try {
       subscription = await fetchSubscription(base, token, process.env);
