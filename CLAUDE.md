@@ -32,6 +32,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Email sign-in and sign-up go through the AdSpy Pro backend on Render (`ADSPY_BACKEND_URL`, default
   https://adspypro.onrender.com): `convex/adspyAuth.ts` + `convex/lib/adspyBackend.ts`, Convex Auth provider `"adspypro"`.
   Each backend user id is linked to one app user; never link by email alone (anyone can register any email there).
+- "Continue with Google" also gets a backend account (`syncGoogleAccount`): new emails are registered with a random
+  password and linked; emails already on the backend are not linked (unverified owner), only their token is kept.
+  The token comes from `POST /user/login?loginFrom=google`; `ADSPY_BACKEND_SERVER_KEY` adds an `x-server-key` header.
 - The plan comes from the backend's `/user/checkSubscription` on every sign-in. Its `isUser` middleware reads
   `authorization: <AUTH_SECRET_KEY><token>`; the key is the Convex env var `ADSPY_BACKEND_AUTH_KEY` (never commit it).
 

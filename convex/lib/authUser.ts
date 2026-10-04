@@ -25,11 +25,18 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : unde
 // made it could have attached (MCP keys, a Shopify store, a Stripe customer and
 // subscription), so the real owner starts clean.
 async function revokeUnprovenLogins(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
-  const passwords = await ctx.db
-    .query("authAccounts")
-    .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", "password"))
-    .collect();
-  for (const account of passwords) await ctx.db.delete("authAccounts", account._id);
+  // Email + password logins: the old "password" provider and the AdSpy Pro
+  // backend ("adspypro", whose sign-up doesn't verify emails either), plus the
+  // saved backend token.
+  for (const provider of ["password", "adspypro"]) {
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .collect();
+    for (const account of accounts) await ctx.db.delete("authAccounts", account._id);
+  }
+  const backendSession = await ctx.db.query("backendSessions").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
+  if (backendSession) await ctx.db.delete("backendSessions", backendSession._id);
   const sessions = await ctx.db
     .query("authSessions")
     .withIndex("userId", (q) => q.eq("userId", userId))

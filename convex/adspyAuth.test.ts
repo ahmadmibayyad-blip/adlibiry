@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { internal } from "./_generated/api";
+import { upsertAuthUser } from "./lib/authUser";
 import type { FunctionReference } from "convex/server";
 import { authorizeWithBackend } from "./adspyAuth";
 import { appPlan, userIdFromToken } from "./lib/adspyBackend";
@@ -27,6 +28,7 @@ function fakeBackend() {
   const users = new Map<string, { id: string; password: string; plan: string; subscribed: boolean }>();
   let n = 0;
   const calls: string[] = [];
+  const serverKeys: (string | null)[] = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const path = new URL(url).pathname;
     calls.push(path);
@@ -39,7 +41,10 @@ function fakeBackend() {
     }
     if (path === "/user/login") {
       const u = users.get(body.email);
-      if (!u || u.password !== body.password) return reply(404, { message: "User not found" });
+      // Like the backend: ?loginFrom=google looks the user up by email only.
+      const google = new URL(url).searchParams.get("loginFrom") === "google";
+      if (google) serverKeys.push((init?.headers as Record<string, string>)?.["x-server-key"] ?? null);
+      if (!u || (!google && u.password !== body.password)) return reply(404, { message: "User not found" });
       return reply(200, { message: "User login success", token: jwt(u.id) });
     }
     if (path === "/user/checkSubscription") {
@@ -53,7 +58,7 @@ function fakeBackend() {
     }
     return reply(404, {});
   });
-  return { users, calls, fetchMock };
+  return { users, calls, serverKeys, fetchMock };
 }
 
 describe("AdSpy Pro backend sign-in", () => {
@@ -153,5 +158,57 @@ describe("AdSpy Pro backend sign-in", () => {
     const admin = await t.run((ctx) => ctx.db.insert("users", { email: "boss@x.com", role: "admin", tokenIdentifier: "boss" }));
     const id = await t.mutation(internal.adspyAuth.linkAccount, { backendId: "66f0000000000000000000ff", email: "boss@x.com" });
     expect(id).not.toBe(admin);
+  });
+
+  describe("Continue with Google", () => {
+    beforeEach(() => vi.stubEnv("ADSPY_BACKEND_AUTH_KEY", AUTH_KEY));
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("registers a new Google user on the backend and links that account", async () => {
+      const t = convexTest(schema, modules);
+      const userId = await t.run((ctx) => ctx.db.insert("users", { email: "g@gmail.com", role: "user", tokenIdentifier: "g" }));
+      expect(await t.action(internal.adspyAuth.syncGoogleAccount, { userId, email: "g@gmail.com", name: "Gina" })).toEqual({ created: true });
+      const account = backend.users.get("g@gmail.com")!;
+      expect(account.password).toMatch(/^[0-9a-f]{48}$/); // random; nobody knows it
+      expect(await t.query(internal.adspyAuth.linkedUserId, { backendId: account.id })).toBe(userId);
+      const sessions = await t.run((ctx) => ctx.db.query("backendSessions").collect());
+      expect(sessions).toMatchObject([{ userId }]);
+      expect(await t.run((ctx) => ctx.db.get("users", userId))).toMatchObject({ plan: "none" });
+      expect(backend.serverKeys).toEqual([null]);
+
+      // Signing in with Google again keeps one backend account and one link.
+      vi.stubEnv("ADSPY_BACKEND_SERVER_KEY", "s3rver");
+      expect(await t.action(internal.adspyAuth.syncGoogleAccount, { userId, email: "g@gmail.com" })).toEqual({ created: false });
+      expect(backend.users.size).toBe(1);
+      expect(backend.serverKeys).toEqual([null, "s3rver"]);
+      expect(await t.run((ctx) => ctx.db.query("authAccounts").collect())).toHaveLength(1);
+    });
+
+    it("never links a backend account it didn't create: its password holder can't reach the Google user", async () => {
+      const t = convexTest(schema, modules);
+      // Someone registered this email on the backend with a password first.
+      await authorizeWithBackend({ flow: "signUp", email: "victim@gmail.com", password: "attacker1" }, depsFor(t));
+      const googleUser = await t.run((ctx) => ctx.db.insert("users", { email: "victim@gmail.com", role: "user", tokenIdentifier: "v" }));
+      expect(await t.action(internal.adspyAuth.syncGoogleAccount, { userId: googleUser, email: "victim@gmail.com" })).toEqual({ created: false });
+      const viaPassword = await authorizeWithBackend({ flow: "signIn", email: "victim@gmail.com", password: "attacker1" }, depsFor(t));
+      expect(viaPassword.userId).not.toBe(googleUser);
+      // The plan and payments still work for the Google user.
+      expect(await t.run((ctx) => ctx.db.query("backendSessions").withIndex("by_user", (q) => q.eq("userId", googleUser)).unique())).not.toBeNull();
+    });
+
+    it("a verified Google sign-in into an unverified account removes its backend password login", async () => {
+      const t = convexTest(schema, modules);
+      await t.run((ctx) => ctx.db.insert("users", { email: "boss@x.com", role: "admin", tokenIdentifier: "boss" }));
+      const { userId } = await authorizeWithBackend({ flow: "signUp", email: "me@gmail.com", password: "attacker1" }, depsFor(t));
+      const google = await t.run((ctx) =>
+        upsertAuthUser(ctx, { existingUserId: null, type: "oauth", profile: { email: "me@gmail.com", emailVerified: true } }),
+      );
+      expect(google).toBe(userId);
+      expect(await t.run((ctx) => ctx.db.query("authAccounts").collect())).toEqual([]);
+      expect(await t.run((ctx) => ctx.db.query("backendSessions").collect())).toEqual([]);
+      // The old password now lands in a separate, new user.
+      const again = await authorizeWithBackend({ flow: "signIn", email: "me@gmail.com", password: "attacker1" }, depsFor(t));
+      expect(again.userId).not.toBe(userId);
+    });
   });
 });

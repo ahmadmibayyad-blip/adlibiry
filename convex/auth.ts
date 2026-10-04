@@ -7,6 +7,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { upsertAuthUser } from "./lib/authUser";
 import { PROVIDER, authorizeWithBackend } from "./adspyAuth";
+import { internal } from "./_generated/api";
 
 // Email + password sign-in goes through the AdSpy Pro backend on Render
 // ("adspypro", convex/adspyAuth.ts). "Continue with Google" shows once
@@ -57,7 +58,17 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
-      return await upsertAuthUser(ctx as unknown as MutationCtx, args as Parameters<typeof upsertAuthUser>[1]);
+      const userId = await upsertAuthUser(ctx as unknown as MutationCtx, args as Parameters<typeof upsertAuthUser>[1]);
+      // Google sign-ins get a backend account too (convex/adspyAuth.ts).
+      const profile = args.profile as { email?: unknown; name?: unknown; emailVerified?: unknown };
+      if (args.type === "oauth" && profile.emailVerified === true && typeof profile.email === "string" && profile.email) {
+        await (ctx as unknown as MutationCtx).scheduler.runAfter(0, internal.adspyAuth.syncGoogleAccount, {
+          userId,
+          email: profile.email.trim().toLowerCase(),
+          ...(typeof profile.name === "string" && profile.name.trim() ? { name: profile.name.trim().slice(0, 100) } : {}),
+        });
+      }
+      return userId;
     },
   },
 });
