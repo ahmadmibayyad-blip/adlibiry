@@ -9,8 +9,8 @@ export const STRIPE_PUBLISHABLE_KEY =
 // Pro: €35 a month, or €30 a month billed yearly (€360). The server sets the
 // real amounts (convex/lib/adspyBackend.ts PRO_PRICES).
 export type BillingPeriod = "monthly" | "yearly";
-export const PRO_PRICE_EUR = 2;
-export const PRO_YEARLY_PER_MONTH_EUR = 1;
+export const PRO_PRICE_EUR = 35;
+export const PRO_YEARLY_PER_MONTH_EUR = 30;
 export const PRO_YEARLY_TOTAL_EUR = PRO_YEARLY_PER_MONTH_EUR * 12;
 export const proCharge = (period: BillingPeriod) => (period === "yearly" ? PRO_YEARLY_TOTAL_EUR : PRO_PRICE_EUR);
 
