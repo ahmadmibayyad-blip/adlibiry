@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api.js";
 import { Loader2 } from "lucide-react";
 import Logo from "@/components/Logo.tsx";
@@ -36,16 +37,20 @@ export default function LoginPage() {
     form.set("flow", flow);
     setBusy(true);
     try {
-      await signIn("password", form);
+      // Accounts live on the AdSpy Pro backend (convex/adspyAuth.ts).
+      await signIn("adspypro", form);
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const message = err instanceof ConvexError ? (err.data as { message?: string })?.message : undefined;
       setError(
-        flow === "signIn"
-          ? "Wrong email or password. New here? Create an account below."
-          : /exists/i.test(msg)
-            ? "An account with this email already exists. Sign in instead."
-            : "Could not create the account. Check the email and try again.",
+        message === "Wrong email or password."
+          ? flow === "signIn"
+            ? "Wrong email or password. New here? Create an account below."
+            : message
+          : (message ??
+              (flow === "signIn"
+                ? "Could not sign in. Try again in a minute."
+                : "Could not create the account. Check the email and try again.")),
       );
     } finally {
       setBusy(false);

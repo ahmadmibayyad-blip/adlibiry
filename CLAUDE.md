@@ -27,6 +27,14 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   "not set up") for Admin → Daily imports; a new import job returns `{ ..., errors: string[] }` or `{ notConfigured: "…" }`
   and catches per-country/niche failures instead of throwing.
 
+## Accounts
+
+- Email sign-in and sign-up go through the AdSpy Pro backend on Render (`ADSPY_BACKEND_URL`, default
+  https://adspypro.onrender.com): `convex/adspyAuth.ts` + `convex/lib/adspyBackend.ts`, Convex Auth provider `"adspypro"`.
+  Each backend user id is linked to one app user; never link by email alone (anyone can register any email there).
+- The plan comes from the backend's `/user/checkSubscription` on every sign-in (`ADSPY_BACKEND_TOKEN_PREFIX` sets the
+  token header prefix, default `Bearer `).
+
 ## Environment and secrets
 
 - Convex env vars are set per deployment: Convex dashboard → **Production** deployment → Settings → Environment Variables.
