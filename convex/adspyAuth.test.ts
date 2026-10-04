@@ -82,6 +82,10 @@ describe("AdSpy Pro backend sign-in", () => {
     backend.users.get("new@shop.com")!.plan = "Pro";
     expect((await signIn({ flow: "signIn", email: "new@shop.com", password: "secret123" })).userId).toBe(userId);
     expect(await t.run((ctx) => ctx.db.get("users", userId))).toMatchObject({ plan: "pro", subscriptionStatus: "active" });
+    // The backend token is kept server-side for payments, one row per user.
+    const sessions = await t.run((ctx) => ctx.db.query("backendSessions").collect());
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]).toMatchObject({ userId, token: expect.stringContaining(".") });
   });
 
   it("rejects wrong passwords and duplicate sign-ups with clear messages", async () => {

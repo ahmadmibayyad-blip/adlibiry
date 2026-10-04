@@ -610,4 +610,23 @@ export default defineSchema({
     .index("by_ad_key", ["adKey"])
     .index("by_visitor_status", ["submitterVisitorId", "status"])
     .index("by_status_submitted", ["status", "submittedAt"]),
+
+  // AdSpy Pro backend (Render) session token per user, saved at sign-in so the
+  // server can call the backend's isUser routes (payments). Never sent to the
+  // browser. convex/adspyAuth.ts writes it; convex/proPlan.ts reads it.
+  backendSessions: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // Stripe PaymentIntents that already activated Pro, so one payment can't be
+  // used twice (convex/proPlan.ts).
+  proPayments: defineTable({
+    paymentIntentId: v.string(),
+    userId: v.id("users"),
+    amount: v.number(),
+    currency: v.string(),
+    at: v.number(),
+  }).index("by_payment_intent", ["paymentIntentId"]),
 });

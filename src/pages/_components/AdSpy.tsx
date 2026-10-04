@@ -80,7 +80,7 @@ export default function AdSpy() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          3 of {stats ? stats.ads.total.toLocaleString("en-US") : "…"} ads. Start your free trial to search them all.
+          3 of {stats ? stats.ads.total.toLocaleString("en-US") : "…"} ads. Sign up free to search them.
         </p>
       </div>
     </section>

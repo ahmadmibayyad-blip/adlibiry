@@ -16,17 +16,14 @@ export default function TrialLimitNotice() {
       <p>
         {plan === "none" ? (
           <>
-            You're seeing the first {limit} results of each list.{" "}
-            <Link to="/#pricing" className="font-medium text-primary underline underline-offset-2">
-              Start your free trial or pick a plan
+            You're on the Free plan and see the first {limit} results of each list.{" "}
+            <Link to="/dashboard/settings" className="font-medium text-primary underline underline-offset-2">
+              Upgrade to Pro
             </Link>{" "}
-            to see everything once your plan is active.
+            to see everything.
           </>
         ) : (
-          <>
-            During your free trial you see the first {limit} results of each list. Once your paid plan starts, you'll see
-            everything.
-          </>
+          <>You see the first {limit} results of each list until your Pro payment clears.</>
         )}
       </p>
     </div>

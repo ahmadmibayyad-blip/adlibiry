@@ -77,7 +77,7 @@ export default function Hero() {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
               <a href="/#pricing">
-                Start your 7-day free trial
+                Start free
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </a>
             </Button>

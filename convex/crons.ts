@@ -80,6 +80,8 @@ crons.daily(
 // Products pipeline, after all imports: link ads to products, rebuild
 // Winning Products (top 50 per niche), then save today's history snapshot
 // for the charts. Runs as a chain of small steps (convex/productPipeline.ts).
+// Pro (AdSpy Pro backend) ends when its month is over: convex/proPlan.ts.
+crons.daily("refresh Pro plans from the AdSpy Pro backend", { hourUTC: 5, minuteUTC: 50 }, internal.proPlan.refreshPlans, {});
 crons.daily("link ads to products, rebuild winners, save history", { hourUTC: 8, minuteUTC: 5 }, internal.productPipeline.start);
 
 // Rebuild filter counts / admin totals once a day as a backstop.

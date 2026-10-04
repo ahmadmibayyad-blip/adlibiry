@@ -24,7 +24,7 @@ export default function FinalCTA() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button asChild size="lg" className="h-12 px-8 text-base font-semibold rounded-xl">
               <a href="/#pricing">
-                Start your 7-day free trial
+                Start free
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </a>
             </Button>

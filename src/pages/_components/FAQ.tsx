@@ -4,8 +4,8 @@ import { ChevronDown } from "lucide-react";
 
 const faqs = [
   {
-    q: "Is there a free trial?",
-    a: "Yes! Every plan comes with a full 7-day free trial. No credit card required to start. You get full access to all features during your trial.",
+    q: "Is there a free plan?",
+    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month.",
   },
   {
     q: "How accurate is the ad spend data?",
@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Absolutely. You can cancel your subscription at any time with no questions asked. You'll retain access until the end of your billing period.",
+    a: "Yes. Pro is paid one month at a time and never renews by itself, so there's nothing to cancel: it simply ends after your month unless you renew.",
   },
   {
     q: "What platforms does WinningHunter support?",
@@ -29,7 +29,7 @@ const faqs = [
   },
   {
     q: "Do you offer refunds?",
-    a: "We offer a 7-day trial so you can test the platform risk-free. If you experience a technical issue that our team can't resolve, we'll consider refunds on a case-by-case basis.",
+    a: "The Free plan lets you test the platform before paying. If you experience a technical issue that our team can't resolve, we'll consider refunds on a case-by-case basis.",
   },
   {
     q: "Can I use WinningHunter for Amazon or Etsy?",
