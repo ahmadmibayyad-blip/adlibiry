@@ -35,6 +35,15 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - The plan comes from the backend's `/user/checkSubscription` on every sign-in. Its `isUser` middleware reads
   `authorization: <AUTH_SECRET_KEY><token>`; the key is the Convex env var `ADSPY_BACKEND_AUTH_KEY` (never commit it).
 
+## Plans and payments
+
+- Free (first 10 results of each list) and Pro (€35/month, everything). Pro is a one-month payment, no auto-renewal.
+- Flow (`convex/proPlan.ts`): backend `POST /subscription/pay` creates the €35 PaymentIntent (amount set on the server) →
+  the browser pays with Stripe Elements (`src/components/billing/ProCheckoutDialog.tsx`) → `confirmProPayment` checks the
+  PaymentIntent with Stripe (`STRIPE_SECRET_KEY`, same Stripe account as the backend), uses it once (`proPayments`), then
+  calls `POST /subscription/start`. A daily cron re-reads `/user/checkSubscription` so Pro ends after its month.
+- The backend token from sign-in is kept server-side in `backendSessions`; never send it to the browser.
+
 ## Environment and secrets
 
 - Convex env vars are set per deployment: Convex dashboard → **Production** deployment → Settings → Environment Variables.

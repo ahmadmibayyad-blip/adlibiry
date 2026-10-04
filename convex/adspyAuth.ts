@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { FunctionReference } from "convex/server";
 import type { Id } from "./_generated/dataModel";
@@ -51,6 +51,7 @@ export const linkAccount = internalMutation({
     name: v.optional(v.string()),
     legacyUserId: v.optional(v.id("users")),
     subscription: v.optional(subscriptionArg),
+    token: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"users">> => {
     const account = await ctx.db
@@ -77,9 +78,16 @@ export const linkAccount = internalMutation({
       ...(args.name && !user.name ? { name: args.name } : {}),
       ...(applyPlan ? plan : {}),
     });
+    if (args.token) await saveBackendToken(ctx, userId, args.token);
     return userId;
   },
 });
+
+export async function saveBackendToken(ctx: MutationCtx, userId: Id<"users">, token: string): Promise<void> {
+  const row = await ctx.db.query("backendSessions").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
+  if (row) await ctx.db.patch("backendSessions", row._id, { token, updatedAt: Date.now() });
+  else await ctx.db.insert("backendSessions", { userId, token, updatedAt: Date.now() });
+}
 
 type Deps = {
   env: Record<string, string | undefined>;
@@ -136,6 +144,7 @@ export async function authorizeWithBackend(credentials: Record<string, unknown>,
       ...(name ? { name } : {}),
       ...(legacy ? { legacyUserId: legacy.id } : {}),
       ...(subscription ? { subscription } : {}),
+      token,
     })) as Id<"users">;
     return { userId };
   } catch (e) {

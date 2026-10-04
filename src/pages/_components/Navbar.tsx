@@ -65,7 +65,7 @@ export default function Navbar() {
             <Unauthenticated>
               <SignInButton variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" />
               <Button asChild size="sm" className="bg-primary text-primary-foreground font-semibold px-5">
-                <a href="/#pricing">Start Free Trial</a>
+                <a href="/#pricing">Start free</a>
               </Button>
             </Unauthenticated>
           </div>
@@ -112,7 +112,7 @@ export default function Navbar() {
                 <Unauthenticated>
                   <SignInButton variant="ghost" className="w-full justify-start" />
                   <Button asChild className="w-full bg-primary text-primary-foreground font-semibold">
-                    <a href="/#pricing">Start Free Trial</a>
+                    <a href="/#pricing">Start free</a>
                   </Button>
                 </Unauthenticated>
               </div>
