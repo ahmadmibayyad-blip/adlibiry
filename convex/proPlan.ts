@@ -137,9 +137,10 @@ export const confirmProPayment = action({
   },
 });
 
-// ── Daily: Pro ends when the backend says the month is over ────────────────
-// Pro doesn't renew by itself, and the plan is otherwise only read at sign-in,
-// so every day each active plan is checked against /user/checkSubscription
+// ── Pro ends when the backend says the period is over ──────────────────────
+// Pro doesn't renew by itself, so the plan is re-read from
+// /user/checkSubscription when the user opens the dashboard (refreshMyPlan,
+// at most every 2 minutes) and every hour for every active plan
 // (which also expires the subscription on the backend). A Stripe subscription
 // made in this app before the switch (subscriptionId) is left alone.
 
@@ -186,5 +187,41 @@ export const refreshPlans = internalAction({
     }
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.proPlan.refreshPlans, { cursor: page.cursor });
     return { checked };
+  },
+});
+
+const RECHECK_MS = 2 * 60_000;
+
+export const myBackendSession = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const s = await ctx.db.query("backendSessions").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique();
+    const user = await ctx.db.get("users", args.userId);
+    return s && user ? { token: s.token, planCheckedAt: s.planCheckedAt ?? 0, legacyStripe: !!user.subscriptionId } : null;
+  },
+});
+
+export const markPlanChecked = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const s = await ctx.db.query("backendSessions").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique();
+    if (s) await ctx.db.patch("backendSessions", s._id, { planCheckedAt: Date.now() });
+  },
+});
+
+// Dashboard open: read the plan from the backend now, so a subscription that
+// ended (or was changed on the backend) shows right away.
+export const refreshMyPlan = action({
+  args: {},
+  handler: async (ctx): Promise<{ checked: boolean }> => {
+    const user = await ctx.runQuery(internal.users.getCurrentUserInternal, {});
+    if (!user) return { checked: false };
+    const session = await ctx.runQuery(internal.proPlan.myBackendSession, { userId: user._id });
+    if (!session || session.legacyStripe || Date.now() - session.planCheckedAt < RECHECK_MS) return { checked: false };
+    await ctx.runMutation(internal.proPlan.markPlanChecked, { userId: user._id });
+    const subscription = await fetchSubscription(backendUrl(process.env), session.token, process.env).catch(() => null);
+    if (!subscription) return { checked: false };
+    await ctx.runMutation(internal.proPlan.applyBackendPlan, { userId: user._id, subscription });
+    return { checked: true };
   },
 });

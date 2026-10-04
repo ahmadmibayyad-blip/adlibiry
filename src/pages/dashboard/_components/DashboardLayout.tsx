@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
-import { useQuery } from "convex/react";
+import { useEffect } from "react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar.tsx";
@@ -54,6 +55,13 @@ export default function DashboardLayout() {
   const { plan } = useUserPlan();
   const isAdmin = useQuery(api.users.isAdmin);
   const unreadCount = useQuery(api.notifications.getUnreadCount, user ? {} : "skip");
+  const refreshMyPlan = useAction(api.proPlan.refreshMyPlan);
+
+  // Re-read the plan from the AdSpy Pro backend when pages open (the server
+  // checks at most every 2 minutes), so an ended subscription shows as Free.
+  useEffect(() => {
+    if (user) refreshMyPlan({}).catch(() => {});
+  }, [user, location.pathname, refreshMyPlan]);
 
   const initials = user?.profile?.name
     ? user.profile.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()

@@ -16,6 +16,7 @@ function fakes() {
   const started: { token: string; body: Record<string, unknown> }[] = [];
   const payBodies: Record<string, unknown>[] = [];
   let subscribed = false;
+  let stale = false;
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const u = new URL(url);
     const reply = (status: number, data: unknown) => new Response(JSON.stringify(data), { status });
@@ -36,11 +37,12 @@ function fakes() {
       return reply(200, { message: "Subscription started successfully" });
     }
     if (u.pathname === "/user/checkSubscription") {
+      if (stale) return reply(404, { message: "Subscription not found for this user", is_subscribed: true, subscribed_plan: "Pro" });
       return reply(subscribed ? 200 : 404, { is_subscribed: subscribed, subscribed_plan: subscribed ? "Pro" : "Free" });
     }
     return reply(404, {});
   });
-  return { intents, started, payBodies, fetchMock, expire: () => (subscribed = false) };
+  return { intents, started, payBodies, fetchMock, expire: () => (subscribed = false), staleExpire: () => (stale = true) };
 }
 
 describe("Pro plan payments", () => {
@@ -146,5 +148,20 @@ describe("Pro plan payments", () => {
     await t.action(internal.proPlan.refreshPlans, {});
     expect(await userOf(t, a.id)).toMatchObject({ plan: "none", subscriptionStatus: "canceled" });
     expect(await userOf(t, legacy)).toMatchObject({ plan: "agency", subscriptionStatus: "active" });
+  });
+
+  it("opening the dashboard re-reads the plan, and a 404 means Free even if the body still says subscribed", async () => {
+    const { t, mk } = await setup();
+    const a = await mk("a", "tok-a");
+    f.intents.set("pi_paid0000003", { id: "pi_paid0000003", status: "succeeded", amount: 3500, amount_received: 3500, currency: "eur" });
+    await a.as.action(api.proPlan.confirmProPayment, { paymentIntentId: "pi_paid0000003", period: "monthly" });
+    expect(await userOf(t, a.id)).toMatchObject({ plan: "pro" });
+
+    // The backend's subscription ended, but the user row still says is_subscribed: true.
+    f.staleExpire();
+    expect(await a.as.action(api.proPlan.refreshMyPlan, {})).toEqual({ checked: true });
+    expect(await userOf(t, a.id)).toMatchObject({ plan: "none", subscriptionStatus: "canceled" });
+    // Checked again within 2 minutes: skipped.
+    expect(await a.as.action(api.proPlan.refreshMyPlan, {})).toEqual({ checked: false });
   });
 });
