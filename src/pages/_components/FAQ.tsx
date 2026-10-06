@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "Is there a free plan?",
-    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month, or €30 a month paid yearly (€360).",
+    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month, or €30 a month paid yearly (€360), and you can try it free for 7 days without a card.",
   },
   {
     q: "How accurate is the ad spend data?",

@@ -4,7 +4,9 @@ import { Check, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+import { api } from "@/convex/_generated/api.js";
 import { SignInButton } from "@/components/ui/signin.tsx";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import ProCheckoutDialog from "@/components/billing/ProCheckoutDialog.tsx";
@@ -31,7 +33,7 @@ const plans = [
     id: "pro",
     name: "Pro",
     price: PRO_PRICE_EUR,
-    description: "Everything unlocked for serious sellers.",
+    description: "Everything unlocked for serious sellers. Try it free for 7 days, no card needed.",
     features: [
       "Every result in every list, no limits",
       "Full Ad Spy on all platforms",
@@ -50,9 +52,47 @@ const buttonClass = (popular: boolean) =>
     popular ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-secondary text-secondary-foreground hover:bg-muted",
   );
 
+const daysLeft = (endsAt: number) => Math.max(1, Math.ceil((endsAt - Date.now()) / 86_400_000));
+
 function ProButton({ period }: { period: BillingPeriod }) {
   const { isPro, isLoading } = useUserPlan();
+  const trial = useQuery(api.billing.myTrial, {});
+  const startTrial = useMutation(api.billing.startProTrial);
   const [open, setOpen] = useState(false);
+  const checkout = <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />;
+  if (trial?.state === "available") {
+    return (
+      <>
+        <Button
+          className={buttonClass(true)}
+          onClick={async () => {
+            try {
+              await startTrial({});
+              toast.success("Your 7-day Pro trial has started");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start the trial");
+            }
+          }}
+        >
+          Start 7-day free trial
+        </Button>
+        <button type="button" onClick={() => setOpen(true)} className="-mt-4 mb-6 text-xs text-muted-foreground hover:text-foreground underline">
+          or upgrade now
+        </button>
+        {checkout}
+      </>
+    );
+  }
+  if (trial?.state === "active" && trial.endsAt) {
+    return (
+      <>
+        <Button onClick={() => setOpen(true)} className={buttonClass(true)}>
+          Pro trial: {daysLeft(trial.endsAt)} day{daysLeft(trial.endsAt) === 1 ? "" : "s"} left · Upgrade
+        </Button>
+        {checkout}
+      </>
+    );
+  }
   if (isPro) {
     return (
       <Button asChild variant="secondary" className={buttonClass(false)}>
@@ -65,7 +105,7 @@ function ProButton({ period }: { period: BillingPeriod }) {
       <Button onClick={() => setOpen(true)} disabled={isLoading} className={buttonClass(true)}>
         Upgrade to Pro
       </Button>
-      <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />
+      {checkout}
     </>
   );
 }
@@ -155,7 +195,7 @@ export default function Pricing() {
               <Unauthenticated>
                 <SignInButton
                   className={buttonClass(plan.popular)}
-                  signInText={plan.id === "pro" ? "Sign in to upgrade" : "Start free"}
+                  signInText={plan.id === "pro" ? "Start 7-day free trial" : "Start free"}
                 />
               </Unauthenticated>
 

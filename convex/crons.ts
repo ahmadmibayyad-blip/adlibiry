@@ -59,14 +59,8 @@ crons.daily(
   { job: "nexscopeTikTok" }
 );
 
-// Optional daily Meta Ad Library runs on Apify — only runs when the
-// APIFY_COUNTRIES env var is set (e.g. "DK,SE"). Results arrive via webhook.
-crons.daily(
-  "start Meta Ad Library imports on Apify",
-  { hourUTC: 7, minuteUTC: 25 },
-  internal.importRuns.run,
-  { job: "apify" }
-);
+// The daily Apify run (it scrapes facebook.com/ads/library) is turned off:
+// we only use official APIs and licensed data sources for Meta ads.
 
 // WinningHunter REST import — only runs when WINNINGHUNTER_API_KEY is set.
 // Markets: WH_COUNTRIES (default DK,SE,NO,DE,GB,US), WH_PAGES × 50 ads each.

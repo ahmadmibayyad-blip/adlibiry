@@ -6,12 +6,13 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { appUrl as siteUrl } from "./lib/billing";
 
 const hercules = new Hercules({ apiKey: process.env.HERCULES_API_KEY, apiVersion: "2025-12-09" });
 
-// IMPORTANT: this must be a verified sender email/domain (Emails → Verify email in the
-// Hercules dashboard) before the daily digest cron can actually deliver mail.
-const DIGEST_SENDER = "AdSpy Pro <alerts@adspypro.app>";
+// The domain must be verified in Resend (Domains) before mail is delivered;
+// EMAIL_FROM overrides this sender.
+const DIGEST_SENDER = "AdSpy Pro <alerts@adspypro.net>";
 
 function renderDigestHtml(winners: Doc<"products">[], appUrl: string): string {
   const rows = winners
@@ -61,7 +62,7 @@ export const sendDailyDigest = internalAction({
     const recipients = page.recipients;
     if (recipients.length === 0) return { sent: 0 };
 
-    const appUrl = process.env.CONVEX_SITE_URL?.replace(".convex.site", "") ?? "";
+    const appUrl = siteUrl();
 
     let sent = 0;
     for (const recipient of recipients) {
@@ -85,7 +86,7 @@ export const sendTestDigest = internalAction({
   args: { to: v.string() },
   handler: async (ctx, args): Promise<{ success: boolean }> => {
     const winners: Doc<"products">[] = await ctx.runQuery(internal.emailDigest.getTodaysWinners);
-    const appUrl = process.env.CONVEX_SITE_URL?.replace(".convex.site", "") ?? "";
+    const appUrl = siteUrl();
     await hercules.email.send({
       from: DIGEST_SENDER,
       to: args.to,

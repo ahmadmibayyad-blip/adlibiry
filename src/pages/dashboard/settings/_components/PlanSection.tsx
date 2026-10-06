@@ -20,7 +20,19 @@ export default function PlanSection() {
   const { isPro, isLoading } = useUserPlan();
   const billing = useQuery(api.proPlan.myBilling, {});
   const setAutoRenew = useMutation(api.proPlan.setAutoRenew);
+  const trial = useQuery(api.billing.myTrial, {});
+  const startTrial = useMutation(api.billing.startProTrial);
+  const onTrial = trial?.state === "active" && !!trial.endsAt;
   const [open, setOpen] = useState(false);
+
+  const beginTrial = async () => {
+    try {
+      await startTrial({});
+      toast.success("Your 7-day Pro trial has started.");
+    } catch (err) {
+      toast.error(err instanceof ConvexError ? ((err.data as { message?: string })?.message ?? "Couldn't start the trial.") : "Couldn't start the trial.");
+    }
+  };
 
   const toggleRenew = async (on: boolean) => {
     try {
@@ -32,6 +44,7 @@ export default function PlanSection() {
   };
 
   const renewNote = (() => {
+    if (onTrial) return `Free Pro trial until ${day(trial.endsAt!)}. Upgrade to keep Pro after that.`;
     if (!isPro || !billing?.periodEnd) return "Every result is unlocked.";
     const amount = proCharge(billing.period);
     return billing.autoRenew
@@ -60,7 +73,7 @@ export default function PlanSection() {
                     variant="outline"
                     className={cn("text-xs", isPro ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border")}
                   >
-                    {isPro ? `Pro${billing ? ` · ${billing.period}` : ""}` : "Free"}
+                    {onTrial ? "Pro · free trial" : isPro ? `Pro${billing ? ` · ${billing.period}` : ""}` : "Free"}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -71,15 +84,23 @@ export default function PlanSection() {
               </div>
             </div>
 
-            {!isPro && (
-              <Button size="sm" onClick={() => setOpen(true)}>
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                Upgrade to Pro
-              </Button>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {trial?.state === "available" && (
+                <Button size="sm" onClick={beginTrial}>
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                  Start 7-day free trial
+                </Button>
+              )}
+              {(!isPro || onTrial) && (
+                <Button size="sm" variant={trial?.state === "available" ? "outline" : "default"} onClick={() => setOpen(true)}>
+                  {trial?.state !== "available" && <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                  Upgrade to Pro
+                </Button>
+              )}
+            </div>
           </div>
 
-          {isPro && billing?.canAutoRenew && (
+          {isPro && !onTrial && billing?.canAutoRenew && (
             <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer">
               <span className="text-sm">
                 Auto-renew
