@@ -186,8 +186,8 @@ function ProductPipelineCard() {
             <h3 className="font-semibold text-sm">Products from ads, Winning Products & history</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            Links ads to the products they sell, rebuilds Winning Products (top 50 per niche, score 65+) and saves today's numbers for the charts.
-            Runs automatically every day at 08:05 UTC. No API credits used.
+            Links ads to the products they sell and saves today's numbers for the charts, every day at 08:05 UTC. Winning Products get a new
+            mix every 3 days (50 per niche, score 65+: the best 25 stay, the rest rotate). "Run now" also draws a new mix today. No API credits used.
           </p>
         </div>
         <Button

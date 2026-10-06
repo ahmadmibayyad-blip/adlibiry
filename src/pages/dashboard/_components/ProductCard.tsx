@@ -94,7 +94,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
             <span className="text-[10px] font-medium opacity-80">Score</span>
             <span className="text-sm font-bold leading-none tabular-nums">{product.aiScore}</span>
           </div>
-          {isNewToday && <div className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-brand text-[#15171c]">New today</div>}
+          {isNewToday && <div className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-brand text-[#15171c]">New</div>}
         </div>
         <div className="absolute top-2 right-2">
           <Authenticated>

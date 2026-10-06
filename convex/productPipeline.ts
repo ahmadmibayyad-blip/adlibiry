@@ -1,6 +1,6 @@
 import { estimateProduct, unitsPerMonthFromText } from "./lib/estimates";
 import { v } from "convex/values";
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireSignedIn } from "./lib/access";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -13,6 +13,7 @@ import {
   adSellsProduct, gmvFromText, parseCompact, productFlags, productTitleForAd, roundRobin, titleKey, urlKey, isProductPage,
 } from "./lib/productMatch";
 import { shouldWriteSnapshot } from "./lib/snapshots";
+import { WINNERS_ROUND_DAYS, addDays, daysBetween, pickNicheMix } from "./lib/winnerMix";
 
 // ── Daily product pipeline ──────────────────────────────────────────────────
 // Runs once a day after the imports (see crons.ts), as a chain of small
@@ -21,7 +22,9 @@ import { shouldWriteSnapshot } from "./lib/snapshots";
 //   link       – every ad that sells a physical product is attached to one
 //                product (matched by landing page, then title; created if new)
 //   aggregate  – each product adds up its ads (views, likes, spend, GMV…)
-//   winners    – Winning Products: top 50 per niche with score 65+, mixed
+//   winners    – Winning Products: every 3 days a new mix of 50 per niche
+//                (score 65+) from the products we have; other days only
+//                products that stopped qualifying are taken out
 //   snapshots  – one history row per product and per ad for today
 //   prune      – history older than 90 days is removed
 // Progress is kept in siteStats["productPipeline"] for the admin panel.
@@ -50,6 +53,7 @@ type Status = {
   startedAt: string;
   finishedAt?: string;
   error?: string;
+  forceWinners?: boolean; // admin "Run now": draw a new Winning Products mix today
   counts: { productsCreated: number; adsLinked: number; winners: number; snapshots: number; pruned: number };
 };
 
@@ -68,7 +72,7 @@ async function writeStatus(ctx: MutationCtx, data: Status) {
   else await ctx.db.insert("siteStats", { key: "productPipeline", data, updatedAt });
 }
 
-async function begin(ctx: MutationCtx): Promise<boolean> {
+async function begin(ctx: MutationCtx, opts: { forceWinners?: boolean } = {}): Promise<boolean> {
   const current = await readStatus(ctx);
   // One run at a time; a run stuck for over an hour is considered dead.
   if (current?.data.state === "running" && Date.now() - Date.parse(current.data.startedAt) < 3_600_000) return false;
@@ -78,6 +82,7 @@ async function begin(ctx: MutationCtx): Promise<boolean> {
     stage: "keys",
     day,
     startedAt: new Date().toISOString(),
+    ...(opts.forceWinners ? { forceWinners: true } : {}),
     counts: { productsCreated: 0, adsLinked: 0, winners: 0, snapshots: 0, pruned: 0 },
   });
   await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: "keys", cursor: null, day });
@@ -90,7 +95,7 @@ export const runNow = mutation({
   args: {},
   handler: async (ctx): Promise<{ started: boolean }> => {
     await requireAdmin(ctx);
-    return { started: await begin(ctx) };
+    return { started: await begin(ctx, { forceWinners: true }) };
   },
 });
 
@@ -173,7 +178,9 @@ export const step = internalMutation({
         done = page.isDone;
         cursor = page.continueCursor;
       } else if (stage === "winners") {
-        counts.winners = await rebuildWinners(ctx, args.day);
+        const round = await readWinnersRound(ctx);
+        const due = status.data.forceWinners || !round || daysBetween(round.day, args.day) >= WINNERS_ROUND_DAYS;
+        counts.winners = due ? await rebuildWinners(ctx, args.day) : await pruneWinners(ctx);
       } else if (stage === "snapshotProducts") {
         const page = await ctx.db.query("products").paginate({ numItems: 200, cursor: args.cursor });
         for (const p of page.page) {
@@ -398,28 +405,54 @@ async function applyEstimates(ctx: MutationCtx, p: Doc<"products">) {
   await ctx.db.patch("products", p._id, patch);
 }
 
-// Winning Products: per niche, the top 50 by score (65+), without big
-// brands, personalised / print-on-demand items and services; then dealt out
+// ── Winning Products ────────────────────────────────────────────────────────
+// A product qualifies with score 65+, a picture, and when it isn't a big
+// brand, personalised / print-on-demand item or a service.
+const qualifies = (p: Doc<"products"> | null): p is Doc<"products"> =>
+  !!p && p.aiScore >= WINNER_MIN_SCORE && !p.isBigBrand && !p.isPersonalised && !p.isService && !!p.imageUrl;
+
+// Most qualifying products read per niche when drawing a mix.
+const POOL_PER_NICHE = 400;
+
+type WinnersRound = { day: string; nextDay: string };
+
+export async function readWinnersRound(ctx: { db: QueryCtx["db"] }): Promise<WinnersRound | null> {
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "winnersRound")).unique();
+  return (doc?.data as WinnersRound | undefined) ?? null;
+}
+
+async function writeWinnersRound(ctx: MutationCtx, day: string) {
+  const data: WinnersRound = { day, nextDay: addDays(day, WINNERS_ROUND_DAYS) };
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "winnersRound")).unique();
+  const updatedAt = new Date().toISOString();
+  if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
+  else await ctx.db.insert("siteStats", { key: "winnersRound", data, updatedAt });
+}
+
+// A new round: per niche the best 25 by score stay, the other 25 slots are
+// drawn from the rest (products not shown last round first), then dealt out
 // round-robin so the feed alternates niches. Never padded with weaker ones.
 export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<number> {
+  const previous = await ctx.db.query("winningProducts").collect();
+  const shownBefore = new Set(previous.map((r) => r.productId as string));
   const perNiche: { niche: string; products: Doc<"products">[] }[] = [];
   for (const niche of NICHES) {
-    const top: Doc<"products">[] = [];
+    const ranked: Doc<"products">[] = [];
     const candidates = ctx.db
       .query("products")
       .withIndex("by_category_score", (q) => q.eq("category", niche).gte("aiScore", WINNER_MIN_SCORE))
       .order("desc");
     for await (const p of candidates) {
-      if (p.isBigBrand || p.isPersonalised || p.isService || !p.imageUrl) continue;
-      top.push(p);
-      if (top.length >= WINNERS_PER_NICHE) break;
+      if (!qualifies(p)) continue;
+      ranked.push(p);
+      if (ranked.length >= POOL_PER_NICHE) break;
     }
-    if (top.length) perNiche.push({ niche, products: top });
+    const picks = pickNicheMix(ranked, shownBefore, `${day}:${niche}`, WINNERS_PER_NICHE);
+    if (picks.length) perNiche.push({ niche, products: picks });
   }
   perNiche.sort((a, b) => b.products[0].aiScore - a.products[0].aiScore);
   const feed = roundRobin(perNiche.map((n) => n.products.map((p, i) => ({ p, niche: n.niche, rank: i + 1 }))));
 
-  const previous = await ctx.db.query("winningProducts").collect();
   const enteredBefore = new Map(previous.map((r) => [r.productId as string, r.enteredDay]));
   const keep = new Set(feed.map((f) => f.p._id as string));
   for (const r of previous) {
@@ -440,7 +473,25 @@ export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<num
     });
     if (f.p.winnerRank !== f.rank) await ctx.db.patch("products", f.p._id, { winnerRank: f.rank });
   }
+  await writeWinnersRound(ctx, day);
   return feed.length;
+}
+
+// Between rounds: keep the mix, only take out products that were deleted or
+// no longer qualify (score dropped, flagged). Nothing new is added.
+export async function pruneWinners(ctx: MutationCtx): Promise<number> {
+  const rows = await ctx.db.query("winningProducts").collect();
+  let kept = 0;
+  for (const r of rows) {
+    const p = await ctx.db.get("products", r.productId);
+    if (qualifies(p) && p.category === r.niche) {
+      kept++;
+      continue;
+    }
+    await ctx.db.delete("winningProducts", r._id);
+    if (p?.winnerRank !== undefined) await ctx.db.patch("products", p._id, { winnerRank: undefined });
+  }
+  return kept;
 }
 
 type SnapshotValues = Omit<Doc<"dailySnapshots">, "_id" | "_creationTime" | "day" | "kind" | "entityId">;

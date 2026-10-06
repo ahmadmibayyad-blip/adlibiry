@@ -106,6 +106,9 @@ export default function WinnersPage() {
 
   const slots = summary?.slots ?? 50;
   const minScore = summary?.minScore ?? 65;
+  const keepTop = summary?.keepTop ?? 25;
+  const roundDays = summary?.roundDays ?? 3;
+  const day = (d: string | null | undefined) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : null);
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
   const sorted = !!f.sort && f.sort !== "rank";
@@ -130,7 +133,7 @@ export default function WinnersPage() {
               <h1 className="text-2xl font-bold">Winning Products</h1>
             </div>
             <p className="text-sm text-muted-foreground">
-              The best {slots} per niche with score {minScore}+, rebuilt every morning. Everything else is in{" "}
+              A new mix every {roundDays} days from all products with score {minScore}+. Everything else is in{" "}
               <Link to="/dashboard/products" className="text-primary hover:underline">Products</Link>.
             </p>
           </div>
@@ -138,7 +141,7 @@ export default function WinnersPage() {
             <div className="flex gap-2 text-xs">
               {[
                 { label: "Winners", value: summary.total },
-                { label: "New today", value: summary.newToday },
+                { label: "New this round", value: summary.newToday },
                 { label: "Niches", value: summary.perNiche.length },
               ].map((s) => (
                 <div key={s.label} className="bg-card border border-border rounded-lg px-3 py-1.5 text-center">
@@ -210,7 +213,7 @@ export default function WinnersPage() {
 
           {/* Toggles, sort, view, saved searches */}
           <div className="flex flex-wrap items-center gap-2 pt-2.5 border-t border-border">
-            <FilterTogglePill label="New today" active={!!f.newToday} onToggle={() => set("newToday", f.newToday ? undefined : true)} />
+            <FilterTogglePill label="New this round" active={!!f.newToday} onToggle={() => set("newToday", f.newToday ? undefined : true)} />
             <FilterTogglePill label="Has store link" active={!!f.hasStore} onToggle={() => set("hasStore", f.hasStore ? undefined : true)} />
             {activeCount > 0 && (
               <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
@@ -263,7 +266,7 @@ export default function WinnersPage() {
               <Trophy className="w-10 h-10 text-muted-foreground mb-3" />
               <h3 className="font-semibold mb-1">Today's list isn't ready yet</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                It's rebuilt every morning from all products with a score of {minScore}+. Until then, browse everything in{" "}
+                A new mix is drawn every {roundDays} days from all products with a score of {minScore}+. Until then, browse everything in{" "}
                 <Link to="/dashboard/products" className="text-primary hover:underline">Products</Link>.
               </p>
             </div>
@@ -308,10 +311,10 @@ export default function WinnersPage() {
 
       <aside className="space-y-4 xl:sticky xl:top-4 self-start">
         <div className="bg-card border border-border rounded-xl p-4">
-          <h2 className="font-display text-lg font-bold mb-1">Today's list</h2>
+          <h2 className="font-display text-lg font-bold mb-1">This round</h2>
           <div className="flex items-baseline gap-2 mb-2">
             <span className="font-display text-4xl font-bold tabular-nums">{summary?.total ?? "—"}</span>
-            {summary && <span className="text-xs text-muted-foreground">{summary.newToday} new today</span>}
+            {summary && <span className="text-xs text-muted-foreground">{summary.newToday} new this round</span>}
           </div>
           <p className="text-xs text-muted-foreground mb-4">
             A niche with fewer than {slots} products above score {minScore} shows fewer. It's never padded with weaker ones.
@@ -332,17 +335,20 @@ export default function WinnersPage() {
             ))}
             {summary && summary.perNiche.length === 0 && <p className="text-xs text-muted-foreground">No niche has a qualifying product yet.</p>}
           </div>
-          {summary?.updatedAt && (
-            <p className="text-[11px] text-muted-foreground mt-4">Updated {new Date(summary.updatedAt).toLocaleString()}</p>
+          {summary?.roundDay && (
+            <p className="text-[11px] text-muted-foreground mt-4">
+              Mixed {day(summary.roundDay)} · next mix {day(summary.nextRoundDay)}
+            </p>
           )}
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <h3 className="text-sm font-semibold mb-2">How a product gets in</h3>
           <ol className="space-y-2 text-xs list-decimal list-inside marker:text-primary">
-            <li>Every product is ranked inside its niche by score.</li>
-            <li>The top {slots} with score {minScore}+ are kept.</li>
-            <li>Niches take turns: the best from each niche, then the next best, and so on.</li>
-            <li>Everything else stays in Products.</li>
+            <li>Every {roundDays} days a new mix is drawn from the products we already have (score {minScore}+).</li>
+            <li>In each niche the best {keepTop} by score always stay.</li>
+            <li>The other {slots - keepTop} places rotate: products that weren't shown last time come first.</li>
+            <li>Between mixes, a product whose score drops below {minScore} is taken out.</li>
+            <li>Niches take turns in the feed. Everything else stays in Products.</li>
           </ol>
         </div>
       </aside>

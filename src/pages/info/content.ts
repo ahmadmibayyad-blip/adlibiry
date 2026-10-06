@@ -131,7 +131,7 @@ export const INFO_PAGES: InfoPage[] = [
     intro: "What each part of AdSpy Pro does and how to use it.",
     sections: [
       { heading: "Dashboard", paragraphs: ["Today's numbers, the best winner, trending products, top niches and everything added in the last day."] },
-      { heading: "Winning Products", paragraphs: ["The top products per niche, rebuilt every morning from all products with a high enough score. Big brands, print-on-demand and services are left out."] },
+      { heading: "Winning Products", paragraphs: ["The top products per niche, as a new mix every 3 days from all products with a high enough score: the best always stay, the rest rotate so you see new products. Big brands, print-on-demand and services are left out."] },
       { heading: "Products", paragraphs: ["Every product we track, with filters for niche, source, price, margin, ads running, likes, growth, score, trend and saturation. Open a product for its ads, history charts and estimated revenue."] },
       { heading: "Ad Spy", paragraphs: ["Running ads from Facebook, Instagram and TikTok. Filter by niche, dates, country, format and engagement, play videos right in the grid, download them, and follow advertisers."] },
       { heading: "Hooks of the week", paragraphs: ["Every Monday: the opening lines of the week's most engaging ads per niche, with the hook type, why it works and a template you can reuse."] },
