@@ -23,6 +23,7 @@ import ProductGallery from "./_components/ProductGallery.tsx";
 import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
 import { price } from "@/lib/money.ts";
 import { flag } from "@/lib/adFormat.ts";
+import FollowProduct from "./_components/FollowProduct.tsx";
 
 const saturationColors: Record<string, string> = {
   Low: "text-good bg-good/10 border-good/20",
@@ -341,6 +342,7 @@ export default function ProductDetail() {
             <Authenticated>
               <SaveButtonDetail productId={product._id} />
             </Authenticated>
+            <FollowProduct productId={product._id} />
           </div>
 
           {/* Profit calculator */}

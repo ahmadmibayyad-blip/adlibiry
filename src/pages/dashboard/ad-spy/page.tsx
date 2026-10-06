@@ -16,6 +16,8 @@ import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range, readJson, writeJson } from "@/lib/filterUtils.ts";
 import { flag, compactNumber } from "@/lib/adFormat.ts";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
+import { useMyNiches } from "@/hooks/use-my-niches.ts";
+import MyNichesChip from "@/components/MyNichesChip.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -150,7 +152,9 @@ export default function AdSpyPage() {
   const viewedSet = useMemo(() => new Set(viewed), [viewed]);
 
   const facets = useQuery(api.ads.getFacets, {});
-  const args = toQueryArgs(f, debouncedSearch);
+  const { niches: myNiches } = useMyNiches();
+  const [useMine, setUseMine] = useState(true);
+  const args = { ...toQueryArgs(f, debouncedSearch), ...(useMine && !f.niche && myNiches.length ? { niches: myNiches } : {}) };
   const { results, status, loadMore } = usePaginatedQuery(api.ads.list, args, { initialNumItems: 24 });
   const shown = excludeViewed ? results.filter((a) => !viewedSet.has(a._id)) : results;
 
@@ -313,6 +317,7 @@ export default function AdSpyPage() {
         {/* Sort + saved searches */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
           <FilterSelect label="Sort by" value={f.sort ?? "added"} onChange={(v) => set("sort", v === "added" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          <MyNichesChip niches={myNiches} on={useMine && !f.niche} onToggle={() => setUseMine(!useMine)} />
           {activeCount > 0 && (
             <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
               <X className="w-3.5 h-3.5" />Clear filters ({activeCount})

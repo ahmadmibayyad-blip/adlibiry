@@ -178,6 +178,7 @@ const PIPELINE_STAGES: Record<string, string> = {
   snapshotProducts: "Saving product history",
   snapshotAds: "Saving ad history",
   prune: "Removing history older than 90 days",
+  alerts: "Sending follow alerts",
   lists: "Rebuilding Research and site counts",
   emails: "Queuing the morning digest",
   done: "Done",

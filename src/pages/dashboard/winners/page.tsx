@@ -15,6 +15,8 @@ import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { Chip, SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range } from "@/lib/filterUtils.ts";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
+import { useMyNiches } from "@/hooks/use-my-niches.ts";
+import MyNichesChip from "@/components/MyNichesChip.tsx";
 
 type Mode = "mixed" | "byNiche";
 
@@ -101,7 +103,9 @@ export default function WinnersPage() {
   const [view, setView] = useState<"grid" | "table">("grid");
 
   const summary = useQuery(api.winners.summary, {});
-  const args = toQueryArgs(f, debouncedSearch, mode);
+  const { niches: myNiches } = useMyNiches();
+  const [useMine, setUseMine] = useState(true);
+  const args = { ...toQueryArgs(f, debouncedSearch, mode), ...(useMine && !f.niche && myNiches.length ? { niches: myNiches } : {}) };
   const { results, status, loadMore } = usePaginatedQuery(api.winners.feed, args, { initialNumItems: PAGE });
 
   const slots = summary?.slots ?? 50;
@@ -212,6 +216,7 @@ export default function WinnersPage() {
           <div className="flex flex-wrap items-center gap-2 pt-2.5 border-t border-border">
             <FilterTogglePill label="New today" active={!!f.newToday} onToggle={() => set("newToday", f.newToday ? undefined : true)} />
             <FilterTogglePill label="Has store link" active={!!f.hasStore} onToggle={() => set("hasStore", f.hasStore ? undefined : true)} />
+            <MyNichesChip niches={myNiches} on={useMine && !f.niche} onToggle={() => setUseMine(!useMine)} />
             {activeCount > 0 && (
               <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
                 <X className="w-3.5 h-3.5" />Clear ({activeCount})

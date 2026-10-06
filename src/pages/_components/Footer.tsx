@@ -21,6 +21,7 @@ const footerLinks: Record<string, { label: string; to: string }[]> = {
   ],
   Support: [
     { label: "Help Center", to: "/help" },
+    { label: "Data & methodology", to: "/methodology" },
     { label: "Documentation", to: "/docs" },
     { label: "Community", to: "/community" },
     { label: "Status Page", to: "/status" },

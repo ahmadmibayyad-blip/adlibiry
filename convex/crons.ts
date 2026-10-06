@@ -3,9 +3,13 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// The morning digest email, store sales checks, image hashing and landing-page
-// prices are steps of the daily pipeline below (convex/productPipeline.ts),
-// so they run in order after the imports instead of at separate times.
+// Store sales checks, image hashing and landing-page prices are steps of the
+// daily pipeline below (convex/productPipeline.ts), so they run in order after
+// the imports instead of at separate times.
+
+// Morning digest: hourly, everyone whose local time is 8:00 gets theirs once
+// (convex/emailSender.ts). The pipeline also sends right after it finishes.
+crons.hourly("send morning digests at each user's 8:00", { minuteUTC: 10 }, internal.emailSender.sendMorningDigests, {});
 
 // Each import below runs through importRuns.run, which records the result
 // (counts, errors, skipped) so failures show up in Admin → Data sources.
@@ -89,9 +93,7 @@ crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.r
 // products pipeline and Research rebuild (convex/agentRunner.ts).
 crons.daily("run AI agents", { hourUTC: 9, minuteUTC: 20 }, internal.agentRunner.runAll);
 
-// Follow alerts: one alert per followed advertiser that launched new ads
-// since the last run, after the imports and the products pipeline.
-crons.daily("send follow alerts", { hourUTC: 8, minuteUTC: 35 }, internal.follows.sendDailyAlerts, {});
+// Follow alerts are the daily pipeline's "alerts" step (convex/follows.ts).
 
 // Exchange rates for display currencies, after the ECB publishes (~16:00 CET).
 crons.daily("refresh exchange rates", { hourUTC: 16, minuteUTC: 30 }, internal.currency.refreshRates, {});

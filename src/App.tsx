@@ -27,6 +27,7 @@ import { Skeleton } from "./components/ui/skeleton.tsx";
 import { SignInButton } from "./components/ui/signin.tsx";
 import { LogoMark } from "./components/Logo.tsx";
 import { useServiceWorker } from "./hooks/use-service-worker.ts";
+import UnsubscribePage from "./pages/Unsubscribe.tsx";
 
 function DashboardGuard({ children }: { children: React.ReactNode }) {
   return (
@@ -72,6 +73,7 @@ export default function App() {
             <Route key={path} path={path} element={<Navigate to="/login" replace />} />
           ))}
           <Route path="/pricing" element={<Navigate to="/#pricing" replace />} />
+          <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
           {/* Dashboard — protected */}
           <Route

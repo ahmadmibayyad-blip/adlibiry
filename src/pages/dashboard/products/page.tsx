@@ -16,6 +16,8 @@ import FilterSelect from "@/components/FilterSelect.tsx";
 import { SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range } from "@/lib/filterUtils.ts";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
+import { useMyNiches } from "@/hooks/use-my-niches.ts";
+import MyNichesChip from "@/components/MyNichesChip.tsx";
 
 // ── Filter model (same layout as Ad Spy) ────────────────────────────────────
 type Filters = {
@@ -147,7 +149,11 @@ export default function ProductsFeed() {
   const categories = stats?.products.categories ?? [];
   const sourceCounts = Object.fromEntries((stats?.products.sources ?? []).map((c) => [c.value, c.n]));
 
-  const args = toQueryArgs(f, debouncedSearch);
+  // The user's niches apply until they pick niches themselves (or turn it off).
+  const { niches: myNiches } = useMyNiches();
+  const [useMine, setUseMine] = useState(true);
+  const mineApplies = useMine && !f.categories?.length && !f.category && myNiches.length > 0;
+  const args = toQueryArgs(mineApplies ? { ...f, categories: myNiches } : f, debouncedSearch);
   const { results, status, loadMore } = usePaginatedQuery(api.products.list, args, { initialNumItems: 30 });
 
   // Margin is matched after a page is read, so a page can come back short:
@@ -339,6 +345,7 @@ export default function ProductsFeed() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <MyNichesChip niches={myNiches} on={mineApplies} onToggle={() => setUseMine(!useMine)} />
           {activeCount > 0 && (
             <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
               <X className="w-3.5 h-3.5" />Clear ({activeCount})

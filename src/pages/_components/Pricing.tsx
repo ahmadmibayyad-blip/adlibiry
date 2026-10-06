@@ -223,7 +223,10 @@ export default function Pricing() {
           viewport={{ once: true }}
           className="text-center text-sm text-muted-foreground mt-8"
         >
-          Pro renews automatically each month or year until you turn it off in Settings. Payments by Stripe.
+          Pro renews automatically each month or year until you turn it off in Settings. Payments by Stripe.{" "}
+          <Link to="/methodology" className="text-primary hover:underline">
+            How our data and scores work
+          </Link>
         </motion.p>
       </div>
     </section>

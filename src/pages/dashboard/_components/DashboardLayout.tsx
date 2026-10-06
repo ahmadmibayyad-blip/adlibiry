@@ -27,6 +27,7 @@ import AIAssistant from "./ai/AIAssistant.tsx";
 import { openAssistant } from "@/lib/assistant.ts";
 import { setDisplayCurrency } from "@/lib/money.ts";
 import Logo from "@/components/Logo.tsx";
+import OnboardingDialog from "./OnboardingDialog.tsx";
 
 // `short` is the label in the mobile bottom bar (5 items at 360px wide).
 const navItems: { icon: typeof Search; label: string; href: string; short?: string }[] = [
@@ -200,6 +201,7 @@ export default function DashboardLayout() {
           <Outlet key={currency?.code ?? "USD"} />
         </main>
         <AIAssistant />
+        <OnboardingDialog />
 
         {/* Bottom nav — mobile */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50 pb-[env(safe-area-inset-bottom)]">
