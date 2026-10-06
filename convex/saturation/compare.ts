@@ -9,7 +9,7 @@ import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { requireSignedIn } from "../lib/access";
-import { demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
+import { adInCountry, demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
 
 export type CountryComparisonRow = {
   country: string;
@@ -33,49 +33,21 @@ export const compareCountries = action({
     await requireSignedIn(ctx);
     const now = Date.now();
 
-    const [adsResult, storesResult, trends, suppliers] = await Promise.all([
-      ctx.runQuery(internal.ads.listInternal, {
-        paginationOpts: { numItems: 200, cursor: null },
-        niche: args.niche,
-      }),
-      ctx.runQuery(internal.stores.listInternal, {
-        paginationOpts: { numItems: 200, cursor: null },
-        niche: args.niche,
-      }),
-      ctx.runQuery(internal.trends.listInternal, { niche: args.niche }),
-      ctx.runQuery(internal.trends.searchSuppliersInternal, {
-        paginationOpts: { numItems: 50, cursor: null },
-        niche: args.niche,
-      }),
-    ]);
-
-    const allAds = adsResult.page;
+    // Our own tracked ads only (distinct advertisers per country).
+    const allAds = await ctx.runQuery(internal.saturation.mutations.nicheAds, { niche: args.niche });
     const globalAdvertiserCount = new Set(allAds.map((a) => a.advertiserName)).size;
-    const allStores = storesResult.page;
-    const trend = trends[0];
-
-    const supplierSellerCounts = suppliers.page.map((s) => s.sellerCount);
-    const avgSupplierSellers =
-      supplierSellerCounts.length > 0
-        ? Math.round(supplierSellerCounts.reduce((a, b) => a + b, 0) / supplierSellerCounts.length)
-        : undefined;
 
     return args.countries.map((country) => {
-      const localAds = allAds.filter((a) => a.country === country);
-      const localStores = allStores.filter((s) => s.country === country);
-      const trendCountryInterest = trend?.countryBreakdown.find((c) => c.country === country)?.interest;
+      const localAds = allAds.filter((a) => adInCountry(a, country));
 
       const { saturationScore, demandScore, opportunityScore, confidenceScore, signals } = scoreCountry({
         localAds,
         globalAdvertiserCount,
-        localStores,
-        trendCountryInterest,
-        trendDirection: trend?.direction,
-        trendRisingPercent: trend?.risingPercent,
-        avgSupplierSellers,
-        hasTrendData: trend !== undefined,
-        hasSupplierData: avgSupplierSellers !== undefined,
+        localStores: [],
+        hasTrendData: false,
+        hasSupplierData: false,
         now,
+        adsOnly: true,
       });
 
       return {

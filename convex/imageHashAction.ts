@@ -46,21 +46,35 @@ async function mapParallel<T, R>(items: T[], fn: (item: T) => Promise<R>): Promi
 }
 
 export const hashMissing = internalAction({
-  args: { cursor: v.union(v.string(), v.null()), productsDone: v.boolean(), round: v.number() },
+  // pipelineDay: started by the daily pipeline, which continues when this reports back.
+  args: { cursor: v.union(v.string(), v.null()), productsDone: v.boolean(), round: v.number(), pipelineDay: v.optional(v.string()) },
   handler: async (ctx, args): Promise<{ products: number; ads: number }> => {
-    const batch = await ctx.runQuery(internal.imageHash.nextBatch, { cursor: args.cursor, productsDone: args.productsDone });
-    const productHashes = await mapParallel(batch.products, async (p) => ({ ...p, hash: await hashUrl(p.url) }));
-    const adHashes = await mapParallel(batch.ads, async (a) => ({ id: a.id, hash: await hashUrl(a.url) }));
-    await ctx.runMutation(internal.imageHash.saveHashes, { products: productHashes, ads: adHashes });
+    let scheduledNext = false;
+    let note: string | undefined;
+    try {
+      const batch = await ctx.runQuery(internal.imageHash.nextBatch, { cursor: args.cursor, productsDone: args.productsDone });
+      const productHashes = await mapParallel(batch.products, async (p) => ({ ...p, hash: await hashUrl(p.url) }));
+      const adHashes = await mapParallel(batch.ads, async (a) => ({ id: a.id, hash: await hashUrl(a.url) }));
+      await ctx.runMutation(internal.imageHash.saveHashes, { products: productHashes, ads: adHashes });
 
-    const more = !batch.productsDone || batch.ads.length === ADS_PER_ROUND;
-    if (more && args.round + 1 < MAX_ROUNDS) {
-      await ctx.scheduler.runAfter(0, internal.imageHashAction.hashMissing, {
-        cursor: batch.cursor,
-        productsDone: batch.productsDone,
-        round: args.round + 1,
-      });
+      const more = !batch.productsDone || batch.ads.length === ADS_PER_ROUND;
+      if (more && args.round + 1 < MAX_ROUNDS) {
+        await ctx.scheduler.runAfter(0, internal.imageHashAction.hashMissing, {
+          cursor: batch.cursor,
+          productsDone: batch.productsDone,
+          round: args.round + 1,
+          pipelineDay: args.pipelineDay,
+        });
+        scheduledNext = true;
+      }
+      return { products: productHashes.length, ads: adHashes.length };
+    } catch (e) {
+      note = `failed: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200);
+      throw e;
+    } finally {
+      if (!scheduledNext && args.pipelineDay) {
+        await ctx.runMutation(internal.productPipeline.actionDone, { day: args.pipelineDay, stage: "hashImages", note });
+      }
     }
-    return { products: productHashes.length, ads: adHashes.length };
   },
 });

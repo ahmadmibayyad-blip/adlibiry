@@ -79,25 +79,38 @@ async function readPage(url: string): Promise<string | null> {
 }
 
 export const run = internalAction({
-  args: { round: v.number() },
+  // pipelineDay: started by the daily pipeline, which continues when this reports back.
+  args: { round: v.number(), pipelineDay: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const todo = await ctx.runQuery(internal.priceFetch.candidates, { limit: BATCH });
-    for (let i = 0; i < todo.length; i += 5) {
-      await Promise.all(
-        todo.slice(i, i + 5).map(async ({ id, url }) => {
-          const html = await readPage(url);
-          const found = html ? priceFromHtml(html) : undefined;
-          const usd = found ? toUsd(found) : undefined;
-          await ctx.runMutation(internal.priceFetch.savePrice, {
-            id,
-            ...(found ? { originalPrice: priceLabel(found) } : {}),
-            ...(usd !== undefined ? { price: usd } : {}),
-          });
-        }),
-      );
-    }
-    if (todo.length === BATCH && args.round + 1 < MAX_ROUNDS) {
-      await ctx.scheduler.runAfter(0, internal.priceFetch.run, { round: args.round + 1 });
+    let scheduledNext = false;
+    let note: string | undefined;
+    try {
+      const todo = await ctx.runQuery(internal.priceFetch.candidates, { limit: BATCH });
+      for (let i = 0; i < todo.length; i += 5) {
+        await Promise.all(
+          todo.slice(i, i + 5).map(async ({ id, url }) => {
+            const html = await readPage(url);
+            const found = html ? priceFromHtml(html) : undefined;
+            const usd = found ? toUsd(found) : undefined;
+            await ctx.runMutation(internal.priceFetch.savePrice, {
+              id,
+              ...(found ? { originalPrice: priceLabel(found) } : {}),
+              ...(usd !== undefined ? { price: usd } : {}),
+            });
+          }),
+        );
+      }
+      if (todo.length === BATCH && args.round + 1 < MAX_ROUNDS) {
+        await ctx.scheduler.runAfter(0, internal.priceFetch.run, { round: args.round + 1, pipelineDay: args.pipelineDay });
+        scheduledNext = true;
+      }
+    } catch (e) {
+      note = `failed: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200);
+      throw e;
+    } finally {
+      if (!scheduledNext && args.pipelineDay) {
+        await ctx.runMutation(internal.productPipeline.actionDone, { day: args.pipelineDay, stage: "landingPages", note });
+      }
     }
   },
 });

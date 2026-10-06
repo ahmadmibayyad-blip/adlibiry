@@ -507,7 +507,8 @@ export const upsertAd = internalMutation({
     const { externalId, firstSeenKnown, ...raw } = args;
     // Copy without page metadata ("Button: Shop Now"…); the CTA goes in its own field.
     const copy = cleanAdCopy(raw.bodyText);
-    const fields = { ...raw, bodyText: copy.text, ctaText: raw.ctaText || copy.cta };
+    // lastSeenAt: seen again today — our own record of how long the ad has run.
+    const fields = { ...raw, bodyText: copy.text, ctaText: raw.ctaText || copy.cta, lastSeenAt: raw.lastSeenAt ?? new Date().toISOString() };
     const existingLink = await ctx.db
       .query("adlibrarySyncedAds")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))

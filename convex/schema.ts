@@ -119,6 +119,12 @@ export default defineSchema({
     })),
     activeAds: v.optional(v.number()),  // ads running now (linked, seen in the last 14 days; else the source's count)
     momentum14: v.optional(v.number()), // % change in linked-ad views over 14 days
+    costSource: v.optional(v.string()),   // "aliexpress" = landed cost from the AliExpress Affiliate API (convex/aliexpress.ts)
+    costUrl: v.optional(v.string()),      // the matched supplier listing
+    costCheckedAt: v.optional(v.string()),
+    // Distinct advertisers per country among ads seen in the last 7 days
+    // (our own data), most crowded first; "level" as lib/productMatch saturationFromCompetition.
+    saturationByCountry: v.optional(v.array(v.object({ country: v.string(), advertisers: v.number(), level: v.string() }))),
     storeHost: v.optional(v.string()),  // shop domain of the product page (not marketplaces), for same-store duplicates
     aliases: v.optional(v.array(v.string())), // other names of merged duplicates
   })
@@ -414,7 +420,15 @@ export default defineSchema({
       error: v.optional(v.string()),
       failures: v.number(),             // failed checks in a row; skipped after 3
     })),
+    // Polite reading, refreshed weekly: robots.txt verdict for /products.json
+    // and the store's currency (from /cart.js).
+    polite: v.optional(v.object({ checkedAt: v.string(), robotsAllowed: v.boolean(), currency: v.optional(v.string()) })),
+    // Reviews gained per week on its best-selling products (weekly check).
+    reviews: v.optional(v.object({ checkedAt: v.string(), perWeek: v.optional(v.number()) })),
+    host: v.optional(v.string()),            // "shop.com" (set on catalog checks), for lookups by address
+    revenueConfidence: v.optional(v.string()), // "High" | "Medium" for estimatedRevenueRange (lib/revenueModel.ts)
   })
+    .index("by_host", ["host"])
     .index("by_niche", ["niche"])
     .index("by_spotted", ["spottedAt"])
     .searchIndex("search_name", { searchField: "name", filterFields: ["niche"] }),
@@ -440,8 +454,31 @@ export default defineSchema({
       price: v.number(),
       updatedAt: v.string(),
     })),
+    currency: v.optional(v.string()),   // the store's own currency (prices above are USD)
+    diff: v.optional(v.object({         // catalog changes since the previous check
+      added: v.number(),
+      removed: v.number(),
+      priceChanges: v.number(),
+      examples: v.array(v.object({ handle: v.string(), change: v.string(), from: v.optional(v.number()), to: v.optional(v.number()) })),
+    })),
   })
     .index("by_store_day", ["storeId", "day"]),
+
+  // Last catalog seen per store (handle, USD price, review count), for daily
+  // change lists. Its own table so store lists don't read it.
+  storeCatalogs: defineTable({
+    storeId: v.id("stores"),
+    entries: v.array(v.object({ h: v.string(), p: v.number(), r: v.optional(v.number()) })),
+  }).index("by_store", ["storeId"]),
+
+  // Known-truth revenue for calibrating estimates (convex/revenueTruth.ts).
+  revenueTruth: defineTable({
+    kind: v.string(), // "store" | "product"
+    url: v.string(),
+    monthlyRevenueUsd: v.number(),
+    note: v.optional(v.string()),
+    addedAt: v.string(),
+  }),
 
   // Store Tracker: user watchlist
   trackedStores: defineTable({

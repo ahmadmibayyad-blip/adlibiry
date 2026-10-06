@@ -1,13 +1,23 @@
 import { v } from "convex/values";
-import { internalAction, internalMutation, mutation, query } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { stableToken } from "./lib/authIdentity";
-import { CURRENCIES, FALLBACK_RATES, isCurrency, ratesFromEcbXml, type CurrencyCode } from "./lib/currency";
+import { CURRENCIES, FALLBACK_RATES, allUsdRatesFromEcbXml, isCurrency, ratesFromEcbXml, type CurrencyCode } from "./lib/currency";
 
 // Display currency per user (users.displayCurrency) and the daily exchange
 // rates (siteStats["fxRates"], USD-based) from the European Central Bank.
 
-type Rates = { rates: Record<CurrencyCode, number>; date: string };
+type Rates = { rates: Record<CurrencyCode, number>; all?: Record<string, number>; date: string };
+
+// Every ECB rate (USD-based), for converting store prices (convex/storeSales.ts).
+export const allRates = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<Record<string, number>> => {
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "fxRates")).unique();
+    const data = doc?.data as Rates | undefined;
+    return data?.all ?? { ...FALLBACK_RATES };
+  },
+});
 
 export const mine = query({
   args: {},
@@ -35,7 +45,7 @@ export const setMine = mutation({
 });
 
 export const saveRates = internalMutation({
-  args: { rates: v.object({ USD: v.number(), EUR: v.number(), GBP: v.number(), DKK: v.number() }), date: v.string() },
+  args: { rates: v.object({ USD: v.number(), EUR: v.number(), GBP: v.number(), DKK: v.number() }), all: v.optional(v.record(v.string(), v.number())), date: v.string() },
   handler: async (ctx, args) => {
     const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "fxRates")).unique();
     const updatedAt = new Date().toISOString();
@@ -54,7 +64,7 @@ export const refreshRates = internalAction({
       const rates = res.ok ? ratesFromEcbXml(xml) : null;
       if (!rates) return { ok: false };
       const date = xml.match(/time=['"](\d{4}-\d{2}-\d{2})['"]/)?.[1] ?? new Date().toISOString().slice(0, 10);
-      await ctx.runMutation(internal.currency.saveRates, { rates, date });
+      await ctx.runMutation(internal.currency.saveRates, { rates, all: allUsdRatesFromEcbXml(xml), date });
       return { ok: true };
     } catch {
       return { ok: false };

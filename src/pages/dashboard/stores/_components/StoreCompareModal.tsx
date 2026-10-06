@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { X, DollarSign, Users, Megaphone, TrendingUp } from "lucide-react";
 import { storeImage } from "@/lib/storeImage.ts";
+import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -52,7 +53,7 @@ export default function StoreCompareModal({
                     <div className="flex items-center gap-1.5">
                       <DollarSign className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div>
-                        <div className="font-semibold">{store.estimatedRevenueRange}</div>
+                        <div className="font-semibold">{storeRevenueLabel(store) ?? "Tracking"}</div>
                         <div className="text-[10px] text-muted-foreground">Est. revenue</div>
                       </div>
                     </div>

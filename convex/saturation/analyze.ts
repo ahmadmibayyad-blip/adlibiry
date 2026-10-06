@@ -14,7 +14,7 @@ import * as z from "zod";
 import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { claimAiRequest } from "../lib/aiQuota";
-import { demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
+import { adInCountry, demandLabel, opportunityLabel, saturationLabel, scoreCountry } from "../lib/saturationScoring";
 
 const openai = new OpenAI({
   // Your own OpenAI (or any OpenAI-compatible) key. Set OPENAI_API_KEY in Convex.
@@ -63,50 +63,19 @@ export const analyzeSaturation = action({
     await claimAiRequest(ctx);
     const now = Date.now();
 
-    // ── Pull real tracked data, scoped to the selected country where possible ──
-    const [adsResult, storesResult, trends, suppliers] = await Promise.all([
-      ctx.runQuery(internal.ads.listInternal, {
-        paginationOpts: { numItems: 200, cursor: null },
-        niche: args.niche,
-      }),
-      ctx.runQuery(internal.stores.listInternal, {
-        paginationOpts: { numItems: 200, cursor: null },
-        niche: args.niche,
-      }),
-      ctx.runQuery(internal.trends.listInternal, { niche: args.niche }),
-      ctx.runQuery(internal.trends.searchSuppliersInternal, {
-        paginationOpts: { numItems: 50, cursor: null },
-        niche: args.niche,
-      }),
-    ]);
-
-    const allAds = adsResult.page;
-    const localAds = allAds.filter((a) => a.country === args.country);
+    // ── Our own tracked ads only: distinct advertisers in this country ──
+    const allAds = await ctx.runQuery(internal.saturation.mutations.nicheAds, { niche: args.niche });
+    const localAds = allAds.filter((a) => adInCountry(a, args.country));
     const globalAdvertisers = new Set(allAds.map((a) => a.advertiserName));
-
-    const allStores = storesResult.page;
-    const localStores = allStores.filter((s) => s.country === args.country);
-
-    const trend = trends[0]; // trends are already niche-filtered, most recently updated first
-    const trendCountryInterest = trend?.countryBreakdown.find((c) => c.country === args.country)?.interest;
-
-    const supplierSellerCounts = suppliers.page.map((s) => s.sellerCount);
-    const avgSupplierSellers =
-      supplierSellerCounts.length > 0
-        ? Math.round(supplierSellerCounts.reduce((a, b) => a + b, 0) / supplierSellerCounts.length)
-        : undefined;
 
     const { saturationScore, demandScore, opportunityScore, confidenceScore, signals } = scoreCountry({
       localAds,
       globalAdvertiserCount: globalAdvertisers.size,
-      localStores,
-      trendCountryInterest,
-      trendDirection: trend?.direction,
-      trendRisingPercent: trend?.risingPercent,
-      avgSupplierSellers,
-      hasTrendData: trend !== undefined,
-      hasSupplierData: avgSupplierSellers !== undefined,
+      localStores: [],
+      hasTrendData: false,
+      hasSupplierData: false,
       now,
+      adsOnly: true,
     });
     const sourcesAnalyzed = signals.sourcesAnalyzed;
     const sourcesUnavailable = signals.sourcesUnavailable;
@@ -121,11 +90,11 @@ export const analyzeSaturation = action({
           {
             role: "system",
             content:
-              "You are a dropshipping market analyst. You are given REAL, already-computed data points about a product's competition and demand in a specific country, sourced from our own ad-tracking and store-tracking database. Write a short (3-4 sentence) analysis referencing ONLY the numbers given. Never invent competitor names, counts, or statistics that were not provided. If a data source was unavailable, mention that it lowers confidence.",
+              "You are a dropshipping market analyst. You are given REAL, already-computed data points about a product's competition and demand in a specific country, sourced only from our own ad-tracking database. Write a short (3-4 sentence) analysis referencing ONLY the numbers given. Never invent competitor names, counts, or statistics that were not provided. If few ads back the check, say that it lowers confidence.",
           },
           {
             role: "user",
-            content: `Product: ${args.productTitle}\nNiche: ${args.niche}\nCountry: ${args.country}\n\nTracked local advertisers (Meta/TikTok): ${signals.localAdvertiserCount}\nTracked active local ads: ${signals.localActiveAds}\nAdvertisers active in the last 30 days: ${signals.recentLocalAdvertisers30d}\nGlobal advertisers tracked in this niche (all countries): ${signals.globalAdvertiserCount}\nLocal Shopify stores tracked: ${signals.localStoreCount}\nCombined active ads run by those local stores: ${signals.localStoreActiveAds}\nAverage supplier seller count for similar listings: ${signals.supplierSellerCount ?? "unavailable"}\nGoogle Trends interest for this country (0-100): ${signals.trendInterest ?? "unavailable"}\nTrend direction: ${signals.trendDirection ?? "unavailable"}${signals.trendRisingPercent !== undefined ? ` (${signals.trendRisingPercent > 0 ? "+" : ""}${signals.trendRisingPercent}%)` : ""}\n\nComputed Saturation Score: ${saturationScore}/100\nComputed Demand Score: ${demandScore}/100\nComputed Opportunity Score: ${opportunityScore}/100\nData sources analyzed: ${sourcesAnalyzed.join(", ")}\nData sources unavailable: ${sourcesUnavailable.join(", ") || "none"}`,
+            content: `Product: ${args.productTitle}\nNiche: ${args.niche}\nCountry: ${args.country}\n\nTracked local advertisers (Meta/TikTok): ${signals.localAdvertiserCount}\nTracked local ads: ${signals.localActiveAds}\nAdvertisers active in the last 30 days: ${signals.recentLocalAdvertisers30d}\nAdvertisers tracked in this niche (all countries): ${signals.globalAdvertiserCount}\n\nComputed Saturation Score: ${saturationScore}/100\nComputed Demand Score: ${demandScore}/100\nComputed Opportunity Score: ${opportunityScore}/100\nData sources analyzed: ${sourcesAnalyzed.join(", ")}\nData sources unavailable: ${sourcesUnavailable.join(", ") || "none"}`,
           },
         ],
         response_format: zodResponseFormat(SummarySchema, "summary"),
@@ -135,7 +104,7 @@ export const analyzeSaturation = action({
       aiSummary = "";
     }
     if (!aiSummary) {
-      aiSummary = `Based on ${signals.localAdvertiserCount} tracked local advertiser(s) and ${signals.localStoreCount} tracked local store(s), this market shows ${saturationLabel(saturationScore).toLowerCase()}.`;
+      aiSummary = `Based on ${signals.localAdvertiserCount} tracked local advertiser(s) in our ad database, this market shows ${saturationLabel(saturationScore).toLowerCase()}.`;
     }
 
     // Persist a real snapshot so a saturation trend can build up over time.

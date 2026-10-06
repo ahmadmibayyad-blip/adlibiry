@@ -3,6 +3,10 @@ import { HISTOGRAM_BINS, binOf, medianOf, percentileOf, rawScore, scoreFromPerce
 import { passesWinnerGates } from "./lib/winnerGates";
 import { cleanAdCopy } from "./lib/adCopy";
 import { upgradeDescription } from "./lib/productCopy";
+import { factorFor, type BasisCalibration } from "./lib/revenueModel";
+import { readCalibration } from "./revenueTruth";
+
+type Calibrations = Record<string, BasisCalibration> | undefined;
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireSignedIn } from "./lib/access";
@@ -20,17 +24,25 @@ import {
 import { shouldWriteSnapshot } from "./lib/snapshots";
 import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/imageHash";
 
-// ── Daily product pipeline ──────────────────────────────────────────────────
-// Runs once a day after the imports (see crons.ts), as a chain of small
-// steps so no single function gets large:
-//   keys       – matching keys, hide-flags and margin on every product
-//   link       – every ad that sells a physical product is attached to one
-//                product (matched by landing page, then title; created if new)
-//   aggregate  – each product adds up its ads (views, likes, spend, GMV…)
-//   winners    – Winning Products: top 50 per niche with score 65+, mixed
-//   snapshots  – one history row per product and per ad for today
-//   prune      – history older than 90 days is removed
-// Progress is kept in siteStats["productPipeline"] for the admin panel.
+// ── Daily pipeline ──────────────────────────────────────────────────────────
+// Runs once a day after the imports (see crons.ts), as a chain of small,
+// re-runnable steps in this order:
+//   hashImages     – image hashes for new products and ads (action)
+//   keys           – matching keys, hide-flags, margin, copy fixes
+//   link           – every ad that sells a physical product is attached to one
+//                    product (landing page, title, image, same store + title)
+//   landingPages   – prices read from product landing pages (action)
+//   dedupe         – products imported twice are merged into one
+//   stores         – Shopify store catalog checks are queued (they run alongside)
+//   aggregate      – each product adds up its ads and gets its score parts
+//   calibrate…     – scores ranked across the catalog (model v2)
+//   winners        – Winning Products: score 65+ and the winner gates
+//   snapshots      – one history row per product and per ad for today
+//   prune          – history older than 90 days is removed
+//   lists          – Research tab and site counts rebuilt from today's data
+//   emails         – the morning digest is queued
+// Each step logs when it started (siteStats["productPipeline"].log); Admin
+// shows the run and can re-run it from any step.
 
 export const WINNER_MIN_SCORE = 65;
 export const WINNERS_PER_NICHE = 50;
@@ -38,20 +50,32 @@ const KEEP_DAYS = 90;
 const MAX_ADS_PER_PRODUCT = 200;
 const MAX_WINNER_CANDIDATES = 400; // per niche, so one mutation stays within read limits
 
-type Stage =
-  | "keys" | "link" | "aggregate" | "calibrateScan" | "calibrateApply" | "winners" | "snapshotProducts" | "snapshotAds" | "prune" | "done";
+export const STAGES = [
+  "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
+  "winners", "snapshotProducts", "snapshotAds", "prune", "lists", "emails",
+] as const;
+type Stage = (typeof STAGES)[number] | "done";
 const NEXT: Record<Stage, Stage> = {
+  hashImages: "keys",
   keys: "link",
-  link: "aggregate",
+  link: "landingPages",
+  landingPages: "dedupe",
+  dedupe: "stores",
+  stores: "aggregate",
   aggregate: "calibrateScan",
   calibrateScan: "calibrateApply",
   calibrateApply: "winners",
   winners: "snapshotProducts",
   snapshotProducts: "snapshotAds",
   snapshotAds: "prune",
-  prune: "done",
+  prune: "lists",
+  lists: "emails",
+  emails: "done",
   done: "done",
 };
+// Steps that hand off to an action and continue when it reports back (actionDone).
+const ACTION_STAGES = new Set<Stage>(["hashImages", "landingPages"]);
+const STUCK_MS = 3 * 3_600_000; // a run with no progress for 3 hours is considered dead
 
 type Status = {
   state: "running" | "done" | "error";
@@ -60,8 +84,10 @@ type Status = {
   startedAt: string;
   finishedAt?: string;
   error?: string;
-  counts: { productsCreated: number; adsLinked: number; winners: number; snapshots: number; pruned: number; winnersGated?: number };
+  counts: { productsCreated: number; adsLinked: number; winners: number; snapshots: number; pruned: number; winnersGated?: number; merged?: number };
   calib?: Calibration;
+  log?: { stage: Stage; at: string; note?: string }[]; // when each step started
+  updatedAt?: string;
 };
 
 // Score calibration state carried between steps: the histogram of raw scores,
@@ -83,6 +109,13 @@ async function scoreModel(ctx: MutationCtx): Promise<"v1" | "v2"> {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+// Whole days between our first and last sighting of an ad (0 if unknown).
+export function observedDays(firstSeenAt: string, lastSeenAt: string | undefined): number {
+  const first = Date.parse(firstSeenAt);
+  const last = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
+  return Number.isFinite(first) && Number.isFinite(last) && last > first ? Math.floor((last - first) / 86_400_000) : 0;
+}
 const dayMinus = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
 
 async function readStatus(ctx: MutationCtx): Promise<{ id: Id<"siteStats">; data: Status } | null> {
@@ -97,20 +130,55 @@ async function writeStatus(ctx: MutationCtx, data: Status) {
   else await ctx.db.insert("siteStats", { key: "productPipeline", data, updatedAt });
 }
 
-async function begin(ctx: MutationCtx): Promise<boolean> {
+async function begin(ctx: MutationCtx, from: Stage = "hashImages"): Promise<boolean> {
   const current = await readStatus(ctx);
-  // One run at a time; a run stuck for over an hour is considered dead.
-  if (current?.data.state === "running" && Date.now() - Date.parse(current.data.startedAt) < 3_600_000) return false;
+  // One run at a time; a run with no progress for STUCK_MS is considered dead.
+  const lastProgress = current?.data.updatedAt ?? current?.data.startedAt;
+  if (current?.data.state === "running" && lastProgress && Date.now() - Date.parse(lastProgress) < STUCK_MS) return false;
   const day = today();
+  const now = new Date().toISOString();
   await writeStatus(ctx, {
     state: "running",
-    stage: "keys",
+    stage: from,
     day,
-    startedAt: new Date().toISOString(),
+    startedAt: now,
+    updatedAt: now,
     counts: { productsCreated: 0, adsLinked: 0, winners: 0, snapshots: 0, pruned: 0 },
+    log: [{ stage: from, at: now }],
   });
-  await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: "keys", cursor: null, day });
+  await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: from, cursor: null, day });
   return true;
+}
+
+// Admin: re-run the pipeline from one step (each step is safe to repeat).
+export const runFrom = mutation({
+  args: { stage: v.union(...STAGES.map((s) => v.literal(s))) },
+  handler: async (ctx, args): Promise<{ started: boolean }> => {
+    await requireAdmin(ctx);
+    return { started: await begin(ctx, args.stage) };
+  },
+});
+
+// An action step (image hashes, landing pages) reports back: move on.
+export const actionDone = internalMutation({
+  args: { day: v.string(), stage: v.string(), note: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const status = await readStatus(ctx);
+    if (!status || status.data.state !== "running" || status.data.day !== args.day || status.data.stage !== args.stage) return;
+    await advance(ctx, status.data, status.data.counts, status.data.calib, args.stage as Stage, args.note);
+  },
+});
+
+async function advance(ctx: MutationCtx, data: Status, counts: Status["counts"], calib: Calibration | undefined, stage: Stage, note?: string) {
+  const nextStage = NEXT[stage];
+  const now = new Date().toISOString();
+  const log = [...(data.log ?? []).map((l) => (l.stage === stage && note && !l.note ? { ...l, note } : l))];
+  if (nextStage === "done") {
+    await writeStatus(ctx, { ...data, counts, calib: undefined, log: [...log, { stage: "done", at: now }], stage: "done", state: "done", updatedAt: now, finishedAt: now });
+    return;
+  }
+  await writeStatus(ctx, { ...data, counts, calib, log: [...log, { stage: nextStage, at: now }].slice(-40), stage: nextStage, updatedAt: now });
+  await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: nextStage, cursor: null, day: data.day });
 }
 
 export const start = internalMutation({ args: {}, handler: async (ctx) => void (await begin(ctx)) });
@@ -162,7 +230,31 @@ export const step = internalMutation({
     let cursor: string | null = null;
 
     try {
-      if (stage === "keys") {
+      if (ACTION_STAGES.has(stage)) {
+        // Hand off to the action; it calls actionDone when it has finished.
+        if (args.cursor === null) {
+          if (stage === "hashImages") {
+            await ctx.scheduler.runAfter(0, internal.imageHashAction.hashMissing, { cursor: null, productsDone: false, round: 0, pipelineDay: args.day });
+          } else {
+            await ctx.scheduler.runAfter(0, internal.priceFetch.run, { round: 0, pipelineDay: args.day });
+          }
+        }
+        return;
+      } else if (stage === "dedupe") {
+        const r = await mergePage(ctx, args.cursor);
+        counts.merged = (counts.merged ?? 0) + r.merged;
+        done = r.isDone;
+        cursor = r.cursor;
+      } else if (stage === "stores") {
+        // Store catalog checks run alongside the rest (each store is its own
+        // action, spaced out to stay polite); nothing later depends on them.
+        await ctx.scheduler.runAfter(0, internal.storeSales.runAll, {});
+      } else if (stage === "lists") {
+        await ctx.scheduler.runAfter(0, internal.research.rebuild, {});
+        await ctx.scheduler.runAfter(0, internal.stats.recompute, {});
+      } else if (stage === "emails") {
+        await ctx.scheduler.runAfter(0, internal.emailSender.sendDailyDigest, {});
+      } else if (stage === "keys") {
         const page = await ctx.db.query("products").paginate({ numItems: 200, cursor: args.cursor });
         for (const p of page.page) {
           const flags = productFlags(productText(p));
@@ -185,6 +277,12 @@ export const step = internalMutation({
         const page = await ctx.db.query("ads").paginate({ numItems: 150, cursor: args.cursor });
         let created = 0;
         for (const ad of page.page) {
+          // Days running from our own history too: first sighting → last sighting.
+          const observed = observedDays(ad.firstSeenAt, ad.lastSeenAt);
+          if (observed > ad.daysRunning) {
+            await ctx.db.patch("ads", ad._id, { daysRunning: observed });
+            ad.daysRunning = observed;
+          }
           // Older ads still carry page metadata in their copy: clean it once.
           const copy = cleanAdCopy(ad.bodyText);
           if (copy.text !== ad.bodyText || (copy.cta && !ad.ctaText)) {
@@ -205,9 +303,10 @@ export const step = internalMutation({
         // (40 per step could reach 8,000).
         const page = await ctx.db.query("products").paginate({ numItems: 10, cursor: args.cursor });
         const model = await scoreModel(ctx);
+        const factors = await readCalibration(ctx);
         for (const p of page.page) {
-          if (p.adIds?.length || p.linkedAds) await aggregate(ctx, p, args.day, model);
-          else await applyEstimates(ctx, p);
+          if (p.adIds?.length || p.linkedAds) await aggregate(ctx, p, args.day, model, factors);
+          else await applyEstimates(ctx, p, factors);
         }
         done = page.isDone;
         cursor = page.continueCursor;
@@ -299,17 +398,12 @@ export const step = internalMutation({
       return;
     }
 
-    const nextStage = done ? NEXT[stage] : stage;
-    if (nextStage === "done") {
-      await writeStatus(ctx, { ...status.data, counts, calib: undefined, stage: "done", state: "done", finishedAt: new Date().toISOString() });
-      // Then look up prices for products that have none (network, so an action).
-      await ctx.scheduler.runAfter(0, internal.priceFetch.run, { round: 0 });
-      // And the Research tab (trending keywords, niches) from today's data.
-      await ctx.scheduler.runAfter(0, internal.research.rebuild, {});
+    if (done) {
+      await advance(ctx, status.data, counts, calib, stage);
       return;
     }
-    await writeStatus(ctx, { ...status.data, counts, calib, stage: nextStage });
-    await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: nextStage, cursor: done ? null : cursor, day: args.day });
+    await writeStatus(ctx, { ...status.data, counts, calib, updatedAt: new Date().toISOString() });
+    await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage, cursor, day: args.day });
   },
 });
 
@@ -456,29 +550,34 @@ export const dedupStatus = query({
 export const mergeDuplicatesStep = internalMutation({
   args: { cursor: v.union(v.string(), v.null()), merged: v.number(), startedAt: v.string() },
   handler: async (ctx, args) => {
-    const page = await ctx.db.query("products").paginate({ numItems: 50, cursor: args.cursor }); // each looks up to ~65 candidates
-    let merged = 0;
-    // Each product's matches (same image, or same store + same title) are
-    // looked up across the whole table; a group met again later is down to
-    // one row by then.
-    for (const { _id } of page.page) {
-      const p = await ctx.db.get("products", _id);
-      if (!p) continue; // already merged away
-      const found = new Map<string, Doc<"products">>([[p._id, p]]);
-      if (isUsableHash(p.imageHash)) for (const m of await sameImageProducts(ctx, p.imageHash)) found.set(m._id, m);
-      for (const m of await sameStoreProducts(ctx, p.storeHost ?? null, p.title)) found.set(m._id, m);
-      if (found.size > 1) merged += await mergeGroup(ctx, [...found.values()]);
-    }
-    if (merged) await markStatsDirty(ctx);
-    const total = args.merged + merged;
+    const page = await mergePage(ctx, args.cursor);
+    const total = args.merged + page.merged;
     if (!page.isDone) {
       await writeDedup(ctx, { state: "running", merged: total, startedAt: args.startedAt });
-      await ctx.scheduler.runAfter(0, internal.productPipeline.mergeDuplicatesStep, { cursor: page.continueCursor, merged: total, startedAt: args.startedAt });
+      await ctx.scheduler.runAfter(0, internal.productPipeline.mergeDuplicatesStep, { cursor: page.cursor, merged: total, startedAt: args.startedAt });
     } else {
       await writeDedup(ctx, { state: "done", merged: total, startedAt: args.startedAt, finishedAt: new Date().toISOString() });
     }
   },
 });
+
+// One page of the duplicate scan: each product's matches (same image, or same
+// store + same title) are looked up across the whole table; a group met again
+// later is down to one row by then.
+async function mergePage(ctx: MutationCtx, cursor: string | null): Promise<{ merged: number; isDone: boolean; cursor: string }> {
+  const page = await ctx.db.query("products").paginate({ numItems: 50, cursor }); // each looks up to ~65 candidates
+  let merged = 0;
+  for (const { _id } of page.page) {
+    const p = await ctx.db.get("products", _id);
+    if (!p) continue; // already merged away
+    const found = new Map<string, Doc<"products">>([[p._id, p]]);
+    if (isUsableHash(p.imageHash)) for (const m of await sameImageProducts(ctx, p.imageHash)) found.set(m._id, m);
+    for (const m of await sameStoreProducts(ctx, p.storeHost ?? null, p.title)) found.set(m._id, m);
+    if (found.size > 1) merged += await mergeGroup(ctx, [...found.values()]);
+  }
+  if (merged) await markStatsDirty(ctx);
+  return { merged, isDone: page.isDone, cursor: page.continueCursor };
+}
 
 // Products whose image is the same as `hash` (up to a few bits apart, see
 // lib/imageHash.ts), found through the four indexed parts of the hash.
@@ -556,7 +655,7 @@ async function mergeGroup(ctx: MutationCtx, group: Doc<"products">[]): Promise<n
 
 // Adds up a product's ads. Products that exist only because of ads ("ads"
 // source) also take their score, likes, image and trend from them.
-export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: string, model: "v1" | "v2" = "v1") {
+export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: string, model: "v1" | "v2" = "v1", factors?: Calibrations) {
   const ads = (await Promise.all((p.adIds ?? []).map((id) => ctx.db.get("ads", id)))).filter(
     (a): a is Doc<"ads"> => !!a && a.productId === p._id,
   );
@@ -608,6 +707,19 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
   if (advertisers.size && (p.source === "ads" || p.saturation === "Unknown")) patch.saturation = saturationFromCompetition(advertisers.size);
   // Ads running now: not marked stopped and seen in the last 14 days.
   const dayMs = Date.parse(`${day}T00:00:00Z`);
+  // Competition by country this week: distinct advertisers among ads seen in the last 7 days.
+  const byCountry = new Map<string, Set<string>>();
+  for (const a of ads) {
+    if (Date.parse(a.lastSeenAt ?? a.firstSeenAt) < dayMs - 7 * 86_400_000) continue;
+    for (const c of new Set([a.country, ...(a.countries ?? [])])) {
+      if (!c || c === "INTL") continue;
+      byCountry.set(c, (byCountry.get(c) ?? new Set()).add(a.advertiserName.trim().toLowerCase()));
+    }
+  }
+  patch.saturationByCountry = [...byCountry]
+    .map(([country, set]) => ({ country, advertisers: set.size, level: saturationFromCompetition(set.size) }))
+    .sort((a, b) => b.advertisers - a.advertisers)
+    .slice(0, 12);
   const running = ads.filter((a) => a.isActive !== false && (!a.lastSeenAt || dayMs - Date.parse(a.lastSeenAt) <= 14 * 86_400_000));
   patch.activeAds = Math.max(running.length, p.source === "ads" ? 0 : (p.adsCount ?? 0));
   // Views change over 14 days (winner gate), from the history rows.
@@ -636,7 +748,7 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
       patch.growthPercent = Math.round(growth * 1000) / 10;
     }
   }
-  const est = estimatesFor({ ...p, ...patch }, sum);
+  const est = estimatesFor({ ...p, ...patch }, sum, factors);
   const days = ads.map((a) => a.daysRunning).filter((d) => d > 0).sort((a, b) => a - b);
   const parts = scorePartsFor({ ...p, ...patch, ...est }, {
     medianDaysRunning: days.length ? days[Math.floor(days.length / 2)] : undefined,
@@ -675,6 +787,7 @@ function scorePartsFor(
 function estimatesFor(
   p: Doc<"products">,
   ads?: { views: number; likes: number; comments: number; spend: number; gmv: number },
+  factors?: Calibrations,
 ): Partial<Doc<"products">> {
   const units = p.unitsPerMonth ?? unitsPerMonthFromText(p.description ?? "");
   const e = estimateProduct({
@@ -686,6 +799,9 @@ function estimatesFor(
     gmv: ads?.gmv ?? p.linkedGmv,
     unitsPerMonth: units,
   });
+  // Scaled by how far this method was off on the known-truth set (revenueTruth.ts).
+  const f = factorFor(factors, e.revenueBasis);
+  if (e.revenue && f !== 1) e.revenue = { low: Math.round(e.revenue.low * f), high: Math.round(e.revenue.high * f) };
   return {
     ...(units !== undefined ? { unitsPerMonth: units } : {}),
     estImpressions: e.impressions,
@@ -695,8 +811,8 @@ function estimatesFor(
   };
 }
 
-async function applyEstimates(ctx: MutationCtx, p: Doc<"products">) {
-  const est = estimatesFor(p);
+async function applyEstimates(ctx: MutationCtx, p: Doc<"products">, factors?: Calibrations) {
+  const est = estimatesFor(p, undefined, factors);
   const patch: Partial<Doc<"products">> = { ...est, scoreParts: scorePartsFor({ ...p, ...est }, { sourceScore: importerScore(p) }) };
   const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   if ((Object.keys(patch) as (keyof typeof patch)[]).every((k) => same(patch[k], p[k]))) return;

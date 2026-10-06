@@ -17,7 +17,8 @@ const ago = (iso: string) => {
   const h = Math.round((Date.now() - Date.parse(iso)) / 3_600_000);
   return h < 1 ? "just now" : h < 48 ? `${h}h ago` : `${Math.round(h / 24)} days ago`;
 };
-const range = (low: number, high: number, fmt: (n: number) => string) => (high ? `${fmt(low)}–${fmt(high)}` : "0");
+// One figure (the middle of the 1–3 orders-per-change range), not a 3× range.
+const range = (low: number, high: number, fmt: (n: number) => string) => (high ? `~${fmt(Math.sqrt(Math.max(low, 0.01) * high))}` : "0");
 
 export default function StoreSales({ storeId }: { storeId: Id<"stores"> }) {
   const data = useQuery(api.storeSales.history, { storeId });
@@ -82,7 +83,15 @@ export default function StoreSales({ storeId }: { storeId: Id<"stores"> }) {
             <StatTile label={`Est. revenue, ${Math.min(days.length, 30)} days tracked`} value={range(total.low, total.high, money)} />
           </div>
 
-          <ChartCard title="Est. revenue per day" points={points} format={money} enough={points.length >= 2} firstDay={days[0]?.day} time="10:05 UTC">
+          {latest.diff && (latest.diff.added > 0 || latest.diff.removed > 0 || latest.diff.priceChanges > 0) && (
+            <p className="text-xs text-muted-foreground">
+              Since the previous check: {latest.diff.added} new, {latest.diff.removed} removed, {latest.diff.priceChanges} price change
+              {latest.diff.priceChanges === 1 ? "" : "s"}
+              {latest.currency && latest.currency !== "USD" ? ` · prices converted from ${latest.currency}` : ""}.
+            </p>
+          )}
+
+          <ChartCard title="Est. revenue per day" points={points} format={money} enough={points.length >= 2} firstDay={days[0]?.day} time="daily">
             <TimeChart kind="bar" points={points} label="est. revenue" format={money} />
           </ChartCard>
 

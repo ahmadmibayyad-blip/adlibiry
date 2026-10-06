@@ -1,5 +1,6 @@
 import { compactNumber } from "@/lib/adFormat.ts";
 import { moneyCompact } from "@/lib/money.ts";
+import { parseRangeBounds } from "@/convex/lib/rangeParsing.ts";
 import { pointEstimate, revenueConfidence, type Confidence } from "@/convex/lib/estimates.ts";
 
 type Range = { low: number; high: number } | undefined;
@@ -31,3 +32,16 @@ export const BASIS_TEXT: Record<string, string> = {
   marketplace_sales: "From the marketplace's own sales counts × price",
   ad_funnel: "Estimated: monthly impressions × 0.8–1.5% clicks × 1–3% conversion × price",
 };
+
+// A store's monthly revenue as one figure ("~$24K/mo"): new estimates are
+// already one number; older "$80K–$150K/mo" ranges show their middle.
+// Undefined when there's nothing to show ("Unknown").
+export function storeRevenueLabel(store: { estimatedRevenueRange: string; revenueConfidence?: string }): string | undefined {
+  const raw = store.estimatedRevenueRange?.trim() ?? "";
+  if (!/\d/.test(raw)) return undefined;
+  if (raw.startsWith("~")) return raw;
+  const b = parseRangeBounds(raw);
+  if (!b || !(b.high > 0)) return undefined;
+  return `~${usd(Math.sqrt(Math.max(b.low, 1) * b.high))}/mo`;
+}
+
