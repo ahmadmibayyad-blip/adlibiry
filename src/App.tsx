@@ -67,6 +67,11 @@ export default function App() {
           <Route path="/" element={<Index />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/login" element={<LoginPage />} />
+          {/* Common addresses people type or link to */}
+          {["/signup", "/sign-up", "/sign-in", "/signin", "/register"].map((path) => (
+            <Route key={path} path={path} element={<Navigate to="/login" replace />} />
+          ))}
+          <Route path="/pricing" element={<Navigate to="/#pricing" replace />} />
 
           {/* Dashboard — protected */}
           <Route

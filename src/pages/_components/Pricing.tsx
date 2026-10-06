@@ -153,9 +153,10 @@ export default function Pricing() {
                 )}
               </Authenticated>
               <Unauthenticated>
-                <SignInButton className={buttonClass(plan.popular)}>
-                  {plan.id === "pro" ? "Sign in to upgrade" : "Start free"}
-                </SignInButton>
+                <SignInButton
+                  className={buttonClass(plan.popular)}
+                  signInText={plan.id === "pro" ? "Sign in to upgrade" : "Start free"}
+                />
               </Unauthenticated>
 
               <ul className="space-y-3 flex-1">

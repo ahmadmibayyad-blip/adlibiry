@@ -82,7 +82,7 @@ export const INFO_PAGES: InfoPage[] = [
       {
         bullets: [
           "Educators and communities: give your students a tool to practise product research with real data.",
-          "Agencies: research products and creatives for several clients from one account (Agency plan).",
+          "Agencies: research products and creatives for several clients from one account.",
           "Tools and suppliers: integrations that save sellers a step, for example sourcing or store building.",
         ],
       },
@@ -225,7 +225,7 @@ export const INFO_PAGES: InfoPage[] = [
         heading: "Your account",
         bullets: [
           "Keep your login safe; you're responsible for activity on your account.",
-          "One account is for one person or, on the Agency plan, one team.",
+          "One account is for one person.",
           "Don't resell, scrape or bulk-export AdSpy Pro's data, and don't try to break or overload the service.",
         ],
       },

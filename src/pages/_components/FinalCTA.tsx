@@ -19,7 +19,7 @@ export default function FinalCTA() {
             Start finding winning products today
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-10">
-            Try every feature free for 7 days, then pick the plan that fits. Cancel anytime in one click.
+            Start free with the first 10 results of every list, no card needed. Upgrade to Pro when you want everything, and cancel anytime.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button asChild size="lg" className="h-12 px-8 text-base font-semibold rounded-xl">
