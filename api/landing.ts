@@ -93,3 +93,9 @@ export async function GET(request: Request): Promise<Response> {
     return new Response(html, { headers: HEADERS });
   }
 }
+
+// Uptime monitors and link-preview bots often ask with HEAD: same answer, no body.
+export async function HEAD(request: Request): Promise<Response> {
+  const res = await GET(request);
+  return new Response(null, { status: res.status, headers: res.headers });
+}
