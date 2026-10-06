@@ -73,6 +73,8 @@ export default function App() {
             <Route key={path} path={path} element={<Navigate to="/login" replace />} />
           ))}
           <Route path="/pricing" element={<Navigate to="/#pricing" replace />} />
+          {/* Fallback from api/landing.ts when it can't read the page. */}
+          <Route path="/app.html" element={<Navigate to="/" replace />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
           {/* Dashboard — protected */}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convexUrlFromHtml, injectStats } from "./landingHtml";
+import { convexUrlFromHtml, injectStats } from "../../api/landing";
 
 const page = `<!doctype html><html><head><meta name="convex-url" content="https://careful-raccoon-363.convex.cloud" /></head><body><div id="root"></div></body></html>`;
 const stats = {
