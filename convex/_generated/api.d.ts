@@ -73,6 +73,7 @@ import type * as nexscope_pricing from "../nexscope/pricing.js";
 import type * as nexscope_productDiscovery from "../nexscope/productDiscovery.js";
 import type * as nexscope_tiktokAds from "../nexscope/tiktokAds.js";
 import type * as nicheReport from "../nicheReport.js";
+import type * as pipispy from "../pipispy.js";
 import type * as notifications from "../notifications.js";
 import type * as priceFetch from "../priceFetch.js";
 import type * as proPlan from "../proPlan.js";
@@ -169,6 +170,7 @@ declare const fullApi: ApiFromModules<{
   "nexscope/productDiscovery": typeof nexscope_productDiscovery;
   "nexscope/tiktokAds": typeof nexscope_tiktokAds;
   nicheReport: typeof nicheReport;
+  pipispy: typeof pipispy;
   notifications: typeof notifications;
   priceFetch: typeof priceFetch;
   proPlan: typeof proPlan;

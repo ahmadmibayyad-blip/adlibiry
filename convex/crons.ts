@@ -77,6 +77,9 @@ crons.daily(
   { job: "winninghunter" }
 );
 
+// PiPiSpy — only runs when PIPISPY_API_KEY and PIPISPY_COUNTRIES are set.
+// Runs before the products pipeline below. Each ad costs 1 credit: PIPISPY_DAILY_PER_COUNTRY × countries per day.
+crons.daily("import ads from PiPiSpy", { hourUTC: 7, minuteUTC: 35 }, internal.pipispy.dailyImport);
 // Products pipeline, after all imports: link ads to products, rebuild
 // Winning Products (top 50 per niche), then save today's history snapshot
 // for the charts. Runs as a chain of small steps (convex/productPipeline.ts).

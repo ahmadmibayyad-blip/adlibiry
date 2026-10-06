@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Download, Store, Clapperboard, Trophy, Tags, FileUp } from "lucide-react";
+import { Download, Store, Clapperboard, Trophy, Tags, FileUp, Coins } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -84,6 +84,15 @@ export default function DataSourcesPanel() {
   const [whBusy, setWhBusy] = useState(false);
   const [whInfo, setWhInfo] = useState<string | null>(null);
   const [whRes, setWhRes] = useState<{ calls: number; fetched: number; adsCreated: number; adsUpdated: number; productsCreated: number; productsUpdated: number; errors: string[] } | null>(null);
+
+  // PiPiSpy
+  const pipiImport = useAction(api.pipispy.importNow);
+  const pipiCheck = useAction(api.pipispy.checkKeyNow);
+  const pipiCredits = useQuery(api.pipispy.creditsStatus, {});
+  const [pp, setPp] = useState({ country: "DK", platform: "", keyword: "", max: 50, activeOnly: true });
+  const [ppBusy, setPpBusy] = useState(false);
+  const [ppInfo, setPpInfo] = useState<string | null>(null);
+  const [ppRes, setPpRes] = useState<{ fetched: number; created: number; updated: number; skipped: number; creditsUsed: number; creditsRemaining?: number; errors: string[] } | null>(null);
 
   // Re-check niches of already-imported ads/products
   const startReclassify = useMutation(api.admin.reclassify.start);
@@ -203,6 +212,89 @@ export default function DataSourcesPanel() {
           <Result
             lines={[["Calls", whRes.calls], ["Fetched", whRes.fetched], ["New ads", whRes.adsCreated], ["Updated ads", whRes.adsUpdated], ["New products", whRes.productsCreated]]}
             errors={whRes.errors}
+          />
+        )}
+      </Card>
+
+      <Card
+        icon={Coins}
+        title="PiPiSpy (TikTok + Facebook ads)"
+        text="TikTok and Facebook ads for any country incl. DK/SE/NO, with video, plays, likes, comments, shares, CTA and PiPiSpy's spend estimate. Each ad costs 1 credit — imports are capped by PIPISPY_MAX_PER_RUN (default 100)."
+      >
+        <div className="flex flex-wrap gap-2">
+          <select className={selectCls} value={pp.country} onChange={(e) => setPp({ ...pp, country: e.target.value })}>
+            {META_COUNTRIES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+          <select className={selectCls} value={pp.platform} onChange={(e) => setPp({ ...pp, platform: e.target.value })}>
+            <option value="">TikTok + Facebook</option>
+            <option value="tiktok">TikTok</option>
+            <option value="facebook">Facebook</option>
+          </select>
+          <Input className="flex-1 min-w-[140px]" placeholder="Keyword (optional)" value={pp.keyword} onChange={(e) => setPp({ ...pp, keyword: e.target.value })} />
+          <select className={selectCls} value={pp.max} onChange={(e) => setPp({ ...pp, max: Number(e.target.value) })}>
+            {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n} ads = {n} credits</option>)}
+          </select>
+          <Button
+            size="sm"
+            disabled={ppBusy}
+            onClick={async () => {
+              setPpBusy(true);
+              setPpRes(null);
+              try {
+                const r = await pipiImport({
+                  country: pp.country,
+                  platform: pp.platform || undefined,
+                  keyword: pp.keyword.trim() || undefined,
+                  maxAds: pp.max,
+                  activeOnly: pp.activeOnly,
+                });
+                setPpRes(r);
+                if (r.errors.length) toast.error(`Imported with ${r.errors.length} message(s)`);
+                else toast.success(`${r.created} new ads from PiPiSpy`);
+              } catch (e) {
+                fail(e, "PiPiSpy import failed");
+              } finally {
+                setPpBusy(false);
+              }
+            }}
+          >
+            {ppBusy ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
+            {ppBusy ? "Importing..." : "Import"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const r = await pipiCheck({});
+                setPpInfo(
+                  !r.configured
+                    ? "API key not set yet (Convex → Environment Variables → PIPISPY_API_KEY)"
+                    : r.error ?? `Key works — ${r.remainingCredits?.toLocaleString() ?? "?"} credits left`,
+                );
+              } catch (e) {
+                fail(e, "Check failed");
+              }
+            }}
+            title="Uses 1 credit"
+          >
+            Check key
+          </Button>
+        </div>
+        <label className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={pp.activeOnly} onChange={(e) => setPp({ ...pp, activeOnly: e.target.checked })} />
+          Only ads that are still running
+        </label>
+        {pipiCredits && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Credits left: <strong className="text-foreground">{pipiCredits.remainingCredits.toLocaleString()}</strong> (as of {new Date(pipiCredits.checkedAt).toLocaleString()})
+          </p>
+        )}
+        {ppInfo && <p className="mt-1 text-xs text-muted-foreground break-all">{ppInfo}</p>}
+        {ppRes && (
+          <Result
+            lines={[["Fetched", ppRes.fetched], ["New ads", ppRes.created], ["Updated", ppRes.updated], ["Credits used", ppRes.creditsUsed]]}
+            errors={ppRes.errors}
           />
         )}
       </Card>

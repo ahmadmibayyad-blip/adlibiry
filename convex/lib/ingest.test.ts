@@ -175,3 +175,62 @@ describe("Nexscope reply parsing", () => {
     expect(describeReply({ code: 0, msg: "ok", data: { list: [] } })).toBe('reply {code, msg, data} · message "ok" · data {list}');
   });
 });
+
+import { pipiRowToAd } from "./pipispyTransform";
+
+describe("pipiRowToAd", () => {
+  // Shape from PiPiSpy's AdSpy List docs (response example).
+  const row = {
+    video_id: "d9055376ae19819f4756",
+    platform: 3, // response: 3 = TikTok
+    type: 1,
+    desc: "No-pull dog harness that stops pulling in 2 walks #dog #pets",
+    cover: "https://cdn-video.pipispy.com/cover.jpg",
+    video_url: "https://cdn-video.pipispy.com/video.mp4",
+    app_name: "Nordic Pets",
+    app_image: "https://cdn-video.pipispy.com/avatar.jpg",
+    button_text: "Shop now",
+    play_count: 47527,
+    digg_count: 318,
+    comment_count: 2,
+    share_count: 32,
+    put_days: 12,
+    found_time: 1749614161,
+    last_put_time: 1752204344,
+    fetch_region: ["US", "DK"],
+    min_cpm: 33.74,
+    ai_analysis_language: "en",
+    ai_analysis_tags: ["#dogharness", "#pets"],
+  };
+  it("maps a documented row", () => {
+    const ad = pipiRowToAd(row, { preferCountries: ["DK"], nowMs: 1752204344_000 + 3600_000 });
+    expect(ad).toMatchObject({
+      externalId: "pipi:d9055376ae19819f4756",
+      source: "pipispy",
+      platform: "TikTok",
+      country: "DK", // the market asked for, not the first listed
+      countries: ["US", "DK"],
+      niche: "Pet Supplies",
+      advertiserName: "Nordic Pets",
+      ctaText: "Shop now",
+      impressions: 47527,
+      views: "47.5K",
+      likes: 318,
+      comments: 2,
+      shares: 32,
+      daysRunning: 12,
+      mediaType: "video",
+      videoUrl: "https://cdn-video.pipispy.com/video.mp4",
+      spendEstimate: "$34+ (PiPiSpy est.)",
+      firstSeenAt: new Date(1749614161_000).toISOString(),
+      isActive: true,
+      language: "en",
+    });
+  });
+  it("maps response platform codes (1=Facebook, 2=Instagram) and skips empty rows", () => {
+    expect(pipiRowToAd({ ...row, platform: 1 })?.platform).toBe("Facebook");
+    expect(pipiRowToAd({ ...row, platform: 2 })?.platform).toBe("Instagram");
+    expect(pipiRowToAd({ platform: 1 })).toBeNull();
+    expect(pipiRowToAd({ video_id: "x" })).toBeNull();
+  });
+});

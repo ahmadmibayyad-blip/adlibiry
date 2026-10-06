@@ -363,3 +363,33 @@ describe("Estimates", () => {
     expect(shop.estBasis?.revenue).toBe("marketplace_sales");
   });
 });
+
+describe("Winning Products filters", () => {
+  it("filters, sorts and pages the list", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("products", product({ title: "Dog cooling mat", category: "Pet Supplies", aiScore: 90, price: 40, cost: 10 }));
+      await ctx.db.insert("products", product({ title: "Cat water fountain", category: "Pet Supplies", aiScore: 80, price: 25, cost: 20 }));
+      await ctx.db.insert("products", product({ title: "Yoga mat", category: "Sports", aiScore: 70, price: 60, cost: 15 }));
+    });
+    await runPipeline(t);
+    // A paying account, so paging isn't capped at the free 10.
+    await t.run((ctx) => ctx.db.insert("users", { email: "pro@x.com", tokenIdentifier: "pro", plan: "pro", subscriptionStatus: "active" }));
+    const user = t.withIdentity({ subject: "pro|s" });
+    const page = { paginationOpts: { numItems: 10, cursor: null } };
+    const titles = async (args: Record<string, unknown>) =>
+      (await user.query(api.winners.feed, { ...page, ...args })).page.map((r) => r.product.title);
+
+    expect(await titles({ search: "mat" })).toEqual(["Dog cooling mat", "Yoga mat"]);
+    expect(await titles({ minMargin: 70 })).toEqual(["Dog cooling mat", "Yoga mat"]);
+    expect(await titles({ maxPrice: 30 })).toEqual(["Cat water fountain"]);
+    expect(await titles({ niche: "Pet Supplies", sort: "priceLow" })).toEqual(["Cat water fountain", "Dog cooling mat"]);
+    expect(await titles({ sort: "priceHigh" })).toEqual(["Yoga mat", "Dog cooling mat", "Cat water fountain"]);
+
+    const first = await user.query(api.winners.feed, { paginationOpts: { numItems: 2, cursor: null }, sort: "score" });
+    expect(first.isDone).toBe(false);
+    const rest = await user.query(api.winners.feed, { paginationOpts: { numItems: 2, cursor: first.continueCursor }, sort: "score" });
+    expect([...first.page, ...rest.page].map((r) => r.product.title)).toEqual(["Dog cooling mat", "Cat water fountain", "Yoga mat"]);
+    expect(rest.isDone).toBe(true);
+  });
+});
