@@ -1,8 +1,10 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { limitedPage, requireSignedIn } from "./lib/access";
 import { WINNERS_PER_NICHE, WINNER_MIN_SCORE } from "./productPipeline";
+import { filterAndSortWinners, needsFiltering } from "./lib/winnerFilters";
 
 // ── Winning Products (read side) ────────────────────────────────────────────
 // The list itself is rebuilt once a day by convex/productPipeline.ts.
@@ -12,26 +14,53 @@ export const feed = query({
     paginationOpts: paginationOptsValidator,
     niche: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("mixed"), v.literal("byNiche"))),
+    // Ad Spy-style filters (see convex/lib/winnerFilters.ts).
+    search: v.optional(v.string()),
+    source: v.optional(v.string()),
+    minPrice: v.optional(v.number()),
+    maxPrice: v.optional(v.number()),
+    minMargin: v.optional(v.number()),
+    minAiScore: v.optional(v.number()),
+    minAds: v.optional(v.number()),
+    minLikes: v.optional(v.number()),
+    trend: v.optional(v.string()),
+    saturation: v.optional(v.string()),
+    hasStoreLink: v.optional(v.boolean()),
+    newToday: v.optional(v.boolean()),
+    sort: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    const rows = args.niche
-      ? ctx.db.query("winningProducts").withIndex("by_niche_rank", (q) => q.eq("niche", args.niche!))
-      : args.mode === "byNiche"
+    const { paginationOpts, niche, mode, ...filters } = args;
+    const rows = niche
+      ? ctx.db.query("winningProducts").withIndex("by_niche_rank", (q) => q.eq("niche", niche))
+      : mode === "byNiche"
         ? ctx.db.query("winningProducts").withIndex("by_niche_rank")
         : ctx.db.query("winningProducts").withIndex("by_position");
     const today = new Date().toISOString().slice(0, 10);
-    return await limitedPage(ctx, args.paginationOpts, async (paginationOpts) => {
-      const result = await rows.paginate(paginationOpts);
-      const page = (
-        await Promise.all(
-          result.page.map(async (r) => {
-            const product = await ctx.db.get("products", r.productId);
-            return product ? { niche: r.niche, nicheRank: r.nicheRank, isNewToday: r.enteredDay === today, product } : null;
-          }),
-        )
-      ).filter((x) => x !== null);
-      return { ...result, page };
+    const withProduct = async (r: Doc<"winningProducts">) => {
+      const product = await ctx.db.get("products", r.productId);
+      return product
+        ? { niche: r.niche, nicheRank: r.nicheRank, position: r.position, isNewToday: r.enteredDay === today, product }
+        : null;
+    };
+
+    if (!needsFiltering(filters)) {
+      return await limitedPage(ctx, paginationOpts, async (opts) => {
+        const result = await rows.paginate(opts);
+        const page = (await Promise.all(result.page.map(withProduct))).filter((x) => x !== null);
+        return { ...result, page };
+      });
+    }
+
+    // Filtered: the whole list is at most WINNERS_PER_NICHE per niche, so
+    // read it all, filter + sort, and page by offset.
+    const all = (await Promise.all((await rows.collect()).map(withProduct))).filter((x) => x !== null);
+    const matched = filterAndSortWinners(all, filters);
+    return await limitedPage(ctx, paginationOpts, async (opts) => {
+      const start = Number(opts.cursor ?? 0) || 0;
+      const end = start + opts.numItems;
+      return { page: matched.slice(start, end), isDone: end >= matched.length, continueCursor: String(Math.min(end, matched.length)) };
     });
   },
 });
