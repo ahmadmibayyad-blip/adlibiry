@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
 import { parseExtensionAd } from "./lib/extensionSubmission";
 import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
@@ -115,5 +115,20 @@ http.route({
     return new Response(result.ok ? "ok" : (result.error ?? "error"), { status: result.ok ? 200 : 400 });
   }),
 });
+
+// Morning digest one-click unsubscribe (List-Unsubscribe / List-Unsubscribe-Post
+// headers, RFC 8058). Mail apps POST here; a GET shows a short confirmation.
+const unsubscribeHandler = httpAction(async (ctx, request) => {
+  const token = new URL(request.url).searchParams.get("token") ?? "";
+  const r = await ctx.runMutation(api.digest.unsubscribe, { token });
+  if (request.method === "POST") return new Response(null, { status: r.ok ? 200 : 400 });
+  const message = r.ok ? "You're unsubscribed from the AdSpy Pro morning digest." : "This unsubscribe link isn't valid any more.";
+  return new Response(
+    `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>AdSpy Pro</title><body style="font-family:system-ui;padding:40px;text-align:center"><p>${message}</p></body>`,
+    { status: r.ok ? 200 : 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
+  );
+});
+http.route({ path: "/email/unsubscribe", method: "GET", handler: unsubscribeHandler });
+http.route({ path: "/email/unsubscribe", method: "POST", handler: unsubscribeHandler });
 
 export default http;

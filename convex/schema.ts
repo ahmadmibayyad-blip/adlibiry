@@ -22,6 +22,11 @@ export default defineSchema({
     subscriptionId: v.optional(v.string()),
     planRenewsAt: v.optional(v.number()), // ms
     displayCurrency: v.optional(v.string()), // "USD" | "EUR" | "GBP" | "DKK" (lib/currency.ts)
+    // Onboarding (convex/onboarding.ts): the niches they sell in pre-filter the
+    // app; the timezone times their morning digest.
+    niches: v.optional(v.array(v.string())),
+    timezone: v.optional(v.string()), // IANA, e.g. "Europe/Copenhagen"
+    onboardedAt: v.optional(v.string()),
     proTrialEndsAt: v.optional(v.number()), // ms; set once when the 7-day Pro trial starts (lib/billing.ts)
     subscriptionEventAt: v.optional(v.number()), // Stripe event.created (s) of the last applied change
     role: v.optional(v.string()), // "admin" | "user"
@@ -545,6 +550,20 @@ export default defineSchema({
     errors: v.array(v.string()), // at most 10
   }).index("by_job_started", ["job", "startedAt"]),
 
+  // Pro alerts on products (convex/follows.ts): new ads for it, or its score
+  // reaching minScore. last* are the values at the previous daily check.
+  followedProducts: defineTable({
+    userId: v.id("users"),
+    productId: v.id("products"),
+    minScore: v.optional(v.number()),
+    lastScore: v.optional(v.number()),
+    lastLinkedAds: v.optional(v.number()),
+    followedAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_product", ["productId"])
+    .index("by_user_and_product", ["userId", "productId"]),
+
   followedAdvertisers: defineTable({
     userId: v.id("users"),
     name: v.string(),        // exact ads.advertiserName
@@ -577,8 +596,12 @@ export default defineSchema({
     notifyFollowedAdvertisers: v.optional(v.boolean()), // missing = on
     emailDigestEnabled: v.boolean(),
     updatedAt: v.string(), // ISO 8601 UTC
+    unsubscribeToken: v.optional(v.string()), // in every digest's unsubscribe link (convex/digest.ts)
+    lastDigestDay: v.optional(v.string()),    // the user's local date of the last digest sent
   })
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_unsubscribe_token", ["unsubscribeToken"])
+    .index("by_digest", ["emailDigestEnabled"]),
 
   // Push notification identity mapping (Hercules SDK managed subscriptions)
   pushIdentities: defineTable({

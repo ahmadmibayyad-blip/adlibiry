@@ -32,3 +32,33 @@ re-run from any step.
 - **Revenue calibration**: add 20–50 stores or products with known monthly revenue; estimates are checked
   against them monthly.
 - **Merge duplicates** runs daily as part of the pipeline; the merged count shows on the pipeline card.
+
+## Morning digest, niches and alerts
+
+- After sign-up, users pick the niches they sell in. Winning Products, Products and Ad Spy show those first
+  (a "My niches" chip turns it off); Settings → My niches changes them in one tap.
+- The morning digest goes out at 8:00 in each user's own timezone: their top 5 new winners in their niches plus
+  the day's alerts, with an unsubscribe link and a one-click List-Unsubscribe header. Hourly cron + the end of
+  the daily pipeline.
+- Pro (and the 7-day trial) can follow advertisers and products. Alerts: new ads, and a product's score reaching
+  the chosen number. They show under Alerts and in the morning email.
+- Testimonials: add 3–5 real ones in `src/content/testimonials.ts`; the section stays hidden until then.
+- Data & methodology page: `/methodology` (footer and pricing link to it).
+
+## Verification checklist (about 15 minutes)
+
+1. **Routes**: open `/signup`, `/sign-in` and `/pricing` → Login and the pricing section. View the source of `/`:
+   the stat numbers are in the HTML.
+2. **Pricing**: €35 / €30 toggle works; signed out the Pro button says "Start 7-day free trial".
+3. **Trial**: sign in with a new account → Settings → "Start 7-day free trial" → lists show every result; the
+   plan badge says "Pro · free trial".
+4. **Onboarding**: a new account is asked for niches; Winning Products shows "My niches"; Settings changes them.
+5. **Product page**: score breakdown (after switching to new scores), one revenue figure with a confidence label,
+   "#N in <niche>" badge only on gated winners, no "—" or "Unknown" anywhere, "Competition this week".
+6. **Admin**: pipeline card shows every step with timings; Product scores card shows old vs new distribution;
+   "Kept out by winner gates" and "Duplicates merged" counts; Revenue calibration accepts known stores.
+7. **Mobile (360 px)**: bottom bar reads Home · Winners · Products · Ad Spy · Hooks; "Ask AI" is in the top bar;
+   Ad Spy shows 4 filters plus "Advanced filters".
+8. **Alerts**: on a Pro account follow a product (with "Score reaches 80") and an advertiser; next day's alerts
+   appear under Alerts and in the morning email.
+9. **Email**: with Resend verified, turn the digest on and wait for 8:00 your time; the unsubscribe link turns it off.

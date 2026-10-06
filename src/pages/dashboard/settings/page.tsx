@@ -9,6 +9,7 @@ import AppearanceSection from "./_components/AppearanceSection.tsx";
 import CurrencySection from "./_components/CurrencySection.tsx";
 import AccountSection from "./_components/AccountSection.tsx";
 import McpSection from "./_components/McpSection.tsx";
+import NichesSection from "./_components/NichesSection.tsx";
 
 export default function SettingsPage() {
   return (
@@ -42,6 +43,9 @@ export default function SettingsPage() {
         <div className="space-y-5">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.05 }}>
             <ProfileSection />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.07 }}>
+            <NichesSection />
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
             <PlanSection />

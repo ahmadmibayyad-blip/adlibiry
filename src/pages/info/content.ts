@@ -92,6 +92,57 @@ export const INFO_PAGES: InfoPage[] = [
 
   // ── Support ────────────────────────────────────────────────────────────────
   {
+    slug: "methodology",
+    group: "Support",
+    title: "Data & methodology",
+    intro: "Where our data comes from, how often it updates, and how scores and estimates are worked out.",
+    sections: [
+      {
+        heading: "Where the data comes from",
+        bullets: [
+          "Ads: licensed ad-research data providers and Meta's official Ad Library API (EU ads). We don't scrape Facebook, Instagram or TikTok.",
+          "Products: the products those ads sell (from their landing pages), plus Amazon, TikTok Shop and Shopify bestseller data.",
+          "Stores: Shopify stores' public catalogs (/products.json), read politely: we follow each store's robots.txt and read one page a second.",
+          "Supplier costs: AliExpress listings matched by product title, plus a shipping estimate.",
+        ],
+      },
+      {
+        heading: "How often it updates",
+        paragraphs: [
+          "Every morning: new ads are imported, linked to the products they sell, duplicates are merged, stores are checked, every product is scored and Winning Products is rebuilt. Exchange rates come from the European Central Bank daily. How long an ad has run comes from our own record of when we first and last saw it.",
+        ],
+      },
+      {
+        heading: "How products are scored",
+        paragraphs: [
+          "Each product's score has five parts, each from 0 to 100, and you can see them on its page: ad momentum (live ads, how long they've run, how strong they are), estimated revenue, trend (views over the last weeks), competition (fewer different advertisers is better) and margin.",
+          "The parts are combined, then ranked against every product we track, so the number means something: a score of 70 beats about 80% of products, 85 is the top 5%, and 90 or more is rare.",
+        ],
+      },
+      {
+        heading: "What makes a Winning Product",
+        bullets: [
+          "A score of 65 or more,",
+          "about $10,000 a month or more in estimated revenue,",
+          "at least 3 ads running now,",
+          "views that aren't falling over 14 days,",
+          "and competition that isn't already high.",
+        ],
+      },
+      {
+        heading: "Revenue and other estimates",
+        paragraphs: [
+          "Platforms don't publish revenue or ad spend, so we estimate them and say how sure we are. High confidence: from a marketplace's own sales counts, or when a store's catalog changes and its new reviews agree. Medium: from reported TikTok Shop sales, or one store signal. Low: from ad views with typical click and conversion rates.",
+          "We show one figure rather than a wide range. Each month the estimates are checked against stores and products whose real revenue we know, and each method is corrected by how far off it was.",
+        ],
+      },
+      {
+        heading: "Competition by country",
+        paragraphs: ["Saturation comes from our own ad data: how many different advertisers ran ads for a product in each country over the last 7 days."],
+      },
+    ],
+  },
+  {
     slug: "help",
     group: "Support",
     title: "Help Center",
@@ -102,8 +153,8 @@ export const INFO_PAGES: InfoPage[] = [
         paragraphs: ["Ads come from public ad libraries and ad-research data providers (Facebook, Instagram, TikTok). Products come from those ads and from Amazon, TikTok Shop and Shopify bestseller data. Everything is refreshed every morning."],
       },
       {
-        heading: "Why are some numbers shown as ranges?",
-        paragraphs: ["Platforms don't publish revenue or ad spend. We estimate them from what we can see (views, likes, days running, price, catalog changes) and show a range, so you never mistake a guess for a fact."],
+        heading: "How are revenue and ad spend worked out?",
+        paragraphs: ["Platforms don't publish them, so we estimate them from what we can see (sales counts, views, days running, price, catalog changes, reviews) and show one figure with a High, Medium or Low confidence label. See Data & methodology for the details."],
       },
       {
         heading: "How do I find a product to test?",
@@ -116,7 +167,7 @@ export const INFO_PAGES: InfoPage[] = [
       },
       {
         heading: "How do alerts work?",
-        paragraphs: ["Turn alerts on under Alerts. You can watch niches, follow advertisers and track stores, and get notified about new winners, new ads, new products and sales jumps."],
+        paragraphs: ["Pro (and the 7-day trial) lets you follow advertisers and products: you get an alert when they launch new ads, or when a product's score reaches the number you chose. Alerts show in the app and in your morning email. Everyone can track stores and watch niches under Alerts."],
       },
       {
         heading: "How do I cancel?",

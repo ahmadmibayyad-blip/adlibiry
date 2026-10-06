@@ -15,6 +15,7 @@ const listArgs = {
   paginationOpts: paginationOptsValidator,
   platform: v.optional(v.string()),
   niche: v.optional(v.string()),
+  niches: v.optional(v.array(v.string())), // any of these (the user's niches), when no single niche is picked
   country: v.optional(v.string()),
   search: v.optional(v.string()),
   minDaysRunning: v.optional(v.number()),
@@ -49,6 +50,7 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
     const c: Expression<boolean>[] = [];
     if (args.platform) c.push(q.eq(q.field("platform"), args.platform));
     if (args.niche) c.push(q.eq(q.field("niche"), args.niche));
+    else if (args.niches?.length) c.push(q.or(...args.niches.map((n) => q.eq(q.field("niche"), n))));
     if (args.source) c.push(q.eq(q.field("source"), args.source));
     if (args.gender) c.push(q.eq(q.field("targeting.gender"), args.gender));
     if (args.minDaysRunning !== undefined) c.push(q.gte(q.field("daysRunning"), args.minDaysRunning));
@@ -86,6 +88,8 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
         if (args.source) s = s.eq("source", args.source);
         return s;
       })
+      // Search pages are small; the remaining conditions can't go in the search index.
+      // eslint-disable-next-line @convex-dev/no-filter-in-query
       .filter(conds)
       .paginate(args.paginationOpts);
   } else {

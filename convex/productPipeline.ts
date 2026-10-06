@@ -5,6 +5,7 @@ import { cleanAdCopy } from "./lib/adCopy";
 import { upgradeDescription } from "./lib/productCopy";
 import { factorFor, type BasisCalibration } from "./lib/revenueModel";
 import { readCalibration } from "./revenueTruth";
+import { productFollowAlerts } from "./follows";
 
 type Calibrations = Record<string, BasisCalibration> | undefined;
 import { v } from "convex/values";
@@ -39,6 +40,8 @@ import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/i
 //   winners        – Winning Products: score 65+ and the winner gates
 //   snapshots      – one history row per product and per ad for today
 //   prune          – history older than 90 days is removed
+//   alerts         – Pro follow alerts: advertisers with new ads, followed
+//                    products with new ads or a score past the threshold
 //   lists          – Research tab and site counts rebuilt from today's data
 //   emails         – the morning digest is queued
 // Each step logs when it started (siteStats["productPipeline"].log); Admin
@@ -52,7 +55,7 @@ const MAX_WINNER_CANDIDATES = 400; // per niche, so one mutation stays within re
 
 export const STAGES = [
   "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
-  "winners", "snapshotProducts", "snapshotAds", "prune", "lists", "emails",
+  "winners", "snapshotProducts", "snapshotAds", "prune", "alerts", "lists", "emails",
 ] as const;
 type Stage = (typeof STAGES)[number] | "done";
 const NEXT: Record<Stage, Stage> = {
@@ -68,7 +71,8 @@ const NEXT: Record<Stage, Stage> = {
   winners: "snapshotProducts",
   snapshotProducts: "snapshotAds",
   snapshotAds: "prune",
-  prune: "lists",
+  prune: "alerts",
+  alerts: "lists",
   lists: "emails",
   emails: "done",
   done: "done",
@@ -249,11 +253,18 @@ export const step = internalMutation({
         // Store catalog checks run alongside the rest (each store is its own
         // action, spaced out to stay polite); nothing later depends on them.
         await ctx.scheduler.runAfter(0, internal.storeSales.runAll, {});
+      } else if (stage === "alerts") {
+        // Advertiser alerts run as their own batches; product follows page here.
+        if (args.cursor === null) await ctx.scheduler.runAfter(0, internal.follows.sendDailyAlerts, {});
+        const r = await productFollowAlerts(ctx, args.cursor);
+        done = r.isDone;
+        cursor = r.cursor;
       } else if (stage === "lists") {
         await ctx.scheduler.runAfter(0, internal.research.rebuild, {});
         await ctx.scheduler.runAfter(0, internal.stats.recompute, {});
       } else if (stage === "emails") {
-        await ctx.scheduler.runAfter(0, internal.emailSender.sendDailyDigest, {});
+        // Whoever's local morning it is gets theirs now; the rest at their 8:00 (hourly cron).
+        await ctx.scheduler.runAfter(0, internal.emailSender.sendMorningDigests, {});
       } else if (stage === "keys") {
         const page = await ctx.db.query("products").paginate({ numItems: 200, cursor: args.cursor });
         for (const p of page.page) {

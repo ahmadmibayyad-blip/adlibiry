@@ -1,12 +1,11 @@
 "use node";
 
-import escapeHtml from "escape-html";
 import { Hercules } from "./lib/herculesShim";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
 import { appUrl as siteUrl } from "./lib/billing";
+import { pickDigestWinners, renderDigestHtml, type DigestWinner } from "./lib/digest";
 
 const hercules = new Hercules({ apiKey: process.env.HERCULES_API_KEY, apiVersion: "2025-12-09" });
 
@@ -14,85 +13,55 @@ const hercules = new Hercules({ apiKey: process.env.HERCULES_API_KEY, apiVersion
 // EMAIL_FROM overrides this sender.
 const DIGEST_SENDER = "AdSpy Pro <alerts@adspypro.net>";
 
-function renderDigestHtml(winners: Doc<"products">[], appUrl: string): string {
-  const rows = winners
-    .map(
-      (p) => `
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #222;">
-            <img src="${escapeHtml(p.imageUrl)}" width="56" height="56" style="border-radius:8px;object-fit:cover;vertical-align:middle;margin-right:12px;" />
-            <span style="font-size:15px;font-weight:600;color:#fff;">${escapeHtml(p.title)}</span>
-            <div style="font-size:13px;color:#9aa;margin-top:2px;">AI score ${p.aiScore}/100 · ${escapeHtml(p.category)}</div>
-          </td>
-        </tr>`
-    )
-    .join("");
+// ── Morning digest ──────────────────────────────────────────────────────────
+// Hourly (crons.ts) and at the end of the daily pipeline: everyone whose
+// local time is 8:00 gets their top 5 new winners (in their niches) and the
+// day's alerts, once a day, with an unsubscribe link and a one-click
+// List-Unsubscribe header. One page of recipients per run; the next page is
+// scheduled, so a long list can't run past the action time limit.
 
-  return `
-    <div style="background:#0a0a12;padding:32px 16px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
-      <div style="max-width:480px;margin:0 auto;">
-        <h1 style="color:#fff;font-size:20px;margin-bottom:4px;">Today's Winning Products</h1>
-        <p style="color:#9aa;font-size:13px;margin-bottom:20px;">Your daily AdSpy Pro digest</p>
-        <table width="100%" cellpadding="0" cellspacing="0">${rows}</table>
-        <a href="${escapeHtml(appUrl)}/dashboard/products" style="display:inline-block;margin-top:20px;background:#1fbf6b;color:#0a0a12;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;">
-          View all winners
-        </a>
-        <p style="color:#666;font-size:11px;margin-top:24px;">
-          You're receiving this because you enabled the daily digest in AdSpy Pro alert settings.
-        </p>
-      </div>
-    </div>`;
-}
+export const sendMorningDigests = internalAction({
+  args: { cursor: v.optional(v.union(v.string(), v.null())), nowMs: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<{ sent: number; skipped: number }> => {
+    const nowMs = args.nowMs ?? Date.now();
+    const page = await ctx.runQuery(internal.digest.dueRecipients, { cursor: args.cursor ?? null, nowMs });
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.emailSender.sendMorningDigests, { cursor: page.cursor, nowMs });
+    if (!page.due.length) return { sent: 0, skipped: 0 };
 
-// Sends one page of recipients per run and schedules the next page, so a long
-// list can't run past the 10-minute action limit and stop halfway through.
-export const sendDailyDigest = internalAction({
-  args: { cursor: v.optional(v.union(v.string(), v.null())) },
-  handler: async (ctx, args): Promise<{ sent: number }> => {
-    const winners: Doc<"products">[] = await ctx.runQuery(internal.emailDigest.getTodaysWinners);
-    if (winners.length === 0) return { sent: 0 };
-
-    const page: { recipients: { email: string; userId: string }[]; continueCursor: string; isDone: boolean } = await ctx.runQuery(
-      internal.emailDigest.getDigestRecipients,
-      { cursor: args.cursor ?? null },
-    );
-    if (!page.isDone) {
-      await ctx.scheduler.runAfter(0, internal.emailSender.sendDailyDigest, { cursor: page.continueCursor });
-    }
-    const recipients = page.recipients;
-    if (recipients.length === 0) return { sent: 0 };
-
+    const rows: DigestWinner[] = await ctx.runQuery(internal.digest.winnerRows, {});
     const appUrl = siteUrl();
-
+    const site = process.env.CONVEX_SITE_URL ?? "";
+    const sinceIso = new Date(nowMs - 86_400_000).toISOString();
     let sent = 0;
-    for (const recipient of recipients) {
+    let skipped = 0;
+    for (const r of page.due) {
+      const winners = pickDigestWinners(rows, r.niches, r.day);
+      const alerts = await ctx.runQuery(internal.digest.recentAlerts, { userId: r.userId, sinceIso });
+      if (!winners.length && !alerts.length) {
+        // Nothing new today: no empty email, and no new check until tomorrow.
+        await ctx.runMutation(internal.digest.markSent, { userId: r.userId, day: r.day });
+        skipped++;
+        continue;
+      }
+      const token = r.token ?? (await ctx.runMutation(internal.digest.ensureToken, { userId: r.userId }));
+      const unsubscribeUrl = `${appUrl}/unsubscribe?token=${token}`;
       try {
         await hercules.email.send({
           from: DIGEST_SENDER,
-          to: recipient.email,
-          subject: `${winners.length} new winning products today`,
-          html: renderDigestHtml(winners, appUrl),
+          to: r.email,
+          subject: winners.length ? `${winners.length} new winning product${winners.length === 1 ? "" : "s"} this morning` : "Your AdSpy Pro alerts",
+          html: renderDigestHtml({ winners, alerts, appUrl, unsubscribeUrl, niches: r.niches }),
+          headers: {
+            "List-Unsubscribe": `<${site ? `${site}/email/unsubscribe?token=${token}` : unsubscribeUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          },
         });
+        await ctx.runMutation(internal.digest.markSent, { userId: r.userId, day: r.day });
         sent++;
       } catch (error) {
-        console.error(`Failed to send digest to ${recipient.email}:`, error);
+        console.error(`Failed to send digest to user ${r.userId}:`, error);
       }
     }
-    return { sent };
-  },
-});
-
-export const sendTestDigest = internalAction({
-  args: { to: v.string() },
-  handler: async (ctx, args): Promise<{ success: boolean }> => {
-    const winners: Doc<"products">[] = await ctx.runQuery(internal.emailDigest.getTodaysWinners);
-    const appUrl = siteUrl();
-    await hercules.email.send({
-      from: DIGEST_SENDER,
-      to: args.to,
-      subject: "AdSpy Pro — Test digest",
-      html: renderDigestHtml(winners, appUrl),
-    });
-    return { success: true };
+    return { sent, skipped };
   },
 });

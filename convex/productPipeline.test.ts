@@ -223,6 +223,35 @@ describe("Winning Products", () => {
   });
 });
 
+describe("Pro product alerts", () => {
+  it("free users can't follow; Pro users get alerts for new ads and a score past their threshold", async () => {
+    const t = convexTest(schema, modules);
+    const { productId } = await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "free", role: "user" });
+      await ctx.db.insert("users", { tokenIdentifier: "pro", role: "user", plan: "pro", subscriptionStatus: "active" });
+      return { productId: await ctx.db.insert("products", product({ title: "Dog cooling mat", aiScore: 60, storeUrl: "https://paws.example.com/products/dog-cooling-mat" })) };
+    });
+    await expect(t.withIdentity({ subject: "free|s" }).mutation(api.follows.followProduct, { productId })).rejects.toThrow(/Pro feature/);
+    const pro = t.withIdentity({ subject: "pro|s" });
+    await pro.mutation(api.follows.followProduct, { productId, minScore: 75 });
+    expect(await pro.query(api.follows.productFollow, { productId })).toEqual({ minScore: 75 });
+
+    // Next day: two ads for it appear and its score passes 75.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://paws.example.com/products/dog-cooling-mat", aiScore: 90 }));
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://paws.example.com/products/dog-cooling-mat?v=2", aiScore: 85, advertiserName: "Doggo" }));
+    });
+    await runPipeline(t);
+    await t.run((ctx) => ctx.db.patch("products", productId, { aiScore: 80 })); // e.g. after the switch to v2
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await runPipeline(t);
+    const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
+    const titles = notes.map((n) => n.title);
+    expect(titles).toContain("2 new ads for Dog cooling mat");
+    expect(titles).toContain("Dog cooling mat reached a score of 80");
+  });
+});
+
 describe("same-store duplicates", () => {
   it("merges one shop's listing imported under two names and keeps the other name as an alias", async () => {
     const t = convexTest(schema, modules);
@@ -365,7 +394,7 @@ describe("admin", () => {
     const status = await runPipeline(t);
     expect(status?.log?.map((l) => l.stage)).toEqual([
       "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
-      "winners", "snapshotProducts", "snapshotAds", "prune", "lists", "emails", "done",
+      "winners", "snapshotProducts", "snapshotAds", "prune", "alerts", "lists", "emails", "done",
     ]);
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
     expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runFrom, { stage: "winners" })).toEqual({ started: true });

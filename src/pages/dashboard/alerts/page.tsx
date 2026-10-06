@@ -13,6 +13,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AlertPreferencesPanel from "./_components/AlertPreferencesPanel.tsx";
 import FollowingPanel from "./_components/FollowingPanel.tsx";
+import FollowedProductsPanel from "./_components/FollowedProductsPanel.tsx";
 
 type Notification = Doc<"notifications">;
 
@@ -21,6 +22,7 @@ const typeIcons: Record<string, typeof Package> = {
   new_ad: Megaphone,
   store_update: Store,
   advertiser_ads: BellRing,
+  product_follow: BellRing,
 };
 
 function timeAgo(iso: string): string {
@@ -163,6 +165,7 @@ export default function AlertsPage() {
         <div className="space-y-8">
           <AlertPreferencesPanel />
           <FollowingPanel />
+          <FollowedProductsPanel />
           <AlertsFeed />
         </div>
       </Authenticated>

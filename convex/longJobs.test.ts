@@ -30,15 +30,21 @@ describe("long jobs run as short scheduled steps", () => {
     vi.stubEnv("RESEND_API_KEY", "re_test");
     const send = vi.fn(async () => new Response(JSON.stringify({ id: "x" }), { status: 200 }));
     vi.stubGlobal("fetch", send);
+    vi.setSystemTime(new Date("2026-09-02T08:30:00Z")); // 8:30 for UTC users
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
-      await ctx.db.insert("products", product);
+      const productId = await ctx.db.insert("products", product);
+      await ctx.db.insert("winningProducts", { productId, niche: "Pet Supplies", nicheRank: 1, position: 0, score: 80, enteredDay: "2026-09-02" });
       for (let i = 0; i < 250; i++) {
         const userId = await ctx.db.insert("users", { tokenIdentifier: `u${i}`, email: `u${i}@x.com` });
         await ctx.db.insert("alertPreferences", { ...prefs, userId });
       }
     });
-    expect(await t.action(internal.emailSender.sendDailyDigest, {})).toEqual({ sent: 100 });
+    expect(await t.action(internal.emailSender.sendMorningDigests, {})).toEqual({ sent: 100, skipped: 0 });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(send).toHaveBeenCalledTimes(250);
+    // Once a day: the next hourly run sends nothing.
+    await t.action(internal.emailSender.sendMorningDigests, {});
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     expect(send).toHaveBeenCalledTimes(250);
   });
