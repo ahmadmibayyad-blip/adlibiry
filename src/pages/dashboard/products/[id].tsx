@@ -20,6 +20,7 @@ import CountrySaturationCard from "../_components/ai/CountrySaturationCard.tsx";
 import ProductPerformance, { ProductHeadline } from "./_components/ProductPerformance.tsx";
 import AddToShopify from "./_components/AddToShopify.tsx";
 import ProductGallery from "./_components/ProductGallery.tsx";
+import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
 
 const saturationColors: Record<string, string> = {
   Low: "text-good bg-good/10 border-good/20",
@@ -158,10 +159,12 @@ export default function ProductDetail() {
                   {`${product.saturation} saturation`}
                 </span>
               )}
-              <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", trendColors[product.trend])}>
-                <TrendingUp className="w-3 h-3 inline mr-1" />
-                {product.trend}
-              </span>
+              {product.trend !== "Unknown" && (
+                <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", trendColors[product.trend])}>
+                  <TrendingUp className="w-3 h-3 inline mr-1" />
+                  {product.trend}
+                </span>
+              )}
               <span className="text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-full border border-border">
                 {product.category}
               </span>
@@ -187,24 +190,32 @@ export default function ProductDetail() {
               )}
             </div>
             <h1 className="text-2xl font-bold leading-tight mb-2">{product.title}</h1>
+            {product.aliases?.length ? (
+              <p className="text-xs text-muted-foreground mb-2">Also listed as {product.aliases.slice(0, 3).join(", ")}</p>
+            ) : null}
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
           </div>
 
           <ProductHeadline product={product} />
 
           {/* AI Score */}
-          <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-foreground flex flex-col items-center justify-center shrink-0">
-              <span className="font-display text-2xl font-bold leading-none text-background">{product.aiScore}</span>
-              <span className="text-[10px] text-background/70 mt-0.5">of 100</span>
+          <div className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-xl bg-foreground flex flex-col items-center justify-center shrink-0">
+                <span className="font-display text-2xl font-bold leading-none text-background">{product.aiScore}</span>
+                <span className="text-[10px] text-background/70 mt-0.5">of 100</span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold mb-0.5">AdSpy score</div>
+                <p className="text-xs text-muted-foreground">
+                  {product.scoreParts?.v2 !== undefined && product.scoreParts.v2 === product.aiScore
+                    ? "Ad momentum, revenue, trend, competition and margin, ranked against every product we track."
+                    : "Based on the data source's signals: how long the ads have run, their reach and engagement, and sales."}{" "}
+                  Products scoring 65 or more, with real sales and several live ads, can make Winning Products.
+                </p>
+              </div>
             </div>
-            <div>
-              <div className="text-sm font-semibold mb-0.5">AdSpy score</div>
-              <p className="text-xs text-muted-foreground">
-                Based on ad spend, how fast the trend is growing, saturation and margin. Products scoring 65 or more can make
-                Winning Products.
-              </p>
-            </div>
+            <ScoreBreakdown product={product} />
           </div>
 
           {/* Pricing */}
@@ -227,22 +238,17 @@ export default function ProductDetail() {
                   Estimated market price/cost for this category, benchmarked from Amazon listings — not this exact product's real price.
                 </p>
               )}
-              <div className={cn("grid gap-3", margin !== null ? "grid-cols-3" : "grid-cols-2", product.priceSource !== "estimated_market" && "mt-3")}>
+              <div className={cn("grid gap-3", margin !== null ? "grid-cols-3" : hasCost ? "grid-cols-2" : "grid-cols-1", product.priceSource !== "estimated_market" && "mt-3")}>
                 <div className="text-center p-2 bg-muted rounded-lg">
                   <div className="text-lg font-bold">${product.price}</div>
                   <div className="text-xs text-muted-foreground">Sell Price</div>
                 </div>
-                {hasCost ? (
+                {hasCost && (
                   <div className="text-center p-2 bg-muted rounded-lg">
                     <div className="text-lg font-bold">${product.cost}</div>
                     <div className="text-xs text-muted-foreground">
                       {product.source === "nexscope_api" ? "Est. supplier cost" : "AliExpress"}
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-center p-2 bg-muted rounded-lg">
-                    <div className="text-lg font-bold text-muted-foreground">—</div>
-                    <div className="text-xs text-muted-foreground">Cost unknown</div>
                   </div>
                 )}
                 {margin !== null && (
@@ -253,20 +259,18 @@ export default function ProductDetail() {
                 )}
               </div>
             </div>
-          ) : (
+          ) : product.originalPrice ? (
             <div className="bg-card border border-border rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <ShoppingCart className="w-4 h-4 text-primary" />
                 <h3 className="font-semibold text-sm">Pricing</h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                {product.originalPrice
-                  ? `The store sells it for ${product.originalPrice} (we have no USD rate for that currency). `
-                  : "We couldn't read a price from the store's page yet — we check product pages once a day. "}
-                Check the landing page below, then use the profit calculator with your own numbers.
+                The store sells it for {product.originalPrice} (we have no USD rate for that currency). Use the profit calculator
+                with your own numbers.
               </p>
             </div>
-          )}
+          ) : null}
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2">

@@ -46,6 +46,9 @@ const product = (over: Partial<NewProduct>): NewProduct => ({
   ...over,
 });
 
+// Passes the Winning Products gates: ~$10K+/month in sales and 5 live ads.
+const winner = (over: Partial<NewProduct>): NewProduct => product({ price: 50, unitsPerMonth: 1000, adsCount: 5, ...over });
+
 async function runPipeline(t: ReturnType<typeof convexTest>) {
   await t.mutation(internal.productPipeline.start, {});
   await t.finishAllScheduledFunctions(vi.runAllTimers);
@@ -181,11 +184,11 @@ describe("Winning Products", () => {
   it("keeps the top 50 per niche with score 65+, excludes flagged items and mixes niches", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
-      for (let i = 0; i < 55; i++) await ctx.db.insert("products", product({ title: `Home thing ${i}`, category: "Home & Living", aiScore: 99 - (i % 30) }));
-      for (let i = 0; i < 3; i++) await ctx.db.insert("products", product({ title: `Pet thing ${i}`, category: "Pet Supplies", aiScore: 90 - i }));
-      await ctx.db.insert("products", product({ title: "Sporty thing", category: "Sports", aiScore: 80 }));
-      await ctx.db.insert("products", product({ title: "Weak thing", category: "Sports", aiScore: 64 }));
-      await ctx.db.insert("products", product({ title: "Personalized name necklace", category: "Jewelry", aiScore: 95 }));
+      for (let i = 0; i < 55; i++) await ctx.db.insert("products", winner({ title: `Home thing ${i}`, category: "Home & Living", aiScore: 99 - (i % 30) }));
+      for (let i = 0; i < 3; i++) await ctx.db.insert("products", winner({ title: `Pet thing ${i}`, category: "Pet Supplies", aiScore: 90 - i }));
+      await ctx.db.insert("products", winner({ title: "Sporty thing", category: "Sports", aiScore: 80 }));
+      await ctx.db.insert("products", winner({ title: "Weak thing", category: "Sports", aiScore: 64 }));
+      await ctx.db.insert("products", winner({ title: "Personalized name necklace", category: "Jewelry", aiScore: 95 }));
     });
     await runPipeline(t);
 
@@ -209,7 +212,7 @@ describe("Winning Products", () => {
 
   it("clears the rank of products that drop out", async () => {
     const t = convexTest(schema, modules);
-    const id = await t.run((ctx) => ctx.db.insert("products", product({ aiScore: 80 })));
+    const id = await t.run((ctx) => ctx.db.insert("products", winner({ aiScore: 80 })));
     await runPipeline(t);
     expect((await t.run((ctx) => ctx.db.get("products", id)))?.winnerRank).toBe(1);
     await t.run((ctx) => ctx.db.patch("products", id, { aiScore: 50 }));
@@ -217,6 +220,75 @@ describe("Winning Products", () => {
     await runPipeline(t);
     expect((await t.run((ctx) => ctx.db.get("products", id)))?.winnerRank).toBeUndefined();
     expect((await t.query(api.winners.summary, {})).total).toBe(0);
+  });
+});
+
+describe("same-store duplicates", () => {
+  it("merges one shop's listing imported under two names and keeps the other name as an alias", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" });
+      await ctx.db.insert("products", product({ title: "Dog Cooling Mat for Large Dogs", source: "shopify", storeUrl: "https://paws.example.com/products/cool-mat" }));
+      await ctx.db.insert("products", product({ title: "Large dog cooling mat", source: "ads", storeUrl: "https://www.paws.example.com/products/cooling-mat-xl" }));
+      await ctx.db.insert("products", product({ title: "Cat water fountain", source: "ads", storeUrl: "https://paws.example.com/products/fountain" }));
+    });
+    await runPipeline(t); // fills storeHost
+    await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.mergeDuplicatesNow, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.map((p) => p.title).sort()).toEqual(["Cat water fountain", "Dog Cooling Mat for Large Dogs"]);
+    expect(products.find((p) => p.title.startsWith("Dog"))?.aliases).toEqual(["Large dog cooling mat"]);
+  });
+});
+
+describe("winner gates and score v2", () => {
+  it("keeps products without real sales, live ads or room in the market out of Winning Products", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("products", winner({ title: "Real winner", category: "Pet Supplies", aiScore: 90 }));
+      await ctx.db.insert("products", winner({ title: "Tiny sales", category: "Pet Supplies", aiScore: 99, unitsPerMonth: 10 }));
+      await ctx.db.insert("products", winner({ title: "One ad", category: "Pet Supplies", aiScore: 98, adsCount: 1 }));
+      await ctx.db.insert("products", winner({ title: "Crowded", category: "Pet Supplies", aiScore: 97, saturation: "High" }));
+      await ctx.db.insert("products", winner({ title: "Falling", category: "Pet Supplies", aiScore: 96, momentum14: -12 }));
+    });
+    const status = await runPipeline(t);
+    const feed = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 10, cursor: null } });
+    expect(feed.page.map((r) => r.product.title)).toEqual(["Real winner"]);
+    expect(status?.counts.winnersGated).toBe(4);
+  });
+
+  it("scores every product in five parts and reports the v2 distribution without changing live scores", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" });
+      for (let i = 0; i < 40; i++) {
+        await ctx.db.insert("products", product({ title: `Thing ${i}`, aiScore: 99, price: 20 + i, unitsPerMonth: 10 * (i + 1), adsCount: i % 7 }));
+      }
+    });
+    await runPipeline(t);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.every((p) => p.aiScore === 99)).toBe(true); // v1 still live
+    expect(products.every((p) => p.scoreParts && p.scoreParts.v2 !== undefined)).toBe(true);
+    const v2 = products.map((p) => p.scoreParts!.v2!).sort((a, b) => a - b);
+    expect(new Set(v2).size).toBeGreaterThan(10); // spread out, not clustered at 99
+    const admin = t.withIdentity({ subject: "a1|s" });
+    const { model, report } = await admin.query(api.productPipeline.scoreCalibration, {});
+    expect(model).toBe("v1");
+    expect(report?.before.share85).toBe(1);
+    expect(report?.after.share85).toBeLessThan(0.15);
+    expect(report?.after.median).toBeGreaterThanOrEqual(35);
+    expect(report?.after.median).toBeLessThanOrEqual(55);
+
+    // Switching to v2 makes the calibrated scores live; back to v1 restores the importers' scores.
+    await admin.mutation(api.productPipeline.setScoreModel, { model: "v2" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const live = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(live.every((p) => p.aiScore === p.scoreParts!.v2)).toBe(true);
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await admin.mutation(api.productPipeline.setScoreModel, { model: "v1" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const restored = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(restored.every((p) => p.aiScore === 99)).toBe(true);
   });
 });
 
@@ -434,9 +506,9 @@ describe("Winning Products filters", () => {
   it("filters, sorts and pages the list", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
-      await ctx.db.insert("products", product({ title: "Dog cooling mat", category: "Pet Supplies", aiScore: 90, price: 40, cost: 10 }));
-      await ctx.db.insert("products", product({ title: "Cat water fountain", category: "Pet Supplies", aiScore: 80, price: 25, cost: 20 }));
-      await ctx.db.insert("products", product({ title: "Yoga mat", category: "Sports", aiScore: 70, price: 60, cost: 15 }));
+      await ctx.db.insert("products", winner({ title: "Dog cooling mat", category: "Pet Supplies", aiScore: 90, price: 40, cost: 10 }));
+      await ctx.db.insert("products", winner({ title: "Cat water fountain", category: "Pet Supplies", aiScore: 80, price: 25, cost: 20 }));
+      await ctx.db.insert("products", winner({ title: "Yoga mat", category: "Sports", aiScore: 70, price: 60, cost: 15 }));
     });
     await runPipeline(t);
     // A paying account, so paging isn't capped at the free 10.

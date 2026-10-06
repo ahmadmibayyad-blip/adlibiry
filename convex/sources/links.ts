@@ -1,3 +1,4 @@
+import { cleanAdCopy } from "../lib/adCopy";
 import { markStatsDirty } from "../stats";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server";
@@ -42,6 +43,12 @@ export async function upsertAd(
   opts: { refreshFirstSeen?: boolean } = {},
 ): Promise<"created" | "updated"> {
     const { externalId, source, targeting, ...rest } = args;
+    // Copy without page metadata ("Button: Shop Now"…); the CTA goes in its own field.
+    if (rest.bodyText) {
+      const copy = cleanAdCopy(rest.bodyText);
+      rest.bodyText = copy.text;
+      rest.ctaText ||= copy.cta;
+    }
     const fields = defined(rest) as typeof rest;
     const now = new Date().toISOString();
     const link = await ctx.db

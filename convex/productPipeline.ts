@@ -1,4 +1,7 @@
-import { estimateProduct, unitsPerMonthFromText } from "./lib/estimates";
+import { estimateProduct, pointEstimate, unitsPerMonthFromText } from "./lib/estimates";
+import { HISTOGRAM_BINS, binOf, medianOf, percentileOf, rawScore, scoreFromPercentile, scoreParts, shareAtLeast } from "./lib/productScore";
+import { passesWinnerGates } from "./lib/winnerGates";
+import { cleanAdCopy } from "./lib/adCopy";
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireSignedIn } from "./lib/access";
@@ -11,6 +14,7 @@ import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { priceFromAdText, priceLabel, toUsd } from "./lib/priceParse";
 import {
   adSellsProduct, gmvFromText, parseCompact, productFlags, productTitleForAd, roundRobin, saturationFromCompetition, titleKey, urlKey, isProductPage,
+  SAME_TITLE_MIN, storeHost, titleSimilarity,
 } from "./lib/productMatch";
 import { shouldWriteSnapshot } from "./lib/snapshots";
 import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/imageHash";
@@ -31,12 +35,16 @@ export const WINNER_MIN_SCORE = 65;
 export const WINNERS_PER_NICHE = 50;
 const KEEP_DAYS = 90;
 const MAX_ADS_PER_PRODUCT = 200;
+const MAX_WINNER_CANDIDATES = 400; // per niche, so one mutation stays within read limits
 
-type Stage = "keys" | "link" | "aggregate" | "winners" | "snapshotProducts" | "snapshotAds" | "prune" | "done";
+type Stage =
+  | "keys" | "link" | "aggregate" | "calibrateScan" | "calibrateApply" | "winners" | "snapshotProducts" | "snapshotAds" | "prune" | "done";
 const NEXT: Record<Stage, Stage> = {
   keys: "link",
   link: "aggregate",
-  aggregate: "winners",
+  aggregate: "calibrateScan",
+  calibrateScan: "calibrateApply",
+  calibrateApply: "winners",
   winners: "snapshotProducts",
   snapshotProducts: "snapshotAds",
   snapshotAds: "prune",
@@ -51,8 +59,27 @@ type Status = {
   startedAt: string;
   finishedAt?: string;
   error?: string;
-  counts: { productsCreated: number; adsLinked: number; winners: number; snapshots: number; pruned: number };
+  counts: { productsCreated: number; adsLinked: number; winners: number; snapshots: number; pruned: number; winnersGated?: number };
+  calib?: Calibration;
 };
+
+// Score calibration state carried between steps: the histogram of raw scores,
+// live scores before and v2 scores after (0–100), and the top 20 under v2.
+type Calibration = {
+  hist: number[];
+  before: number[];
+  after: number[];
+  top: { id: string; title: string; old: number; next: number }[];
+};
+const zeros = (n: number) => new Array<number>(n).fill(0);
+const score100 = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
+
+// Which score model is live: "v1" (old per-source scores) until an admin
+// switches to "v2" after reviewing the calibration report.
+async function scoreModel(ctx: MutationCtx): Promise<"v1" | "v2"> {
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "scoreModel")).unique();
+  return (doc?.data as { model?: string } | undefined)?.model === "v2" ? "v2" : "v1";
+}
 
 const today = () => new Date().toISOString().slice(0, 10);
 const dayMinus = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
@@ -129,6 +156,7 @@ export const step = internalMutation({
     const status = await readStatus(ctx);
     if (!status || status.data.state !== "running" || status.data.day !== args.day) return; // cancelled or superseded
     const counts = { ...status.data.counts };
+    let calib = status.data.calib;
     let done = true;
     let cursor: string | null = null;
 
@@ -143,6 +171,7 @@ export const step = internalMutation({
           const next = {
             urlKey: urlKey(pageUrl) ?? undefined,
             titleKey: titleKey(p.title) ?? undefined,
+            storeHost: storeHost(p.storeUrl || p.supplierUrl) ?? undefined,
             marginPercent: margin,
             ...flags,
           };
@@ -154,6 +183,12 @@ export const step = internalMutation({
         const page = await ctx.db.query("ads").paginate({ numItems: 150, cursor: args.cursor });
         let created = 0;
         for (const ad of page.page) {
+          // Older ads still carry page metadata in their copy: clean it once.
+          const copy = cleanAdCopy(ad.bodyText);
+          if (copy.text !== ad.bodyText || (copy.cta && !ad.ctaText)) {
+            await ctx.db.patch("ads", ad._id, { bodyText: copy.text, ...(copy.cta && !ad.ctaText ? { ctaText: copy.cta } : {}) });
+            ad.bodyText = copy.text;
+          }
           const r = await linkAd(ctx, ad);
           if (r === "created") created++;
           if (r !== "skipped") counts.adsLinked++;
@@ -167,14 +202,54 @@ export const step = internalMutation({
         // step reads at most ~2,000 ads, well inside a mutation's 16 MiB limit
         // (40 per step could reach 8,000).
         const page = await ctx.db.query("products").paginate({ numItems: 10, cursor: args.cursor });
+        const model = await scoreModel(ctx);
         for (const p of page.page) {
-          if (p.adIds?.length || p.linkedAds) await aggregate(ctx, p, args.day);
+          if (p.adIds?.length || p.linkedAds) await aggregate(ctx, p, args.day, model);
           else await applyEstimates(ctx, p);
         }
         done = page.isDone;
         cursor = page.continueCursor;
+      } else if (stage === "calibrateScan") {
+        // Histogram of every product's raw v2 score (and of the live scores).
+        calib ??= { hist: zeros(HISTOGRAM_BINS), before: zeros(101), after: zeros(101), top: [] };
+        const page = await ctx.db.query("products").paginate({ numItems: 500, cursor: args.cursor });
+        for (const p of page.page) {
+          if (!p.scoreParts) continue;
+          calib.hist[binOf(p.scoreParts.raw)]++;
+          calib.before[score100(p.aiScore)]++;
+        }
+        done = page.isDone;
+        cursor = page.continueCursor;
+      } else if (stage === "calibrateApply") {
+        // Each product's percentile → its v2 score; live in aiScore under v2.
+        calib ??= { hist: zeros(HISTOGRAM_BINS), before: zeros(101), after: zeros(101), top: [] };
+        const model = await scoreModel(ctx);
+        const page = await ctx.db.query("products").paginate({ numItems: 200, cursor: args.cursor });
+        for (const p of page.page) {
+          if (!p.scoreParts) continue;
+          const next = scoreFromPercentile(percentileOf(p.scoreParts.raw, calib.hist));
+          calib.after[next]++;
+          const patch: Partial<Doc<"products">> = {};
+          if (p.scoreParts.v2 !== next) patch.scoreParts = { ...p.scoreParts, v2: next };
+          if (model === "v2" && p.aiScore !== next) patch.aiScore = next;
+          // Switched back to v1: give imported products their importer's score again.
+          if (model === "v1" && p.source !== "ads" && p.aiScore === p.scoreParts.v2 && p.aiScore !== p.scoreParts.source) {
+            patch.aiScore = p.scoreParts.source;
+          }
+          if (Object.keys(patch).length) await ctx.db.patch("products", p._id, patch);
+          if (calib.top.length < 20 || next > calib.top[calib.top.length - 1].next) {
+            calib.top = [...calib.top, { id: p._id, title: p.title.slice(0, 80), old: score100(p.aiScore), next }]
+              .sort((a, b) => b.next - a.next)
+              .slice(0, 20);
+          }
+        }
+        done = page.isDone;
+        cursor = page.continueCursor;
+        if (done) await writeCalibrationReport(ctx, args.day, model, calib);
       } else if (stage === "winners") {
-        counts.winners = await rebuildWinners(ctx, args.day);
+        const w = await rebuildWinners(ctx, args.day);
+        counts.winners = w.winners;
+        counts.winnersGated = w.gated;
       } else if (stage === "snapshotProducts") {
         const page = await ctx.db.query("products").paginate({ numItems: 200, cursor: args.cursor });
         for (const p of page.page) {
@@ -214,6 +289,7 @@ export const step = internalMutation({
       await writeStatus(ctx, {
         ...status.data,
         counts,
+        calib: undefined,
         state: "error",
         error: `${stage}: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
         finishedAt: new Date().toISOString(),
@@ -223,14 +299,14 @@ export const step = internalMutation({
 
     const nextStage = done ? NEXT[stage] : stage;
     if (nextStage === "done") {
-      await writeStatus(ctx, { ...status.data, counts, stage: "done", state: "done", finishedAt: new Date().toISOString() });
+      await writeStatus(ctx, { ...status.data, counts, calib: undefined, stage: "done", state: "done", finishedAt: new Date().toISOString() });
       // Then look up prices for products that have none (network, so an action).
       await ctx.scheduler.runAfter(0, internal.priceFetch.run, { round: 0 });
       // And the Research tab (trending keywords, niches) from today's data.
       await ctx.scheduler.runAfter(0, internal.research.rebuild, {});
       return;
     }
-    await writeStatus(ctx, { ...status.data, counts, stage: nextStage });
+    await writeStatus(ctx, { ...status.data, counts, calib, stage: nextStage });
     await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: nextStage, cursor: done ? null : cursor, day: args.day });
   },
 });
@@ -261,6 +337,7 @@ export async function linkAd(ctx: MutationCtx, ad: Doc<"ads">): Promise<"created
   if (uk) product = await ctx.db.query("products").withIndex("by_url_key", (q) => q.eq("urlKey", uk)).first();
   if (!product && tk) product = await ctx.db.query("products").withIndex("by_title_key", (q) => q.eq("titleKey", tk)).first();
   if (!product && isUsableHash(ad.imageHash)) product = (await sameImageProducts(ctx, ad.imageHash))[0] ?? null;
+  if (!product) product = (await sameStoreProducts(ctx, storeHost(ad.landingPageUrl), title))[0] ?? null;
   // No match, but already attached (e.g. moved here when duplicates were merged): stay.
   if (!product && ad.productId) product = await ctx.db.get("products", ad.productId);
 
@@ -329,6 +406,42 @@ export const mergeDuplicatesNow = mutation({
   },
 });
 
+// ── Score model v2: review, then switch ─────────────────────────────────────
+
+export type CalibrationReport = {
+  day: string;
+  model: "v1" | "v2";
+  total: number;
+  before: { share85: number; share70: number; median: number; buckets: number[] };
+  after: { share85: number; share70: number; median: number; buckets: number[] };
+  top: { id: string; title: string; old: number; next: number }[];
+};
+
+export const scoreCalibration = query({
+  args: {},
+  handler: async (ctx): Promise<{ model: "v1" | "v2"; report: CalibrationReport | null }> => {
+    await requireAdmin(ctx);
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "scoreCalibration")).unique();
+    const model = (await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "scoreModel")).unique())?.data as
+      | { model?: string }
+      | undefined;
+    return { model: model?.model === "v2" ? "v2" : "v1", report: (doc?.data as CalibrationReport | undefined) ?? null };
+  },
+});
+
+// Switches the live score model and re-runs the pipeline so it applies now.
+export const setScoreModel = mutation({
+  args: { model: v.union(v.literal("v1"), v.literal("v2")) },
+  handler: async (ctx, args): Promise<{ started: boolean }> => {
+    await requireAdmin(ctx);
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "scoreModel")).unique();
+    const data = { model: args.model, since: new Date().toISOString() };
+    if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt: data.since });
+    else await ctx.db.insert("siteStats", { key: "scoreModel", data, updatedAt: data.since });
+    return { started: await begin(ctx) };
+  },
+});
+
 export const dedupStatus = query({
   args: {},
   handler: async (ctx) => {
@@ -341,18 +454,18 @@ export const dedupStatus = query({
 export const mergeDuplicatesStep = internalMutation({
   args: { cursor: v.union(v.string(), v.null()), merged: v.number(), startedAt: v.string() },
   handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query("products")
-      .withIndex("by_image_hash", (q) => q.gt("imageHash", ""))
-      .paginate({ numItems: 50, cursor: args.cursor }); // each looks up to 40 candidates
+    const page = await ctx.db.query("products").paginate({ numItems: 50, cursor: args.cursor }); // each looks up to ~65 candidates
     let merged = 0;
-    // Each product's near matches are looked up across the whole table; a
-    // group met again later (same page or next) is down to one row by then.
+    // Each product's matches (same image, or same store + same title) are
+    // looked up across the whole table; a group met again later is down to
+    // one row by then.
     for (const { _id } of page.page) {
       const p = await ctx.db.get("products", _id);
-      if (!p || !isUsableHash(p.imageHash)) continue; // already merged away
-      const group = await sameImageProducts(ctx, p.imageHash);
-      if (group.length > 1) merged += await mergeGroup(ctx, group);
+      if (!p) continue; // already merged away
+      const found = new Map<string, Doc<"products">>([[p._id, p]]);
+      if (isUsableHash(p.imageHash)) for (const m of await sameImageProducts(ctx, p.imageHash)) found.set(m._id, m);
+      for (const m of await sameStoreProducts(ctx, p.storeHost ?? null, p.title)) found.set(m._id, m);
+      if (found.size > 1) merged += await mergeGroup(ctx, [...found.values()]);
     }
     if (merged) await markStatsDirty(ctx);
     const total = args.merged + merged;
@@ -381,6 +494,16 @@ async function sameImageProducts(ctx: MutationCtx, hash: string): Promise<Doc<"p
   return [...found.values()].sort((a, b) => a._creationTime - b._creationTime);
 }
 
+// Products from the same shop with (nearly) the same title: one listing
+// imported twice under slightly different names.
+async function sameStoreProducts(ctx: MutationCtx, host: string | null, title: string): Promise<Doc<"products">[]> {
+  if (!host) return [];
+  const sameShop = await ctx.db.query("products").withIndex("by_store_host", (q) => q.eq("storeHost", host)).take(25);
+  return sameShop
+    .filter((c) => [c.title, ...(c.aliases ?? [])].some((t) => titleSimilarity(t, title) >= SAME_TITLE_MIN))
+    .sort((a, b) => a._creationTime - b._creationTime);
+}
+
 // Keeps one product of a same-image group and folds the others into it:
 // their ads, saved-list entries and any price or cost the keeper lacks.
 // Returns how many products were removed.
@@ -395,6 +518,9 @@ async function mergeGroup(ctx: MutationCtx, group: Doc<"products">[]): Promise<n
   );
   const [keep, ...rest] = sorted;
   const adIds = new Set(keep.adIds ?? []);
+  // The other names stay findable as aliases.
+  const aliases = new Set(keep.aliases ?? []);
+  for (const dup of rest) for (const t of [dup.title, ...(dup.aliases ?? [])]) if (t && t !== keep.title) aliases.add(t);
   const fill: Partial<Doc<"products">> = {};
   for (const dup of rest) {
     for (const ad of await ctx.db.query("ads").withIndex("by_product", (q) => q.eq("productId", dup._id)).take(MAX_ADS_PER_PRODUCT)) {
@@ -422,13 +548,13 @@ async function mergeGroup(ctx: MutationCtx, group: Doc<"products">[]): Promise<n
     await ctx.db.delete("products", dup._id);
   }
   const ids = [...adIds].slice(-MAX_ADS_PER_PRODUCT);
-  await ctx.db.patch("products", keep._id, { ...fill, adIds: ids, linkedAds: ids.length });
+  await ctx.db.patch("products", keep._id, { ...fill, adIds: ids, linkedAds: ids.length, aliases: [...aliases].slice(0, 10) });
   return rest.length;
 }
 
 // Adds up a product's ads. Products that exist only because of ads ("ads"
 // source) also take their score, likes, image and trend from them.
-export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: string) {
+export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: string, model: "v1" | "v2" = "v1") {
   const ads = (await Promise.all((p.adIds ?? []).map((id) => ctx.db.get("ads", id)))).filter(
     (a): a is Doc<"ads"> => !!a && a.productId === p._id,
   );
@@ -478,9 +604,21 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
   // product. Products made from ads always use it; others only fill an "Unknown".
   const advertisers = new Set(ads.map((a) => a.advertiserName.trim().toLowerCase()).filter(Boolean));
   if (advertisers.size && (p.source === "ads" || p.saturation === "Unknown")) patch.saturation = saturationFromCompetition(advertisers.size);
+  // Ads running now: not marked stopped and seen in the last 14 days.
+  const dayMs = Date.parse(`${day}T00:00:00Z`);
+  const running = ads.filter((a) => a.isActive !== false && (!a.lastSeenAt || dayMs - Date.parse(a.lastSeenAt) <= 14 * 86_400_000));
+  patch.activeAds = Math.max(running.length, p.source === "ads" ? 0 : (p.adsCount ?? 0));
+  // Views change over 14 days (winner gate), from the history rows.
+  const twoWeeksAgo = await ctx.db
+    .query("dailySnapshots")
+    .withIndex("by_entity_day", (q) => q.eq("kind", "product").eq("entityId", p._id).lte("day", dayMinus(day, 14)))
+    .order("desc")
+    .first();
+  patch.momentum14 = twoWeeksAgo && twoWeeksAgo.views > 0 ? Math.round(((sum.views - twoWeeksAgo.views) / twoWeeksAgo.views) * 1000) / 10 : undefined;
   if (p.source === "ads" && ads.length) {
-    // More ads for the same product = the seller is scaling it.
-    patch.aiScore = Math.min(100, best + 3 * (ads.length - 1));
+    // Old model (v1): more ads for the same product = the seller is scaling it.
+    // Under v2 the calibration stage writes the score instead.
+    if (model === "v1") patch.aiScore = Math.min(100, best + 3 * (ads.length - 1));
     patch.likes = sum.likes;
     if (!p.imageUrl) patch.imageUrl = ads.find((a) => a.creativeUrl)?.creativeUrl ?? "";
     // The numbers as of a week ago: the latest row on or before that day (rows
@@ -496,7 +634,38 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
       patch.growthPercent = Math.round(growth * 1000) / 10;
     }
   }
-  await ctx.db.patch("products", p._id, { ...patch, ...estimatesFor({ ...p, ...patch }, sum) });
+  const est = estimatesFor({ ...p, ...patch }, sum);
+  const days = ads.map((a) => a.daysRunning).filter((d) => d > 0).sort((a, b) => a - b);
+  const parts = scorePartsFor({ ...p, ...patch, ...est }, {
+    medianDaysRunning: days.length ? days[Math.floor(days.length / 2)] : undefined,
+    sourceScore: p.source === "ads" ? best : importerScore(p),
+  });
+  await ctx.db.patch("products", p._id, { ...patch, ...est, scoreParts: parts });
+}
+
+// The score the importer gave a product. Once v2 scores are live, aiScore is
+// our own calibrated score, so the importer's is the one kept in scoreParts.
+function importerScore(p: Doc<"products">): number {
+  return p.scoreParts?.v2 !== undefined && p.aiScore === p.scoreParts.v2 ? p.scoreParts.source : p.aiScore;
+}
+
+// The five score parts and raw score (lib/productScore.ts); keeps the last v2
+// score until the calibration stage updates it.
+function scorePartsFor(
+  p: Doc<"products">,
+  extra: { medianDaysRunning?: number; sourceScore: number },
+): NonNullable<Doc<"products">["scoreParts"]> {
+  const parts = scoreParts({
+    activeAds: p.activeAds ?? p.adsCount ?? 0,
+    medianDaysRunning: extra.medianDaysRunning,
+    sourceScore: extra.sourceScore,
+    revenuePerMonth: pointEstimate(p.estRevenue),
+    growthPercent: p.growthPercent,
+    trend: p.trend,
+    saturation: p.saturation,
+    marginPercent: p.marginPercent,
+  });
+  return { ...parts, raw: rawScore(parts), source: extra.sourceScore, ...(p.scoreParts?.v2 !== undefined ? { v2: p.scoreParts.v2 } : {}) };
 }
 
 // Modelled impressions / ad spend / monthly revenue (lib/estimates.ts) from
@@ -525,25 +694,62 @@ function estimatesFor(
 }
 
 async function applyEstimates(ctx: MutationCtx, p: Doc<"products">) {
-  const patch = estimatesFor(p);
+  const est = estimatesFor(p);
+  const patch: Partial<Doc<"products">> = { ...est, scoreParts: scorePartsFor({ ...p, ...est }, { sourceScore: importerScore(p) }) };
   const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-  if (same(patch.estImpressions, p.estImpressions) && same(patch.estRevenue, p.estRevenue) && same(patch.estAdSpend, p.estAdSpend) && same(patch.unitsPerMonth, p.unitsPerMonth)) return;
+  if ((Object.keys(patch) as (keyof typeof patch)[]).every((k) => same(patch[k], p[k]))) return;
   await ctx.db.patch("products", p._id, patch);
+}
+
+async function writeCalibrationReport(ctx: MutationCtx, day: string, model: "v1" | "v2", c: Calibration) {
+  const data = {
+    day,
+    model,
+    total: c.after.reduce((a, b) => a + b, 0),
+    before: { share85: shareAtLeast(c.before, 85), share70: shareAtLeast(c.before, 70), median: medianOf(c.before), buckets: buckets(c.before) },
+    after: { share85: shareAtLeast(c.after, 85), share70: shareAtLeast(c.after, 70), median: medianOf(c.after), buckets: buckets(c.after) },
+    top: c.top,
+  };
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "scoreCalibration")).unique();
+  const updatedAt = new Date().toISOString();
+  if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
+  else await ctx.db.insert("siteStats", { key: "scoreCalibration", data, updatedAt });
+}
+
+// 0-9, 10-19 ... 90-100 counts for the report.
+function buckets(h: number[]): number[] {
+  const out = zeros(10);
+  h.forEach((n, s) => (out[Math.min(9, Math.floor(s / 10))] += n));
+  return out;
 }
 
 // Winning Products: per niche, the top 50 by score (65+), without big
 // brands, personalised / print-on-demand items and services; then dealt out
 // round-robin so the feed alternates niches. Never padded with weaker ones.
-export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<number> {
+export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<{ winners: number; gated: number }> {
   const perNiche: { niche: string; products: Doc<"products">[] }[] = [];
+  let gated = 0;
   for (const niche of NICHES) {
     const top: Doc<"products">[] = [];
     const candidates = ctx.db
       .query("products")
       .withIndex("by_category_score", (q) => q.eq("category", niche).gte("aiScore", WINNER_MIN_SCORE))
       .order("desc");
+    let scanned = 0;
     for await (const p of candidates) {
+      if (++scanned > MAX_WINNER_CANDIDATES) break;
       if (p.isBigBrand || p.isPersonalised || p.isService || !p.imageUrl) continue;
+      // A high score isn't enough: real sales, live ads, momentum, room left (lib/winnerGates.ts).
+      const gate = passesWinnerGates({
+        revenuePerMonth: pointEstimate(p.estRevenue),
+        activeAds: p.activeAds ?? p.adsCount ?? 0,
+        momentum14: p.momentum14,
+        saturation: p.saturation,
+      });
+      if (!gate.ok) {
+        gated++;
+        continue;
+      }
       top.push(p);
       if (top.length >= WINNERS_PER_NICHE) break;
     }
@@ -573,7 +779,7 @@ export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<num
     });
     if (f.p.winnerRank !== f.rank) await ctx.db.patch("products", f.p._id, { winnerRank: f.rank });
   }
-  return feed.length;
+  return { winners: feed.length, gated };
 }
 
 type SnapshotValues = Omit<Doc<"dailySnapshots">, "_id" | "_creationTime" | "day" | "kind" | "entityId">;
