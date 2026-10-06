@@ -1,124 +1,81 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Check, Zap, Loader2 } from "lucide-react";
+import { Check, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
-import { useAction } from "convex/react";
-import { api } from "@/convex/_generated/api.js";
-import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { SignInButton } from "@/components/ui/signin.tsx";
+import { useUserPlan } from "@/hooks/use-user-plan.ts";
+import ProCheckoutDialog from "@/components/billing/ProCheckoutDialog.tsx";
+import { PRO_PRICE_EUR, PRO_YEARLY_PER_MONTH_EUR, PRO_YEARLY_TOTAL_EUR, type BillingPeriod } from "@/lib/stripe.ts";
+
+const FREE_LIMIT = 10;
 
 const plans = [
   {
-    name: "Starter",
-    monthlyVariant: "var_starter_monthly",
-    yearlyVariant: "var_starter_yearly",
-    monthlyPrice: 29,
-    yearlyPrice: 166, // 19900 cents / 12 months display
-    description: "Perfect for beginners finding their first winning products.",
+    id: "free",
+    name: "Free",
+    price: 0,
+    description: "Try AdSpy Pro and see how it works.",
     features: [
-      "50 products discovered / day",
-      "Basic ad spy (Facebook EU/UK)",
-      "5 competitor store trackers",
-      "Google Trends access",
-      "AliExpress sourcing",
-      "Profit margin calculator",
+      `First ${FREE_LIMIT} results of every list`,
+      "Ad Spy: Facebook, Instagram and TikTok ads",
+      "Winning products and store tracker",
+      "Save ads and products",
     ],
-    missing: ["AI product scoring", "Unlimited searches", "Real-time alerts"],
-    cta: "Start Free Trial",
+    missing: ["Every result, no limits"],
     popular: false,
-    featureId: "feat_starter",
   },
   {
+    id: "pro",
     name: "Pro",
-    monthlyVariant: "var_pro_monthly",
-    yearlyVariant: "var_pro_yearly",
-    monthlyPrice: 79,
-    yearlyPrice: 569,
-    description: "For serious sellers scaling to 6 figures and beyond.",
+    price: PRO_PRICE_EUR,
+    description: "Everything unlocked for serious sellers.",
     features: [
-      "Unlimited product research",
-      "Full ad spy — all platforms",
-      "Unlimited store trackers",
-      "AI product scoring (0–100)",
-      "AI ad angle generator",
-      "Real-time competitor alerts",
-      "Creative library (save ads)",
-      "Saturation score per product",
+      "Every result in every list, no limits",
+      "Full Ad Spy on all platforms",
+      "All winning products, stores and trends",
+      "AI tools and alerts",
       "Priority support",
     ],
     missing: [],
-    cta: "Start Free Trial",
     popular: true,
-    featureId: "feat_pro",
-  },
-  {
-    name: "Agency",
-    monthlyVariant: "var_agency_monthly",
-    yearlyVariant: "var_agency_yearly",
-    monthlyPrice: 199,
-    yearlyPrice: 1439,
-    description: "For teams and agencies managing multiple brands.",
-    features: [
-      "Everything in Pro",
-      "5 team member seats",
-      "White-label reports",
-      "API access",
-      "Dedicated account manager",
-      "Custom alerts & integrations",
-      "Bulk product export",
-    ],
-    missing: [],
-    cta: "Start Free Trial",
-    popular: false,
-    featureId: "feat_agency",
   },
 ];
 
-function PlanButton({ variantId, cta, popular }: { variantId: string; cta: string; popular: boolean }) {
-  const createCheckout = useAction(api.commerce.createCheckout);
-  const [loading, setLoading] = useState(false);
+const buttonClass = (popular: boolean) =>
+  cn(
+    "w-full mb-6 font-semibold",
+    popular ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-secondary text-secondary-foreground hover:bg-muted",
+  );
 
-  const handleCheckout = async () => {
-    setLoading(true);
-    try {
-      const result = await createCheckout({
-        variantId,
-        successUrl: window.location.origin + "/dashboard",
-        cancelUrl: window.location.href,
-      });
-      if (result.url) window.open(result.url, "_blank");
-    } catch {
-      toast.error("Failed to start checkout. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+function ProButton({ period }: { period: BillingPeriod }) {
+  const { isPro, isLoading } = useUserPlan();
+  const [open, setOpen] = useState(false);
+  if (isPro) {
+    return (
+      <Button asChild variant="secondary" className={buttonClass(false)}>
+        <Link to="/dashboard">You're on Pro · Open dashboard</Link>
+      </Button>
+    );
+  }
   return (
-    <Button
-      onClick={handleCheckout}
-      disabled={loading}
-      className={cn(
-        "w-full mb-6 font-semibold",
-        popular
-          ? "bg-primary text-primary-foreground hover:opacity-90"
-          : "bg-secondary text-secondary-foreground hover:bg-muted"
-      )}
-    >
-      {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-      {cta}
-    </Button>
+    <>
+      <Button onClick={() => setOpen(true)} disabled={isLoading} className={buttonClass(true)}>
+        Upgrade to Pro
+      </Button>
+      <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />
+    </>
   );
 }
 
 export default function Pricing() {
   const [yearly, setYearly] = useState(false);
-
+  const period: BillingPeriod = yearly ? "yearly" : "monthly";
   return (
     <section id="pricing" className="py-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -126,56 +83,43 @@ export default function Pricing() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
-            Simple, Transparent Pricing
-          </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
-            No Hidden Fees.
-            <span className="text-primary"> Cancel Anytime.</span>
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
-            7-day free trial on all plans. No credit card required to start. See exactly what you get before paying.
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">Simple pricing</h2>
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+            Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
+            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly.
           </p>
-
-          {/* Toggle */}
-          <div className="inline-flex items-center gap-3 bg-card border border-border rounded-full p-1">
-            <button
-              onClick={() => setYearly(false)}
-              className={cn(
-                "px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer",
-                !yearly ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setYearly(true)}
-              className={cn(
-                "px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer flex items-center gap-2",
-                yearly ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Yearly
-              <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-bold", yearly ? "bg-primary-foreground/20 text-primary-foreground" : "bg-green-400/10 text-green-400")}>
-                -40%
-              </span>
-            </button>
+          <div className="inline-flex items-center gap-1 bg-card border border-border rounded-full p-1 mt-8">
+            {(["monthly", "yearly"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setYearly(p === "yearly")}
+                className={cn(
+                  "px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer flex items-center gap-2 capitalize",
+                  period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {p}
+                {p === "yearly" && (
+                  <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-bold", yearly ? "bg-primary-foreground/20" : "bg-good/10 text-good")}>
+                    Save €{PRO_PRICE_EUR * 12 - PRO_YEARLY_TOTAL_EUR}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           {plans.map((plan, i) => (
             <motion.div
-              key={plan.name}
+              key={plan.id}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
               className={cn(
                 "relative rounded-2xl border p-7 flex flex-col",
-                plan.popular
-                  ? "border-primary bg-gradient-to-b from-primary/10 to-card shadow-xl shadow-primary/10"
-                  : "border-border bg-card"
+                plan.popular ? "border-primary bg-gradient-to-b from-primary/10 to-card shadow-xl shadow-primary/10" : "border-border bg-card",
               )}
             >
               {plan.popular && (
@@ -191,35 +135,26 @@ export default function Pricing() {
                 <h3 className="text-lg font-bold mb-1">{plan.name}</h3>
                 <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold">
-                    ${yearly ? Math.round(plan.yearlyPrice / 12) : plan.monthlyPrice}
-                  </span>
-                  <span className="text-muted-foreground text-sm">/mo</span>
+                  <span className="text-4xl font-extrabold">€{plan.id === "pro" && yearly ? PRO_YEARLY_PER_MONTH_EUR : plan.price}</span>
+                  <span className="text-muted-foreground text-sm">/month</span>
                 </div>
-                {yearly && (
-                  <div className="text-xs text-green-400 mt-1">
-                    Billed ${plan.yearlyPrice}/year · Save ${(plan.monthlyPrice * 12) - plan.yearlyPrice}/yr
-                  </div>
+                {plan.id === "pro" && yearly && (
+                  <div className="text-xs text-good mt-1">Billed €{PRO_YEARLY_TOTAL_EUR} once a year</div>
                 )}
               </div>
 
               <Authenticated>
-                <PlanButton
-                  variantId={yearly ? plan.yearlyVariant : plan.monthlyVariant}
-                  cta={plan.cta}
-                  popular={plan.popular}
-                />
+                {plan.id === "pro" ? (
+                  <ProButton period={period} />
+                ) : (
+                  <Button asChild className={buttonClass(false)}>
+                    <Link to="/dashboard">Open dashboard</Link>
+                  </Button>
+                )}
               </Authenticated>
               <Unauthenticated>
-                <SignInButton
-                  className={cn(
-                    "w-full mb-6 font-semibold",
-                    plan.popular
-                      ? "bg-primary text-primary-foreground hover:opacity-90"
-                      : "bg-secondary text-secondary-foreground hover:bg-muted"
-                  )}
-                >
-                  Sign In to Start
+                <SignInButton className={buttonClass(plan.popular)}>
+                  {plan.id === "pro" ? "Sign in to upgrade" : "Start free"}
                 </SignInButton>
               </Unauthenticated>
 
@@ -241,14 +176,13 @@ export default function Pricing() {
           ))}
         </div>
 
-        {/* Trust note */}
         <motion.p
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           className="text-center text-sm text-muted-foreground mt-8"
         >
-          All plans renew automatically. Cancel before renewal to avoid charges. Renewal date always visible in your dashboard.
+          Pro renews automatically each month or year until you turn it off in Settings. Payments by Stripe.
         </motion.p>
       </div>
     </section>

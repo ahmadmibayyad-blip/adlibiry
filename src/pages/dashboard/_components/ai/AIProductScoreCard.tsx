@@ -16,9 +16,9 @@ type ScoreResult = {
 };
 
 function scoreColor(score: number) {
-  if (score >= 85) return "text-green-400";
-  if (score >= 70) return "text-yellow-400";
-  return "text-red-400";
+  if (score >= 85) return "text-good";
+  if (score >= 70) return "text-warn";
+  return "text-bad";
 }
 
 export default function AIProductScoreCard({
@@ -80,13 +80,13 @@ export default function AIProductScoreCard({
             </div>
             {result.strengths.length > 0 && (
               <div>
-                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-green-400">
+                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-good">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Strengths
                 </div>
                 <ul className="space-y-1">
                   {result.strengths.map((s, i) => (
-                    <li key={i} className="text-xs text-muted-foreground pl-4 relative before:content-['•'] before:absolute before:left-0.5 before:text-green-400">
+                    <li key={i} className="text-xs text-muted-foreground pl-4 relative before:content-['•'] before:absolute before:left-0.5 before:text-good">
                       {s}
                     </li>
                   ))}
@@ -95,13 +95,13 @@ export default function AIProductScoreCard({
             )}
             {result.risks.length > 0 && (
               <div>
-                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-yellow-400">
+                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-warn">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   Risks
                 </div>
                 <ul className="space-y-1">
                   {result.risks.map((r, i) => (
-                    <li key={i} className="text-xs text-muted-foreground pl-4 relative before:content-['•'] before:absolute before:left-0.5 before:text-yellow-400">
+                    <li key={i} className="text-xs text-muted-foreground pl-4 relative before:content-['•'] before:absolute before:left-0.5 before:text-warn">
                       {r}
                     </li>
                   ))}

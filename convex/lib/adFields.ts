@@ -17,6 +17,7 @@ export const richAdFields = {
   relatedAdsCount: v.optional(v.number()),
   language: v.optional(v.string()),
   adLibraryUrl: v.optional(v.string()),
+  gmv: v.optional(v.number()),
   audience: v.optional(
     v.object({
       totalReach: v.optional(v.number()),

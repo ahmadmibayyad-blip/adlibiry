@@ -26,13 +26,21 @@ export const adFields = {
   ...richAdFields,
 };
 
+const REQUIRED_TEXT_DEFAULTS = { headline: "", bodyText: "", creativeUrl: "", landingPageUrl: "", spendEstimate: "Unknown", views: "0" };
+
 // Insert or update one ad coming from Nexscope or Apify. On repeat sightings
 // metrics (likes, views, days running, score) refresh; the original
 // first-seen date and any enriched targeting are kept.
 const adArgs = v.object(adFields);
 export type ExternalAd = Infer<typeof adArgs>;
 
-export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"created" | "updated"> {
+// `refreshFirstSeen` lets a re-import overwrite the stored first-seen date
+// (admin CSV uploads, whose earlier versions back-dated it).
+export async function upsertAd(
+  ctx: MutationCtx,
+  args: ExternalAd,
+  opts: { refreshFirstSeen?: boolean } = {},
+): Promise<"created" | "updated"> {
     const { externalId, source, targeting, ...rest } = args;
     const fields = defined(rest) as typeof rest;
     const now = new Date().toISOString();
@@ -46,7 +54,7 @@ export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"cre
       if (existing) {
         await ctx.db.patch("ads", adId, {
           ...fields,
-          firstSeenAt: existing.firstSeenAt,
+          firstSeenAt: opts.refreshFirstSeen ? fields.firstSeenAt : existing.firstSeenAt,
           ...(targeting ? { targeting } : {}),
           source,
         });
@@ -57,6 +65,8 @@ export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"cre
     }
     await markStatsDirty(ctx);
     const adId = await ctx.db.insert("ads", {
+      // defined() drops empty strings; the ads table still needs these.
+      ...REQUIRED_TEXT_DEFAULTS,
       ...fields,
       externalKey: externalId,
       targeting: targeting ?? { ageRange: "Unknown", gender: "All", interests: [] },
@@ -69,6 +79,24 @@ export async function upsertAd(ctx: MutationCtx, args: ExternalAd): Promise<"cre
 export const upsertExternalAd = internalMutation({
   args: adFields,
   handler: async (ctx, args): Promise<"created" | "updated"> => upsertAd(ctx, args),
+});
+
+// Same as upsertExternalAd for a batch, so big imports make one call per 50 ads
+// instead of one per ad. A bad ad is reported, not fatal to its batch.
+export const upsertExternalAds = internalMutation({
+  args: { ads: v.array(adArgs) },
+  handler: async (ctx, args): Promise<{ created: number; updated: number; errors: string[] }> => {
+    const out = { created: 0, updated: 0, errors: [] as string[] };
+    for (const ad of args.ads) {
+      try {
+        if ((await upsertAd(ctx, ad)) === "created") out.created += 1;
+        else out.updated += 1;
+      } catch (e) {
+        out.errors.push(`save ${ad.externalId}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return out;
+  },
 });
 
 export const upsertExternalStore = internalMutation({

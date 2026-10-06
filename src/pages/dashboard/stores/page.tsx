@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import { Store, Search, Sparkles, TrendingUp, Bookmark, Scale, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
-import type { Doc } from "@/convex/_generated/dataModel.d.ts";
+import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import StoreCard, { StoreCardSkeleton } from "./_components/StoreCard.tsx";
 import StoreDetailModal from "./_components/StoreDetailModal.tsx";
 import StoreCompareModal from "./_components/StoreCompareModal.tsx";
@@ -17,6 +18,8 @@ import FilterSelect from "@/components/FilterSelect.tsx";
 import FilterNumberInput from "@/components/FilterNumberInput.tsx";
 import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
+import { storeImage } from "@/lib/storeImage.ts";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -40,8 +43,22 @@ export default function StoreTrackerPage() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [showWatchlist, setShowWatchlist] = useState(false);
 
+  // Alerts link to /dashboard/stores?store=<id>: open that store's popup.
+  const [params, setParams] = useSearchParams();
+  const linkedId = /^[a-z0-9]{20,40}$/.test(params.get("store") ?? "") ? params.get("store") : null;
+  const linkedStore = useQuery(api.stores.getById, linkedId ? { id: linkedId as Id<"stores"> } : "skip");
+  const closeLinked = () =>
+    setParams(
+      (p) => {
+        p.delete("store");
+        return p;
+      },
+      { replace: true },
+    );
+
   const niches = useQuery(api.stores.getNiches, {});
   const recentlySpotted = useQuery(api.stores.getRecentlySpotted, {});
+  const newlyDiscovered = useQuery(api.stores.getNewlyDiscovered, {});
   const trackedStores = useQuery(api.stores.getTrackedStores, {});
   const seedStores = useMutation(api.stores.seedStores);
   const isAdmin = useQuery(api.users.isAdmin, {});
@@ -116,6 +133,36 @@ export default function StoreTrackerPage() {
           Spy on Shopify stores — see their best sellers, estimated revenue, traffic, and ad activity before you compete with them.
         </p>
       </motion.div>
+      <TrialLimitNotice />
+
+      {/* Stores added by product discovery (Shopify stores running Facebook ads) */}
+      {!showWatchlist && newlyDiscovered && newlyDiscovered.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-sm">Newly discovered</h2>
+            <span className="text-xs text-muted-foreground">Shopify stores selling products we found running Facebook ads</span>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {newlyDiscovered.map((store) => (
+              <button
+                key={store._id}
+                onClick={() => handleOpenStore(store)}
+                className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
+              >
+                <img src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium leading-snug line-clamp-1">{store.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {store.bestSellers.length} best-seller{store.bestSellers.length === 1 ? "" : "s"}
+                    {store.activeAdsCount > 0 ? ` · ${store.activeAdsCount} ads` : ""}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Recently spotted high-traffic feed */}
       {!showWatchlist && recentlySpotted && recentlySpotted.length > 0 && (
@@ -136,7 +183,7 @@ export default function StoreTrackerPage() {
                 onClick={() => handleOpenStore(store)}
                 className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
               >
-                <img src={store.logoUrl} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                <img src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                 <div className="min-w-0">
                   <div className="text-sm font-medium leading-snug line-clamp-1">{store.name}</div>
                   <div className="text-xs text-muted-foreground">{store.estimatedRevenueRange}</div>
@@ -218,32 +265,14 @@ export default function StoreTrackerPage() {
       )}
 
       {!showWatchlist && niches && niches.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-6 overflow-x-auto pb-1">
-          <button
-            onClick={() => setNiche(undefined)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
-              !niche
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card border-border text-muted-foreground hover:text-foreground"
-            )}
-          >
-            All niches
-          </button>
-          {niches.map((n) => (
-            <button
-              key={n}
-              onClick={() => setNiche(n)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
-                niche === n
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card border-border text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {n}
-            </button>
-          ))}
+        <div className="mb-6">
+          <FilterSelect
+            label="Niche"
+            value={niche ?? "all"}
+            onChange={(v) => setNiche(v === "all" ? undefined : v)}
+            active={!!niche}
+            options={[{ value: "all", label: "All niches" }, ...niches.map((n) => ({ value: n, label: n }))]}
+          />
         </div>
       )}
 
@@ -341,7 +370,14 @@ export default function StoreTrackerPage() {
         </p>
       )}
 
-      <StoreDetailModal store={selectedStore} open={modalOpen} onOpenChange={setModalOpen} />
+      <StoreDetailModal
+        store={linkedStore ?? selectedStore}
+        open={!!linkedStore || modalOpen}
+        onOpenChange={(open) => {
+          if (!open && linkedStore) closeLinked();
+          setModalOpen(open);
+        }}
+      />
       <StoreCompareModal
         storeIds={compareIds}
         open={compareOpen}

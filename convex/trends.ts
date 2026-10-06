@@ -1,26 +1,42 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { v, type ObjectType } from "convex/values";
+import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { limitedPage, requireSignedIn, resultLimitFor } from "./lib/access";
 import { paginationOptsValidator } from "convex/server";
 import { requireAdmin } from "./admin/helpers";
 
 // ── Trending keywords (Google Trends-style) ────────────────────────────────
 
+const listArgs = {
+  niche: v.optional(v.string()),
+  direction: v.optional(v.string()),
+};
+
+const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
+  let trends = await ctx.db.query("trends").withIndex("by_updated").order("desc").take(200);
+  if (args.niche) trends = trends.filter((t) => t.niche === args.niche);
+  if (args.direction) trends = trends.filter((t) => t.direction === args.direction);
+  // Rising first (biggest gain first), then steady, then falling.
+  const order: Record<string, number> = { Rising: 0, Stable: 1, Declining: 2 };
+  return trends.sort((a, b) => (order[a.direction] ?? 3) - (order[b.direction] ?? 3) || b.risingPercent - a.risingPercent);
+};
+
 export const list = query({
-  args: {
-    niche: v.optional(v.string()),
-    direction: v.optional(v.string()),
-  },
+  args: listArgs,
   handler: async (ctx, args) => {
-    let trends = await ctx.db.query("trends").withIndex("by_updated").order("desc").take(200);
-    if (args.niche) trends = trends.filter((t) => t.niche === args.niche);
-    if (args.direction) trends = trends.filter((t) => t.direction === args.direction);
-    return trends;
+    await requireSignedIn(ctx);
+    const trends = await listImpl(ctx, args);
+    const limit = await resultLimitFor(ctx);
+    return limit === null ? trends : trends.slice(0, limit);
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const listInternal = internalQuery({ args: listArgs, handler: listImpl });
 
 export const getById = query({
   args: { id: v.id("trends") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     return await ctx.db.get("trends", args.id);
   },
 });
@@ -28,6 +44,7 @@ export const getById = query({
 export const getRisingNiches = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     const niches = await ctx.db.query("niches").take(50);
     return niches
       .filter((n) => n.trendDirection === "Rising")
@@ -38,44 +55,65 @@ export const getRisingNiches = query({
 
 // ── Niche explorer ──────────────────────────────────────────────────────────
 
+const listNichesArgs = {};
+
+const listNichesImpl = async (ctx: QueryCtx) => {
+  return await ctx.db.query("niches").take(50);
+};
+
 export const listNiches = query({
-  args: {},
+  args: listNichesArgs,
   handler: async (ctx) => {
-    return await ctx.db.query("niches").take(50);
+    await requireSignedIn(ctx);
+    return await listNichesImpl(ctx);
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const listNichesInternal = internalQuery({ args: listNichesArgs, handler: listNichesImpl });
 
 // ── AliExpress-style supplier search ────────────────────────────────────────
 
-export const searchSuppliers = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    search: v.optional(v.string()),
-    niche: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    if (args.search) {
-      return await ctx.db
-        .query("supplierListings")
-        .withSearchIndex("search_title", (q) =>
-          args.niche
-            ? q.search("title", args.search!).eq("niche", args.niche)
-            : q.search("title", args.search!)
-        )
-        .paginate(args.paginationOpts);
-    }
+const searchSuppliersArgs = {
+  paginationOpts: paginationOptsValidator,
+  search: v.optional(v.string()),
+  niche: v.optional(v.string()),
+};
 
-    let q = ctx.db.query("supplierListings");
-    if (args.niche) {
-      return await q.withIndex("by_niche", (idx) => idx.eq("niche", args.niche!)).paginate(args.paginationOpts);
-    }
-    return await q.paginate(args.paginationOpts);
+const searchSuppliersImpl = async (ctx: QueryCtx, args: ObjectType<typeof searchSuppliersArgs>) => {
+  if (args.search) {
+    return await ctx.db
+      .query("supplierListings")
+      .withSearchIndex("search_title", (q) =>
+        args.niche
+          ? q.search("title", args.search!).eq("niche", args.niche)
+          : q.search("title", args.search!)
+      )
+      .paginate(args.paginationOpts);
+  }
+
+  let q = ctx.db.query("supplierListings");
+  if (args.niche) {
+    return await q.withIndex("by_niche", (idx) => idx.eq("niche", args.niche!)).paginate(args.paginationOpts);
+  }
+  return await q.paginate(args.paginationOpts);
+};
+
+export const searchSuppliers = query({
+  args: searchSuppliersArgs,
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    return await limitedPage(ctx, args.paginationOpts, (paginationOpts) => searchSuppliersImpl(ctx, { ...args, paginationOpts }));
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const searchSuppliersInternal = internalQuery({ args: searchSuppliersArgs, handler: searchSuppliersImpl });
 
 export const getSupplierById = query({
   args: { id: v.id("supplierListings") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     return await ctx.db.get("supplierListings", args.id);
   },
 });
@@ -221,122 +259,7 @@ export const seedResearchData = mutation({
     ];
     for (const t of trends) await ctx.db.insert("trends", t);
 
-    const suppliers = [
-      {
-        title: "Adjustable Back Posture Corrector Brace",
-        imageUrl: "https://images.unsplash.com/photo-1491933382434-500287f9b54b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 8.40,
-        orders: 14200,
-        rating: 4.7,
-        reviewCount: 3821,
-        shippingDays: 9,
-        storeName: "ErgoLife Official Store",
-        storeRating: 4.8,
-        sellerCount: 34,
-        niche: "Health & Wellness",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-      {
-        title: "15W Fast Wireless Charging Pad with LED Ring",
-        imageUrl: "https://images.unsplash.com/photo-1578319439584-104c94d37305?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 5.20,
-        orders: 28900,
-        rating: 4.6,
-        reviewCount: 6710,
-        shippingDays: 7,
-        storeName: "ChargeTech Direct",
-        storeRating: 4.7,
-        sellerCount: 61,
-        niche: "Electronics",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-      {
-        title: "Smart LED Strip Lights 5M with App + Music Sync",
-        imageUrl: "https://images.unsplash.com/photo-1542681575-352258e0c854?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 6.10,
-        orders: 41500,
-        rating: 4.5,
-        reviewCount: 9204,
-        shippingDays: 8,
-        storeName: "GlowTech Home",
-        storeRating: 4.6,
-        sellerCount: 78,
-        niche: "Home & Living",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-      {
-        title: "Portable Pet Grooming Kit — 5-in-1 Trimmer Set",
-        imageUrl: "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 11.90,
-        orders: 6300,
-        rating: 4.8,
-        reviewCount: 1542,
-        shippingDays: 10,
-        storeName: "PawCare Supply Co.",
-        storeRating: 4.9,
-        sellerCount: 12,
-        niche: "Pet Supplies",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-      {
-        title: "LED Photon Therapy Face Mask — 7 Color Modes",
-        imageUrl: "https://images.unsplash.com/photo-1596755389378-c31d21fd1273?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 14.30,
-        orders: 9800,
-        rating: 4.4,
-        reviewCount: 2233,
-        shippingDays: 11,
-        storeName: "GlowSkin Beauty Tech",
-        storeRating: 4.5,
-        sellerCount: 45,
-        niche: "Beauty",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-      {
-        title: "Percussion Massage Gun with 5 Attachments",
-        imageUrl: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 18.50,
-        orders: 11200,
-        rating: 4.6,
-        reviewCount: 2890,
-        shippingDays: 9,
-        storeName: "RecoverPro Fitness",
-        storeRating: 4.7,
-        sellerCount: 27,
-        niche: "Health & Wellness",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-      {
-        title: "Adjustable Aluminum Laptop Stand with Cable Tray",
-        imageUrl: "https://images.unsplash.com/photo-1487014679447-9f8336841d58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 9.30,
-        orders: 17600,
-        rating: 4.7,
-        reviewCount: 4120,
-        shippingDays: 8,
-        storeName: "DeskWorks Supply",
-        storeRating: 4.6,
-        sellerCount: 52,
-        niche: "Home & Living",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-      {
-        title: "Graphic Print Oversized Cotton Tee",
-        imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400",
-        price: 4.10,
-        orders: 52300,
-        rating: 4.3,
-        reviewCount: 11402,
-        shippingDays: 12,
-        storeName: "StreetFit Apparel",
-        storeRating: 4.4,
-        sellerCount: 210,
-        niche: "Fashion",
-        supplierUrl: "https://www.aliexpress.com",
-      },
-    ];
-    for (const s of suppliers) await ctx.db.insert("supplierListings", s);
 
-    return { message: `Seeded ${niches.length} niches, ${trends.length} trends, ${suppliers.length} suppliers` };
+    return { message: `Seeded ${niches.length} niches, ${trends.length} trends` };
   },
 });

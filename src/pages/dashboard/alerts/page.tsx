@@ -1,4 +1,4 @@
-import { Bell, Package, Megaphone, Store, Check } from "lucide-react";
+import { Bell, BellRing, Package, Megaphone, Store, Check } from "lucide-react";
 import { motion } from "motion/react";
 import { usePaginatedQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
@@ -12,6 +12,7 @@ import {
 import { Authenticated, Unauthenticated } from "convex/react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AlertPreferencesPanel from "./_components/AlertPreferencesPanel.tsx";
+import FollowingPanel from "./_components/FollowingPanel.tsx";
 
 type Notification = Doc<"notifications">;
 
@@ -19,6 +20,7 @@ const typeIcons: Record<string, typeof Package> = {
   new_winner: Package,
   new_ad: Megaphone,
   store_update: Store,
+  advertiser_ads: BellRing,
 };
 
 function timeAgo(iso: string): string {
@@ -160,6 +162,7 @@ export default function AlertsPage() {
       <Authenticated>
         <div className="space-y-8">
           <AlertPreferencesPanel />
+          <FollowingPanel />
           <AlertsFeed />
         </div>
       </Authenticated>

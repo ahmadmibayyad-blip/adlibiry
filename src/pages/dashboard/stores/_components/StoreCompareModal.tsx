@@ -5,6 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { X, DollarSign, Users, Megaphone, TrendingUp } from "lucide-react";
+import { storeImage } from "@/lib/storeImage.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -43,7 +44,7 @@ export default function StoreCompareModal({
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
-                  <img src={store.logoUrl} alt={store.name} className="w-12 h-12 rounded-lg object-cover mb-2.5" />
+                  <img src={storeImage(store)} alt={store.name} className="w-12 h-12 rounded-lg object-cover mb-2.5" />
                   <h3 className="font-semibold text-sm mb-0.5 pr-6">{store.name}</h3>
                   <div className="text-xs text-muted-foreground mb-3">{store.niche} · {store.country}</div>
 

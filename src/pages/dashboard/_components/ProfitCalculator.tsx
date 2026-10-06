@@ -9,7 +9,10 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
 
   const profit = price - cost - shipping;
   const margin = price > 0 ? Math.round((profit / price) * 100) : 0;
-  const roas3 = Math.round(profit * 3 * 100) / 100;
+  // Break-even: the most you can pay in ads per order (CPA), and the ad
+  // return you need before an order stops losing money (ROAS = revenue ÷ ad cost).
+  const breakEvenCpa = profit;
+  const breakEvenRoas = profit > 0 ? price / profit : null;
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -49,19 +52,23 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
       <div className="border-t border-border pt-4 space-y-2">
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Profit per order</span>
-          <span className={cn("font-bold text-sm", profit >= 0 ? "text-green-400" : "text-red-400")}>
+          <span className={cn("font-bold text-sm", profit >= 0 ? "text-good" : "text-bad")}>
             ${profit.toFixed(2)}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Margin</span>
-          <span className={cn("font-bold text-sm", margin >= 30 ? "text-green-400" : margin >= 15 ? "text-yellow-400" : "text-red-400")}>
+          <span className={cn("font-bold text-sm", margin >= 30 ? "text-good" : margin >= 15 ? "text-warn" : "text-bad")}>
             {margin}%
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-xs text-muted-foreground">Profit at 3× ROAS</span>
-          <span className="font-bold text-sm text-primary">${roas3}</span>
+          <span className="text-xs text-muted-foreground">Break-even CPA</span>
+          <span className="font-bold text-sm">{breakEvenCpa > 0 ? `$${breakEvenCpa.toFixed(2)}` : "—"}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-muted-foreground">Break-even ROAS</span>
+          <span className="font-bold text-sm">{breakEvenRoas ? `${breakEvenRoas.toFixed(2)}×` : "—"}</span>
         </div>
       </div>
       {margin < 20 && (

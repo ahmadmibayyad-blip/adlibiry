@@ -1,13 +1,39 @@
-import { Zap } from "lucide-react";
+import Logo from "@/components/Logo.tsx";
+import { Link } from "react-router-dom";
 
-const footerLinks = {
-  Product: ["Ad Spy", "Product Research", "Store Tracker", "Market Intelligence", "AI Scoring", "Creative Library"],
-  Company: ["About", "Blog", "Careers", "Press", "Partners"],
-  Support: ["Help Center", "Documentation", "Community", "Status Page"],
-  Legal: ["Privacy Policy", "Terms of Service", "Cookie Policy", "GDPR"],
+// Product links open the app (signed-out visitors go to sign-in first);
+// the others open the info pages in src/pages/info.
+const footerLinks: Record<string, { label: string; to: string }[]> = {
+  Product: [
+    { label: "Ad Spy", to: "/dashboard/ad-spy" },
+    { label: "Product Research", to: "/dashboard/research" },
+    { label: "Store Tracker", to: "/dashboard/stores" },
+    { label: "Market Intelligence", to: "/dashboard" },
+    { label: "AI Scoring", to: "/dashboard/winners" },
+    { label: "Creative Library", to: "/dashboard/hooks" },
+  ],
+  Company: [
+    { label: "About", to: "/about" },
+    { label: "Blog", to: "/blog" },
+    { label: "Careers", to: "/careers" },
+    { label: "Press", to: "/press" },
+    { label: "Partners", to: "/partners" },
+  ],
+  Support: [
+    { label: "Help Center", to: "/help" },
+    { label: "Documentation", to: "/docs" },
+    { label: "Community", to: "/community" },
+    { label: "Status Page", to: "/status" },
+  ],
+  Legal: [
+    { label: "Privacy Policy", to: "/privacy" },
+    { label: "Terms of Service", to: "/terms" },
+    { label: "Cookie Policy", to: "/cookies" },
+    { label: "GDPR", to: "/gdpr" },
+  ],
 };
 
-const platforms = ["Facebook Ads", "TikTok Ads", "Pinterest Ads", "Shopify Stores"];
+const platforms = ["Facebook Ads", "Instagram Ads", "TikTok Ads", "Shopify Stores"];
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -18,13 +44,8 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-3 lg:col-span-2">
-            <a href="/" className="flex items-center gap-2 mb-4 cursor-pointer">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Zap className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <span className="text-lg font-bold">
-                AdSpy<span className="text-primary">Pro</span>
-              </span>
+            <a href="/" className="inline-flex mb-4 cursor-pointer" aria-label="AdSpy Pro home">
+              <Logo size={24} className="text-lg" />
             </a>
             <p className="text-sm text-muted-foreground max-w-xs leading-relaxed mb-5">
               The professional ad intelligence platform for serious dropshippers. Real data, honest estimates, zero BS.
@@ -47,13 +68,14 @@ export default function Footer() {
               <h4 className="text-sm font-semibold mb-4">{category}</h4>
               <ul className="space-y-2.5">
                 {links.map((link) => (
-                  <li key={link}>
-                    <a
-                      href="#"
+                  <li key={link.label}>
+                    <Link
+                      to={link.to}
+                      onClick={() => window.scrollTo(0, 0)}
                       className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
-                      {link}
-                    </a>
+                      {link.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -63,7 +85,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>© {year} WinningHunter. All rights reserved.</span>
+          <span>© {year} AdSpy Pro. All rights reserved.</span>
           <span>Made for ecommerce sellers worldwide 🌍</span>
         </div>
       </div>

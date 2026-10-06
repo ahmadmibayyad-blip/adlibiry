@@ -3,6 +3,8 @@ import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { auth } from "./auth";
 import { parseExtensionAd } from "./lib/extensionSubmission";
+import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
+import { serveVideo } from "./videoDownload";
 
 const http = httpRouter();
 
@@ -75,7 +77,8 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const token = new URL(request.url).searchParams.get("run");
     if (!token) return new Response("Unauthorized", { status: 401 });
-    let payload: any = null;
+    // Apify webhook body: only these two fields are read.
+    let payload: { resource?: { defaultDatasetId?: unknown }; eventType?: unknown } | null;
     try {
       payload = await request.json();
     } catch {
@@ -89,6 +92,27 @@ http.route({
       eventType: payload?.eventType ? String(payload.eventType) : undefined,
     });
     return new Response("queued", { status: 200 });
+  }),
+});
+
+// MCP server: customers connect their own AI app (see convex/mcp.ts).
+http.route({ path: "/download/video", method: "GET", handler: serveVideo });
+http.route({ path: "/mcp", method: "POST", handler: mcpPost });
+http.route({ path: "/mcp", method: "GET", handler: mcpNotAllowed });
+http.route({ path: "/mcp", method: "DELETE", handler: mcpNotAllowed });
+http.route({ path: "/mcp", method: "OPTIONS", handler: mcpOptions });
+
+// Stripe → Developers → Webhooks → endpoint https://<deployment>.convex.site/stripe/webhook
+// with the customer.subscription.created/updated/deleted events (see "Billing" in CLAUDE.md).
+http.route({
+  path: "/stripe/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const signature = req.headers.get("stripe-signature");
+    if (!signature) return new Response("Missing signature", { status: 400 });
+    // The signature covers the exact raw body, so pass the text through untouched.
+    const result = await ctx.runAction(internal.commerce.handleWebhook, { payload: await req.text(), signature });
+    return new Response(result.ok ? "ok" : (result.error ?? "error"), { status: result.ok ? 200 : 400 });
   }),
 });
 

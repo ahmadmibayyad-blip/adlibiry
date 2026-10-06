@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
 import { Search, Sparkles, X } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdCard, { AdCardSkeleton } from "./_components/AdCard.tsx";
-import AdDetailModal from "./_components/AdDetailModal.tsx";
+import ImageSearchDialog from "../_components/ImageSearchDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
@@ -13,6 +14,7 @@ import PlatformIcon from "@/components/PlatformIcon.tsx";
 import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range, readJson, writeJson } from "@/lib/filterUtils.ts";
 import { flag, compactNumber } from "@/lib/adFormat.ts";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -63,17 +65,18 @@ const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
 const MEDIA = [ANY, opt("video", "Video"), opt("image", "Image"), opt("carousel", "Carousel")];
 const LANDING = [ANY, opt("has", "Has store link")];
 const AUDIENCE = [ANY, opt("All", "All genders"), opt("Female", "Mostly women"), opt("Male", "Mostly men")];
+// WinningHunter, PiPiSpy and CSV imports run in the background: their ads show under
+// Any source, but they aren't listed as a choice.
 const SOURCES = [
   ANY,
   opt("adlibrary_api", "AdLibrary"),
   opt("apify", "Meta (Apify)"),
-  opt("winninghunter", "WinningHunter"),
-  opt("pipispy", "PiPiSpy"),
   opt("nexscope", "TikTok (Nexscope)"),
   opt("extension", "Extension"),
 ];
 const SORTS = [
-  opt("newest", "Newest"),
+  opt("added", "Recently added"),
+  opt("newest", "Newest (first seen)"),
   opt("lastSeen", "Last seen"),
   opt("score", "Winning score"),
   opt("impressions", "Most impressions"),
@@ -102,7 +105,7 @@ function toQueryArgs(f: Filters, search: string) {
     gender: f.gender,
     source: f.source,
     search: search || undefined,
-    sort: f.sort,
+    sort: f.sort ?? "added", // default: what was added to AdSpy Pro last comes first
     firstSeenWithinDays: firstSeenDays.length ? Math.min(...firstSeenDays) : undefined,
     lastSeenWithinDays: f.lastSeen ? Number(f.lastSeen) : undefined,
     minDaysRunning: run.min,
@@ -127,14 +130,19 @@ const SAVED_KEY = "adspy.savedSearches";
 const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code === code)?.name ?? code;
 
 export default function AdSpyPage() {
-  const [f, setF] = useState<Filters>({});
+  // ?source=…&sort=…&platform=… (e.g. from an admin import's "View" link) preset the filters.
+  const [params] = useSearchParams();
+  const [f, setF] = useState<Filters>(() => ({
+    ...(params.get("source") ? { source: params.get("source")! } : {}),
+    ...(params.get("sort") ? { sort: params.get("sort")! } : {}),
+    ...(params.get("platform") ? { platform: params.get("platform")! } : {}),
+  }));
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const [excludeViewed, setExcludeViewed] = useState(false);
   const [viewed, setViewed] = useState<string[]>(() => readJson<string[]>(VIEWED_KEY, []));
@@ -166,8 +174,7 @@ export default function AdSpyPage() {
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
 
   const openAd = (ad: Ad) => {
-    setSelectedAd(ad);
-    setModalOpen(true);
+    navigate(`/dashboard/ads/${ad._id}`);
     if (!viewedSet.has(ad._id)) {
       const next = [ad._id, ...viewed].slice(0, 3000);
       setViewed(next);
@@ -207,6 +214,7 @@ export default function AdSpyPage() {
           </div>
         )}
       </div>
+      <TrialLimitNotice />
 
       <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
         {/* Platform + search */}
@@ -229,27 +237,25 @@ export default function AdSpyPage() {
               className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
           </div>
+          <ImageSearchDialog trigger="icon" />
         </div>
 
-        {/* Niches */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1 shrink-0">Niche</span>
-          <Chip on={!f.niche} onClick={() => set("niche", undefined)}>All</Chip>
-          {niches.map((n) => (
-            <Chip key={n.value} on={f.niche === n.value} onClick={() => set("niche", f.niche === n.value ? undefined : n.value)}>
-              {n.value}
-              <span className="opacity-60 tabular-nums">{compactNumber(n.n)}</span>
-            </Chip>
-          ))}
-        </div>
-
-        {/* Dates */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">First seen</span>
-          {FIRST_SEEN.map((o) => (
-            <Chip key={o.label} on={f.firstSeen === o.value} onClick={() => set("firstSeen", o.value)}>{o.label}</Chip>
-          ))}
-          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+        {/* Niche and dates */}
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect
+            label="Niche"
+            value={f.niche ?? "all"}
+            onChange={(v) => set("niche", v === "all" ? undefined : v)}
+            options={[{ value: "all", label: "All" }, ...niches.map((n) => ({ value: n.value, label: `${n.value} (${compactNumber(n.n)})` }))]}
+            active={!!f.niche}
+          />
+          <FilterSelect
+            label="First seen"
+            value={f.firstSeen ?? "all"}
+            onChange={(v) => set("firstSeen", v === "all" ? undefined : v)}
+            options={FIRST_SEEN.map((o) => ({ value: o.value ?? "all", label: o.label }))}
+            active={f.firstSeen !== undefined}
+          />
           <FilterSelect label="Last seen" value={f.lastSeen ?? "any"} onChange={setAny("lastSeen")} options={LAST_SEEN} active={!!f.lastSeen} />
           <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
         </div>
@@ -282,7 +288,7 @@ export default function AdSpyPage() {
 
         {/* Sort + saved searches */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          <FilterSelect label="Sort by" value={f.sort ?? "added"} onChange={(v) => set("sort", v === "added" ? undefined : v)} options={SORTS} active={!!f.sort} />
           {activeCount > 0 && (
             <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
               <X className="w-3.5 h-3.5" />Clear filters ({activeCount})
@@ -335,7 +341,6 @@ export default function AdSpyPage() {
         </>
       )}
 
-      <AdDetailModal ad={selectedAd} open={modalOpen} onOpenChange={setModalOpen} />
     </div>
   );
 }

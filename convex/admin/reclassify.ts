@@ -12,7 +12,7 @@ import { markStatsDirty } from "../stats";
 // current niche when the classifier isn't confident.
 
 const AUTO_AD_SOURCES = new Set(["adlibrary_api", "apify", "nexscope", "winninghunter"]);
-const AUTO_PRODUCT_SOURCES = new Set(["adlibrary_api", "nexscope_api", "winninghunter"]);
+const AUTO_PRODUCT_SOURCES = new Set(["adlibrary_api", "nexscope_api", "tiktok_shop", "shopify", "winninghunter"]);
 const PAGE = 200;
 
 type Status = { running: boolean; adsChanged: number; productsChanged: number; startedAt: string; finishedAt?: string };

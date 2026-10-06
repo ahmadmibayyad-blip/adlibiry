@@ -15,7 +15,13 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
-    customerId: v.optional(v.string()),
+    customerId: v.optional(v.string()), // Stripe customer ID
+    // Set by the Stripe webhook (convex/billing.ts applySubscription).
+    plan: v.optional(v.string()), // "starter" | "pro" | "agency" | "none"
+    subscriptionStatus: v.optional(v.string()), // Stripe status: "trialing", "active", "past_due", "canceled", …
+    subscriptionId: v.optional(v.string()),
+    planRenewsAt: v.optional(v.number()), // ms
+    subscriptionEventAt: v.optional(v.number()), // Stripe event.created (s) of the last applied change
     role: v.optional(v.string()), // "admin" | "user"
     avatarUrl: v.optional(v.string()),
   })
@@ -45,7 +51,7 @@ export default defineSchema({
     })),
     isWinnerOfDay: v.boolean(),
     publishedAt: v.string(),   // ISO 8601 UTC
-    source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api" — absent means legacy curated row
+    source: v.optional(v.string()), // "curated" | "adlibrary_api" | "nexscope_api" (Amazon) | "tiktok_shop" | "shopify" — absent means legacy curated row
     priceSource: v.optional(v.string()), // "exact" | "estimated_market" — absent means legacy curated row (exact); "estimated_market" means price/cost are a Nexscope-derived category benchmark, not this exact product's real price
     // PiPiAds-style product metrics (CSV imports, discovery). Optional.
     adsCount: v.optional(v.number()),
@@ -54,10 +60,42 @@ export default defineSchema({
     storeUrl: v.optional(v.string()),
     researchUrl: v.optional(v.string()),
     originalPrice: v.optional(v.string()),
+    priceCheckedAt: v.optional(v.string()), // last time the product page was checked for a price (convex/priceFetch.ts)
     // Which daily auto-pick this product fills ("<source>:<search niche>"),
     // so tomorrow's pick can retire it. See convex/lib/winners.ts.
     winnerSlot: v.optional(v.string()),
+    // ── Linked ads (convex/productPipeline.ts). Products "from ads" are built
+    // from running ads that sell a physical product; several ads for the same
+    // product share one product row.
+    urlKey: v.optional(v.string()),     // normalised product-page URL, for matching
+    titleKey: v.optional(v.string()),   // normalised title, for matching
+    adIds: v.optional(v.array(v.id("ads"))),
+    linkedAds: v.optional(v.number()),  // number of linked ads (0/absent = product DB only)
+    linkedViews: v.optional(v.number()),
+    linkedComments: v.optional(v.number()),
+    linkedSpend: v.optional(v.number()), // est. ad spend, upper bound, USD
+    linkedGmv: v.optional(v.number()),
+    // Modelled numbers (convex/lib/estimates.ts), set by the daily pipeline.
+    unitsPerMonth: v.optional(v.number()),   // orders/month from the marketplace's own data (Amazon clicks × conversion, Shopify weekly orders, TikTok Shop daily sales)
+    estImpressions: v.optional(v.object({ low: v.number(), high: v.number() })),
+    estAdSpend: v.optional(v.object({ low: v.number(), high: v.number() })),
+    estRevenue: v.optional(v.object({ low: v.number(), high: v.number() })), // per month, USD
+    estBasis: v.optional(v.object({ impressions: v.optional(v.string()), adSpend: v.optional(v.string()), revenue: v.optional(v.string()) })),
+    marginPercent: v.optional(v.number()),
+    // Kept out of Winning Products; hideable in Products.
+    isBigBrand: v.optional(v.boolean()),
+    isPersonalised: v.optional(v.boolean()),
+    isService: v.optional(v.boolean()),
+    // Winning Products (rebuilt daily): rank inside its niche, absent if not in the list.
+    winnerRank: v.optional(v.number()),
+    // More photos from the product's store page (convex/productImages.ts).
+    images: v.optional(v.array(v.string())),
+    imagesCheckedAt: v.optional(v.string()),
   })
+    .index("by_url_key", ["urlKey"])
+    .index("by_title_key", ["titleKey"])
+    .index("by_margin", ["marginPercent"])
+    .index("by_category_score", ["category", "aiScore"])
     .index("by_category_published", ["category", "publishedAt"])
     .index("by_published", ["publishedAt"])
     .index("by_winner", ["isWinnerOfDay"])
@@ -75,7 +113,8 @@ export default defineSchema({
     savedAt: v.string(), // ISO 8601 UTC
   })
     .index("by_user", ["userId"])
-    .index("by_user_and_product", ["userId", "productId"]),
+    .index("by_user_and_product", ["userId", "productId"])
+    .index("by_product", ["productId"]),
 
   // Ad Spy: ads sourced from Meta Ad Library (EU/UK) or admin-curated (TikTok/global)
   ads: defineTable({
@@ -114,6 +153,8 @@ export default defineSchema({
     relatedAdsCount: v.optional(v.number()), // copies of the creative running (scaling signal)
     language: v.optional(v.string()),
     adLibraryUrl: v.optional(v.string()),
+    gmv: v.optional(v.number()),              // est. sales from this ad (TikTok Shop), USD
+    productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
@@ -123,6 +164,8 @@ export default defineSchema({
     })),
   })
     .index("by_first_seen", ["firstSeenAt"])
+    .index("by_advertiser", ["advertiserName"])
+    .index("by_product", ["productId"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
     .index("by_score", ["aiScore"])
@@ -133,6 +176,7 @@ export default defineSchema({
     .index("by_last_seen", ["lastSeenAt"])
     .index("by_comments", ["comments"])
     .index("by_shares", ["shares"])
+    .index("by_source_first_seen", ["source", "firstSeenAt"])
     .searchIndex("search_body", { searchField: "bodyText", filterFields: ["platform", "niche", "source"] }),
 
   // Links an outside record (Nexscope TikTok ad, Apify Meta ad, Nexscope
@@ -150,6 +194,89 @@ export default defineSchema({
   // the callback is for a run we started (no shared secret env var needed).
   // Precomputed counts/facets (filter dropdowns, admin totals) so pages never
   // scan whole tables. Rebuilt a few minutes after imports and once a day.
+  // Messages each user sent to the AI assistant per UTC day (daily cap).
+  assistantUsage: defineTable({
+    userId: v.id("users"),
+    day: v.string(), // "YYYY-MM-DD" (UTC)
+    count: v.number(),
+  }).index("by_user_day", ["userId", "day"]),
+
+  // AI agents (convex/agents.ts, convex/agentRunner.ts): a customer's standing
+  // research goal that Claude works on every morning, writing a briefing.
+  agents: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    goal: v.string(),
+    niches: v.array(v.string()),
+    enabled: v.boolean(),
+    createdAt: v.string(),
+    lastRunAt: v.optional(v.string()),
+    lastStatus: v.optional(v.string()), // "ok" | "error"
+  })
+    .index("by_user", ["userId"])
+    .index("by_enabled", ["enabled"]),
+
+  agentBriefings: defineTable({
+    agentId: v.id("agents"),
+    userId: v.id("users"),
+    createdAt: v.string(),
+    status: v.string(), // "ok" | "error"
+    text: v.string(),
+  }).index("by_agent", ["agentId"]),
+
+  // Personal access keys for the MCP server (convex/mcp.ts). Only a SHA-256
+  // hash of each key is stored; the key itself is shown once at creation.
+  mcpKeys: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    keyHash: v.string(),
+    prefix: v.string(), // first characters of the key, to tell keys apart
+    createdAt: v.string(),
+    lastUsedAt: v.optional(v.string()),
+    revokedAt: v.optional(v.string()),
+  })
+    .index("by_hash", ["keyHash"])
+    .index("by_user", ["userId"]),
+
+  // MCP tool calls per user per UTC day (daily cap).
+  mcpUsage: defineTable({
+    userId: v.id("users"),
+    day: v.string(), // "YYYY-MM-DD" (UTC)
+    count: v.number(),
+  }).index("by_user_day", ["userId", "day"]),
+
+  // Winning Products: the top 50 per niche (score 65+), in feed order.
+  // Rebuilt once a day by convex/productPipeline.ts.
+  winningProducts: defineTable({
+    productId: v.id("products"),
+    niche: v.string(),
+    nicheRank: v.number(),   // 1 = best in its niche
+    position: v.number(),    // order in the mixed feed
+    score: v.number(),
+    enteredDay: v.string(),  // "YYYY-MM-DD" it first entered the list (kept while it stays)
+  })
+    .index("by_position", ["position"])
+    .index("by_niche_rank", ["niche", "nicheRank"])
+    .index("by_product", ["productId"]),
+
+  // One row per product and per ad per day (kept 90 days) for the charts.
+  dailySnapshots: defineTable({
+    day: v.string(), // "YYYY-MM-DD" (UTC)
+    kind: v.union(v.literal("product"), v.literal("ad")),
+    entityId: v.string(),
+    score: v.number(),
+    adsRunning: v.number(),
+    views: v.number(),
+    likes: v.number(),
+    comments: v.number(),
+    spend: v.number(), // est. ad spend so far, USD (upper bound)
+    gmv: v.number(),
+    trend: v.optional(v.string()),
+    saturation: v.optional(v.string()),
+  })
+    .index("by_entity_day", ["kind", "entityId", "day"])
+    .index("by_day", ["day"]),
+
   siteStats: defineTable({
     key: v.string(),
     data: v.any(),
@@ -241,10 +368,42 @@ export default defineSchema({
     })),
     isHighTraffic: v.boolean(),         // surfaces in "recently spotted" feed
     spottedAt: v.string(),              // ISO 8601 UTC — when this store was first spotted/added
+    source: v.optional(v.string()),     // "product_discovery" = added from a discovered Shopify product
+    // Sales tracking (convex/storeSales.ts): last catalog check.
+    salesCheck: v.optional(v.object({
+      at: v.string(),                   // ISO 8601 UTC
+      ok: v.boolean(),
+      error: v.optional(v.string()),
+      failures: v.number(),             // failed checks in a row; skipped after 3
+    })),
   })
     .index("by_niche", ["niche"])
     .index("by_spotted", ["spottedAt"])
     .searchIndex("search_name", { searchField: "name", filterFields: ["niche"] }),
+
+  // Store sales tracking: one row per store per day (kept 90 days).
+  storeSalesSnapshots: defineTable({
+    storeId: v.id("stores"),
+    day: v.string(),                    // "YYYY-MM-DD" (UTC)
+    takenAt: v.string(),                // ISO 8601 UTC
+    windowHours: v.number(),            // hours since the previous check
+    productCount: v.number(),
+    updatedCount: v.number(),
+    newCount: v.number(),
+    avgPrice: v.number(),
+    estOrdersLow: v.number(),
+    estOrdersHigh: v.number(),
+    estRevenueLow: v.number(),
+    estRevenueHigh: v.number(),
+    topProducts: v.array(v.object({
+      title: v.string(),
+      url: v.string(),
+      imageUrl: v.string(),
+      price: v.number(),
+      updatedAt: v.string(),
+    })),
+  })
+    .index("by_store_day", ["storeId", "day"]),
 
   // Store Tracker: user watchlist
   trackedStores: defineTable({
@@ -253,7 +412,72 @@ export default defineSchema({
     trackedAt: v.string(), // ISO 8601 UTC
   })
     .index("by_user", ["userId"])
+    .index("by_store", ["storeId"])
     .index("by_user_and_store", ["userId", "storeId"]),
+
+  // One-click Shopify import (convex/shopifyImport.ts): the user's own store,
+  // via a custom-app Admin API token. The token never leaves the server.
+  shopifyConnections: defineTable({
+    userId: v.id("users"),
+    shopDomain: v.string(),   // "my-store.myshopify.com"
+    shopName: v.string(),
+    accessToken: v.string(),
+    connectedAt: v.string(),  // ISO 8601 UTC
+  }).index("by_user", ["userId"]),
+
+  // Hooks of the week (convex/hooks.ts): top ad opening lines per niche.
+  weeklyHooks: defineTable({
+    week: v.string(),        // ISO week, "2026-W40"
+    niche: v.string(),
+    rank: v.number(),        // 1 = best
+    adId: v.id("ads"),
+    hook: v.string(),
+    type: v.optional(v.string()),     // HOOK_TYPES, from Claude
+    why: v.optional(v.string()),      // why it works
+    template: v.optional(v.string()), // reusable fill-in-the-blank version
+    score: v.number(),                // engagement used for ranking
+    createdAt: v.string(),
+  })
+    .index("by_week", ["week"])
+    .index("by_week_niche", ["week", "niche", "rank"]),
+
+  // Short-lived video download links (convex/videoDownload.ts).
+  downloadTokens: defineTable({
+    token: v.string(),
+    adId: v.id("ads"),
+    userId: v.id("users"),
+    expiresAt: v.number(),    // ms
+    sourceUrl: v.optional(v.string()), // resolved file link (TikTok), else ads.videoUrl
+    cookie: v.optional(v.string()),    // cookies TikTok requires with that link
+  })
+    .index("by_token", ["token"])
+    .index("by_expires", ["expiresAt"]),
+
+  // Follow alerts: advertisers a user follows (convex/follows.ts).
+  // All free accounts' AI requests per day (convex/assistantUsage.ts claimMessage).
+  aiFreeUsage: defineTable({
+    day: v.string(), // YYYY-MM-DD (UTC)
+    count: v.number(),
+  }).index("by_day", ["day"]),
+
+  // One row per daily import run (convex/importRuns.ts); pruned after 60 days.
+  importRuns: defineTable({
+    job: v.string(),
+    startedAt: v.number(),
+    finishedAt: v.number(),
+    status: v.string(), // "ok" | "partial" | "failed" | "skipped"
+    summary: v.string(),
+    errors: v.array(v.string()), // at most 10
+  }).index("by_job_started", ["job", "startedAt"]),
+
+  followedAdvertisers: defineTable({
+    userId: v.id("users"),
+    name: v.string(),        // exact ads.advertiserName
+    followedAt: v.string(),  // ISO 8601 UTC
+  })
+    .index("by_user", ["userId"])
+    .index("by_name", ["name"])
+    .index("by_user_and_name", ["userId", "name"]),
 
   // Alerts: per-user notification feed (new winners, new ads in watched niches, tracked store updates)
   notifications: defineTable({
@@ -275,6 +499,7 @@ export default defineSchema({
     notifyNewWinners: v.boolean(),
     notifyNewAdsInNiches: v.boolean(),
     notifyTrackedStoreUpdates: v.boolean(),
+    notifyFollowedAdvertisers: v.optional(v.boolean()), // missing = on
     emailDigestEnabled: v.boolean(),
     updatedAt: v.string(), // ISO 8601 UTC
   })
@@ -382,5 +607,42 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_submitted", ["submittedAt"])
-    .index("by_ad_key", ["adKey"]),
+    .index("by_ad_key", ["adKey"])
+    .index("by_visitor_status", ["submitterVisitorId", "status"])
+    .index("by_status_submitted", ["status", "submittedAt"]),
+
+  // AdSpy Pro backend (Render) session token per user, saved at sign-in so the
+  // server can call the backend's isUser routes (payments). Never sent to the
+  // browser. convex/adspyAuth.ts writes it; convex/proPlan.ts reads it.
+  backendSessions: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    updatedAt: v.number(),
+    planCheckedAt: v.optional(v.number()), // last /user/checkSubscription (refreshMyPlan)
+  }).index("by_user", ["userId"]),
+
+  // Pro auto-renewal (convex/proPlan.ts): the saved card and when the paid
+  // period ends. Renewal charges the card when the backend reports the
+  // subscription ended (not more than 2 days before periodEnd).
+  proBilling: defineTable({
+    userId: v.id("users"),
+    customerId: v.optional(v.string()),       // Stripe customer
+    paymentMethodId: v.optional(v.string()),  // saved card, set after the first payment
+    period: v.union(v.literal("monthly"), v.literal("yearly")),
+    periodEnd: v.optional(v.number()),        // ms
+    autoRenew: v.boolean(),
+    renewedFor: v.optional(v.number()),       // periodEnd a renewal was attempted for (once each)
+    lastError: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // Stripe PaymentIntents that already activated Pro, so one payment can't be
+  // used twice (convex/proPlan.ts).
+  proPayments: defineTable({
+    paymentIntentId: v.string(),
+    userId: v.id("users"),
+    amount: v.number(),
+    currency: v.string(),
+    at: v.number(),
+  }).index("by_payment_intent", ["paymentIntentId"]),
 });

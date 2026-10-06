@@ -99,6 +99,7 @@ const defaultPreferences = {
   notifyNewWinners: true,
   notifyNewAdsInNiches: true,
   notifyTrackedStoreUpdates: true,
+  notifyFollowedAdvertisers: true,
   emailDigestEnabled: false,
 };
 
@@ -126,6 +127,7 @@ export const updatePreferences = mutation({
     notifyNewWinners: v.boolean(),
     notifyNewAdsInNiches: v.boolean(),
     notifyTrackedStoreUpdates: v.boolean(),
+    notifyFollowedAdvertisers: v.optional(v.boolean()),
     emailDigestEnabled: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -164,13 +166,21 @@ export const createForUser = internalMutation({
   },
 });
 
+// Fan-outs go through alertPreferences a page at a time and schedule the next
+// page, so every user is reached however many there are.
+const PREFS_PER_PAGE = 200;
+
 // Used by admin create/update flows to notify users who watch a niche or track a store.
 export const notifyUsersWatchingNiche = internalMutation({
-  args: { niche: v.string(), title: v.string(), body: v.string(), link: v.string(), type: v.string() },
+  args: { niche: v.string(), title: v.string(), body: v.string(), link: v.string(), type: v.string(), cursor: v.optional(v.string()) },
   handler: async (ctx, args): Promise<void> => {
-    const allPrefs = await ctx.db.query("alertPreferences").take(2000);
+    const { cursor, ...rest } = args;
+    const prefs = await ctx.db.query("alertPreferences").paginate({ numItems: PREFS_PER_PAGE, cursor: cursor ?? null });
+    if (!prefs.isDone) {
+      await ctx.scheduler.runAfter(0, internal.notifications.notifyUsersWatchingNiche, { ...rest, cursor: prefs.continueCursor });
+    }
     const visitorIds: string[] = [];
-    for (const pref of allPrefs) {
+    for (const pref of prefs.page) {
       if (!pref.notifyNewAdsInNiches) continue;
       if (!pref.watchedNiches.includes(args.niche)) continue;
       await ctx.db.insert("notifications", {
@@ -196,11 +206,15 @@ export const notifyUsersWatchingNiche = internalMutation({
 });
 
 export const notifyAllForNewWinner = internalMutation({
-  args: { title: v.string(), body: v.string(), link: v.string() },
+  args: { title: v.string(), body: v.string(), link: v.string(), cursor: v.optional(v.string()) },
   handler: async (ctx, args): Promise<void> => {
-    const allPrefs = await ctx.db.query("alertPreferences").take(2000);
+    const { cursor, ...rest } = args;
+    const prefs = await ctx.db.query("alertPreferences").paginate({ numItems: PREFS_PER_PAGE, cursor: cursor ?? null });
+    if (!prefs.isDone) {
+      await ctx.scheduler.runAfter(0, internal.notifications.notifyAllForNewWinner, { ...rest, cursor: prefs.continueCursor });
+    }
     const visitorIds: string[] = [];
-    for (const pref of allPrefs) {
+    for (const pref of prefs.page) {
       if (!pref.notifyNewWinners) continue;
       await ctx.db.insert("notifications", {
         userId: pref.userId,
@@ -227,8 +241,10 @@ export const notifyAllForNewWinner = internalMutation({
 export const notifyTrackersOfStoreUpdate = internalMutation({
   args: { storeId: v.id("stores"), title: v.string(), body: v.string(), link: v.string() },
   handler: async (ctx, args): Promise<void> => {
-    const trackers = await ctx.db.query("trackedStores").take(2000);
-    const relevant = trackers.filter((t) => t.storeId === args.storeId);
+    const relevant = await ctx.db
+      .query("trackedStores")
+      .withIndex("by_store", (q) => q.eq("storeId", args.storeId))
+      .take(2000);
     const visitorIds: string[] = [];
     for (const t of relevant) {
       const pref = await ctx.db

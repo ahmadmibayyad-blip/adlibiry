@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X, Zap, LayoutDashboard } from "lucide-react";
+import { Menu, X, LayoutDashboard } from "lucide-react";
+import Logo from "@/components/Logo.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { SignInButton } from "@/components/ui/signin.tsx";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Link } from "react-router-dom";
 
 const navLinks = [
-  { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Features", href: "/#features" },
+  { label: "How It Works", href: "/#how-it-works" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "FAQ", href: "/#faq" },
 ];
 
 export default function Navbar() {
@@ -34,13 +35,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2 cursor-pointer">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Zap className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">
-              AdSpy<span className="text-primary">Pro</span>
-            </span>
+          <a href="/" className="cursor-pointer" aria-label="AdSpy Pro home">
+            <Logo size={24} className="text-lg" />
           </a>
 
           {/* Desktop nav */}
@@ -69,7 +65,7 @@ export default function Navbar() {
             <Unauthenticated>
               <SignInButton variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" />
               <Button asChild size="sm" className="bg-primary text-primary-foreground font-semibold px-5">
-                <a href="#pricing">Start Free Trial</a>
+                <a href="/#pricing">Start free</a>
               </Button>
             </Unauthenticated>
           </div>
@@ -116,7 +112,7 @@ export default function Navbar() {
                 <Unauthenticated>
                   <SignInButton variant="ghost" className="w-full justify-start" />
                   <Button asChild className="w-full bg-primary text-primary-foreground font-semibold">
-                    <a href="#pricing">Start Free Trial</a>
+                    <a href="/#pricing">Start free</a>
                   </Button>
                 </Unauthenticated>
               </div>

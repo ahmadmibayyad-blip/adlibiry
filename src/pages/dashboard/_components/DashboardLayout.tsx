@@ -6,47 +6,62 @@ import {
   Search,
   BookmarkCheck,
   Bell,
+  Bot,
+  Sparkles,
   Settings,
-  Zap,
-  ChevronRight,
   LogOut,
   Store,
   LineChart,
   ShieldCheck,
   Puzzle,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
-import { useQuery } from "convex/react";
+import { useEffect } from "react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar.tsx";
+import AIAssistant from "./ai/AIAssistant.tsx";
+import Logo from "@/components/Logo.tsx";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: TrendingUp, label: "Winning Products", href: "/dashboard/products" },
+  { icon: Trophy, label: "Winning Products", href: "/dashboard/winners" },
+  { icon: TrendingUp, label: "Products", href: "/dashboard/products" },
   { icon: Search, label: "Ad Spy", href: "/dashboard/ad-spy" },
+  { icon: Sparkles, label: "Hooks of the week", href: "/dashboard/hooks" },
   { icon: LineChart, label: "Research", href: "/dashboard/research" },
   { icon: Store, label: "Store Tracker", href: "/dashboard/stores" },
   { icon: BookmarkCheck, label: "Saved", href: "/dashboard/saved" },
+  { icon: Bot, label: "AI Agents", href: "/dashboard/agents" },
   { icon: Bell, label: "Alerts", href: "/dashboard/alerts" },
   { icon: Puzzle, label: "Chrome Extension", href: "/dashboard/extension" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
 ];
 
 const planColors: Record<string, string> = {
-  starter: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  starter: "bg-chart-3/10 text-chart-3 border-chart-3/20",
   pro: "bg-primary/10 text-primary border-primary/20",
-  agency: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  agency: "bg-chart-4/10 text-chart-4 border-chart-4/20",
   none: "bg-muted text-muted-foreground border-border",
 };
 
 export default function DashboardLayout() {
+
   const location = useLocation();
   const { user, signout } = useAuth();
   const { plan } = useUserPlan();
   const isAdmin = useQuery(api.users.isAdmin);
   const unreadCount = useQuery(api.notifications.getUnreadCount, user ? {} : "skip");
+  const refreshMyPlan = useAction(api.proPlan.refreshMyPlan);
+
+  // Re-read the plan from the AdSpy Pro backend when pages open (the server
+  // checks at most every 2 minutes), so an ended subscription shows as Free.
+  useEffect(() => {
+    if (user) refreshMyPlan({}).catch(() => {});
+  }, [user, location.pathname, refreshMyPlan]);
 
   const initials = user?.profile?.name
     ? user.profile.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
@@ -61,13 +76,8 @@ export default function DashboardLayout() {
       {/* Sidebar — desktop */}
       <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar shrink-0">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 h-14 border-b border-border">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Zap className="w-3.5 h-3.5 text-primary-foreground" />
-          </div>
-          <span className="font-bold text-base tracking-tight">
-            AdSpy<span className="text-primary">Pro</span>
-          </span>
+        <div className="flex items-center px-5 h-14 border-b border-border">
+          <Logo />
         </div>
 
         {/* Nav */}
@@ -95,7 +105,6 @@ export default function DashboardLayout() {
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
-                    {active && <ChevronRight className="w-3 h-3 opacity-50" />}
                   </Link>
                 </li>
               );
@@ -122,6 +131,7 @@ export default function DashboardLayout() {
             </div>
             <button
               onClick={() => signout()}
+              aria-label="Sign out"
               className="p-1 rounded hover:bg-secondary transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
               title="Sign out"
             >
@@ -135,14 +145,7 @@ export default function DashboardLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar — mobile */}
         <header className="md:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-sidebar shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-base">
-              AdSpy<span className="text-primary">Pro</span>
-            </span>
-          </div>
+          <Logo />
           <div className="flex items-center gap-2">
             {isAdmin && (
               <Link
@@ -170,6 +173,7 @@ export default function DashboardLayout() {
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           <Outlet />
         </main>
+        <AIAssistant />
 
         {/* Bottom nav — mobile */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50">

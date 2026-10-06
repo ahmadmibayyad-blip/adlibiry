@@ -1,139 +1,94 @@
-import { motion } from "motion/react";
-import { ArrowRight, Play, TrendingUp, ShieldCheck } from "lucide-react";
+import { useQuery } from "convex/react";
+import { ArrowRight } from "lucide-react";
+import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
+import { cn } from "@/lib/utils.ts";
+import HideOnError from "@/components/HideOnError.tsx";
 
-const badges = [
-  { icon: TrendingUp, label: "10M+ Ads Tracked" },
-  { icon: ShieldCheck, label: "Trusted by 50K+ Sellers" },
-];
+const fmt = (n: number | undefined) => (n === undefined ? "…" : n.toLocaleString("en-US"));
+
+// The hero shows the product itself: today's top-scoring winners, read live
+// from the same list the dashboard's Winning Products page uses.
+function TodaysWinners() {
+  // Public preview: five winners, one per niche (see winners:homepagePreview).
+  const rows = useQuery(api.winners.homepagePreview, {});
+  const summary = useQuery(api.winners.summary, {});
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-baseline justify-between gap-4 px-5 pt-4 pb-3 border-b border-border">
+        <h2 className="font-display text-lg font-bold">Today's winners</h2>
+        <span className="text-xs text-muted-foreground">Rebuilt every morning</span>
+      </div>
+      <ul aria-busy={rows === undefined}>
+        {rows === undefined
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <li key={i} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
+                <div className="w-12 h-12 rounded-lg bg-muted animate-pulse shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-3/4 rounded bg-muted animate-pulse" />
+                  <div className="h-2.5 w-1/3 rounded bg-muted animate-pulse" />
+                </div>
+              </li>
+            ))
+          : rows.map((product) => (
+              <li key={product._id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
+                <img src={product.imageUrl} alt="" loading="lazy" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold truncate">{product.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    #{product.nicheRank} in {product.niche}
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "flex items-baseline gap-1 rounded-lg px-2 py-1 shrink-0",
+                    product.aiScore >= 85 ? "bg-good text-white dark:text-background" : "bg-foreground text-background",
+                  )}
+                >
+                  <span className="text-[10px] opacity-80">Score</span>
+                  <span className="text-sm font-bold tabular-nums">{product.aiScore}</span>
+                </div>
+              </li>
+            ))}
+      </ul>
+      <div className="px-5 py-3 bg-muted/50 text-xs text-muted-foreground">
+        {summary ? `${fmt(summary.total)} winners across ${summary.perNiche.length} niches in the app.` : " "}
+      </div>
+    </div>
+  );
+}
 
 export default function Hero() {
+  const stats = useQuery(api.stats.get, {});
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
-      {/* Radial glow background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-primary/5 blur-[80px]" />
-        {/* Grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-            backgroundSize: "50px 50px",
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-8"
-        >
-          <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-          Real-time Ad Intelligence Platform
-        </motion.div>
-
-        {/* Headline */}
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-balance leading-[1.05] mb-6"
-        >
-          Find Winning Products
-          <br />
-          <span className="text-primary">Before Your Competitors</span>
-          <br />
-          Even Do
-        </motion.h1>
-
-        {/* Sub */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 text-balance"
-        >
-          The professional ad intelligence platform for serious dropshippers. Spy on real Facebook ads, discover trending products, source from AliExpress, and let AI do the heavy lifting.
-        </motion.p>
-
-        {/* CTAs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-12"
-        >
-          <Button
-            size="lg"
-            className="bg-primary text-primary-foreground font-bold px-8 py-6 text-base gap-2 rounded-xl hover:opacity-90 transition-opacity"
-          >
-            Start Free 7-Day Trial
-            <ArrowRight className="w-4 h-4" />
-          </Button>
-          <Button
-            size="lg"
-            variant="ghost"
-            className="border border-border text-foreground px-8 py-6 text-base gap-2 rounded-xl hover:bg-muted"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            Watch Demo
-          </Button>
-        </motion.div>
-
-        {/* Trust badges */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="flex flex-wrap items-center justify-center gap-6 mb-16"
-        >
-          {badges.map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Icon className="w-4 h-4 text-primary" />
-              {label}
-            </div>
-          ))}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-yellow-400">★★★★★</span>
-            4.9/5 Rating
+    <section className="pt-28 pb-20 lg:pt-36 lg:pb-28">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center">
+        <div>
+          <h1 className="font-display text-5xl sm:text-6xl font-extrabold tracking-tight leading-[1.02] text-balance mb-6">
+            Find the products that are already selling.
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-xl mb-8">
+            AdSpy Pro watches {fmt(stats?.ads.total)} ads on Facebook, Instagram and TikTok, ties them to the{" "}
+            {fmt(stats?.products.total)} products they sell, and scores every one. The strongest rise to the top of
+            your list each morning.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
+              <a href="/#pricing">
+                Start free
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </a>
+            </Button>
+            <a href="/#features" className="text-sm font-medium text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground">
+              See what's inside
+            </a>
           </div>
-        </motion.div>
-
-        {/* Hero image */}
-        <motion.div
-          initial={{ opacity: 0, y: 60, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.9, delay: 0.4, ease: [0.25, 0.1, 0.25, 1] as const }}
-          className="relative mx-auto max-w-5xl"
-        >
-          <div className="relative rounded-2xl overflow-hidden border border-border/50 shadow-2xl shadow-primary/10">
-            {/* Fake browser chrome */}
-            <div className="bg-card border-b border-border px-4 py-3 flex items-center gap-2">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500/60" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
-                <div className="w-3 h-3 rounded-full bg-green-500/60" />
-              </div>
-              <div className="flex-1 mx-4 bg-muted rounded-md h-6 flex items-center px-3">
-                <span className="text-xs text-muted-foreground">app.adspypro.com/dashboard</span>
-              </div>
-            </div>
-            <img
-              src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NzIwMTN8MHwxfHNlYXJjaHwxfHxlY29tbWVyY2UlMjBwcm9kdWN0JTIwcmVzZWFyY2glMjBkYXNoYm9hcmQlMjBhbmFseXRpY3N8ZW58MHx8fHwxNzkwMTI4MzM5fDA&ixlib=rb-4.1.0&q=80&w=1080"
-              alt="Dashboard preview"
-              className="w-full object-cover h-[340px] sm:h-[460px]"
-            />
-            {/* Gradient overlay at bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent" />
-          </div>
-          {/* Glow under */}
-          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-3/4 h-20 bg-primary/20 blur-3xl rounded-full" />
-        </motion.div>
+        </div>
+        <HideOnError>
+          <TodaysWinners />
+        </HideOnError>
       </div>
     </section>
   );

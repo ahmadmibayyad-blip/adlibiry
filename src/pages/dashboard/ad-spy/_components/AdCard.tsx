@@ -1,13 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useMutation, useQuery, Authenticated } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import {
-  Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layers, Calendar, Copy, Zap, ExternalLink,
+  Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layers, Calendar, Copy, Zap, ExternalLink, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
+import { isPlayable, tiktokEmbedUrl, tiktokVideoId } from "@/lib/adVideo.ts";
 
 type Ad = Doc<"ads">;
 
@@ -58,11 +59,30 @@ function Metric({ icon: Icon, value, label }: { icon: typeof Eye; value: string;
   );
 }
 
+// Only one card plays at a time: starting one stops the others.
+const PLAY_EVENT = "adcard-play";
+
 export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hovering, setHovering] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing) return;
+    const stop = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== ad._id) setPlaying(false);
+    };
+    window.addEventListener(PLAY_EVENT, stop);
+    return () => window.removeEventListener(PLAY_EVENT, stop);
+  }, [playing, ad._id]);
+  const tiktokId = ad.videoUrl ? null : tiktokVideoId(ad);
+  const play = (e: MouseEvent | KeyboardEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent(PLAY_EVENT, { detail: ad._id }));
+    setPlaying(true);
+  };
   const [imgFailed, setImgFailed] = useState(false);
-  const isVideo = !!ad.videoUrl || ad.mediaType === "video";
+  // Play icon only when the popup can actually play it (file or TikTok embed).
+  const isVideo = isPlayable(ad);
   const spend = spendLabel(ad.spendEstimate);
   const countries = (ad.countries?.length ? ad.countries : ad.country && ad.country !== "INTL" ? [ad.country] : []).slice(0, 4);
   const moreCountries = (ad.countries?.length ?? 0) - countries.length;
@@ -137,11 +157,51 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
             {ad.headline}
           </div>
         )}
-        {isVideo && !hovering && (
+        {isVideo && !playing && !(ad.videoUrl && hovering) && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-11 h-11 rounded-full bg-black/55 flex items-center justify-center">
+            <button
+              type="button"
+              aria-label="Play video"
+              onClick={play}
+              onKeyDown={(e) => e.key === "Enter" && play(e)}
+              className="pointer-events-auto w-12 h-12 rounded-full bg-black/55 hover:bg-black/75 flex items-center justify-center cursor-pointer transition-colors"
+            >
               <Play className="w-5 h-5 text-white fill-white ml-0.5" />
-            </div>
+            </button>
+          </div>
+        )}
+        {ad.videoUrl && hovering && !playing && (
+          <button
+            type="button"
+            aria-label="Play with sound"
+            onClick={play}
+            className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-black/40 hover:bg-black/70 flex items-center justify-center cursor-pointer"
+          >
+            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+          </button>
+        )}
+        {playing && (
+          // Inline player; clicks here don't open the ad.
+          <div className="absolute inset-0 z-10 bg-black" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            {ad.videoUrl ? (
+              <video src={ad.videoUrl} poster={ad.creativeUrl} autoPlay controls playsInline className="w-full h-full object-contain" />
+            ) : tiktokId ? (
+              <iframe
+                src={`${tiktokEmbedUrl(tiktokId)}&autoplay=1`}
+                title={ad.headline}
+                allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            ) : null}
+            <button
+              type="button"
+              aria-label="Close video"
+              onClick={() => setPlaying(false)}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center cursor-pointer hover:bg-black"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
         <div className="absolute top-2 left-2 flex flex-wrap gap-1">

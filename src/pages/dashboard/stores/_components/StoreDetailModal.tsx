@@ -11,6 +11,8 @@ import {
 import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
+import { storeImage } from "@/lib/storeImage.ts";
+import StoreSales from "./StoreSales.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -37,7 +39,7 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
         </DialogHeader>
 
         <div className="flex items-start gap-4 mb-4">
-          <img src={store.logoUrl} alt={store.name} className="w-16 h-16 rounded-xl object-cover border border-border" />
+          <img src={storeImage(store)} alt={store.name} className="w-16 h-16 rounded-xl object-cover border border-border" />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold leading-tight mb-1">{store.name}</h2>
             <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -71,6 +73,8 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
             <div className="text-[11px] text-muted-foreground">Active ads</div>
           </div>
         </div>
+
+        <StoreSales storeId={store._id} />
 
         <div className="mb-5">
           <h3 className="font-semibold text-sm mb-3">Best Sellers</h3>

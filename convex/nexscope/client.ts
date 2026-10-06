@@ -50,6 +50,18 @@ export const NICHE_TO_AMAZON_KEYWORD: Record<string, string> = {
   "Pet Supplies": "dog harness",
 };
 
+// Product discovery rotates through several searches per niche (one per
+// run), so each run finds products the catalog doesn't have yet instead of
+// re-fetching the same top listings. Same number of API calls per run.
+export const NICHE_DISCOVERY_KEYWORDS: Record<string, string[]> = {
+  "Health & Wellness": ["resistance bands", "posture corrector", "neck massager", "foot massager", "knee brace", "acupressure mat", "massage gun", "back stretcher"],
+  Electronics: ["wireless earbuds", "phone stand", "portable charger", "smart watch", "car phone mount", "mini projector", "bluetooth speaker", "ring light"],
+  "Home & Living": ["led strip lights", "sunset lamp", "storage organizer", "electric spin scrubber", "galaxy projector", "vegetable chopper", "shower head filter", "cordless vacuum"],
+  Beauty: ["led face mask", "hair straightener brush", "gua sha", "ice roller", "lash serum", "scalp massager", "nail drill", "facial steamer"],
+  Fashion: ["crossbody bag", "shapewear", "compression socks", "seamless leggings", "belt bag", "sun hat", "slip on sneakers", "minimalist wallet"],
+  "Pet Supplies": ["dog harness", "cat water fountain", "pet hair remover", "dog cooling mat", "cat tree", "dog chew toy", "pet grooming brush", "automatic pet feeder"],
+};
+
 // Derives an honest supplier cost estimate from Amazon's own gross profit
 // margin signal when available. Never guesses a margin — if Nexscope doesn't
 // report one for this listing, cost stays undefined rather than fabricated.

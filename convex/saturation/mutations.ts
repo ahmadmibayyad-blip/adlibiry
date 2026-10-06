@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
+import { requireSignedIn } from "../lib/access";
 
 // V8 runtime — persists and reads real saturation-check snapshots. Kept out of
 // the "use node" analyze.ts file since internalMutation can't live there.
@@ -43,6 +44,7 @@ export const recordCheck = internalMutation({
 export const getHistory = query({
   args: { niche: v.string(), country: v.string() },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const checks = await ctx.db
       .query("saturationChecks")
       .withIndex("by_niche_and_country", (q) => q.eq("niche", args.niche).eq("country", args.country))

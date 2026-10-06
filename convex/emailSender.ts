@@ -43,16 +43,23 @@ function renderDigestHtml(winners: Doc<"products">[], appUrl: string): string {
     </div>`;
 }
 
+// Sends one page of recipients per run and schedules the next page, so a long
+// list can't run past the 10-minute action limit and stop halfway through.
 export const sendDailyDigest = internalAction({
-  args: {},
-  handler: async (ctx): Promise<{ sent: number }> => {
-    const recipients: { email: string; userId: string }[] = await ctx.runQuery(
-      internal.emailDigest.getDigestRecipients
-    );
-    if (recipients.length === 0) return { sent: 0 };
-
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, args): Promise<{ sent: number }> => {
     const winners: Doc<"products">[] = await ctx.runQuery(internal.emailDigest.getTodaysWinners);
     if (winners.length === 0) return { sent: 0 };
+
+    const page: { recipients: { email: string; userId: string }[]; continueCursor: string; isDone: boolean } = await ctx.runQuery(
+      internal.emailDigest.getDigestRecipients,
+      { cursor: args.cursor ?? null },
+    );
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.emailSender.sendDailyDigest, { cursor: page.continueCursor });
+    }
+    const recipients = page.recipients;
+    if (recipients.length === 0) return { sent: 0 };
 
     const appUrl = process.env.CONVEX_SITE_URL?.replace(".convex.site", "") ?? "";
 

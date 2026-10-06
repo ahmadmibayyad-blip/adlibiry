@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck backend
+        run: npx tsc --noEmit -p convex
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build (typechecks the frontend)
+        run: pnpm build
+
+      # The whole repo isn't lint-clean yet, so lint only the files this PR changes.
+      - name: Lint changed files
+        if: github.event_name == 'pull_request'
+        run: |
+          files=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" \
+            | grep -E '\.(ts|tsx|js|jsx|mjs)$' | grep -v '_generated/' || true)
+          if [ -z "$files" ]; then echo "No lintable files changed."; exit 0; fi
+          echo "$files"
+          npx eslint --max-warnings=0 $files

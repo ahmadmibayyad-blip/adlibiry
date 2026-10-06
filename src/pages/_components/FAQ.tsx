@@ -4,8 +4,8 @@ import { ChevronDown } from "lucide-react";
 
 const faqs = [
   {
-    q: "Is there a free trial?",
-    a: "Yes! Every plan comes with a full 7-day free trial. No credit card required to start. You get full access to all features during your trial.",
+    q: "Is there a free plan?",
+    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month, or €30 a month paid yearly (€360).",
   },
   {
     q: "How accurate is the ad spend data?",
@@ -17,11 +17,11 @@ const faqs = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Absolutely. You can cancel your subscription at any time with no questions asked. You'll retain access until the end of your billing period.",
+    a: "Yes. Yes. Turn off auto-renew in Settings at any time: you keep Pro until the end of the month or year you paid for, and you aren't charged again.",
   },
   {
     q: "What platforms does WinningHunter support?",
-    a: "We currently support Facebook/Meta, TikTok, and Pinterest for ad research. Store tracking works for any Shopify-based store. We're actively adding support for more platforms.",
+    a: "We currently support Facebook, Instagram and TikTok for ad research. Store tracking works for any Shopify-based store. We're actively adding support for more platforms.",
   },
   {
     q: "Is WinningHunter suitable for beginners?",
@@ -29,7 +29,7 @@ const faqs = [
   },
   {
     q: "Do you offer refunds?",
-    a: "We offer a 7-day trial so you can test the platform risk-free. If you experience a technical issue that our team can't resolve, we'll consider refunds on a case-by-case basis.",
+    a: "The Free plan lets you test the platform before paying. If you experience a technical issue that our team can't resolve, we'll consider refunds on a case-by-case basis.",
   },
   {
     q: "Can I use WinningHunter for Amazon or Etsy?",
@@ -80,12 +80,8 @@ export default function FAQ() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-5">
-            Got Questions?
-          </div>
-          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
-            Frequently Asked
-            <span className="text-primary"> Questions</span>
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
+            Frequently asked questions
           </h2>
         </motion.div>
 

@@ -1,22 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import ImageSearchDialog from "../_components/ImageSearchDialog.tsx";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { compactNumber, domainOf } from "@/lib/adFormat.ts";
 import { api } from "@/convex/_generated/api.js";
-import { TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, X, Search, LayoutGrid, Table2, ExternalLink, ArrowUpRight, ArrowDownRight, ChevronDown, EyeOff } from "lucide-react";
+import FilterTogglePill from "@/components/FilterTogglePill.tsx";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { cn } from "@/lib/utils.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
-import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
+import { SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range } from "@/lib/filterUtils.ts";
+import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 
 // ── Filter model (same layout as Ad Spy) ────────────────────────────────────
 type Filters = {
   source?: string;
+  origin?: "db" | "ads";
+  categories?: string[];
+  /** Old saved searches stored a single niche. */
   category?: string;
+  hideBrands?: boolean;
+  hidePersonalised?: boolean;
+  hideServices?: boolean;
   added?: string; // days
   price?: string; // range, USD
   margin?: string; // min %
@@ -32,14 +42,28 @@ type Filters = {
   sort?: string;
 };
 
+const ORIGINS = [
+  { value: undefined, label: "All" },
+  { value: "db" as const, label: "Product DB" },
+  { value: "ads" as const, label: "From ads" },
+];
+
+// WinningHunter and CSV imports run in the background: their products show
+// under All, but they get no filter button of their own.
 const SOURCES = [
   { value: undefined, label: "All" },
-  { value: "winninghunter", label: "WinningHunter" },
   { value: "adlibrary_api", label: "Live ads" },
   { value: "nexscope_api", label: "Amazon" },
-  { value: "csv_import", label: "CSV import" },
+  { value: "tiktok_shop", label: "TikTok Shop" },
+  { value: "shopify", label: "Shopify" },
   { value: "curated", label: "Curated" },
 ];
+
+const HIDE = [
+  { key: "hideBrands", label: "Big brands (Apple, Bissell…)" },
+  { key: "hidePersonalised", label: "Personalised / print-on-demand" },
+  { key: "hideServices", label: "Services & gift cards" },
+] as const;
 
 const ADDED = [
   { value: undefined, label: "All" },
@@ -61,7 +85,8 @@ const SATURATION = [ANY, opt("Low", "Low"), opt("Medium", "Medium"), opt("High",
 const SORTS = [
   opt("newest", "Newest"),
   opt("score", "Winning score"),
-  opt("ads", "Most ads"),
+  opt("ads", "Ads running"),
+  opt("margin", "Margin"),
   opt("likes", "Most likes"),
   opt("growth", "Fastest growth"),
   opt("priceHigh", "Price: high → low"),
@@ -82,7 +107,11 @@ function toQueryArgs(f: Filters, search: string) {
   const growth = growthRange(f.growth);
   return {
     source: f.source,
-    category: f.category,
+    origin: f.origin,
+    categories: f.categories?.length ? f.categories : f.category ? [f.category] : undefined,
+    hideBigBrands: f.hideBrands || undefined,
+    hidePersonalised: f.hidePersonalised || undefined,
+    hideServices: f.hideServices || undefined,
     publishedWithinDays: f.added ? Number(f.added) : undefined,
     minPrice: price.min,
     maxPrice: price.max,
@@ -132,7 +161,19 @@ function ProductTable({ products }: { products: Product[] }) {
                 <td className="px-3 py-2">
                   <Link to={`/dashboard/products/${p._id}`} className="flex items-center gap-3 min-w-0">
                     <img src={p.imageUrl} alt="" loading="lazy" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
-                    <span className="line-clamp-2 font-medium hover:text-primary max-w-[22rem]">{p.title}</span>
+                    <span className="min-w-0">
+                      <span className="line-clamp-2 font-medium hover:text-primary max-w-[22rem]">{p.title}</span>
+                      {(p.winnerRank !== undefined || (p.linkedAds ?? 0) > 0) && (
+                        <span className="flex flex-wrap gap-1 mt-0.5">
+                          {p.winnerRank !== undefined && (
+                            <span className="text-[10px] font-semibold px-1.5 rounded bg-primary/15 text-primary">Winner #{p.winnerRank}</span>
+                          )}
+                          {(p.linkedAds ?? 0) > 0 && (
+                            <span className="text-[10px] font-medium px-1.5 rounded bg-orange-500/15 text-orange-400">From {p.linkedAds} ad{p.linkedAds === 1 ? "" : "s"}</span>
+                          )}
+                        </span>
+                      )}
+                    </span>
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
@@ -142,7 +183,7 @@ function ProductTable({ products }: { products: Product[] }) {
                 <td className="px-3 py-2 text-right tabular-nums">{compactNumber(p.likes)}</td>
                 <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                   {g === undefined ? "—" : (
-                    <span className={cn("inline-flex items-center gap-0.5", g >= 0 ? "text-green-400" : "text-red-400")}>
+                    <span className={cn("inline-flex items-center gap-0.5", g >= 0 ? "text-good" : "text-bad")}>
                       {g >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                       {Math.abs(g).toFixed(0)}%
                     </span>
@@ -178,9 +219,11 @@ export default function ProductsFeed() {
   const [f, setF] = useState<Filters>({});
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
-  const [search, setSearch] = useState("");
+  const [params] = useSearchParams();
+  // ?search=… (e.g. from image search) presets the search box.
+  const [search, setSearch] = useState(() => params.get("search") ?? "");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [view, setView] = useState<"table" | "grid">("table");
+  const [view, setView] = useState<"table" | "grid">("grid");
 
   const stats = useQuery(api.stats.get, {});
   const categories = stats?.products.categories ?? [];
@@ -205,6 +248,15 @@ export default function ProductsFeed() {
   }, [status, results.length, filterKey, target, loadMore]);
   const showMore = () => setWanted({ key: filterKey, n: Math.max(target, results.length) + PAGE });
 
+  const selectedNiches = f.categories ?? (f.category ? [f.category] : []);
+  const toggleNiche = (n: string) =>
+    setF((prev) => {
+      const current = prev.categories ?? (prev.category ? [prev.category] : []);
+      const next = current.includes(n) ? current.filter((x) => x !== n) : [...current, n];
+      return { ...prev, category: undefined, categories: next.length ? next : undefined };
+    });
+
+  const hiddenCount = HIDE.filter((h) => f[h.key]).length;
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
 
@@ -215,9 +267,12 @@ export default function ProductsFeed() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <TrendingUp className="w-5 h-5 text-primary" />
-            <h1 className="text-2xl font-bold">Winning Products</h1>
+            <h1 className="text-2xl font-bold">Products</h1>
           </div>
-          <p className="text-sm text-muted-foreground">Products with proven ads — filter by niche, ads, likes, growth, price and margin.</p>
+          <p className="text-sm text-muted-foreground">
+            Everything we track, including products found inside running ads. Only the best reach{" "}
+            <Link to="/dashboard/winners" className="text-primary hover:underline">Winning Products</Link>.
+          </p>
         </div>
         {stats && (
           <div className="flex gap-2 text-xs">
@@ -234,78 +289,147 @@ export default function ProductsFeed() {
           </div>
         )}
       </div>
+      <TrialLimitNotice />
 
-      <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
-        {/* Source + search */}
-        <div className="flex flex-col lg:flex-row gap-2">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {SOURCES.map((s) => (
-              <Chip key={s.label} on={f.source === s.value} onClick={() => set("source", s.value)}>
-                {s.label}
-                {s.value && sourceCounts[s.value] !== undefined && <span className="opacity-60 tabular-nums">{compactNumber(sourceCounts[s.value])}</span>}
-              </Chip>
-            ))}
-          </div>
+      <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-2.5 shadow-sm">
+        {/* Search, image search, and where products come from */}
+        <div className="flex flex-col md:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search product names…"
-              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <ImageSearchDialog trigger="icon" />
+            <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-9" role="tablist" aria-label="Show">
+              {ORIGINS.map((o) => (
+                <button
+                  key={o.label}
+                  role="tab"
+                  aria-selected={f.origin === o.value}
+                  onClick={() => set("origin", o.value)}
+                  title={o.value === "ads" ? "Products we found inside running ads (several ads for one product are merged)" : undefined}
+                  className={cn(
+                    "px-3 h-full rounded-md text-xs font-medium whitespace-nowrap cursor-pointer transition-colors",
+                    f.origin === o.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Niches */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1 shrink-0">Niche</span>
-          <Chip on={!f.category} onClick={() => set("category", undefined)}>All</Chip>
-          {categories.map((c) => (
-            <Chip key={c.value} on={f.category === c.value} onClick={() => set("category", f.category === c.value ? undefined : c.value)}>
-              {c.value}
-              <span className="opacity-60 tabular-nums">{compactNumber(c.n)}</span>
-            </Chip>
-          ))}
-        </div>
-
-        {/* Date added */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">Added</span>
-          {ADDED.map((o) => (
-            <Chip key={o.label} on={f.added === o.value} onClick={() => set("added", o.value)}>{o.label}</Chip>
-          ))}
-        </div>
-
-        {/* Metrics */}
+        {/* Every filter as a dropdown */}
         <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "h-8 text-xs rounded-full px-3 inline-flex items-center gap-1 border bg-card border-border cursor-pointer",
+                  selectedNiches.length > 0 && "border-primary text-primary bg-primary/10",
+                )}
+              >
+                <span className="text-muted-foreground font-normal mr-0.5">Niche:</span>
+                {selectedNiches.length === 0 ? "All" : selectedNiches.length === 1 ? selectedNiches[0] : `${selectedNiches.length} niches`}
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
+              <DropdownMenuCheckboxItem
+                checked={selectedNiches.length === 0}
+                onSelect={(e) => e.preventDefault()}
+                onCheckedChange={() => setF((prev) => ({ ...prev, categories: undefined, category: undefined }))}
+              >
+                All niches
+              </DropdownMenuCheckboxItem>
+              {categories.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c.value}
+                  checked={selectedNiches.includes(c.value)}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={() => toggleNiche(c.value)}
+                >
+                  <span className="flex-1">{c.value}</span>
+                  <span className="text-muted-foreground tabular-nums ml-3">{compactNumber(c.n)}</span>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <FilterSelect
+            label="Source"
+            value={f.source ?? "all"}
+            onChange={(v) => set("source", v === "all" ? undefined : v)}
+            active={f.source !== undefined}
+            options={SOURCES.map((o) => ({
+              value: o.value ?? "all",
+              label: o.value && sourceCounts[o.value] !== undefined ? `${o.label} (${compactNumber(sourceCounts[o.value])})` : o.label,
+            }))}
+          />
+          <FilterSelect
+            label="Added"
+            value={f.added ?? "all"}
+            onChange={(v) => set("added", v === "all" ? undefined : v)}
+            active={f.added !== undefined}
+            options={ADDED.map((o) => ({ value: o.value ?? "all", label: o.label }))}
+          />
           <FilterSelect label="Price" value={f.price ?? "any"} onChange={setAny("price")} options={PRICE} active={!!f.price} />
           <FilterSelect label="Margin" value={f.margin ?? "any"} onChange={setAny("margin")} options={MARGIN} active={!!f.margin} />
           <FilterSelect label="Ads running" value={f.ads ?? "any"} onChange={setAny("ads")} options={ADS} active={!!f.ads} />
           <FilterSelect label="Likes" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
           <FilterSelect label="Growth" value={f.growth ?? "any"} onChange={setAny("growth")} options={GROWTH} active={!!f.growth} />
-          <FilterSelect label="Winning score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+          <FilterSelect label="Score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
           <FilterSelect label="Trend" value={f.trend ?? "any"} onChange={setAny("trend")} options={TREND} active={!!f.trend} />
           <FilterSelect label="Saturation" value={f.saturation ?? "any"} onChange={setAny("saturation")} options={SATURATION} active={!!f.saturation} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Check label="Winner of the day" checked={!!f.winner} onChange={(v) => set("winner", v || undefined)} />
-          <Check label="Has price" checked={!!f.hasPrice} onChange={(v) => set("hasPrice", v || undefined)} />
-          <Check label="Has store link" checked={!!f.hasStore} onChange={(v) => set("hasStore", v || undefined)} />
-        </div>
-
-        {/* Sort, view, saved searches */}
-        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
-          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+        {/* Quick toggles, hide, sort, view, saved searches */}
+        <div className="flex flex-wrap items-center gap-2 pt-2.5 border-t border-border">
+          <FilterTogglePill label="Winner of the day" active={!!f.winner} onToggle={() => set("winner", f.winner ? undefined : true)} />
+          <FilterTogglePill label="Has price" active={!!f.hasPrice} onToggle={() => set("hasPrice", f.hasPrice ? undefined : true)} />
+          <FilterTogglePill label="Has store link" active={!!f.hasStore} onToggle={() => set("hasStore", f.hasStore ? undefined : true)} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "h-8 text-xs rounded-full px-3 inline-flex items-center gap-1 border bg-card border-border cursor-pointer",
+                  hiddenCount > 0 && "border-primary text-primary bg-primary/10",
+                )}
+              >
+                <EyeOff className="w-3.5 h-3.5 opacity-70" />
+                Hide{hiddenCount > 0 && ` (${hiddenCount})`}
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {HIDE.map((h) => (
+                <DropdownMenuCheckboxItem
+                  key={h.key}
+                  checked={!!f[h.key]}
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={(v) => set(h.key, v ? true : undefined)}
+                >
+                  {h.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {activeCount > 0 && (
             <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
-              <X className="w-3.5 h-3.5" />Clear filters ({activeCount})
+              <X className="w-3.5 h-3.5" />Clear ({activeCount})
             </button>
           )}
           <div className="flex-1" />
-          <div className="flex items-center bg-background border border-border rounded-lg p-1">
-            {([["table", Table2], ["grid", LayoutGrid]] as const).map(([v, Icon]) => (
+          <FilterSelect label="Sort by" value={f.sort ?? "newest"} onChange={(v) => set("sort", v === "newest" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          <div className="flex items-center bg-background border border-border rounded-lg p-0.5">
+            {([["grid", LayoutGrid], ["table", Table2]] as const).map(([v, Icon]) => (
               <button
                 key={v}
                 onClick={() => setView(v)}

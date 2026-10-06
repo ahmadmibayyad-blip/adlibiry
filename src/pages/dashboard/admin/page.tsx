@@ -30,7 +30,11 @@ import AdminGuard from "./_components/AdminGuard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
+import ImportRunsCard from "./_components/ImportRunsCard.tsx";
 import CsvImportDialog from "./_components/CsvImportDialog.tsx";
+import AdCsvImportDialog from "./_components/AdCsvImportDialog.tsx";
+import RemoveLastAdImport from "./_components/RemoveLastAdImport.tsx";
+import RemoveProductListingAds from "./_components/RemoveProductListingAds.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users";
 type Product = Doc<"products">;
@@ -158,6 +162,68 @@ function OverviewTab() {
   );
 }
 
+const PIPELINE_STAGES: Record<string, string> = {
+  keys: "Preparing products",
+  link: "Linking ads to products",
+  aggregate: "Adding up ad numbers",
+  winners: "Rebuilding Winning Products",
+  snapshotProducts: "Saving product history",
+  snapshotAds: "Saving ad history",
+  prune: "Removing history older than 90 days",
+  done: "Done",
+};
+
+function ProductPipelineCard() {
+  const status = useQuery(api.productPipeline.status, {});
+  const runNow = useMutation(api.productPipeline.runNow);
+  const running = status?.state === "running";
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 mb-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <RefreshCw className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm">Products from ads, Winning Products & history</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Links ads to the products they sell, rebuilds Winning Products (top 50 per niche, score 65+) and saves today's numbers for the charts.
+            Runs automatically every day at 08:05 UTC. No API credits used.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          disabled={running}
+          onClick={async () => {
+            try {
+              const r = await runNow({});
+              toast[r.started ? "success" : "info"](r.started ? "Started" : "Already running");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start");
+            }
+          }}
+        >
+          {running ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+          {running ? "Running…" : "Run now"}
+        </Button>
+      </div>
+      {status && (
+        <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap text-xs">
+          <span className="text-muted-foreground">
+            Status <strong className={cn("text-foreground", status.state === "error" && "text-destructive")}>
+              {status.state === "running" ? PIPELINE_STAGES[status.stage] ?? status.stage : status.state === "done" ? `Done ${new Date(status.finishedAt ?? status.startedAt).toLocaleString()}` : "Failed"}
+            </strong>
+          </span>
+          <span className="text-muted-foreground">Products created from ads <strong className="text-foreground">{status.counts.productsCreated}</strong></span>
+          <span className="text-muted-foreground">Ads linked <strong className="text-foreground">{status.counts.adsLinked}</strong></span>
+          <span className="text-muted-foreground">Winners <strong className="text-foreground">{status.counts.winners}</strong></span>
+          <span className="text-muted-foreground">History rows <strong className="text-foreground">{status.counts.snapshots}</strong></span>
+          {status.error && <div className="w-full text-destructive">{status.error}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductsTab() {
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
@@ -168,7 +234,7 @@ function ProductsTab() {
   const [pricing, setPricing] = useState(false);
   const [lastPricing, setLastPricing] = useState<{ updated: number; skipped: number; errors: string[] } | null>(null);
   const [discovering, setDiscovering] = useState(false);
-  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[] } | null>(null);
+  const [lastDiscovery, setLastDiscovery] = useState<{ created: number; updated: number; skipped: number; errors: string[]; bySource?: Record<string, { created: number; updated: number }>; stores?: number; sample?: string } | null>(null);
   const deleteProduct = useMutation(api.admin.products.deleteProduct);
   const backfillPricing = useAction(api.nexscope.pricing.backfillPricingNow);
   const discoverProducts = useAction(api.nexscope.productDiscovery.discoverProductsNow);
@@ -230,6 +296,7 @@ function ProductsTab() {
 
   return (
     <div>
+      <ProductPipelineCard />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -238,7 +305,7 @@ function ProductsTab() {
               <h3 className="font-semibold text-sm">Nexscope.ai product discovery</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Pulls real Amazon bestseller candidates per niche (2 each) as new Winning Products, each with its own real title, image, and price. Also runs automatically once a day. Each run uses Nexscope credits.
+              Pulls real products from three places: Amazon bestsellers and Shopify store products running Facebook ads (up to 10 per niche each), plus the top 10 TikTok Shop best-sellers. Each with its own real title, image and price. Shopify products also add their store to the Stores tracker. Every run searches a different keyword per niche, so it keeps finding new products. Also runs automatically once a day. Each run uses Nexscope credits (13 searches).
             </p>
           </div>
           <Button size="sm" onClick={handleDiscovery} disabled={discovering}>
@@ -251,6 +318,20 @@ function ProductsTab() {
             <span className="text-muted-foreground">Created <strong className="text-foreground">{lastDiscovery.created}</strong></span>
             <span className="text-muted-foreground">Updated <strong className="text-foreground">{lastDiscovery.updated}</strong></span>
             <span className="text-muted-foreground">Skipped <strong className="text-foreground">{lastDiscovery.skipped}</strong></span>
+            {Object.entries(lastDiscovery.bySource ?? {}).map(([source, c]) => (
+              <span key={source} className="text-muted-foreground">
+                {source}: <strong className="text-foreground">{c.created}</strong> new, {c.updated} updated
+              </span>
+            ))}
+            {lastDiscovery.sample && (
+              <details className="w-full text-muted-foreground">
+                <summary className="cursor-pointer">What Nexscope sent for one Shopify product</summary>
+                <div className="mt-1 break-all font-mono text-[11px]">{lastDiscovery.sample}</div>
+              </details>
+            )}
+            {lastDiscovery.stores !== undefined && (
+              <span className="text-muted-foreground">New stores <strong className="text-foreground">{lastDiscovery.stores}</strong></span>
+            )}
             {lastDiscovery.errors.length > 0 && (
               <div className="w-full text-destructive">
                 {lastDiscovery.errors.map((err, i) => <div key={i}>{err}</div>)}
@@ -374,7 +455,7 @@ function ProductsTab() {
                       {product.isWinnerOfDay ? <Badge>Yes</Badge> : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Nexscope" : product.source === "csv_import" ? "CSV" : product.source === "winninghunter" ? "WinningHunter" : "Curated"}
+                      {product.source === "adlibrary_api" ? "AdLibrary" : product.source === "nexscope_api" ? "Amazon" : product.source === "tiktok_shop" ? "TikTok Shop" : product.source === "shopify" ? "Shopify" : product.source === "csv_import" ? "CSV" : product.source === "winninghunter" ? "WinningHunter" : "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -436,6 +517,7 @@ function AdsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Ad | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Ad | null>(null);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<{
     fetched: number;
@@ -495,6 +577,7 @@ function AdsTab() {
 
   return (
     <div>
+      <ImportRunsCard />
       <DataSourcesPanel />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -556,11 +639,18 @@ function AdsTab() {
             className="pl-9"
           />
         </div>
+        <Button variant="secondary" onClick={() => setCsvOpen(true)}>
+          <Upload className="w-4 h-4 mr-1.5" />
+          Import CSV
+        </Button>
+        <RemoveLastAdImport />
+        <RemoveProductListingAds />
         <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-1.5" />
           Add ad
         </Button>
       </div>
+      <AdCsvImportDialog open={csvOpen} onOpenChange={setCsvOpen} />
 
       {status === "LoadingFirstPage" ? (
         <div className="space-y-2">
@@ -616,7 +706,7 @@ function AdsTab() {
                       <Badge variant="secondary">{ad.aiScore}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {({ adlibrary_api: "AdLibrary", meta_ad_library: "Meta", apify: "Apify", nexscope: "Nexscope", extension: "Extension", winninghunter: "WinningHunter" } as Record<string, string>)[ad.source] ?? "Curated"}
+                      {({ adlibrary_api: "AdLibrary", meta_ad_library: "Meta", apify: "Apify", nexscope: "Nexscope", extension: "Extension", winninghunter: "WinningHunter", csv_import: "CSV" } as Record<string, string>)[ad.source] ?? "Curated"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

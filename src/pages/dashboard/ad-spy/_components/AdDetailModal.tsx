@@ -14,6 +14,9 @@ import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
+import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
+import AdMedia from "../../_components/AdMedia.tsx";
+import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -113,17 +116,13 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                   <span>· {ad.niche}</span>
                 </div>
               </div>
+              <FollowAdvertiser name={ad.advertiserName} className="ml-auto shrink-0" />
             </div>
 
             <div className="rounded-xl overflow-hidden border border-border bg-muted">
-              {ad.videoUrl ? (
-                <video src={ad.videoUrl} poster={ad.creativeUrl} controls playsInline className="w-full max-h-[60vh] bg-black" />
-              ) : ad.creativeUrl ? (
-                <img src={ad.creativeUrl} alt={ad.headline} className="w-full max-h-[60vh] object-contain bg-black" />
-              ) : (
-                <div className="aspect-square flex items-center justify-center text-sm text-muted-foreground">No creative</div>
-              )}
+              <AdMedia ad={ad} maxHeight="60vh" />
             </div>
+            <AdVideoAction ad={ad} className="w-full" />
 
             <div className="text-sm whitespace-pre-line leading-relaxed max-h-56 overflow-y-auto pr-1">
               {ad.headline && ad.headline !== ad.bodyText && <div className="font-semibold mb-1">{ad.headline}</div>}

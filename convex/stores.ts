@@ -1,86 +1,99 @@
-import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { ConvexError, v, type ObjectType } from "convex/values";
+import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { limitedPage, requireSignedIn } from "./lib/access";
 import { paginationOptsValidator } from "convex/server";
 import { paginateFilteredArray } from "./lib/pagination";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
+import { internal } from "./_generated/api";
 
 // ── Store search & profiles ─────────────────────────────────────────────────
 
-export const list = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    search: v.optional(v.string()),
-    niche: v.optional(v.string()),
-    minRevenue: v.optional(v.number()), // dollar floor, compared against the store's honest revenue-range ceiling
-    minTraffic: v.optional(v.number()), // monthly-visit floor, compared against the store's honest traffic-range ceiling
-    minActiveAds: v.optional(v.number()),
-    country: v.optional(v.string()), // ISO country code
-    highTrafficOnly: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    const hasNumericFilters =
-      args.minRevenue !== undefined ||
-      args.minTraffic !== undefined ||
-      args.minActiveAds !== undefined ||
-      args.country !== undefined ||
-      args.highTrafficOnly;
+const listArgs = {
+  paginationOpts: paginationOptsValidator,
+  search: v.optional(v.string()),
+  niche: v.optional(v.string()),
+  minRevenue: v.optional(v.number()), // dollar floor, compared against the store's honest revenue-range ceiling
+  minTraffic: v.optional(v.number()), // monthly-visit floor, compared against the store's honest traffic-range ceiling
+  minActiveAds: v.optional(v.number()),
+  country: v.optional(v.string()), // ISO country code
+  highTrafficOnly: v.optional(v.boolean()),
+};
 
-    if (!hasNumericFilters) {
-      if (args.search) {
-        return await ctx.db
-          .query("stores")
-          .withSearchIndex("search_name", (q) =>
-            args.niche ? q.search("name", args.search!).eq("niche", args.niche) : q.search("name", args.search!)
-          )
-          .paginate(args.paginationOpts);
-      }
+const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
+  const hasNumericFilters =
+    args.minRevenue !== undefined ||
+    args.minTraffic !== undefined ||
+    args.minActiveAds !== undefined ||
+    args.country !== undefined ||
+    args.highTrafficOnly;
 
-      const q = ctx.db.query("stores");
-      if (args.niche) {
-        return await q.withIndex("by_niche", (idx) => idx.eq("niche", args.niche!)).paginate(args.paginationOpts);
-      }
-      return await q.withIndex("by_spotted").order("desc").paginate(args.paginationOpts);
-    }
-
-    // Revenue/traffic/ad-count filters can't use an index (they're parsed
-    // from honest ranged-estimate strings, not stored as plain numbers), so
-    // fetch a bounded candidate set, filter fully, then paginate the
-    // filtered array — never paginate first and filter after.
-    const candidates = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(1000);
-
-    let filtered = candidates;
-    if (args.niche) filtered = filtered.filter((s) => s.niche === args.niche);
-    if (args.country) filtered = filtered.filter((s) => s.country === args.country);
-    if (args.highTrafficOnly) filtered = filtered.filter((s) => s.isHighTraffic);
+  if (!hasNumericFilters) {
     if (args.search) {
-      const term = args.search.toLowerCase();
-      filtered = filtered.filter((s) => s.name.toLowerCase().includes(term) || s.url.toLowerCase().includes(term));
-    }
-    if (args.minActiveAds !== undefined) {
-      filtered = filtered.filter((s) => s.activeAdsCount >= args.minActiveAds!);
-    }
-    if (args.minRevenue !== undefined) {
-      filtered = filtered.filter((s) => {
-        const ceiling = parseRangeUpperBound(s.estimatedRevenueRange);
-        return ceiling !== undefined && ceiling >= args.minRevenue!;
-      });
-    }
-    if (args.minTraffic !== undefined) {
-      filtered = filtered.filter((s) => {
-        const ceiling = parseRangeUpperBound(s.trafficRange);
-        return ceiling !== undefined && ceiling >= args.minTraffic!;
-      });
+      return await ctx.db
+        .query("stores")
+        .withSearchIndex("search_name", (q) =>
+          args.niche ? q.search("name", args.search!).eq("niche", args.niche) : q.search("name", args.search!)
+        )
+        .paginate(args.paginationOpts);
     }
 
-    return paginateFilteredArray(filtered, args.paginationOpts);
+    const q = ctx.db.query("stores");
+    if (args.niche) {
+      return await q.withIndex("by_niche", (idx) => idx.eq("niche", args.niche!)).paginate(args.paginationOpts);
+    }
+    return await q.withIndex("by_spotted").order("desc").paginate(args.paginationOpts);
+  }
+
+  // Revenue/traffic/ad-count filters can't use an index (they're parsed
+  // from honest ranged-estimate strings, not stored as plain numbers), so
+  // fetch a bounded candidate set, filter fully, then paginate the
+  // filtered array — never paginate first and filter after.
+  const candidates = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(1000);
+
+  let filtered = candidates;
+  if (args.niche) filtered = filtered.filter((s) => s.niche === args.niche);
+  if (args.country) filtered = filtered.filter((s) => s.country === args.country);
+  if (args.highTrafficOnly) filtered = filtered.filter((s) => s.isHighTraffic);
+  if (args.search) {
+    const term = args.search.toLowerCase();
+    filtered = filtered.filter((s) => s.name.toLowerCase().includes(term) || s.url.toLowerCase().includes(term));
+  }
+  if (args.minActiveAds !== undefined) {
+    filtered = filtered.filter((s) => s.activeAdsCount >= args.minActiveAds!);
+  }
+  if (args.minRevenue !== undefined) {
+    filtered = filtered.filter((s) => {
+      const ceiling = parseRangeUpperBound(s.estimatedRevenueRange);
+      return ceiling !== undefined && ceiling >= args.minRevenue!;
+    });
+  }
+  if (args.minTraffic !== undefined) {
+    filtered = filtered.filter((s) => {
+      const ceiling = parseRangeUpperBound(s.trafficRange);
+      return ceiling !== undefined && ceiling >= args.minTraffic!;
+    });
+  }
+
+  return paginateFilteredArray(filtered, args.paginationOpts);
+};
+
+export const list = query({
+  args: listArgs,
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    return await limitedPage(ctx, args.paginationOpts, (paginationOpts) => listImpl(ctx, { ...args, paginationOpts }));
   },
 });
+
+// Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
+export const listInternal = internalQuery({ args: listArgs, handler: listImpl });
 
 export const getById = query({
   args: { id: v.id("stores") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     return await ctx.db.get("stores", args.id);
   },
 });
@@ -88,6 +101,7 @@ export const getById = query({
 export const getNiches = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     const stores = await ctx.db.query("stores").take(500);
     const niches = new Set(stores.map((s) => s.niche));
     return Array.from(niches).sort();
@@ -98,8 +112,20 @@ export const getNiches = query({
 export const getRecentlySpotted = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     const stores = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(50);
     return stores.filter((s) => s.isHighTraffic).slice(0, 8);
+  },
+});
+
+// Stores added by Nexscope product discovery (newest first). Older rows are
+// recognised by the site-icon logo discovery gave them before `source` existed.
+export const getNewlyDiscovered = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireSignedIn(ctx);
+    const stores = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(300);
+    return stores.filter((s) => s.source === "product_discovery" || s.logoUrl.includes("google.com/s2/favicons")).slice(0, 12);
   },
 });
 
@@ -107,6 +133,7 @@ export const getRecentlySpotted = query({
 export const getByIds = query({
   args: { ids: v.array(v.id("stores")) },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const stores = await Promise.all(args.ids.map((id) => ctx.db.get("stores", id)));
     return stores.filter(Boolean);
   },
@@ -159,6 +186,12 @@ export const toggleTrackStore = mutation({
         storeId: args.storeId,
         trackedAt: new Date().toISOString(),
       });
+      // Start sales tracking now unless the store was checked in the last 6 hours.
+      const store = await ctx.db.get("stores", args.storeId);
+      const checkedAt = store?.salesCheck?.at;
+      if (store && (!checkedAt || Date.now() - Date.parse(checkedAt) > 6 * 3_600_000)) {
+        await ctx.scheduler.runAfter(0, internal.storeSales.checkOne, { storeId: args.storeId });
+      }
       return { tracked: true };
     }
   },
