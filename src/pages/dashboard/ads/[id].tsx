@@ -156,22 +156,25 @@ export default function AdDetailPage() {
               <FollowAdvertiser name={ad.advertiserName} className="shrink-0" />
             </div>
             <h1 className="font-display text-2xl font-bold leading-tight mb-1">“{ad.headline}”</h1>
-            <p className="text-sm text-muted-foreground line-clamp-3">
-              {ad.bodyText}
-              {ad.ctaText && `${ad.bodyText ? " " : ""}Button: ${ad.ctaText}`}
-            </p>
+            <p className="text-sm text-muted-foreground line-clamp-3">{ad.bodyText}</p>
+            {ad.ctaText && (
+              <span className="inline-block mt-2 text-xs font-semibold px-2.5 py-1 rounded-md bg-muted border border-border">{ad.ctaText}</span>
+            )}
+            {/* Only the numbers we have: missing data is left out, not shown as "—". */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-4">
-              <StatTile label="Running" value={ad.daysRunning > 0 ? `${ad.daysRunning} days` : "—"} />
-              <StatTile label="Views" value={adViews(ad) ? compactNumber(adViews(ad)) : "—"} />
-              <StatTile label="Likes" value={ad.likes ? compactNumber(ad.likes) : "—"} />
-              <StatTile label="Comments" value={ad.comments ? compactNumber(ad.comments) : "—"} />
+              {ad.daysRunning > 0 && <StatTile label="Running" value={`${ad.daysRunning} days`} />}
+              {adViews(ad) ? <StatTile label="Views" value={compactNumber(adViews(ad))} /> : null}
+              {ad.likes ? <StatTile label="Likes" value={compactNumber(ad.likes)} /> : null}
+              {ad.comments ? <StatTile label="Comments" value={compactNumber(ad.comments)} /> : null}
               {/* "up to $45K" doesn't fit the tile: the "up to" goes in the label. */}
-              <StatTile
-                label={spend && /^up to /i.test(spend) ? "Spend (est., max)" : "Spend (est.)"}
-                value={spend ? spend.replace(/^up to\s*/i, "") : "—"}
-                hint={spend ?? undefined}
-              />
-              <StatTile label="GMV" value={gmv ? money(gmv) : "—"} />
+              {spend && (
+                <StatTile
+                  label={/^up to /i.test(spend) ? "Spend (est., max)" : "Spend (est.)"}
+                  value={spend.replace(/^up to\s*/i, "")}
+                  hint={spend}
+                />
+              )}
+              {gmv ? <StatTile label="GMV" value={money(gmv)} /> : null}
             </div>
           </div>
 

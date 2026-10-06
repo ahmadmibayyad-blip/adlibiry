@@ -103,9 +103,27 @@ export default defineSchema({
     hashBand1: v.optional(v.string()),
     hashBand2: v.optional(v.string()),
     hashBand3: v.optional(v.string()),
+    // Score model v2 (lib/productScore.ts): the five parts (0–100), the raw
+    // weighted score (0–1), the importer's own score it started from, and the
+    // calibrated v2 score (live in aiScore once Admin switches to v2).
+    scoreParts: v.optional(v.object({
+      momentum: v.number(),
+      revenue: v.number(),
+      trend: v.number(),
+      saturation: v.number(),
+      margin: v.number(),
+      raw: v.number(),
+      source: v.number(),
+      v2: v.optional(v.number()),
+    })),
+    activeAds: v.optional(v.number()),  // ads running now (linked, seen in the last 14 days; else the source's count)
+    momentum14: v.optional(v.number()), // % change in linked-ad views over 14 days
+    storeHost: v.optional(v.string()),  // shop domain of the product page (not marketplaces), for same-store duplicates
+    aliases: v.optional(v.array(v.string())), // other names of merged duplicates
   })
     .index("by_url_key", ["urlKey"])
     .index("by_image_hash", ["imageHash"])
+    .index("by_store_host", ["storeHost"])
     .index("by_hash_band_0", ["hashBand0"])
     .index("by_hash_band_1", ["hashBand1"])
     .index("by_hash_band_2", ["hashBand2"])

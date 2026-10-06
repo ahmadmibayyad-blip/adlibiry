@@ -1,3 +1,4 @@
+import { cleanAdCopy } from "../lib/adCopy";
 import { markStatsDirty } from "../stats";
 import { v, ConvexError } from "convex/values";
 import { internalAction, internalMutation, internalQuery, action } from "../_generated/server";
@@ -503,7 +504,10 @@ const upsertAdFields = {
 export const upsertAd = internalMutation({
   args: upsertAdFields,
   handler: async (ctx, args): Promise<"created" | "updated"> => {
-    const { externalId, firstSeenKnown, ...fields } = args;
+    const { externalId, firstSeenKnown, ...raw } = args;
+    // Copy without page metadata ("Button: Shop Now"…); the CTA goes in its own field.
+    const copy = cleanAdCopy(raw.bodyText);
+    const fields = { ...raw, bodyText: copy.text, ctaText: raw.ctaText || copy.cta };
     const existingLink = await ctx.db
       .query("adlibrarySyncedAds")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))

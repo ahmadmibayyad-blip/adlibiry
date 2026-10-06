@@ -27,6 +27,7 @@ import { useMutation, useAction } from "convex/react";
 import { toast } from "sonner";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdminGuard from "./_components/AdminGuard.tsx";
+import ScoreModelCard from "./_components/ScoreModelCard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
@@ -165,7 +166,9 @@ function OverviewTab() {
 const PIPELINE_STAGES: Record<string, string> = {
   keys: "Preparing products",
   link: "Linking ads to products",
-  aggregate: "Adding up ad numbers",
+  aggregate: "Adding up ad numbers and scoring",
+  calibrateScan: "Ranking scores across all products",
+  calibrateApply: "Applying calibrated scores",
   winners: "Rebuilding Winning Products",
   snapshotProducts: "Saving product history",
   snapshotAds: "Saving ad history",
@@ -220,6 +223,11 @@ function ProductPipelineCard() {
           <span className="text-muted-foreground">Ads linked <strong className="text-foreground">{status.counts.adsLinked}</strong></span>
           <span className="text-muted-foreground">Winners <strong className="text-foreground">{status.counts.winners}</strong></span>
           <span className="text-muted-foreground">History rows <strong className="text-foreground">{status.counts.snapshots}</strong></span>
+          {status.counts.winnersGated !== undefined && (
+            <span className="text-muted-foreground" title="Score 65+ but no real sales, under 3 live ads, falling, or crowded">
+              Kept out by winner gates <strong className="text-foreground">{status.counts.winnersGated}</strong>
+            </span>
+          )}
           {status.error && <div className="w-full text-destructive">{status.error}</div>}
         </div>
       )}
@@ -324,6 +332,7 @@ function ProductsTab() {
   return (
     <div>
       <ProductPipelineCard />
+      <ScoreModelCard />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
