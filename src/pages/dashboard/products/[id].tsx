@@ -153,9 +153,11 @@ export default function ProductDetail() {
           {/* Title + badges */}
           <div>
             <div className="flex flex-wrap gap-2 mb-3">
-              <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", saturationColors[product.saturation] ?? "text-muted-foreground bg-muted border-border")}>
-                {product.saturation === "Unknown" ? "Saturation unknown" : `${product.saturation} saturation`}
-              </span>
+              {product.saturation !== "Unknown" && (
+                <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", saturationColors[product.saturation] ?? "text-muted-foreground bg-muted border-border")}>
+                  {`${product.saturation} saturation`}
+                </span>
+              )}
               <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border", trendColors[product.trend])}>
                 <TrendingUp className="w-3 h-3 inline mr-1" />
                 {product.trend}

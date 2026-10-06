@@ -146,6 +146,15 @@ export function gmvFromText(text: string): number | undefined {
   return m ? parseCompact(m[1]) : undefined;
 }
 
+// Product-level saturation from our own ad data: how many different
+// advertisers run ads for the product. One seller testing it = Low, a few =
+// Medium, five or more = High.
+export function saturationFromCompetition(distinctAdvertisers: number): "Low" | "Medium" | "High" {
+  if (distinctAdvertisers <= 1) return "Low";
+  if (distinctAdvertisers <= 4) return "Medium";
+  return "High";
+}
+
 // Round-robin across niches: best product from each niche in turn, niches
 // ordered by their best score. `lists` must each be sorted best first.
 export function roundRobin<T>(lists: T[][]): T[] {

@@ -9,30 +9,30 @@ const faqs = [
   },
   {
     q: "How accurate is the ad spend data?",
-    a: "Our spend estimates are highly accurate for Facebook and TikTok ads. We use a proprietary algorithm that analyzes ad frequency, engagement rates, and audience sizes to calculate realistic spend ranges. Most users find our data within 10-15% of actual spend.",
+    a: "Spend estimates blend platform-reported figures with our own modelled ranges (CPM, engagement and funnel benchmarks), and every estimate is labelled with its basis. Treat them as directional — for ranking and comparing products, not as exact accounts.",
   },
   {
     q: "How often is the ad database updated?",
-    a: "Our database is updated in real-time. New ads are discovered and indexed within minutes of going live. Store and product data is refreshed daily.",
+    a: "Imports run daily: new ads are synced every morning, product pricing is backfilled shortly after, and the winning-products list is rebuilt from scratch each day.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Yes. Turn off auto-renew in Settings at any time: you keep Pro until the end of the month or year you paid for, and you aren't charged again.",
+    a: "Yes. Turn off auto-renew in Settings at any time: you keep Pro until the end of the month or year you paid for, and you aren't charged again.",
   },
   {
-    q: "What platforms does WinningHunter support?",
+    q: "What platforms does AdSpy Pro support?",
     a: "We currently support Facebook, Instagram and TikTok for ad research. Store tracking works for any Shopify-based store. We're actively adding support for more platforms.",
   },
   {
-    q: "Is WinningHunter suitable for beginners?",
-    a: "Yes! Our interface is designed to be intuitive regardless of experience level. We also provide tutorials, a knowledge base, and responsive support to help you get the most out of the platform.",
+    q: "Is AdSpy Pro suitable for beginners?",
+    a: "Yes! The interface is designed to be intuitive regardless of experience level. We also provide tutorials, a knowledge base, and responsive support to help you get the most out of the platform.",
   },
   {
     q: "Do you offer refunds?",
     a: "The Free plan lets you test the platform before paying. If you experience a technical issue that our team can't resolve, we'll consider refunds on a case-by-case basis.",
   },
   {
-    q: "Can I use WinningHunter for Amazon or Etsy?",
+    q: "Can I use AdSpy Pro for Amazon or Etsy?",
     a: "Currently our focus is on Facebook/TikTok ads and Shopify stores. Amazon and Etsy research features are on our roadmap for future updates.",
   },
 ];

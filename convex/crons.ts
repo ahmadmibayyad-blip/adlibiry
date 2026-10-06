@@ -103,6 +103,15 @@ crons.daily("send follow alerts", { hourUTC: 8, minuteUTC: 35 }, internal.follow
 // catalogs and save today's estimate (convex/storeSales.ts).
 crons.daily("track Shopify store sales", { hourUTC: 10, minuteUTC: 5 }, internal.storeSales.runAll, {});
 
+// Image hashes for products and ads that have none (convex/imageHashAction.ts),
+// after the day's imports and products pipeline. Tomorrow's pipeline uses them
+// to attach ads to a product imported from another source with the same image.
+crons.daily("hash product and ad images", { hourUTC: 10, minuteUTC: 30 }, internal.imageHashAction.hashMissing, {
+  cursor: null,
+  productsDone: false,
+  round: 0,
+});
+
 // Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
 crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});
 

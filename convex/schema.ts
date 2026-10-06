@@ -91,8 +91,24 @@ export default defineSchema({
     // More photos from the product's store page (convex/productImages.ts).
     images: v.optional(v.array(v.string())),
     imagesCheckedAt: v.optional(v.string()),
+    // Perceptual hash of imageUrl (convex/imageHashAction.ts), the key for
+    // spotting one product imported twice from different sources. "" = the
+    // image couldn't be read. imageHashUrl is the URL that was hashed, so a
+    // new imageUrl gets hashed again.
+    imageHash: v.optional(v.string()),
+    imageHashUrl: v.optional(v.string()),
+    // The hash in four parts, for finding near matches (lib/imageHash.ts hashBands).
+    hashBand0: v.optional(v.string()),
+    hashBand1: v.optional(v.string()),
+    hashBand2: v.optional(v.string()),
+    hashBand3: v.optional(v.string()),
   })
     .index("by_url_key", ["urlKey"])
+    .index("by_image_hash", ["imageHash"])
+    .index("by_hash_band_0", ["hashBand0"])
+    .index("by_hash_band_1", ["hashBand1"])
+    .index("by_hash_band_2", ["hashBand2"])
+    .index("by_hash_band_3", ["hashBand3"])
     .index("by_title_key", ["titleKey"])
     .index("by_margin", ["marginPercent"])
     .index("by_category_score", ["category", "aiScore"])
@@ -155,6 +171,7 @@ export default defineSchema({
     adLibraryUrl: v.optional(v.string()),
     gmv: v.optional(v.number()),              // est. sales from this ad (TikTok Shop), USD
     productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
+    imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
@@ -166,6 +183,7 @@ export default defineSchema({
     .index("by_first_seen", ["firstSeenAt"])
     .index("by_advertiser", ["advertiserName"])
     .index("by_product", ["productId"])
+    .index("by_image_hash", ["imageHash"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
     .index("by_score", ["aiScore"])
