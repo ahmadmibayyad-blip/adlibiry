@@ -59,14 +59,8 @@ crons.daily(
   { job: "nexscopeTikTok" }
 );
 
-// Optional daily Meta Ad Library runs on Apify — only runs when the
-// APIFY_COUNTRIES env var is set (e.g. "DK,SE"). Results arrive via webhook.
-crons.daily(
-  "start Meta Ad Library imports on Apify",
-  { hourUTC: 7, minuteUTC: 25 },
-  internal.importRuns.run,
-  { job: "apify" }
-);
+// The daily Apify run (it scrapes facebook.com/ads/library) is turned off:
+// we only use official APIs and licensed data sources for Meta ads.
 
 // WinningHunter REST import — only runs when WINNINGHUNTER_API_KEY is set.
 // Markets: WH_COUNTRIES (default DK,SE,NO,DE,GB,US), WH_PAGES × 50 ads each.
@@ -102,6 +96,15 @@ crons.daily("send follow alerts", { hourUTC: 8, minuteUTC: 35 }, internal.follow
 // Store sales tracking: read tracked and discovered Shopify stores' public
 // catalogs and save today's estimate (convex/storeSales.ts).
 crons.daily("track Shopify store sales", { hourUTC: 10, minuteUTC: 5 }, internal.storeSales.runAll, {});
+
+// Image hashes for products and ads that have none (convex/imageHashAction.ts),
+// after the day's imports and products pipeline. Tomorrow's pipeline uses them
+// to attach ads to a product imported from another source with the same image.
+crons.daily("hash product and ad images", { hourUTC: 10, minuteUTC: 30 }, internal.imageHashAction.hashMissing, {
+  cursor: null,
+  productsDone: false,
+  round: 0,
+});
 
 // Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
 crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});

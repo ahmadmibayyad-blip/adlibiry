@@ -10,9 +10,10 @@ import { NICHES } from "./lib/category";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { priceFromAdText, priceLabel, toUsd } from "./lib/priceParse";
 import {
-  adSellsProduct, gmvFromText, parseCompact, productFlags, productTitleForAd, roundRobin, titleKey, urlKey, isProductPage,
+  adSellsProduct, gmvFromText, parseCompact, productFlags, productTitleForAd, roundRobin, saturationFromCompetition, titleKey, urlKey, isProductPage,
 } from "./lib/productMatch";
 import { shouldWriteSnapshot } from "./lib/snapshots";
+import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/imageHash";
 
 // ── Daily product pipeline ──────────────────────────────────────────────────
 // Runs once a day after the imports (see crons.ts), as a chain of small
@@ -241,8 +242,9 @@ async function detach(ctx: MutationCtx, productId: Id<"products">, adId: Id<"ads
   if (adIds.length !== p.adIds.length) await ctx.db.patch("products", p._id, { adIds, linkedAds: adIds.length });
 }
 
-// Attaches one ad to its product. Match order: landing-page URL, then
-// normalised product title; otherwise a new product is created.
+// Attaches one ad to its product. Match order: landing-page URL, normalised
+// product title, then the same image (the product imported from another
+// source under a different URL and title); otherwise a new product is created.
 export async function linkAd(ctx: MutationCtx, ad: Doc<"ads">): Promise<"created" | "linked" | "unchanged" | "skipped"> {
   if (!adSellsProduct(ad)) {
     if (ad.productId) {
@@ -258,6 +260,9 @@ export async function linkAd(ctx: MutationCtx, ad: Doc<"ads">): Promise<"created
   let product: Doc<"products"> | null = null;
   if (uk) product = await ctx.db.query("products").withIndex("by_url_key", (q) => q.eq("urlKey", uk)).first();
   if (!product && tk) product = await ctx.db.query("products").withIndex("by_title_key", (q) => q.eq("titleKey", tk)).first();
+  if (!product && isUsableHash(ad.imageHash)) product = (await sameImageProducts(ctx, ad.imageHash))[0] ?? null;
+  // No match, but already attached (e.g. moved here when duplicates were merged): stay.
+  if (!product && ad.productId) product = await ctx.db.get("products", ad.productId);
 
   let outcome: "created" | "linked" | "unchanged" = "linked";
   if (!product) {
@@ -279,6 +284,8 @@ export async function linkAd(ctx: MutationCtx, ad: Doc<"ads">): Promise<"created
       source: "ads",
       urlKey: uk ?? undefined,
       titleKey: tk ?? undefined,
+      // The image is the ad's creative, so its hash is already known.
+      ...(ad.imageHash !== undefined ? productHashFields(ad.imageHash, ad.creativeUrl) : {}),
       adIds: [ad._id],
       linkedAds: 1,
       ...flags,
@@ -295,6 +302,128 @@ export async function linkAd(ctx: MutationCtx, ad: Doc<"ads">): Promise<"created
   if (ad.productId && ad.productId !== product._id) await detach(ctx, ad.productId, ad._id);
   if (ad.productId !== product._id) await ctx.db.patch("ads", ad._id, { productId: product._id });
   return outcome;
+}
+
+// ── Merging duplicates ──────────────────────────────────────────────────────
+// Products imported twice from different sources (e.g. an Amazon listing and
+// a product made from ads) that share the same image are folded into one.
+// Started from Admin; runs in steps over the image-hash index and records the
+// result in siteStats["productDedup"].
+
+type DedupStatus = { state: "running" | "done"; merged: number; startedAt: string; finishedAt?: string };
+
+async function writeDedup(ctx: MutationCtx, data: DedupStatus) {
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productDedup")).unique();
+  const updatedAt = new Date().toISOString();
+  if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
+  else await ctx.db.insert("siteStats", { key: "productDedup", data, updatedAt });
+}
+
+export const mergeDuplicatesNow = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const startedAt = new Date().toISOString();
+    await writeDedup(ctx, { state: "running", merged: 0, startedAt });
+    await ctx.scheduler.runAfter(0, internal.productPipeline.mergeDuplicatesStep, { cursor: null, merged: 0, startedAt });
+  },
+});
+
+export const dedupStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productDedup")).unique();
+    return (doc?.data as DedupStatus | undefined) ?? null;
+  },
+});
+
+export const mergeDuplicatesStep = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()), merged: v.number(), startedAt: v.string() },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("products")
+      .withIndex("by_image_hash", (q) => q.gt("imageHash", ""))
+      .paginate({ numItems: 50, cursor: args.cursor }); // each looks up to 40 candidates
+    let merged = 0;
+    // Each product's near matches are looked up across the whole table; a
+    // group met again later (same page or next) is down to one row by then.
+    for (const { _id } of page.page) {
+      const p = await ctx.db.get("products", _id);
+      if (!p || !isUsableHash(p.imageHash)) continue; // already merged away
+      const group = await sameImageProducts(ctx, p.imageHash);
+      if (group.length > 1) merged += await mergeGroup(ctx, group);
+    }
+    if (merged) await markStatsDirty(ctx);
+    const total = args.merged + merged;
+    if (!page.isDone) {
+      await writeDedup(ctx, { state: "running", merged: total, startedAt: args.startedAt });
+      await ctx.scheduler.runAfter(0, internal.productPipeline.mergeDuplicatesStep, { cursor: page.continueCursor, merged: total, startedAt: args.startedAt });
+    } else {
+      await writeDedup(ctx, { state: "done", merged: total, startedAt: args.startedAt, finishedAt: new Date().toISOString() });
+    }
+  },
+});
+
+// Products whose image is the same as `hash` (up to a few bits apart, see
+// lib/imageHash.ts), found through the four indexed parts of the hash.
+async function sameImageProducts(ctx: MutationCtx, hash: string): Promise<Doc<"products">[]> {
+  const [b0, b1, b2, b3] = hashBands(hash);
+  const products = ctx.db.query("products");
+  const candidates = await Promise.all([
+    products.withIndex("by_hash_band_0", (q) => q.eq("hashBand0", b0)).take(10),
+    products.withIndex("by_hash_band_1", (q) => q.eq("hashBand1", b1)).take(10),
+    products.withIndex("by_hash_band_2", (q) => q.eq("hashBand2", b2)).take(10),
+    products.withIndex("by_hash_band_3", (q) => q.eq("hashBand3", b3)).take(10),
+  ]);
+  const found = new Map<string, Doc<"products">>();
+  for (const p of candidates.flat()) if (isSameImage(p.imageHash, hash)) found.set(p._id, p);
+  return [...found.values()].sort((a, b) => a._creationTime - b._creationTime);
+}
+
+// Keeps one product of a same-image group and folds the others into it:
+// their ads, saved-list entries and any price or cost the keeper lacks.
+// Returns how many products were removed.
+async function mergeGroup(ctx: MutationCtx, group: Doc<"products">[]): Promise<number> {
+  // Keep an imported or curated product over one made from ads (it has the
+  // real title, price and description), then the one with most ads, then the oldest.
+  const sorted = [...group].sort(
+    (a, b) =>
+      Number(a.source === "ads") - Number(b.source === "ads") ||
+      (b.linkedAds ?? 0) - (a.linkedAds ?? 0) ||
+      a._creationTime - b._creationTime,
+  );
+  const [keep, ...rest] = sorted;
+  const adIds = new Set(keep.adIds ?? []);
+  const fill: Partial<Doc<"products">> = {};
+  for (const dup of rest) {
+    for (const ad of await ctx.db.query("ads").withIndex("by_product", (q) => q.eq("productId", dup._id)).take(MAX_ADS_PER_PRODUCT)) {
+      await ctx.db.patch("ads", ad._id, { productId: keep._id });
+      adIds.add(ad._id);
+    }
+    if (keep.price === undefined && fill.price === undefined && dup.price !== undefined) {
+      fill.price = dup.price;
+      fill.priceSource = dup.priceSource;
+      fill.originalPrice = dup.originalPrice;
+    }
+    if (keep.cost === undefined && fill.cost === undefined && dup.cost !== undefined) fill.cost = dup.cost;
+    for (const s of await ctx.db.query("savedProducts").withIndex("by_product", (q) => q.eq("productId", dup._id)).collect()) {
+      const already = await ctx.db
+        .query("savedProducts")
+        .withIndex("by_user_and_product", (q) => q.eq("userId", s.userId).eq("productId", keep._id))
+        .first();
+      if (already) await ctx.db.delete("savedProducts", s._id);
+      else await ctx.db.patch("savedProducts", s._id, { productId: keep._id });
+    }
+    // Winning Products is rebuilt daily; drop the removed product's row now.
+    for (const w of await ctx.db.query("winningProducts").withIndex("by_product", (q) => q.eq("productId", dup._id)).collect()) {
+      await ctx.db.delete("winningProducts", w._id);
+    }
+    await ctx.db.delete("products", dup._id);
+  }
+  const ids = [...adIds].slice(-MAX_ADS_PER_PRODUCT);
+  await ctx.db.patch("products", keep._id, { ...fill, adIds: ids, linkedAds: ids.length });
+  return rest.length;
 }
 
 // Adds up a product's ads. Products that exist only because of ads ("ads"
@@ -345,6 +474,10 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
   }
   // "Ads running" (sort and filter) counts linked ads too.
   if (ads.length > (p.adsCount ?? 0) || p.source === "ads") patch.adsCount = ads.length;
+  // Saturation from our own data: how many different advertisers run this
+  // product. Products made from ads always use it; others only fill an "Unknown".
+  const advertisers = new Set(ads.map((a) => a.advertiserName.trim().toLowerCase()).filter(Boolean));
+  if (advertisers.size && (p.source === "ads" || p.saturation === "Unknown")) patch.saturation = saturationFromCompetition(advertisers.size);
   if (p.source === "ads" && ads.length) {
     // More ads for the same product = the seller is scaling it.
     patch.aiScore = Math.min(100, best + 3 * (ads.length - 1));

@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import {
   ShieldCheck, LayoutGrid, Package, Megaphone, Users, Plus, Search,
-  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw, Upload,
+  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw, Upload, Combine,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -176,7 +176,10 @@ const PIPELINE_STAGES: Record<string, string> = {
 function ProductPipelineCard() {
   const status = useQuery(api.productPipeline.status, {});
   const runNow = useMutation(api.productPipeline.runNow);
+  const dedup = useQuery(api.productPipeline.dedupStatus, {});
+  const mergeNow = useMutation(api.productPipeline.mergeDuplicatesNow);
   const running = status?.state === "running";
+  const merging = dedup?.state === "running";
   return (
     <div className="bg-card border border-border rounded-xl p-4 mb-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -220,6 +223,30 @@ function ProductPipelineCard() {
           {status.error && <div className="w-full text-destructive">{status.error}</div>}
         </div>
       )}
+      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-3 flex-wrap text-xs">
+        <span className="text-muted-foreground">
+          Duplicate products (same image from two sources):{" "}
+          <strong className="text-foreground">
+            {merging ? `merging… ${dedup.merged} so far` : dedup ? `${dedup.merged} merged ${new Date(dedup.finishedAt ?? dedup.startedAt).toLocaleString()}` : "never merged"}
+          </strong>
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={merging}
+          onClick={async () => {
+            try {
+              await mergeNow({});
+              toast.success("Merging duplicates");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start");
+            }
+          }}
+        >
+          {merging ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <Combine className="w-3.5 h-3.5 mr-1.5" />}
+          Merge duplicates
+        </Button>
+      </div>
     </div>
   );
 }

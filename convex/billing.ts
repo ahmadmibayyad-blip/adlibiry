@@ -1,8 +1,8 @@
-import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
+import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { stableToken } from "./lib/authIdentity";
 import { resultLimitFor } from "./lib/access";
-import { effectivePlan, planForPrice, type Plan } from "./lib/billing";
+import { PRO_TRIAL_DAYS, effectivePlan, onProTrial, planForPrice, type Plan } from "./lib/billing";
 
 // The signed-in user's plan. A query (not an action) so the app updates the
 // moment the Stripe webhook records a new subscription.
@@ -16,6 +16,40 @@ export const myPlan = query({
       .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     return effectivePlan(user);
+  },
+});
+
+async function currentUser(ctx: QueryCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) return null;
+  return await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique();
+}
+
+// The Pro free trial: "available" until it's been used, then "active" for 7
+// days with the end date, then "used".
+export const myTrial = query({
+  args: {},
+  handler: async (ctx): Promise<{ state: "available" | "active" | "used" | "paid" | "signedOut"; endsAt?: number }> => {
+    const user = await currentUser(ctx);
+    if (!user) return { state: "signedOut" };
+    if (onProTrial(user)) return { state: "active", endsAt: user.proTrialEndsAt };
+    if (effectivePlan(user) !== "none") return { state: "paid" };
+    return { state: user.proTrialEndsAt === undefined ? "available" : "used" };
+  },
+});
+
+export const startProTrial = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ endsAt: number }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to start your free trial." });
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique();
+    if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to start your free trial." });
+    if (effectivePlan(user) !== "none") throw new ConvexError({ code: "ALREADY_PRO", message: "You already have Pro." });
+    if (user.proTrialEndsAt !== undefined) throw new ConvexError({ code: "TRIAL_USED", message: "Your free trial has already been used." });
+    const endsAt = Date.now() + PRO_TRIAL_DAYS * 86_400_000;
+    await ctx.db.patch("users", user._id, { proTrialEndsAt: endsAt });
+    return { endsAt };
   },
 });
 

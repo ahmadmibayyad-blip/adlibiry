@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { productHashFields } from "./lib/imageHash";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -108,6 +109,71 @@ describe("linking ads to products", () => {
     expect(products[0]._id).toBe(pid);
     expect(products[0].linkedAds).toBe(1);
     expect(products[0].title).toBe("Cooling Mat"); // product DB data is kept
+  });
+});
+
+describe("saturation and duplicates", () => {
+  const H = "a5f0c3e1b2d49687"; // a usable image hash
+  const NEAR_H = "a5f0c3e1b2d49680"; // the same photo re-compressed: 3 bits differ
+  const hashed = (hash: string) => productHashFields(hash, "https://cdn.example.com/p.jpg");
+
+  it("sets saturation from how many advertisers run the product", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      for (const name of ["Paws & Co", "paws & co", "Doggo", "Petsy"]) await ctx.db.insert("ads", ad({ advertiserName: name }));
+    });
+    await runPipeline(t);
+    const [p] = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(p.saturation).toBe("Medium"); // 3 different advertisers
+  });
+
+  it("attaches an ad to a product from another source with the same image", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("products", product({ title: "Donut Frost Automatic Pet Feeder WiFi", source: "nexscope_api", ...hashed(H) }));
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://other.example.com/products/pet-feeder-auto", imageHash: NEAR_H }));
+      // A blank-image hash is never used to match.
+      await ctx.db.insert("products", product({ title: "Blank One Placeholder Item", ...hashed("0000000000000000") }));
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://shop.example.com/products/garden-hose-reel", imageHash: "0000000000000000" }));
+    });
+    await runPipeline(t);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.find((p) => p.source === "nexscope_api")?.linkedAds).toBe(1);
+    expect(products.filter((p) => p.source === "ads")).toHaveLength(1); // only the hose reel
+    expect(products.find((p) => p.title === "Blank One Placeholder Item")?.linkedAds).toBeUndefined();
+  });
+
+  it("merges same-image duplicates into the imported product, keeping ads and saves", async () => {
+    const t = convexTest(schema, modules);
+    const { userId, keepId, dupId, adId } = await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "admin", role: "admin" });
+      const userId = await ctx.db.insert("users", { tokenIdentifier: "user" });
+      const keepId = await ctx.db.insert("products", product({ title: "Donut Frost Pet Feeder", source: "nexscope_api", ...hashed(H) }));
+      const adId = await ctx.db.insert("ads", ad({}));
+      const dupId = await ctx.db.insert("products", product({ title: "Automatic Pet Feeder", source: "ads", ...hashed(NEAR_H), price: 39, adIds: [adId], linkedAds: 1 }));
+      await ctx.db.patch("ads", adId, { productId: dupId });
+      await ctx.db.insert("savedProducts", { userId, productId: dupId, savedAt: "2026-09-29T00:00:00.000Z" });
+      // A different image is left alone.
+      await ctx.db.insert("products", product({ title: "Cat Tree Tower", ...hashed("5a0f3c1e2b4d6978") }));
+      return { userId, keepId, dupId, adId };
+    });
+    await t.withIdentity({ subject: "admin|s" }).mutation(api.productPipeline.mergeDuplicatesNow, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const status = await t.withIdentity({ subject: "admin|s" }).query(api.productPipeline.dedupStatus, {});
+    expect(status).toMatchObject({ state: "done", merged: 1 });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("products", dupId)).toBeNull();
+      const keep = (await ctx.db.get("products", keepId))!;
+      expect(keep).toMatchObject({ adIds: [adId], linkedAds: 1, price: 39 });
+      expect((await ctx.db.get("ads", adId))?.productId).toBe(keepId);
+      const saves = await ctx.db.query("savedProducts").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+      expect(saves.map((s) => s.productId)).toEqual([keepId]);
+    });
+    // The next daily run keeps the ad on the merged product (no duplicate re-created).
+    await runPipeline(t);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.map((p) => p.title).sort()).toEqual(["Cat Tree Tower", "Donut Frost Pet Feeder"]);
+    expect(products.find((p) => p._id === keepId)?.linkedAds).toBe(1);
   });
 });
 
