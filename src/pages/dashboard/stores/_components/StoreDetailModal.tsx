@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { storeImage } from "@/lib/storeImage.ts";
 import StoreSales from "./StoreSales.tsx";
+import ProductImage from "@/components/ProductImage.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -81,7 +82,7 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
           <div className="space-y-2.5">
             {store.bestSellers.map((product) => (
               <div key={product.title} className="flex items-center gap-3 bg-muted rounded-lg p-2.5">
-                <img src={product.imageUrl} alt={product.title} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                <ProductImage src={product.imageUrl} alt={product.title} className="w-12 h-12 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium leading-snug line-clamp-1">{product.title}</div>
                   <div className="text-xs text-muted-foreground">{product.estSalesRange}</div>

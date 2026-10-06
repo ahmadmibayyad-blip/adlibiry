@@ -1,3 +1,4 @@
+import { moneyCompact } from "@/lib/money.ts";
 import { compactNumber } from "@/lib/adFormat.ts";
 
 // Helpers for the detail-page charts (charts.tsx).
@@ -18,5 +19,6 @@ export function dailyChange(points: Point[]): Point[] {
   return points.slice(1).map((p, i) => ({ day: p.day, value: Math.max(0, p.value - points[i].value) }));
 }
 
-export const money = (n: number) => (n >= 1000 ? `$${compactNumber(n)}` : `$${Math.round(n)}`);
+// Amounts in the user's display currency (lib/money.ts): compact when large.
+export const money = (n: number) => moneyCompact(n);
 export const pct = (n: number) => `${(n * 100).toFixed(n < 0.01 ? 2 : 1)}%`;

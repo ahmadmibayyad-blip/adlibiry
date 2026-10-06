@@ -3,6 +3,8 @@ import { ArrowDownRight, ArrowUpRight, ExternalLink } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, domainOf } from "@/lib/adFormat.ts";
 import { cn } from "@/lib/utils.ts";
+import ProductImage from "@/components/ProductImage.tsx";
+import { price } from "@/lib/money.ts";
 
 type Product = Doc<"products">;
 
@@ -32,7 +34,7 @@ export default function ProductTable({ products }: { products: Product[] }) {
               <tr key={p._id} className="border-b border-border last:border-0 hover:bg-muted/40">
                 <td className="px-3 py-2">
                   <Link to={`/dashboard/products/${p._id}`} className="flex items-center gap-3 min-w-0">
-                    <img src={p.imageUrl} alt="" loading="lazy" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
+                    <ProductImage src={p.imageUrl} alt="" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
                     <span className="min-w-0">
                       <span className="line-clamp-2 font-medium hover:text-primary max-w-[22rem]">{p.title}</span>
                       {(p.winnerRank !== undefined || (p.linkedAds ?? 0) > 0) && (
@@ -49,7 +51,7 @@ export default function ProductTable({ products }: { products: Product[] }) {
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
-                  {p.price !== undefined ? `$${p.price.toFixed(2)}` : p.originalPrice ?? "—"}
+                  {p.price !== undefined ? price(p.price) : p.originalPrice ?? ""}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{compactNumber(p.adsCount)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{compactNumber(p.likes)}</td>

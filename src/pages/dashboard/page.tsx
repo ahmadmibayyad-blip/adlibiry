@@ -21,6 +21,8 @@ import ImageSearchDialog from "./_components/ImageSearchDialog.tsx";
 import type { Point } from "./_components/chartUtils.ts";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { toast } from "sonner";
+import ProductImage from "@/components/ProductImage.tsx";
+import { moneyCompact, price } from "@/lib/money.ts";
 
 // Home dashboard. The charts come from api.dashboard.overview, saved once a
 // day after the product pipeline; everything else is live.
@@ -131,12 +133,12 @@ function HeroWinner({ product }: { product: Doc<"products"> | undefined | null }
   }
   const facts = [
     product.price !== undefined
-      ? { label: "Price", value: `$${product.price}` }
+      ? { label: "Price", value: price(product.price) }
       : product.originalPrice
         ? { label: "Price", value: product.originalPrice }
         : null,
     (product.linkedAds ?? 0) > 0 ? { label: "Ads found", value: compactNumber(product.linkedAds) } : null,
-    (product.linkedSpend ?? 0) > 0 ? { label: "Ad spend (est.)", value: `$${compactNumber(product.linkedSpend)}` } : null,
+    (product.linkedSpend ?? 0) > 0 ? { label: "Ad spend (est.)", value: moneyCompact(product.linkedSpend ?? 0) } : null,
     (product.linkedViews ?? 0) > 0 ? { label: "Views", value: compactNumber(product.linkedViews) } : null,
   ]
     .filter((f) => f !== null)
@@ -146,7 +148,7 @@ function HeroWinner({ product }: { product: Doc<"products"> | undefined | null }
     <div className="h-full overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
       <div className="flex flex-col sm:flex-row gap-5 p-5 h-full">
         <Link to={href} className="sm:w-52 shrink-0 aspect-[4/3] sm:aspect-square rounded-xl overflow-hidden bg-muted">
-          <img src={product.imageUrl} alt={product.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+          <ProductImage src={product.imageUrl} alt={product.title} loading="eager" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
         </Link>
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2">

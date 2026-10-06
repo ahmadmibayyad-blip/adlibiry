@@ -6,6 +6,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import ProfileSection from "./_components/ProfileSection.tsx";
 import PlanSection from "./_components/PlanSection.tsx";
 import AppearanceSection from "./_components/AppearanceSection.tsx";
+import CurrencySection from "./_components/CurrencySection.tsx";
 import AccountSection from "./_components/AccountSection.tsx";
 import McpSection from "./_components/McpSection.tsx";
 
@@ -50,6 +51,9 @@ export default function SettingsPage() {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}>
             <AppearanceSection />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.17 }}>
+            <CurrencySection />
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}>
             <div className="bg-card border border-border rounded-xl p-5">

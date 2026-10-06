@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { DollarSign, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
+import { displayCurrency } from "@/lib/money.ts";
+import { formatMoney } from "@/convex/lib/currency.ts";
 
+// Works in the user's display currency: the product's USD price and cost are
+// converted once, then the user types their own numbers.
 export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: number; baseCost: number }) {
-  const [price, setPrice] = useState(basePrice);
-  const [cost, setCost] = useState(baseCost);
-  const [shipping, setShipping] = useState(4.99);
+  const { code, rate } = displayCurrency();
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const [price, setPrice] = useState(round2(basePrice * rate));
+  const [cost, setCost] = useState(round2(baseCost * rate));
+  const [shipping, setShipping] = useState(round2(4.99 * rate));
+  const fmt = (n: number) => formatMoney(n, code, 1);
 
   const profit = price - cost - shipping;
   const margin = price > 0 ? Math.round((profit / price) * 100) : 0;
@@ -22,7 +29,7 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
       </div>
       <div className="space-y-3 mb-4">
         <div className="flex items-center justify-between gap-3">
-          <label className="text-xs text-muted-foreground w-24 shrink-0">Sell price ($)</label>
+          <label className="text-xs text-muted-foreground w-24 shrink-0">Sell price ({code})</label>
           <input
             type="number"
             value={price}
@@ -31,7 +38,7 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
           />
         </div>
         <div className="flex items-center justify-between gap-3">
-          <label className="text-xs text-muted-foreground w-24 shrink-0">Product cost ($)</label>
+          <label className="text-xs text-muted-foreground w-24 shrink-0">Product cost ({code})</label>
           <input
             type="number"
             value={cost}
@@ -40,7 +47,7 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
           />
         </div>
         <div className="flex items-center justify-between gap-3">
-          <label className="text-xs text-muted-foreground w-24 shrink-0">Shipping ($)</label>
+          <label className="text-xs text-muted-foreground w-24 shrink-0">Shipping ({code})</label>
           <input
             type="number"
             value={shipping}
@@ -53,7 +60,7 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Profit per order</span>
           <span className={cn("font-bold text-sm", profit >= 0 ? "text-good" : "text-bad")}>
-            ${profit.toFixed(2)}
+            {fmt(profit)}
           </span>
         </div>
         <div className="flex justify-between items-center">
@@ -64,11 +71,11 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Break-even CPA</span>
-          <span className="font-bold text-sm">{breakEvenCpa > 0 ? `$${breakEvenCpa.toFixed(2)}` : "—"}</span>
+          <span className="font-bold text-sm">{breakEvenCpa > 0 ? fmt(breakEvenCpa) : "Not profitable"}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Break-even ROAS</span>
-          <span className="font-bold text-sm">{breakEvenRoas ? `${breakEvenRoas.toFixed(2)}×` : "—"}</span>
+          <span className="font-bold text-sm">{breakEvenRoas ? `${breakEvenRoas.toFixed(2)}×` : "Not profitable"}</span>
         </div>
       </div>
       {margin < 20 && (
