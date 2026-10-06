@@ -126,7 +126,7 @@ export default function Pricing() {
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">Simple pricing</h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
             Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
-            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly.
+            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly. Try Pro free for 7 days, no card needed.
           </p>
           <div className="inline-flex items-center gap-1 bg-card border border-border rounded-full p-1 mt-8">
             {(["monthly", "yearly"] as const).map((p) => (

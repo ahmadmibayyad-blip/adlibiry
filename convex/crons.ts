@@ -106,6 +106,9 @@ crons.daily("hash product and ad images", { hourUTC: 10, minuteUTC: 30 }, intern
   round: 0,
 });
 
+// Exchange rates for display currencies, after the ECB publishes (~16:00 CET).
+crons.daily("refresh exchange rates", { hourUTC: 16, minuteUTC: 30 }, internal.currency.refreshRates, {});
+
 // Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
 crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});
 

@@ -2,6 +2,7 @@ import { estimateProduct, pointEstimate, unitsPerMonthFromText } from "./lib/est
 import { HISTOGRAM_BINS, binOf, medianOf, percentileOf, rawScore, scoreFromPercentile, scoreParts, shareAtLeast } from "./lib/productScore";
 import { passesWinnerGates } from "./lib/winnerGates";
 import { cleanAdCopy } from "./lib/adCopy";
+import { upgradeDescription } from "./lib/productCopy";
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireSignedIn } from "./lib/access";
@@ -169,6 +170,7 @@ export const step = internalMutation({
           const margin =
             p.price !== undefined && p.cost !== undefined && p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : undefined;
           const next = {
+            description: upgradeDescription(p.description),
             urlKey: urlKey(pageUrl) ?? undefined,
             titleKey: titleKey(p.title) ?? undefined,
             storeHost: storeHost(p.storeUrl || p.supplierUrl) ?? undefined,

@@ -8,6 +8,8 @@ import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { toast } from "sonner";
 import { Authenticated } from "convex/react";
 import { revenueEstimate } from "@/lib/estimateFormat.ts";
+import ProductImage from "@/components/ProductImage.tsx";
+import { price } from "@/lib/money.ts";
 
 type Product = Doc<"products">;
 
@@ -81,10 +83,9 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
     >
       {/* Image */}
       <div className="relative aspect-square sm:aspect-[4/3] overflow-hidden bg-muted">
-        <img
+        <ProductImage
           src={product.imageUrl}
           alt={product.title}
-          loading="lazy"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
@@ -147,7 +148,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           {hasPrice ? (
             <div className="min-w-0">
               <div className="flex items-baseline gap-1">
-                <span className="text-base font-bold tabular-nums">${product.price}</span>
+                <span className="text-base font-bold tabular-nums">{price(product.price!)}</span>
                 {product.priceSource === "estimated_market" && (
                   <span className="text-[10px] text-muted-foreground">est.</span>
                 )}

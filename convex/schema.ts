@@ -21,6 +21,7 @@ export default defineSchema({
     subscriptionStatus: v.optional(v.string()), // Stripe status: "trialing", "active", "past_due", "canceled", …
     subscriptionId: v.optional(v.string()),
     planRenewsAt: v.optional(v.number()), // ms
+    displayCurrency: v.optional(v.string()), // "USD" | "EUR" | "GBP" | "DKK" (lib/currency.ts)
     proTrialEndsAt: v.optional(v.number()), // ms; set once when the 7-day Pro trial starts (lib/billing.ts)
     subscriptionEventAt: v.optional(v.number()), // Stripe event.created (s) of the last applied change
     role: v.optional(v.string()), // "admin" | "user"

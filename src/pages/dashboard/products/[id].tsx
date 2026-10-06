@@ -21,6 +21,7 @@ import ProductPerformance, { ProductHeadline } from "./_components/ProductPerfor
 import AddToShopify from "./_components/AddToShopify.tsx";
 import ProductGallery from "./_components/ProductGallery.tsx";
 import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
+import { price } from "@/lib/money.ts";
 
 const saturationColors: Record<string, string> = {
   Low: "text-good bg-good/10 border-good/20",
@@ -240,12 +241,12 @@ export default function ProductDetail() {
               )}
               <div className={cn("grid gap-3", margin !== null ? "grid-cols-3" : hasCost ? "grid-cols-2" : "grid-cols-1", product.priceSource !== "estimated_market" && "mt-3")}>
                 <div className="text-center p-2 bg-muted rounded-lg">
-                  <div className="text-lg font-bold">${product.price}</div>
+                  <div className="text-lg font-bold">{price(product.price!)}</div>
                   <div className="text-xs text-muted-foreground">Sell Price</div>
                 </div>
                 {hasCost && (
                   <div className="text-center p-2 bg-muted rounded-lg">
-                    <div className="text-lg font-bold">${product.cost}</div>
+                    <div className="text-lg font-bold">{price(product.cost!)}</div>
                     <div className="text-xs text-muted-foreground">
                       {product.source === "nexscope_api" ? "Est. supplier cost" : "AliExpress"}
                     </div>

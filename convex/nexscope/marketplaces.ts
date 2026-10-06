@@ -7,6 +7,7 @@
 // Every number shown comes from the reply; nothing is made up.
 
 import { classifyNiche } from "../lib/category";
+import { shopifyDescription } from "../lib/productCopy";
 
 export const nexscopeSkillUrl = (skill: string) => `https://api.nexscope.ai/api/skill-api/v1/skills/${skill}/run`;
 
@@ -174,15 +175,7 @@ export function fromShopify(p: ShopifyProduct, fallbackNiche: string): Discovere
     category,
     aiScore: clampScore(45 * logShare(orders, 2_000) + 35 * logShare(ads, 200) + 20 * growthShare(growth)),
     trend: trendFromGrowthPercent(growth),
-    description:
-      [
-        "Shopify store product running Facebook ads",
-        orders !== undefined ? `${orders.toLocaleString("en-US")} orders last week (est.)` : "",
-        ads ? `${ads} Facebook ad${ads === 1 ? "" : "s"}` : "",
-        stores ? `sold by ${stores} store${stores === 1 ? "" : "s"}` : "",
-      ]
-        .filter(Boolean)
-        .join(" · ") + ".",
+    description: shopifyDescription(orders, ads || undefined, stores || undefined),
     tags: [category, "Shopify", "Facebook ads"],
   };
 }

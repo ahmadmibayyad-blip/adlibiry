@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import HideOnError from "@/components/HideOnError.tsx";
 import { initialStats } from "@/lib/landingHtml.ts";
+import ProductImage from "@/components/ProductImage.tsx";
 
 const fmt = (n: number | undefined) => (n === undefined ? "…" : n.toLocaleString("en-US"));
 
@@ -34,7 +35,7 @@ function TodaysWinners() {
             ))
           : rows.map((product) => (
               <li key={product._id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
-                <img src={product.imageUrl} alt="" loading="lazy" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
+                <ProductImage src={product.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold truncate">{product.title}</div>
                   <div className="text-xs text-muted-foreground">

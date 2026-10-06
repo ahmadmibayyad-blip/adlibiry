@@ -1,9 +1,11 @@
 import { compactNumber } from "@/lib/adFormat.ts";
+import { moneyCompact } from "@/lib/money.ts";
 import { pointEstimate, revenueConfidence, type Confidence } from "@/convex/lib/estimates.ts";
 
 type Range = { low: number; high: number } | undefined;
 
-const usd = (n: number) => (n >= 1000 ? `$${compactNumber(n)}` : `$${Math.round(n)}`);
+// Amounts in the user's display currency (lib/money.ts).
+const usd = (n: number) => moneyCompact(n);
 
 // One number for an estimate ("~$737K"), never a wide range; exact when the
 // source reported it (low = high).

@@ -17,6 +17,7 @@ import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFo
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 import AdMedia from "../../_components/AdMedia.tsx";
 import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
+import ProductImage from "@/components/ProductImage.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -310,7 +311,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 bg-muted rounded-lg p-2 hover:bg-muted/70 transition-colors"
                     >
-                      <img src={product.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
+                      <ProductImage src={product.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium line-clamp-1">{product.title}</div>
                         {product.price !== undefined && <div className="text-xs text-muted-foreground">${product.price}</div>}
