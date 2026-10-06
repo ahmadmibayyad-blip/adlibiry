@@ -79,6 +79,11 @@ export function computeOpportunityScore(demandScore: number, saturationScore: nu
 // ── Shared per-country scoring, reused by the single-check and comparison actions ──
 
 export type CountryAdSignal = { advertiserName: string; firstSeenAt: string; views: string };
+
+/** An ad counts for a country if it targets it (main country or one of its countries). */
+export function adInCountry(ad: { country: string; countries?: string[] }, country: string): boolean {
+  return ad.country === country || (ad.countries ?? []).includes(country);
+}
 export type CountryStoreSignal = { activeAdsCount: number };
 
 export type ScoreCountryInput = {
@@ -92,6 +97,9 @@ export type ScoreCountryInput = {
   hasTrendData: boolean;
   hasSupplierData: boolean;
   now: number;
+  // Only our own tracked ads (the analyzer's default): stores, trends and
+  // supplier listings aren't used, and confidence comes from how many ads back the check.
+  adsOnly?: boolean;
 };
 
 export type CountryScoreSignals = {
@@ -124,12 +132,16 @@ export function scoreCountry(input: ScoreCountryInput): ScoreCountryResult {
     input.localAds.filter((a) => recencyWeight(a.firstSeenAt, input.now) >= 1.5).map((a) => a.advertiserName)
   );
 
-  const sourcesAnalyzed: string[] = ["Ad Spy (tracked Meta/TikTok ads)", "Store Tracker (Shopify stores)"];
+  const sourcesAnalyzed: string[] = input.adsOnly
+    ? ["Ad Spy: our own tracked ads (distinct advertisers in this country)"]
+    : ["Ad Spy (tracked Meta/TikTok ads)", "Store Tracker (Shopify stores)"];
   const sourcesUnavailable: string[] = [];
-  if (input.hasTrendData) sourcesAnalyzed.push("Trends (Google Trends-style interest)");
-  else sourcesUnavailable.push("Trends (no tracked keyword for this niche)");
-  if (input.hasSupplierData) sourcesAnalyzed.push("Supplier data (AliExpress-style seller counts)");
-  else sourcesUnavailable.push("Supplier data (no tracked listings for this niche)");
+  if (!input.adsOnly) {
+    if (input.hasTrendData) sourcesAnalyzed.push("Trends (Google Trends-style interest)");
+    else sourcesUnavailable.push("Trends (no tracked keyword for this niche)");
+    if (input.hasSupplierData) sourcesAnalyzed.push("Supplier data (AliExpress-style seller counts)");
+    else sourcesUnavailable.push("Supplier data (no tracked listings for this niche)");
+  }
 
   const signals: CountryScoreSignals = {
     localAdvertiserCount: localAdvertisers.size,
@@ -152,7 +164,7 @@ export function scoreCountry(input: ScoreCountryInput): ScoreCountryResult {
     0
   );
   const metaSaturation = saturationCurve(weightedLocalAdvertiserVolume, 6);
-  const storeSaturation = saturationCurve(input.localStores.length, 5);
+  const storeSaturation = input.adsOnly ? null : saturationCurve(input.localStores.length, 5);
   const supplierSaturation =
     input.avgSupplierSellers !== undefined ? saturationCurve(input.avgSupplierSellers, 40) : null;
 
@@ -186,11 +198,9 @@ export function scoreCountry(input: ScoreCountryInput): ScoreCountryResult {
   const opportunityScore = computeOpportunityScore(demandScore, saturationScore);
 
   // ── Confidence: how much of our own data actually backed this check ──────
-  const confidenceScore = clamp(
-    Math.round((sourcesAnalyzed.length / (sourcesAnalyzed.length + sourcesUnavailable.length)) * 100),
-    0,
-    100
-  );
+  const confidenceScore = input.adsOnly
+    ? clamp(Math.round((input.localAds.length / 30) * 100), 5, 100) // 30+ local ads = full confidence
+    : clamp(Math.round((sourcesAnalyzed.length / (sourcesAnalyzed.length + sourcesUnavailable.length)) * 100), 0, 100);
 
   return { saturationScore, demandScore, opportunityScore, confidenceScore, signals };
 }

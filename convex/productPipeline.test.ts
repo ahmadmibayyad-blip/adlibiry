@@ -359,6 +359,22 @@ describe("daily history", () => {
 });
 
 describe("admin", () => {
+  it("runs every step in order, logs each one, and can re-run from a step", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" }));
+    const status = await runPipeline(t);
+    expect(status?.log?.map((l) => l.stage)).toEqual([
+      "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
+      "winners", "snapshotProducts", "snapshotAds", "prune", "lists", "emails", "done",
+    ]);
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runFrom, { stage: "winners" })).toEqual({ started: true });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const again = await t.withIdentity({ subject: "a1|s" }).query(api.productPipeline.status, {});
+    expect(again?.log?.[0].stage).toBe("winners");
+    expect(again?.state).toBe("done");
+  });
+
   it("only admins can start a run", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {

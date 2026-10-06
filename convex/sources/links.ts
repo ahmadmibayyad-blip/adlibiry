@@ -61,6 +61,8 @@ export async function upsertAd(
       if (existing) {
         await ctx.db.patch("ads", adId, {
           ...fields,
+          // Seen again today: our own record of how long it has run.
+          lastSeenAt: fields.lastSeenAt ?? now,
           firstSeenAt: opts.refreshFirstSeen ? fields.firstSeenAt : existing.firstSeenAt,
           ...(targeting ? { targeting } : {}),
           source,
@@ -74,6 +76,7 @@ export async function upsertAd(
     const adId = await ctx.db.insert("ads", {
       // defined() drops empty strings; the ads table still needs these.
       ...REQUIRED_TEXT_DEFAULTS,
+      lastSeenAt: now,
       ...fields,
       externalKey: externalId,
       targeting: targeting ?? { ageRange: "Unknown", gender: "All", interests: [] },

@@ -20,6 +20,7 @@ import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 import { storeImage } from "@/lib/storeImage.ts";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
+import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -186,7 +187,7 @@ export default function StoreTrackerPage() {
                 <img src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                 <div className="min-w-0">
                   <div className="text-sm font-medium leading-snug line-clamp-1">{store.name}</div>
-                  <div className="text-xs text-muted-foreground">{store.estimatedRevenueRange}</div>
+                  {storeRevenueLabel(store) && <div className="text-xs text-muted-foreground">{storeRevenueLabel(store)}</div>}
                 </div>
               </button>
             ))}

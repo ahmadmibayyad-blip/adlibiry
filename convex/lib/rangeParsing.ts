@@ -26,3 +26,10 @@ export function parseRangeUpperBound(raw: string): number | undefined {
   if (magnitudes.length === 0) return undefined;
   return Math.max(...magnitudes);
 }
+
+// Both ends of a range string ("$80K–$150K/mo" → 80000 and 150000).
+export function parseRangeBounds(raw: string): { low: number; high: number } | undefined {
+  const magnitudes = (raw.match(/[\d.]+\s*[KMB]?/gi) ?? []).map(parseMagnitude).filter((n): n is number => n !== undefined);
+  if (magnitudes.length === 0) return undefined;
+  return { low: Math.min(...magnitudes), high: Math.max(...magnitudes) };
+}

@@ -22,6 +22,7 @@ import AddToShopify from "./_components/AddToShopify.tsx";
 import ProductGallery from "./_components/ProductGallery.tsx";
 import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
 import { price } from "@/lib/money.ts";
+import { flag } from "@/lib/adFormat.ts";
 
 const saturationColors: Record<string, string> = {
   Low: "text-good bg-good/10 border-good/20",
@@ -219,6 +220,20 @@ export default function ProductDetail() {
             <ScoreBreakdown product={product} />
           </div>
 
+          {product.saturationByCountry && product.saturationByCountry.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4">
+              <h3 className="font-semibold text-sm mb-1">Competition this week</h3>
+              <p className="text-xs text-muted-foreground mb-3">Different advertisers running ads for it in each country over the last 7 days, from our own ad data.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {product.saturationByCountry.map((c) => (
+                  <span key={c.country} className={cn("text-xs px-2 py-1 rounded-md border", saturationColors[c.level] ?? "border-border")}>
+                    {flag(c.country)} {c.country} · {c.advertisers} advertiser{c.advertisers === 1 ? "" : "s"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Pricing */}
           {hasPrice ? (
             <div className="bg-card border border-border rounded-xl p-4">
@@ -248,7 +263,17 @@ export default function ProductDetail() {
                   <div className="text-center p-2 bg-muted rounded-lg">
                     <div className="text-lg font-bold">{price(product.cost!)}</div>
                     <div className="text-xs text-muted-foreground">
-                      {product.source === "nexscope_api" ? "Est. supplier cost" : "AliExpress"}
+                      {product.costSource === "aliexpress" ? (
+                        product.costUrl ? (
+                          <a href={product.costUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">AliExpress landed cost (est.)</a>
+                        ) : (
+                          "AliExpress landed cost (est.)"
+                        )
+                      ) : product.source === "nexscope_api" ? (
+                        "Est. supplier cost"
+                      ) : (
+                        "Supplier cost"
+                      )}
                     </div>
                   </div>
                 )}

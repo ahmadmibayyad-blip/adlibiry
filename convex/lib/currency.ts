@@ -19,6 +19,22 @@ export function ratesFromEcbXml(xml: string): Record<CurrencyCode, number> | nul
   return { USD: 1, EUR: 1 / usdPerEur, GBP: eur.GBP / usdPerEur, DKK: eur.DKK / usdPerEur };
 }
 
+/** Every currency the ECB publishes, as USD → currency rates (for store prices). */
+export function allUsdRatesFromEcbXml(xml: string): Record<string, number> {
+  const eur: Record<string, number> = { EUR: 1 };
+  for (const m of xml.matchAll(/currency=['"]([A-Z]{3})['"]\s+rate=['"]([\d.]+)['"]/g)) eur[m[1]] = Number(m[2]);
+  const usdPerEur = eur.USD;
+  if (!(usdPerEur > 0)) return {};
+  return Object.fromEntries(Object.entries(eur).map(([c, r]) => [c, r / usdPerEur]));
+}
+
+/** A price in `currency` converted to USD; undefined when we have no rate for it. */
+export function toUsdWith(amount: number, currency: string | undefined, usdRates: Record<string, number>): number | undefined {
+  if (!currency || currency === "USD") return amount;
+  const rate = usdRates[currency];
+  return rate > 0 ? Math.round((amount / rate) * 100) / 100 : undefined;
+}
+
 /**
  * An amount stored in USD, shown in `code`. Prices always get two decimals
  * ("€18.90"); `compact` is for large estimates ("€12.4K").

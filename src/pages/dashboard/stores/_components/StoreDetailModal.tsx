@@ -14,6 +14,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import { storeImage } from "@/lib/storeImage.ts";
 import StoreSales from "./StoreSales.tsx";
 import ProductImage from "@/components/ProductImage.tsx";
+import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -60,8 +61,10 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="bg-muted rounded-lg p-3 flex flex-col items-center text-center gap-1">
             <DollarSign className="w-4 h-4 text-muted-foreground" />
-            <div className="text-sm font-bold">{store.estimatedRevenueRange}</div>
-            <div className="text-[11px] text-muted-foreground">Est. revenue</div>
+            <div className="text-sm font-bold">{storeRevenueLabel(store) ?? "Tracking"}</div>
+            <div className="text-[11px] text-muted-foreground">
+              Est. revenue{store.revenueConfidence ? ` · ${store.revenueConfidence} confidence` : ""}
+            </div>
           </div>
           <div className="bg-muted rounded-lg p-3 flex flex-col items-center text-center gap-1">
             <Users className="w-4 h-4 text-muted-foreground" />

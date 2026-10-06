@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdminGuard from "./_components/AdminGuard.tsx";
 import ScoreModelCard from "./_components/ScoreModelCard.tsx";
+import RevenueCalibrationCard from "./_components/RevenueCalibrationCard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
@@ -164,8 +165,12 @@ function OverviewTab() {
 }
 
 const PIPELINE_STAGES: Record<string, string> = {
+  hashImages: "Hashing new images",
   keys: "Preparing products",
   link: "Linking ads to products",
+  landingPages: "Reading prices from landing pages",
+  dedupe: "Merging duplicate products",
+  stores: "Queuing store catalog checks",
   aggregate: "Adding up ad numbers and scoring",
   calibrateScan: "Ranking scores across all products",
   calibrateApply: "Applying calibrated scores",
@@ -173,12 +178,16 @@ const PIPELINE_STAGES: Record<string, string> = {
   snapshotProducts: "Saving product history",
   snapshotAds: "Saving ad history",
   prune: "Removing history older than 90 days",
+  lists: "Rebuilding Research and site counts",
+  emails: "Queuing the morning digest",
   done: "Done",
 };
 
 function ProductPipelineCard() {
   const status = useQuery(api.productPipeline.status, {});
   const runNow = useMutation(api.productPipeline.runNow);
+  const runFrom = useMutation(api.productPipeline.runFrom);
+  const [fromStage, setFromStage] = useState("keys");
   const dedup = useQuery(api.productPipeline.dedupStatus, {});
   const mergeNow = useMutation(api.productPipeline.mergeDuplicatesNow);
   const running = status?.state === "running";
@@ -192,8 +201,8 @@ function ProductPipelineCard() {
             <h3 className="font-semibold text-sm">Products from ads, Winning Products & history</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            Links ads to the products they sell, rebuilds Winning Products (top 50 per niche, score 65+) and saves today's numbers for the charts.
-            Runs automatically every day at 08:05 UTC. No API credits used.
+            The daily chain after the imports: image hashes, linking ads to products, landing-page prices, merging duplicates, store checks,
+            scores, Winning Products (score 65+ and the winner gates), history, lists and the morning digest. Runs every day at 08:05 UTC.
           </p>
         </div>
         <Button
@@ -228,9 +237,65 @@ function ProductPipelineCard() {
               Kept out by winner gates <strong className="text-foreground">{status.counts.winnersGated}</strong>
             </span>
           )}
+          {status.counts.merged ? (
+            <span className="text-muted-foreground">Duplicates merged <strong className="text-foreground">{status.counts.merged}</strong></span>
+          ) : null}
           {status.error && <div className="w-full text-destructive">{status.error}</div>}
         </div>
       )}
+      {status?.log && status.log.length > 0 && (
+        <details className="mt-3 text-xs">
+          <summary className="cursor-pointer text-muted-foreground">Steps of the last run</summary>
+          <ol className="mt-2 space-y-1">
+            {status.log.map((l, i) => {
+              const next = status.log![i + 1];
+              const secs = next ? Math.round((Date.parse(next.at) - Date.parse(l.at)) / 1000) : null;
+              return (
+                <li key={`${l.stage}-${i}`} className="flex items-baseline justify-between gap-3">
+                  <span>
+                    {PIPELINE_STAGES[l.stage] ?? l.stage}
+                    {l.note && <span className="text-destructive"> ({l.note})</span>}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {new Date(l.at).toLocaleTimeString()}
+                    {secs !== null && ` · ${secs < 90 ? `${secs}s` : `${Math.round(secs / 60)} min`}`}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </details>
+      )}
+      <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
+        <span className="text-muted-foreground">Re-run from</span>
+        <select
+          value={fromStage}
+          onChange={(e) => setFromStage(e.target.value)}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          aria-label="Step to re-run from"
+        >
+          {Object.entries(PIPELINE_STAGES)
+            .filter(([k]) => k !== "done")
+            .map(([k, label]) => (
+              <option key={k} value={k}>{label}</option>
+            ))}
+        </select>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={running}
+          onClick={async () => {
+            try {
+              const r = await runFrom({ stage: fromStage as never });
+              toast[r.started ? "success" : "info"](r.started ? "Started" : "Already running");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start");
+            }
+          }}
+        >
+          Run from this step
+        </Button>
+      </div>
       <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-3 flex-wrap text-xs">
         <span className="text-muted-foreground">
           Duplicate products (same image from two sources):{" "}
@@ -333,6 +398,7 @@ function ProductsTab() {
     <div>
       <ProductPipelineCard />
       <ScoreModelCard />
+      <RevenueCalibrationCard />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
