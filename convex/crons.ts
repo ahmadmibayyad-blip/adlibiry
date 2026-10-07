@@ -106,6 +106,10 @@ crons.monthly("calibrate revenue estimates", { day: 1, hourUTC: 5, minuteUTC: 17
 // pipeline computes margins — only runs when ALIEXPRESS_APP_KEY/SECRET are set.
 crons.daily("look up supplier costs on AliExpress", { hourUTC: 7, minuteUTC: 55 }, internal.importRuns.run, { job: "aliexpressCosts" });
 
+// Video ad transcripts → spoken hooks — only runs when DEEPGRAM_API_KEY is set
+// (convex/transcripts.ts).
+crons.daily("transcribe video ads", { hourUTC: 10, minuteUTC: 40 }, internal.importRuns.run, { job: "transcripts" });
+
 // Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
 crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});
 

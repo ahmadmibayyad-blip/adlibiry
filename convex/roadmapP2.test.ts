@@ -81,3 +81,55 @@ describe("store watchlist 2.0", () => {
     expect(notes.map((n) => n.title)).toContain("Paw Shop launched 1 new ad");
   });
 });
+
+describe("TikTok Shop tab", () => {
+  it("ranks TikTok Shop products by monthly sales and can keep to the user's niches", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "pro", role: "user", plan: "pro", subscriptionStatus: "active" });
+      const p = { description: "", imageUrl: "", tags: [], aiScore: 60, saturation: "Low", trend: "Rising", supplierUrl: "", adExamples: [], isWinnerOfDay: false, publishedAt: "2026-10-01T00:00:00.000Z" };
+      await ctx.db.insert("products", { ...p, title: "Lip oil", category: "Beauty", source: "tiktok_shop", unitsPerMonth: 9000 });
+      await ctx.db.insert("products", { ...p, title: "Dog brush", category: "Pet Supplies", source: "tiktok_shop", unitsPerMonth: 3000 });
+      await ctx.db.insert("products", { ...p, title: "Cat toy", category: "Pet Supplies", source: "tiktok_shop", unitsPerMonth: 12000 });
+      await ctx.db.insert("products", { ...p, title: "Amazon mat", category: "Pet Supplies", source: "nexscope_api", unitsPerMonth: 99999 });
+    });
+    const pro = t.withIdentity({ subject: "pro|s" });
+    const all = await pro.query(api.products.tiktokShop, { paginationOpts: { numItems: 10, cursor: null } });
+    expect(all.page.map((p) => p.title)).toEqual(["Cat toy", "Lip oil", "Dog brush"]);
+    const pets = await pro.query(api.products.tiktokShop, { paginationOpts: { numItems: 10, cursor: null }, niches: ["Pet Supplies"] });
+    expect(pets.page.map((p) => p.title)).toEqual(["Cat toy", "Dog brush"]);
+  });
+});
+
+describe("video transcripts", () => {
+  it("is off without a key, then saves the spoken hook and doesn't retry dead links", async () => {
+    const t = convexTest(schema, modules);
+    const { ok, dead } = await t.run(async (ctx) => {
+      const base = {
+        advertiserName: "Paw Shop", platform: "TikTok", country: "US", niche: "Pet Supplies", headline: "Mat", bodyText: "", creativeUrl: "",
+        landingPageUrl: "", spendEstimate: "Unknown", likes: 0, views: "0", daysRunning: 20, targeting: { ageRange: "18-65", gender: "All", interests: [] },
+        firstSeenAt: "2026-10-01T00:00:00.000Z", source: "pipispy",
+      };
+      return {
+        ok: await ctx.db.insert("ads", { ...base, aiScore: 90, videoUrl: "https://cdn.example.com/ok.mp4" }),
+        dead: await ctx.db.insert("ads", { ...base, aiScore: 80, videoUrl: "https://cdn.example.com/dead.mp4" }),
+      };
+    });
+    expect(await t.action(internal.transcripts.dailyTranscripts, {})).toEqual({ notConfigured: "DEEPGRAM_API_KEY isn't set (video transcripts)" });
+    vi.stubEnv("DEEPGRAM_API_KEY", "dg_test");
+    const w = (word: string, start: number) => ({ word, punctuated_word: word, start, end: start + 0.3 });
+    vi.stubGlobal("fetch", vi.fn(async (_u: string, init: { body: string }) => {
+      if (JSON.parse(init.body).url.includes("dead")) return new Response(JSON.stringify({ err_msg: "Failed to fetch media" }), { status: 400 });
+      const words = [w("Your", 0.1), w("dog", 0.5), w("will", 0.9), w("thank", 1.2), w("you", 1.5), w("for", 1.8), w("this.", 2.2), w("Look", 4)];
+      return new Response(JSON.stringify({ results: { channels: [{ alternatives: [{ transcript: "Your dog will thank you for this. Look", words }] }] } }), { status: 200 });
+    }));
+    const r = await t.action(internal.transcripts.dailyTranscripts, {});
+    expect(r).toMatchObject({ fetched: 1, updated: 1 });
+    const [a, b] = await t.run(async (ctx) => [await ctx.db.get("ads", ok), await ctx.db.get("ads", dead)]);
+    expect(a?.spokenHook).toBe("Your dog will thank you for this.");
+    expect(b?.transcriptCheckedAt).toBeDefined(); // not retried every day
+    expect(await t.action(internal.transcripts.dailyTranscripts, {})).toMatchObject({ fetched: 0 });
+    vi.unstubAllEnvs();
+  });
+});
+

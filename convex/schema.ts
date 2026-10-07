@@ -147,6 +147,7 @@ export default defineSchema({
     .index("by_url_key", ["urlKey"])
     .index("by_image_hash", ["imageHash"])
     .index("by_store_host", ["storeHost"])
+    .index("by_source_units", ["source", "unitsPerMonth"])
     .index("by_hash_band_0", ["hashBand0"])
     .index("by_hash_band_1", ["hashBand1"])
     .index("by_hash_band_2", ["hashBand2"])
@@ -216,6 +217,10 @@ export default defineSchema({
     imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
     isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
     landingHost: v.optional(v.string()),      // shop domain of the landing page (not marketplaces), ties ads to tracked stores
+    // Video transcript (convex/transcripts.ts) and the line spoken in its first 3 seconds.
+    transcript: v.optional(v.string()),
+    spokenHook: v.optional(v.string()),
+    transcriptCheckedAt: v.optional(v.string()),
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
