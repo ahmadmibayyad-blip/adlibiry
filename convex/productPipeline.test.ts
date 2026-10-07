@@ -415,7 +415,7 @@ describe("admin", () => {
     const status = await runPipeline(t);
     expect(status?.log?.map((l) => l.stage)).toEqual([
       "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
-      "winners", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails", "done",
+      "winners", "fusion", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails", "done",
     ]);
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
     expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runFrom, { stage: "winners" })).toEqual({ started: true });

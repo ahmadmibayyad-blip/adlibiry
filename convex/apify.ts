@@ -56,13 +56,13 @@ function cleanLink(u: ApiJson): string {
   }
 }
 
-function adLibraryUrl(country: string, keyword: string) {
+export function adLibraryUrl(country: string, keyword: string, exact = false) {
   const p = new URLSearchParams({
     active_status: "active",
     ad_type: "all",
     country: country.toUpperCase(),
     q: keyword,
-    search_type: "keyword_unordered",
+    search_type: exact ? "keyword_exact_phrase" : "keyword_unordered",
     media_type: "all",
   });
   return `https://www.facebook.com/ads/library/?${p.toString()}`;
@@ -94,6 +94,7 @@ async function startRun(
   keyword: string,
   maxAds: number,
   webhookToken: string,
+  url?: string,
 ): Promise<StartResult> {
   const token = process.env.APIFY_TOKEN;
   if (!token) throw new Error("APIFY_TOKEN is not set. Add it in the Convex dashboard → Settings → Environment Variables.");
@@ -110,7 +111,7 @@ async function startRun(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      urls: [{ url: adLibraryUrl(country, keyword) }],
+      urls: [{ url: url ?? adLibraryUrl(country, keyword) }],
       count: maxAds,
       limitPerSource: maxAds,
       "scrapePageAds.activeStatus": "active",
@@ -122,6 +123,19 @@ async function startRun(
   return { runId: String(data.id ?? ""), status: String(data.status ?? "STARTED") };
 }
 
+// What Apify charged for a finished run (for Admin → source enrichment spend).
+async function runCost(runId: string): Promise<number | undefined> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) return undefined;
+  try {
+    const res = await fetch(`https://api.apify.com/v2/actor-runs/${encodeURIComponent(runId)}?token=${token}`, { signal: AbortSignal.timeout(10_000) });
+    const usd = Number(((await res.json()) as { data?: { usageTotalUsd?: number } }).data?.usageTotalUsd);
+    return res.ok && Number.isFinite(usd) ? Math.round(usd * 10_000) / 10_000 : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function newToken(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -129,15 +143,24 @@ function newToken(): string {
 }
 
 export const createRun = internalMutation({
-  args: { token: v.string(), country: v.string(), niche: v.string(), keyword: v.string() },
+  args: {
+    token: v.string(),
+    country: v.string(),
+    niche: v.string(),
+    keyword: v.string(),
+    trigger: v.optional(v.string()),
+    capUsd: v.optional(v.number()),
+    productId: v.optional(v.id("products")),
+  },
   handler: async (ctx, args) => {
-    await ctx.db.insert("apifyRuns", { ...args, status: "started", createdAt: new Date().toISOString() });
+    const createdAt = new Date().toISOString();
+    await ctx.db.insert("apifyRuns", { ...args, trigger: args.trigger ?? "daily", day: createdAt.slice(0, 10), status: "started", createdAt });
     return null;
   },
 });
 
 export const setRunInfo = internalMutation({
-  args: { token: v.string(), runId: v.optional(v.string()), status: v.string(), result: v.optional(v.string()) },
+  args: { token: v.string(), runId: v.optional(v.string()), status: v.string(), result: v.optional(v.string()), costUsd: v.optional(v.number()) },
   handler: async (ctx, { token, ...patch }) => {
     const run = await ctx.db.query("apifyRuns").withIndex("by_token", (q) => q.eq("token", token)).unique();
     if (run) await ctx.db.patch("apifyRuns", run._id, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)));
@@ -152,13 +175,31 @@ export const getRunByToken = internalQuery({
 });
 
 // Start one Apify run and remember it, so its webhook can be verified.
+// `url` points the actor at something other than a keyword search (e.g. one
+// advertiser); `trigger` says why it ran, for the budget (convex/fusion.ts).
 export const startTrackedRun = internalAction({
-  args: { country: v.string(), keyword: v.string(), niche: v.string(), maxAds: v.number() },
+  args: {
+    country: v.string(),
+    keyword: v.string(),
+    niche: v.string(),
+    maxAds: v.number(),
+    url: v.optional(v.string()),
+    trigger: v.optional(v.string()),
+    productId: v.optional(v.id("products")),
+  },
   handler: async (ctx, args): Promise<StartResult> => {
     const token = newToken();
-    await ctx.runMutation(internal.apify.createRun, { token, country: args.country.toUpperCase(), niche: args.niche, keyword: args.keyword });
+    await ctx.runMutation(internal.apify.createRun, {
+      token,
+      country: args.country.toUpperCase(),
+      niche: args.niche,
+      keyword: args.keyword,
+      trigger: args.trigger,
+      capUsd: runCostCap(args.maxAds, process.env.APIFY_MAX_RUN_USD),
+      ...(args.productId ? { productId: args.productId } : {}),
+    });
     try {
-      const run = await startRun(args.country, args.keyword, args.maxAds, token);
+      const run = await startRun(args.country, args.keyword, args.maxAds, token, args.url);
       await ctx.runMutation(internal.apify.setRunInfo, { token, runId: run.runId, status: "started" });
       return run;
     } catch (e) {
@@ -198,6 +239,7 @@ export const handleWebhook = internalAction({
     const failed = result.created + result.updated === 0 && result.errors.length > 0;
     await ctx.runMutation(internal.apify.setRunInfo, {
       token: args.token,
+      costUsd: run.runId ? await runCost(run.runId) : undefined,
       status: failed ? "failed" : "imported",
       result: failed
         ? result.errors[0].slice(0, 300)

@@ -4,6 +4,7 @@ import { internalAction, action, internalMutation, internalQuery } from "../_gen
 import { internal, api } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { retireStaleWinners, winnerSlot } from "../lib/winners";
+import { mayOverwritePrice } from "../lib/fusion";
 import { classifyNiche } from "../lib/category";
 import { findPayload, nestedError } from "../lib/nexscopeReply";
 import {
@@ -321,8 +322,9 @@ export const upsertAmazonProduct = internalMutation({
       .withIndex("by_external_id", (q) => q.eq("externalId", args.asin))
       .unique();
 
-    if (existingLink && (await ctx.db.get("products", existingLink.productId))) {
-      await ctx.db.patch("products", existingLink.productId, productDoc);
+    const existingProduct = existingLink ? await ctx.db.get("products", existingLink.productId) : null;
+    if (existingLink && existingProduct) {
+      await ctx.db.patch("products", existingLink.productId, keepBetterPrice(existingProduct, productDoc));
       await ctx.db.patch("nexscopeSyncedProducts", existingLink._id, { lastSyncedAt: new Date().toISOString() });
       return { outcome: "updated", productId: existingLink.productId };
     }
@@ -414,8 +416,9 @@ export const upsertDiscovered = internalMutation({
       .query("nexscopeSyncedProducts")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
       .unique();
-    if (link && (await ctx.db.get("products", link.productId))) {
-      await ctx.db.patch("products", link.productId, productDoc);
+    const linked = link ? await ctx.db.get("products", link.productId) : null;
+    if (link && linked) {
+      await ctx.db.patch("products", link.productId, keepBetterPrice(linked, productDoc));
       await ctx.db.patch("nexscopeSyncedProducts", link._id, { lastSyncedAt: new Date().toISOString() });
       return { outcome: "updated", productId: link.productId };
     }
@@ -484,3 +487,11 @@ export const retireOldWinners = internalMutation({
   args: { niche: v.string(), keepIds: v.array(v.id("products")) },
   handler: async (ctx, args) => retireStaleWinners(ctx, { source: "nexscope_api", niche: args.niche }, args.keepIds),
 });
+
+// The store's own page beats marketplace data for the price (lib/fusion.ts):
+// keep a landing-page price instead of overwriting it on re-import.
+function keepBetterPrice<T extends { price?: number; cost?: number; priceSource?: string }>(existing: Doc<"products">, doc: T): T {
+  if (doc.price === undefined || mayOverwritePrice(existing.priceSource, doc.priceSource ?? "exact")) return doc;
+  const { price: _price, priceSource: _source, ...rest } = doc;
+  return rest as T;
+}

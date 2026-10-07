@@ -1,3 +1,4 @@
+import { fuseAd } from "../lib/fusion";
 import { cleanAdCopy } from "../lib/adCopy";
 import { markStatsDirty } from "../stats";
 import { v, ConvexError } from "convex/values";
@@ -528,6 +529,7 @@ export const upsertAd = internalMutation({
           ...(!fields.landingPageUrl && existing.landingPageUrl ? { landingPageUrl: existing.landingPageUrl } : {}),
           ...keepEarlierData(existing, fields, firstSeenKnown !== false),
           source: "adlibrary_api",
+          ...provenance(existing, fields),
         });
         await ctx.db.patch("adlibrarySyncedAds", existingLink._id, { lastSyncedAt: new Date().toISOString() });
         return "updated";
@@ -543,6 +545,7 @@ export const upsertAd = internalMutation({
       ...fields,
       targeting: { ageRange: "Unknown", gender: "All", interests: [] as string[] },
       source: "adlibrary_api",
+      ...provenance(null, fields),
     });
     await ctx.db.insert("adlibrarySyncedAds", {
       externalId,
@@ -552,6 +555,13 @@ export const upsertAd = internalMutation({
     return "created";
   },
 });
+
+// Which source wrote each field group (lib/fusion.ts); AdLibrary rows only
+// ever come from AdLibrary, so this just records it.
+function provenance(existing: Doc<"ads"> | null, fields: Record<string, unknown>) {
+  const f = fuseAd(existing, fields, "adlibrary_api", new Date().toISOString().slice(0, 10));
+  return { sources: f.sources, sourceFields: f.sourceFields };
+}
 
 // A re-sync must never make an ad look newer or smaller than we already know
 // it is: keep the real first-seen date (a missing first_seen used to reset it

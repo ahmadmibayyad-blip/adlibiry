@@ -1,6 +1,7 @@
 import { estimateProduct, pointEstimate, unitsPerMonthFromText } from "./lib/estimates";
 import { HISTOGRAM_BINS, binOf, medianOf, percentileOf, rawScore, scoreFromPercentile, scoreParts, shareAtLeast } from "./lib/productScore";
 import { passesWinnerGates } from "./lib/winnerGates";
+import { fusion, isVerifiedWinner } from "./lib/fusion";
 import { cleanAdCopy } from "./lib/adCopy";
 import { engagementRate, isScaling } from "./lib/scaling";
 import { upgradeDescription } from "./lib/productCopy";
@@ -56,7 +57,7 @@ const MAX_WINNER_CANDIDATES = 400; // per niche, so one mutation stays within re
 
 export const STAGES = [
   "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
-  "winners", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails",
+  "winners", "fusion", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails",
 ] as const;
 type Stage = (typeof STAGES)[number] | "done";
 const NEXT: Record<Stage, Stage> = {
@@ -69,7 +70,8 @@ const NEXT: Record<Stage, Stage> = {
   aggregate: "calibrateScan",
   calibrateScan: "calibrateApply",
   calibrateApply: "winners",
-  winners: "snapshotProducts",
+  winners: "fusion",
+  fusion: "snapshotProducts",
   snapshotProducts: "snapshotAds",
   snapshotAds: "prune",
   prune: "alerts",
@@ -378,6 +380,11 @@ export const step = internalMutation({
         const w = await rebuildWinners(ctx, args.day);
         counts.winners = w.winners;
         counts.winnersGated = w.gated;
+      } else if (stage === "fusion") {
+        // Event-driven enrichment (convex/fusion.ts): new winners, niche entrant
+        // spikes and marketplace products without ads. Runs in the background;
+        // Apify results come back later through its webhook.
+        await ctx.scheduler.runAfter(0, internal.fusion.runTriggers, { day: args.day });
       } else if (stage === "snapshotProducts") {
         const page = await ctx.db.query("products").paginate({ numItems: 200, cursor: args.cursor });
         for (const p of page.page) {
@@ -772,6 +779,18 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
     .order("desc")
     .first();
   patch.momentum14 = twoWeeksAgo && twoWeeksAgo.views > 0 ? Math.round(((sum.views - twoWeeksAgo.views) / twoWeeksAgo.views) * 1000) / 10 : undefined;
+  // Which independent source families back this product, and do they agree (lib/fusion.ts).
+  patch.fusion = fusion({
+    productSource: p.source ?? "",
+    unitsPerMonth: p.unitsPerMonth,
+    trend: p.trend,
+    growthPercent: p.growthPercent,
+    momentum14: patch.momentum14,
+    activeAds: patch.activeAds,
+    marginKnown: (patch.price ?? p.price) !== undefined && p.cost !== undefined,
+    saturation: patch.saturation ?? p.saturation,
+    ads: ads.map((a) => ({ sources: a.sources ?? [a.source], isActive: a.isActive, isScaling: a.isScaling })),
+  });
   if (p.source === "ads" && ads.length) {
     // Old model (v1): more ads for the same product = the seller is scaling it.
     // Under v2 the calibration stage writes the score instead.
@@ -926,7 +945,7 @@ export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<{ w
     await ctx.db.delete("winningProducts", r._id);
     if (!keep.has(r.productId)) {
       const p = await ctx.db.get("products", r.productId);
-      if (p?.winnerRank !== undefined) await ctx.db.patch("products", p._id, { winnerRank: undefined });
+      if (p && (p.winnerRank !== undefined || p.verifiedWinner)) await ctx.db.patch("products", p._id, { winnerRank: undefined, verifiedWinner: undefined });
     }
   }
   for (const [position, f] of feed.entries()) {
@@ -938,7 +957,11 @@ export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<{ w
       score: f.p.aiScore,
       enteredDay: enteredBefore.get(f.p._id) ?? day,
     });
-    if (f.p.winnerRank !== f.rank) await ctx.db.patch("products", f.p._id, { winnerRank: f.rank });
+    // Verified: a winner whose signals agree across source families (lib/fusion.ts).
+    const verified = isVerifiedWinner(true, f.p.fusion) || undefined;
+    if (f.p.winnerRank !== f.rank || f.p.verifiedWinner !== verified || !f.p.winnerSince) {
+      await ctx.db.patch("products", f.p._id, { winnerRank: f.rank, verifiedWinner: verified, winnerSince: f.p.winnerSince ?? day });
+    }
   }
   return { winners: feed.length, gated };
 }

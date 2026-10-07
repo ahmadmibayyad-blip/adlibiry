@@ -50,3 +50,29 @@ export const dailyImport = internalAction({
     return out;
   },
 });
+
+/**
+ * One targeted search (fusion.ts trigger C: a marketplace product with no ads
+ * yet). Free and official; null when META_ACCESS_TOKEN isn't set.
+ */
+export async function searchMetaAds(terms: string, countries: string[]): Promise<{ ads: MetaArchiveAd[] } | { error: string } | null> {
+  const token = process.env.META_ACCESS_TOKEN?.trim();
+  if (!token) return null;
+  const version = process.env.META_GRAPH_VERSION?.trim() || "v23.0";
+  const url = new URL(`https://graph.facebook.com/${version}/ads_archive`);
+  url.searchParams.set("search_terms", terms);
+  url.searchParams.set("search_type", "KEYWORD_EXACT_PHRASE");
+  url.searchParams.set("ad_reached_countries", JSON.stringify(countries));
+  url.searchParams.set("ad_active_status", "ACTIVE");
+  url.searchParams.set("ad_type", "ALL");
+  url.searchParams.set("fields", META_FIELDS);
+  url.searchParams.set("limit", "25");
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
+    const body = (await res.json()) as { data?: MetaArchiveAd[]; error?: { message?: string } };
+    if (!res.ok || !Array.isArray(body.data)) return { error: body.error?.message ?? `HTTP ${res.status}` };
+    return { ads: body.data };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}

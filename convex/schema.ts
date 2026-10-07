@@ -141,6 +141,18 @@ export default defineSchema({
     // Distinct advertisers per country among ads seen in the last 7 days
     // (our own data), most crowded first; "level" as lib/productMatch saturationFromCompetition.
     saturationByCountry: v.optional(v.array(v.object({ country: v.string(), advertisers: v.number(), level: v.string() }))),
+    // Multi-source fusion (lib/fusion.ts): which source families back this product and how strongly they agree.
+    fusion: v.optional(v.object({
+      families: v.array(v.string()),
+      adLevel: v.boolean(),
+      productLevel: v.boolean(),
+      confidence: v.number(),
+      crossValidated: v.boolean(),
+    })),
+    verifiedWinner: v.optional(v.boolean()), // a winner that is also cross-validated (winners stage)
+    winnerSince: v.optional(v.string()),     // day it first entered the winners list; never cleared
+    enrichedAt: v.optional(v.string()),      // winner deep-enrichment queued (fusion.ts, trigger A)
+    backfillCheckedAt: v.optional(v.string()), // marketplace product searched for ads (trigger C)
     storeHost: v.optional(v.string()),  // shop domain of the product page (not marketplaces), for same-store duplicates
     aliases: v.optional(v.array(v.string())), // other names of merged duplicates
   })
@@ -216,6 +228,8 @@ export default defineSchema({
     productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
     imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
     isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
+    sources: v.optional(v.array(v.string())), // every source that has delivered this ad
+    sourceFields: v.optional(v.object({ live: v.optional(v.object({ source: v.string(), at: v.string() })), advertiser: v.optional(v.object({ source: v.string(), at: v.string() })), engagement: v.optional(v.object({ source: v.string(), at: v.string() })) })), // who wrote each field group
     landingHost: v.optional(v.string()),      // shop domain of the landing page (not marketplaces), ties ads to tracked stores
     // Video transcript (convex/transcripts.ts) and the line spoken in its first 3 seconds.
     transcript: v.optional(v.string()),
@@ -360,7 +374,27 @@ export default defineSchema({
     status: v.string(), // "started" | "imported" | "failed"
     createdAt: v.string(),
     result: v.optional(v.string()),
-  }).index("by_token", ["token"]),
+    trigger: v.optional(v.string()),   // "daily" | "winner" | "spike" | "backfill"
+    day: v.optional(v.string()),
+    capUsd: v.optional(v.number()),    // the most this run may cost (reserved against the daily budget)
+    costUsd: v.optional(v.number()),   // what Apify charged, read when the run finished
+    productId: v.optional(v.id("products")),
+  })
+    .index("by_token", ["token"])
+    .index("by_day", ["day"]),
+
+  // Sources disagreeing about the same field (lib/fusion.ts). Kept, not
+  // silently resolved; admins sample-review them monthly.
+  sourceConflicts: defineTable({
+    entity: v.string(),   // "ad" | "product"
+    entityId: v.string(),
+    field: v.string(),    // "live" | "advertiser" | "engagement_vs_age"
+    values: v.array(v.object({ source: v.string(), value: v.string() })),
+    day: v.string(),
+    reviewed: v.optional(v.boolean()),
+  })
+    .index("by_day", ["day"])
+    .index("by_entity_field", ["entityId", "field"]),
 
   // User saved ads (creative library)
   savedAds: defineTable({

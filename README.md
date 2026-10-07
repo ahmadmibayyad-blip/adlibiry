@@ -94,3 +94,26 @@ Paid accounts use the same keys as the MCP connector (Settings → Connect your 
 
 Answers are `{ "data": [...] }` or `{ "error": "..." }` (401 bad key, 403 not paying, 400 bad parameters,
 429 daily cap). MCP and the API share the daily cap `MCP_DAILY_LIMIT` (default 300 per user).
+
+## Multi-source fusion
+
+Apify, Meta's Ad Library (official API and AdLibrary) and marketplace data (Nexscope: Amazon, TikTok Shop,
+Shopify) feed one record per ad and product (`convex/lib/fusion.ts`, `convex/fusion.ts`).
+
+- **Provenance**: each ad lists every source that delivered it (`sources`) and who wrote its live status,
+  advertiser and engagement (`sourceFields`). Priorities: live status and advertiser name from the official
+  registry over Apify; engagement from Apify and ad-spy feeds; price from the store's own page over
+  marketplace data over ad text. Disagreements are logged (`sourceConflicts`, 90 days) and sampled in
+  Admin → Source fusion.
+- **Verified winners (⭐)**: a winner whose sources agree: a live ad in the official registry with rising
+  engagement, marketplace sales with ads scaling, a known margin and low competition. Products show which
+  sources back them on their page.
+- **Triggers** (pipeline stage "fusion", after the winners are rebuilt):
+  - new winner → Apify pulls its advertiser's ads;
+  - advertisers in a niche × country double in a week (5+ new) → alert that niche's watchers, one Apify pass;
+  - marketplace best-seller with no ads → one free, official Meta Ad Library search for its brand (needs
+    `META_ACCESS_TOKEN`).
+- **Budget**: triggered Apify runs share `APIFY_DAILY_BUDGET_USD` (default 10), winners first; each run is
+  capped (about $0.07). Per day: `FUSION_ENRICH_PER_DAY` (default 10 winners), `FUSION_BACKFILL_PER_DAY`
+  (default 20 products).
+- Before marketing "Verified winners", confirm the Nexscope contract allows derived scores built on its data.

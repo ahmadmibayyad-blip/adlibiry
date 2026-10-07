@@ -29,6 +29,7 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdminGuard from "./_components/AdminGuard.tsx";
 import ScoreModelCard from "./_components/ScoreModelCard.tsx";
 import NorthStarCard from "./_components/NorthStarCard.tsx";
+import FusionCard from "./_components/FusionCard.tsx";
 import RevenueCalibrationCard from "./_components/RevenueCalibrationCard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
@@ -176,6 +177,7 @@ const PIPELINE_STAGES: Record<string, string> = {
   calibrateScan: "Ranking scores across all products",
   calibrateApply: "Applying calibrated scores",
   winners: "Rebuilding Winning Products",
+  fusion: "Queuing source enrichment (new winners, niche spikes, missing ads)",
   snapshotProducts: "Saving product history",
   snapshotAds: "Saving ad history",
   prune: "Removing history older than 90 days",
@@ -400,6 +402,7 @@ function ProductsTab() {
   return (
     <div>
       <NorthStarCard />
+      <FusionCard />
       <ProductPipelineCard />
       <ScoreModelCard />
       <RevenueCalibrationCard />

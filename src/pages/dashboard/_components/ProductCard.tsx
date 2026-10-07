@@ -122,6 +122,14 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
 
         {(product.winnerRank !== undefined || ads > 0) && (
           <div className="flex flex-wrap gap-1">
+            {product.verifiedWinner && (
+              <span
+                className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-good/15 text-good"
+                title="Verified winner: the ad registry, ad engagement and marketplace sales all point the same way, with a known margin and low competition."
+              >
+                ⭐ Verified
+              </span>
+            )}
             {product.winnerRank !== undefined && (
               <span
                 className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary"
