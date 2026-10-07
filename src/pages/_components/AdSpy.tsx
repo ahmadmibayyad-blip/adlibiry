@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api.js";
 import { compactNumber, spendLabel } from "@/lib/adFormat.ts";
 import { parseCompact } from "@/convex/lib/productMatch.ts";
 import { cn } from "@/lib/utils.ts";
+import { initialStats } from "@/lib/landingHtml.ts";
 
 function Metric({ icon: Icon, label, value }: { icon: typeof Eye; label: string; value: string }) {
   return (
@@ -19,7 +20,7 @@ function Metric({ icon: Icon, label, value }: { icon: typeof Eye; label: string;
 
 // Three real running ads from the database, one per advertiser and niche.
 export default function AdSpy() {
-  const stats = useQuery(api.stats.get, {});
+  const stats = useQuery(api.stats.get, {}) ?? initialStats();
   // Public preview: three real running ads (see ads:homepagePreview).
   const list = useQuery(api.ads.homepagePreview, {});
   const ads = list ?? [];
@@ -80,7 +81,10 @@ export default function AdSpy() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          3 of {stats ? stats.ads.total.toLocaleString("en-US") : "…"} ads. Sign up free to search them.
+          {stats ? `3 of ${stats.ads.total.toLocaleString("en-US")} ads.` : "3 of our ads."}{" "}
+          <a href="/login" className="text-primary font-medium hover:underline">
+            Sign up free to search them all.
+          </a>
         </p>
       </div>
     </section>

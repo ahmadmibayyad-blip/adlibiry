@@ -84,9 +84,12 @@ describe("work that used to stop at a fixed cap now reaches everyone", () => {
     let cursor: string | null = null;
     let total = 0;
     for (let done = false; !done; ) {
-      const page: { recipients: unknown[]; continueCursor: string; isDone: boolean } = await t.query(internal.emailDigest.getDigestRecipients, { cursor });
-      total += page.recipients.length;
-      cursor = page.continueCursor;
+      const page: { due: unknown[]; cursor: string; isDone: boolean } = await t.query(internal.digest.dueRecipients, {
+        cursor,
+        nowMs: Date.parse("2026-09-02T08:30:00Z"),
+      });
+      total += page.due.length;
+      cursor = page.cursor;
       done = page.isDone;
     }
     expect(total).toBe(2100);

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
-import { Search, Sparkles, X } from "lucide-react";
+import { ChevronDown, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdCard, { AdCardSkeleton } from "./_components/AdCard.tsx";
 import ImageSearchDialog from "../_components/ImageSearchDialog.tsx";
@@ -10,11 +10,14 @@ import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 import FilterSelect from "@/components/FilterSelect.tsx";
+import { cn } from "@/lib/utils.ts";
 import PlatformIcon from "@/components/PlatformIcon.tsx";
 import { Chip, Check, SavedSearches } from "@/components/filters.tsx";
 import { ANY, opt, range, readJson, writeJson } from "@/lib/filterUtils.ts";
 import { flag, compactNumber } from "@/lib/adFormat.ts";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
+import { useMyNiches } from "@/hooks/use-my-niches.ts";
+import MyNichesChip from "@/components/MyNichesChip.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -24,6 +27,7 @@ type Ad = Doc<"ads">;
 // ("1000-" = at least 1000).
 type Filters = {
   platform?: string;
+  scaling?: boolean;
   niche?: string;
   firstSeen?: string; // days
   lastSeen?: string; // days
@@ -119,6 +123,7 @@ function toQueryArgs(f: Filters, search: string) {
     minAiScore: score.min,
     minCopies: f.repeated ? 2 : undefined,
     activeOnly: f.active || undefined,
+    scalingOnly: f.scaling || undefined,
     hasLandingPage: f.landing === "has" || undefined,
   };
 }
@@ -130,12 +135,16 @@ const SAVED_KEY = "adspy.savedSearches";
 const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code === code)?.name ?? code;
 
 export default function AdSpyPage() {
-  // ?source=…&sort=…&platform=… (e.g. from an admin import's "View" link) preset the filters.
+  // ?source=…&sort=…&platform=…&niche=…&country=…&firstSeen=… (e.g. from an admin import's "View" link) preset the filters.
   const [params] = useSearchParams();
   const [f, setF] = useState<Filters>(() => ({
     ...(params.get("source") ? { source: params.get("source")! } : {}),
     ...(params.get("sort") ? { sort: params.get("sort")! } : {}),
     ...(params.get("platform") ? { platform: params.get("platform")! } : {}),
+    // From a "new sellers entered <niche> in <country>" alert.
+    ...(params.get("niche") ? { niche: params.get("niche")! } : {}),
+    ...(params.get("country") ? { country: params.get("country")! } : {}),
+    ...(params.get("firstSeen") ? { firstSeen: params.get("firstSeen")! } : {}),
   }));
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
@@ -149,7 +158,9 @@ export default function AdSpyPage() {
   const viewedSet = useMemo(() => new Set(viewed), [viewed]);
 
   const facets = useQuery(api.ads.getFacets, {});
-  const args = toQueryArgs(f, debouncedSearch);
+  const { niches: myNiches } = useMyNiches();
+  const [useMine, setUseMine] = useState(true);
+  const args = { ...toQueryArgs(f, debouncedSearch), ...(useMine && !f.niche && myNiches.length ? { niches: myNiches } : {}) };
   const { results, status, loadMore } = usePaginatedQuery(api.ads.list, args, { initialNumItems: 24 });
   const shown = excludeViewed ? results.filter((a) => !viewedSet.has(a._id)) : results;
 
@@ -171,6 +182,11 @@ export default function AdSpyPage() {
   const showMoreAds = () => setWanted({ key: filterKey, n: Math.max(target, shown.length) + PAGE });
 
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
+  // Filters set inside "Advanced filters" (everything but platform and the four visible ones).
+  const advancedCount = Object.entries(f).filter(
+    ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling"].includes(k) && v !== undefined && v !== false,
+  ).length;
+  const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
 
   const openAd = (ad: Ad) => {
@@ -224,7 +240,8 @@ export default function AdSpyPage() {
             {PLATFORMS.map((p) => (
               <Chip key={p} on={f.platform === p} onClick={() => set("platform", f.platform === p ? undefined : p)}>
                 <PlatformIcon platform={p} />
-                {p}
+                {/* Icon only on narrow phones so all four fit without clipping. */}
+                <span className="sr-only min-[400px]:not-sr-only">{p}</span>
               </Chip>
             ))}
           </div>
@@ -240,8 +257,9 @@ export default function AdSpyPage() {
           <ImageSearchDialog trigger="icon" />
         </div>
 
-        {/* Niche and dates */}
+        {/* The four most-used filters stay visible; the rest fold away. */}
         <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect label="Country" value={f.country ?? "any"} onChange={setAny("country")} options={countryOptions} active={!!f.country} />
           <FilterSelect
             label="Niche"
             value={f.niche ?? "all"}
@@ -249,6 +267,29 @@ export default function AdSpyPage() {
             options={[{ value: "all", label: "All" }, ...niches.map((n) => ({ value: n.value, label: `${n.value} (${compactNumber(n.n)})` }))]}
             active={!!f.niche}
           />
+          <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
+          <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
+          <Check
+            label="Scaling"
+            hint="Running 14+ days and still getting budget: views up 10%+ on last week, or engagement above the niche's median"
+            checked={!!f.scaling}
+            onChange={(v) => set("scaling", v || undefined)}
+          />
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            aria-expanded={showAdvanced}
+            className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Advanced filters{advancedCount > 0 ? ` (${advancedCount})` : ""}
+            <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAdvanced && "rotate-180")} />
+          </button>
+        </div>
+
+        {showAdvanced && (
+        <>
+        <div className="flex flex-wrap items-center gap-2">
           <FilterSelect
             label="First seen"
             value={f.firstSeen ?? "all"}
@@ -257,12 +298,10 @@ export default function AdSpyPage() {
             active={f.firstSeen !== undefined}
           />
           <FilterSelect label="Last seen" value={f.lastSeen ?? "any"} onChange={setAny("lastSeen")} options={LAST_SEEN} active={!!f.lastSeen} />
-          <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
         </div>
 
         {/* Targeting + creative */}
         <div className="flex flex-wrap items-center gap-2">
-          <FilterSelect label="Country" value={f.country ?? "any"} onChange={setAny("country")} options={countryOptions} active={!!f.country} />
           {languageOptions.length > 1 && (
             <FilterSelect label="Language" value={f.language ?? "any"} onChange={setAny("language")} options={languageOptions} active={!!f.language} />
           )}
@@ -277,7 +316,6 @@ export default function AdSpyPage() {
         <div className="flex flex-wrap items-center gap-2">
           <FilterSelect label="Impressions" value={f.impressions ?? "any"} onChange={setAny("impressions")} options={IMPRESSIONS} active={!!f.impressions} />
           <FilterSelect label="Engagement (likes)" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
-          <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
           <FilterSelect label="Winning score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
           <div className="flex flex-wrap items-center gap-3 ml-1">
             <Check label="New ads" hint="First seen in the last 7 days" checked={!!f.newAds} onChange={(v) => set("newAds", v || undefined)} />
@@ -285,10 +323,13 @@ export default function AdSpyPage() {
             <Check label="Active now" checked={!!f.active} onChange={(v) => set("active", v || undefined)} />
           </div>
         </div>
+        </>
+        )}
 
         {/* Sort + saved searches */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
           <FilterSelect label="Sort by" value={f.sort ?? "added"} onChange={(v) => set("sort", v === "added" ? undefined : v)} options={SORTS} active={!!f.sort} />
+          <MyNichesChip niches={myNiches} on={useMine && !f.niche} onToggle={() => setUseMine(!useMine)} />
           {activeCount > 0 && (
             <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
               <X className="w-3.5 h-3.5" />Clear filters ({activeCount})

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import AIFeatureGate from "./AIFeatureGate.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 type ScoreResult = {
   score: number;
@@ -30,8 +31,8 @@ export default function AIProductScoreCard({
 }: {
   title: string;
   description: string;
-  price: number;
-  cost: number;
+  price?: number;
+  cost?: number;
   category: string;
 }) {
   const scoreProduct = useAction(api.ai.scoreProduct);
@@ -44,7 +45,7 @@ export default function AIProductScoreCard({
       const res = await scoreProduct({ title, description, price, cost, category });
       setResult(res);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to generate AI score";
+      const message = errorMessage(error, "Failed to generate AI score. Please try again.");
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -57,7 +58,7 @@ export default function AIProductScoreCard({
         <div className="flex items-center justify-between gap-3 mb-1">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm">AI Winning Potential Score</h3>
+            <h3 className="font-semibold text-sm">AI second opinion</h3>
           </div>
           {!result && (
             <Button size="sm" onClick={handleGenerate} disabled={isLoading}>
@@ -67,7 +68,7 @@ export default function AIProductScoreCard({
           )}
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          GPT-6 evaluates ad potential, margin health, and saturation risk on demand.
+          An AI read on ad potential, margin and competition, on demand. Separate from the AdSpy score above.
         </p>
 
         {result && (

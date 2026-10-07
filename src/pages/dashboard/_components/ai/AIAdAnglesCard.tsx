@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import AIFeatureGate from "./AIFeatureGate.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 type Angle = { hook: string; angle: string; description: string };
 
@@ -45,7 +46,7 @@ export default function AIAdAnglesCard({
       const res = await generateAdAngles({ title, description, category });
       setAngles(res.angles);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to generate ad angles";
+      const message = errorMessage(error, "Failed to generate ad angles. Please try again.");
       toast.error(message);
     } finally {
       setIsLoading(false);

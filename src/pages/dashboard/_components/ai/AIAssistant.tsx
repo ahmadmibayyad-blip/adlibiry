@@ -89,16 +89,8 @@ export default function AIAssistant() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-20 md:bottom-6 z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-3 shadow-lg hover:opacity-90 transition-opacity cursor-pointer"
-        aria-label="Open AI assistant"
-      >
-        <Sparkles className="w-4 h-4" />
-        <span className="text-sm font-semibold">Ask AI</span>
-      </button>
-
+      {/* Opened from the "Ask AI" button in the page header (mobile) or sidebar
+          (desktop), not a floating button that covers content. */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md flex flex-col gap-0 p-0">
           <SheetHeader className="border-b border-border p-4">

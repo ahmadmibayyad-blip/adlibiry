@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { productHashFields } from "./lib/imageHash";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -44,6 +45,9 @@ const product = (over: Partial<NewProduct>): NewProduct => ({
   publishedAt: "2026-09-01T00:00:00.000Z",
   ...over,
 });
+
+// Passes the Winning Products gates: ~$10K+/month in sales and 5 live ads.
+const winner = (over: Partial<NewProduct>): NewProduct => product({ price: 50, unitsPerMonth: 1000, adsCount: 5, ...over });
 
 async function runPipeline(t: ReturnType<typeof convexTest>) {
   await t.mutation(internal.productPipeline.start, {});
@@ -111,15 +115,80 @@ describe("linking ads to products", () => {
   });
 });
 
+describe("saturation and duplicates", () => {
+  const H = "a5f0c3e1b2d49687"; // a usable image hash
+  const NEAR_H = "a5f0c3e1b2d49680"; // the same photo re-compressed: 3 bits differ
+  const hashed = (hash: string) => productHashFields(hash, "https://cdn.example.com/p.jpg");
+
+  it("sets saturation from how many advertisers run the product", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      for (const name of ["Paws & Co", "paws & co", "Doggo", "Petsy"]) await ctx.db.insert("ads", ad({ advertiserName: name }));
+    });
+    await runPipeline(t);
+    const [p] = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(p.saturation).toBe("Medium"); // 3 different advertisers
+  });
+
+  it("attaches an ad to a product from another source with the same image", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("products", product({ title: "Donut Frost Automatic Pet Feeder WiFi", source: "nexscope_api", ...hashed(H) }));
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://other.example.com/products/pet-feeder-auto", imageHash: NEAR_H }));
+      // A blank-image hash is never used to match.
+      await ctx.db.insert("products", product({ title: "Blank One Placeholder Item", ...hashed("0000000000000000") }));
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://shop.example.com/products/garden-hose-reel", imageHash: "0000000000000000" }));
+    });
+    await runPipeline(t);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.find((p) => p.source === "nexscope_api")?.linkedAds).toBe(1);
+    expect(products.filter((p) => p.source === "ads")).toHaveLength(1); // only the hose reel
+    expect(products.find((p) => p.title === "Blank One Placeholder Item")?.linkedAds).toBeUndefined();
+  });
+
+  it("merges same-image duplicates into the imported product, keeping ads and saves", async () => {
+    const t = convexTest(schema, modules);
+    const { userId, keepId, dupId, adId } = await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "admin", role: "admin" });
+      const userId = await ctx.db.insert("users", { tokenIdentifier: "user" });
+      const keepId = await ctx.db.insert("products", product({ title: "Donut Frost Pet Feeder", source: "nexscope_api", ...hashed(H) }));
+      const adId = await ctx.db.insert("ads", ad({}));
+      const dupId = await ctx.db.insert("products", product({ title: "Automatic Pet Feeder", source: "ads", ...hashed(NEAR_H), price: 39, adIds: [adId], linkedAds: 1 }));
+      await ctx.db.patch("ads", adId, { productId: dupId });
+      await ctx.db.insert("savedProducts", { userId, productId: dupId, savedAt: "2026-09-29T00:00:00.000Z" });
+      // A different image is left alone.
+      await ctx.db.insert("products", product({ title: "Cat Tree Tower", ...hashed("5a0f3c1e2b4d6978") }));
+      return { userId, keepId, dupId, adId };
+    });
+    await t.withIdentity({ subject: "admin|s" }).mutation(api.productPipeline.mergeDuplicatesNow, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const status = await t.withIdentity({ subject: "admin|s" }).query(api.productPipeline.dedupStatus, {});
+    expect(status).toMatchObject({ state: "done", merged: 1 });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("products", dupId)).toBeNull();
+      const keep = (await ctx.db.get("products", keepId))!;
+      expect(keep).toMatchObject({ adIds: [adId], linkedAds: 1, price: 39 });
+      expect((await ctx.db.get("ads", adId))?.productId).toBe(keepId);
+      const saves = await ctx.db.query("savedProducts").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+      expect(saves.map((s) => s.productId)).toEqual([keepId]);
+    });
+    // The next daily run keeps the ad on the merged product (no duplicate re-created).
+    await runPipeline(t);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.map((p) => p.title).sort()).toEqual(["Cat Tree Tower", "Donut Frost Pet Feeder"]);
+    expect(products.find((p) => p._id === keepId)?.linkedAds).toBe(1);
+  });
+});
+
 describe("Winning Products", () => {
   it("keeps the top 50 per niche with score 65+, excludes flagged items and mixes niches", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
-      for (let i = 0; i < 55; i++) await ctx.db.insert("products", product({ title: `Home thing ${i}`, category: "Home & Living", aiScore: 99 - (i % 30) }));
-      for (let i = 0; i < 3; i++) await ctx.db.insert("products", product({ title: `Pet thing ${i}`, category: "Pet Supplies", aiScore: 90 - i }));
-      await ctx.db.insert("products", product({ title: "Sporty thing", category: "Sports", aiScore: 80 }));
-      await ctx.db.insert("products", product({ title: "Weak thing", category: "Sports", aiScore: 64 }));
-      await ctx.db.insert("products", product({ title: "Personalized name necklace", category: "Jewelry", aiScore: 95 }));
+      for (let i = 0; i < 55; i++) await ctx.db.insert("products", winner({ title: `Home thing ${i}`, category: "Home & Living", aiScore: 99 - (i % 30) }));
+      for (let i = 0; i < 3; i++) await ctx.db.insert("products", winner({ title: `Pet thing ${i}`, category: "Pet Supplies", aiScore: 90 - i }));
+      await ctx.db.insert("products", winner({ title: "Sporty thing", category: "Sports", aiScore: 80 }));
+      await ctx.db.insert("products", winner({ title: "Weak thing", category: "Sports", aiScore: 64 }));
+      await ctx.db.insert("products", winner({ title: "Personalized name necklace", category: "Jewelry", aiScore: 95 }));
     });
     await runPipeline(t);
 
@@ -148,7 +217,7 @@ describe("Winning Products", () => {
 
   it("clears the rank of products that drop out", async () => {
     const t = convexTest(schema, modules);
-    const id = await t.run((ctx) => ctx.db.insert("products", product({ aiScore: 80 })));
+    const id = await t.run((ctx) => ctx.db.insert("products", winner({ aiScore: 80 })));
     await runPipeline(t);
     expect((await t.run((ctx) => ctx.db.get("products", id)))?.winnerRank).toBe(1);
     await t.run((ctx) => ctx.db.patch("products", id, { aiScore: 50 }));
@@ -156,6 +225,125 @@ describe("Winning Products", () => {
     await runPipeline(t);
     expect((await t.run((ctx) => ctx.db.get("products", id)))?.winnerRank).toBeUndefined();
     expect((await t.query(api.winners.summary, {})).total).toBe(0);
+  });
+});
+
+describe("Scaling ads", () => {
+  it("marks ads running 14+ days whose views grew 10%+ in a week, and Ad Spy can filter them", async () => {
+    const t = convexTest(schema, modules);
+    const { scalingId, flatId } = await t.run(async (ctx) => {
+      const scalingId = await ctx.db.insert("ads", ad({ daysRunning: 30, views: "12.0K", likes: 0 }));
+      const flatId = await ctx.db.insert("ads", ad({ daysRunning: 30, views: "10.0K", likes: 0, advertiserName: "Other" }));
+      for (const [id, views] of [[scalingId, 10_000], [flatId, 10_000]] as const) {
+        await ctx.db.insert("dailySnapshots", { day: "2026-09-20", kind: "ad", entityId: id, score: 70, adsRunning: 1, views, likes: 0, comments: 0, spend: 0, gmv: 0 });
+      }
+      await ctx.db.insert("users", { tokenIdentifier: "pro", role: "user", plan: "pro", subscriptionStatus: "active" });
+      return { scalingId, flatId };
+    });
+    await runPipeline(t);
+    const ads = await t.run(async (ctx) => [await ctx.db.get("ads", scalingId), await ctx.db.get("ads", flatId)]);
+    expect(ads[0]?.isScaling).toBe(true); // 10K → 12K
+    expect(ads[1]?.isScaling).toBeFalsy();
+    const page = await t.withIdentity({ subject: "pro|s" }).query(api.ads.list, { paginationOpts: { numItems: 10, cursor: null }, scalingOnly: true });
+    expect(page.page.map((a) => a._id)).toEqual([scalingId]);
+  });
+});
+
+describe("Pro product alerts", () => {
+  it("free users can't follow; Pro users get alerts for new ads and a score past their threshold", async () => {
+    const t = convexTest(schema, modules);
+    const { productId } = await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "free", role: "user" });
+      await ctx.db.insert("users", { tokenIdentifier: "pro", role: "user", plan: "pro", subscriptionStatus: "active" });
+      return { productId: await ctx.db.insert("products", product({ title: "Dog cooling mat", aiScore: 60, storeUrl: "https://paws.example.com/products/dog-cooling-mat" })) };
+    });
+    await expect(t.withIdentity({ subject: "free|s" }).mutation(api.follows.followProduct, { productId })).rejects.toThrow(/Pro feature/);
+    const pro = t.withIdentity({ subject: "pro|s" });
+    await pro.mutation(api.follows.followProduct, { productId, minScore: 75 });
+    expect(await pro.query(api.follows.productFollow, { productId })).toEqual({ minScore: 75 });
+
+    // Next day: two ads for it appear and its score passes 75.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://paws.example.com/products/dog-cooling-mat", aiScore: 90 }));
+      await ctx.db.insert("ads", ad({ landingPageUrl: "https://paws.example.com/products/dog-cooling-mat?v=2", aiScore: 85, advertiserName: "Doggo" }));
+    });
+    await runPipeline(t);
+    await t.run((ctx) => ctx.db.patch("products", productId, { aiScore: 80 })); // e.g. after the switch to v2
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await runPipeline(t);
+    const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
+    const titles = notes.map((n) => n.title);
+    expect(titles).toContain("2 new ads for Dog cooling mat");
+    expect(titles).toContain("Dog cooling mat reached a score of 80");
+  });
+});
+
+describe("same-store duplicates", () => {
+  it("merges one shop's listing imported under two names and keeps the other name as an alias", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" });
+      await ctx.db.insert("products", product({ title: "Dog Cooling Mat for Large Dogs", source: "shopify", storeUrl: "https://paws.example.com/products/cool-mat" }));
+      await ctx.db.insert("products", product({ title: "Large dog cooling mat", source: "ads", storeUrl: "https://www.paws.example.com/products/cooling-mat-xl" }));
+      await ctx.db.insert("products", product({ title: "Cat water fountain", source: "ads", storeUrl: "https://paws.example.com/products/fountain" }));
+    });
+    await runPipeline(t); // fills storeHost
+    await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.mergeDuplicatesNow, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.map((p) => p.title).sort()).toEqual(["Cat water fountain", "Dog Cooling Mat for Large Dogs"]);
+    expect(products.find((p) => p.title.startsWith("Dog"))?.aliases).toEqual(["Large dog cooling mat"]);
+  });
+});
+
+describe("winner gates and score v2", () => {
+  it("keeps products without real sales, live ads or room in the market out of Winning Products", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("products", winner({ title: "Real winner", category: "Pet Supplies", aiScore: 90 }));
+      await ctx.db.insert("products", winner({ title: "Tiny sales", category: "Pet Supplies", aiScore: 99, unitsPerMonth: 10 }));
+      await ctx.db.insert("products", winner({ title: "One ad", category: "Pet Supplies", aiScore: 98, adsCount: 1 }));
+      await ctx.db.insert("products", winner({ title: "Crowded", category: "Pet Supplies", aiScore: 97, saturation: "High" }));
+      await ctx.db.insert("products", winner({ title: "Falling", category: "Pet Supplies", aiScore: 96, momentum14: -12 }));
+    });
+    const status = await runPipeline(t);
+    const feed = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 10, cursor: null } });
+    expect(feed.page.map((r) => r.product.title)).toEqual(["Real winner"]);
+    expect(status?.counts.winnersGated).toBe(4);
+  });
+
+  it("scores every product in five parts and reports the v2 distribution without changing live scores", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" });
+      for (let i = 0; i < 40; i++) {
+        await ctx.db.insert("products", product({ title: `Thing ${i}`, aiScore: 99, price: 20 + i, unitsPerMonth: 10 * (i + 1), adsCount: i % 7 }));
+      }
+    });
+    await runPipeline(t);
+    const products = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(products.every((p) => p.aiScore === 99)).toBe(true); // v1 still live
+    expect(products.every((p) => p.scoreParts && p.scoreParts.v2 !== undefined)).toBe(true);
+    const v2 = products.map((p) => p.scoreParts!.v2!).sort((a, b) => a - b);
+    expect(new Set(v2).size).toBeGreaterThan(10); // spread out, not clustered at 99
+    const admin = t.withIdentity({ subject: "a1|s" });
+    const { model, report } = await admin.query(api.productPipeline.scoreCalibration, {});
+    expect(model).toBe("v1");
+    expect(report?.before.share85).toBe(1);
+    expect(report?.after.share85).toBeLessThan(0.15);
+    expect(report?.after.median).toBeGreaterThanOrEqual(35);
+    expect(report?.after.median).toBeLessThanOrEqual(55);
+
+    // Switching to v2 makes the calibrated scores live; back to v1 restores the importers' scores.
+    await admin.mutation(api.productPipeline.setScoreModel, { model: "v2" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const live = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(live.every((p) => p.aiScore === p.scoreParts!.v2)).toBe(true);
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await admin.mutation(api.productPipeline.setScoreModel, { model: "v1" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const restored = await t.run((ctx) => ctx.db.query("products").collect());
+    expect(restored.every((p) => p.aiScore === 99)).toBe(true);
   });
 });
 
@@ -226,6 +414,22 @@ describe("daily history", () => {
 });
 
 describe("admin", () => {
+  it("runs every step in order, logs each one, and can re-run from a step", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" }));
+    const status = await runPipeline(t);
+    expect(status?.log?.map((l) => l.stage)).toEqual([
+      "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
+      "winners", "fusion", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails", "done",
+    ]);
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runFrom, { stage: "winners" })).toEqual({ started: true });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const again = await t.withIdentity({ subject: "a1|s" }).query(api.productPipeline.status, {});
+    expect(again?.log?.[0].stage).toBe("winners");
+    expect(again?.state).toBe("done");
+  });
+
   it("only admins can start a run", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
@@ -373,9 +577,9 @@ describe("Winning Products filters", () => {
   it("filters, sorts and pages the list", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
-      await ctx.db.insert("products", product({ title: "Dog cooling mat", category: "Pet Supplies", aiScore: 90, price: 40, cost: 10 }));
-      await ctx.db.insert("products", product({ title: "Cat water fountain", category: "Pet Supplies", aiScore: 80, price: 25, cost: 20 }));
-      await ctx.db.insert("products", product({ title: "Yoga mat", category: "Sports", aiScore: 70, price: 60, cost: 15 }));
+      await ctx.db.insert("products", winner({ title: "Dog cooling mat", category: "Pet Supplies", aiScore: 90, price: 40, cost: 10 }));
+      await ctx.db.insert("products", winner({ title: "Cat water fountain", category: "Pet Supplies", aiScore: 80, price: 25, cost: 20 }));
+      await ctx.db.insert("products", winner({ title: "Yoga mat", category: "Sports", aiScore: 70, price: 60, cost: 15 }));
     });
     await runPipeline(t);
     // A paying account, so paging isn't capped at the free 10.
@@ -447,5 +651,69 @@ describe("Winning Products every 3 days", () => {
     const after = await ids(t);
     expect([...after].filter((id) => !before.has(id)).length).toBeGreaterThan(0);
     expect((await t.query(api.winners.summary, {})).roundDay).toBe("2026-10-01");
+  });
+});
+
+describe("pipeline never gets stuck", () => {
+  it("fills Winning Products with products that only lack data, never with ones that fail on real numbers", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("products", winner({ title: "Proven", category: "Pet Supplies", aiScore: 80 }));
+      // No price/sales and no ad count yet: unknown, not failed.
+      await ctx.db.insert("products", product({ title: "No data yet", category: "Pet Supplies", aiScore: 95 }));
+      await ctx.db.insert("products", winner({ title: "Tiny sales", category: "Pet Supplies", aiScore: 99, unitsPerMonth: 10 }));
+      await ctx.db.insert("products", product({ title: "Crowded, no data", category: "Pet Supplies", aiScore: 97, saturation: "High" }));
+    });
+    const status = await runPipeline(t);
+    const feed = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 10, cursor: null } });
+    // Proven winners first, then the best of the ones we lack data for.
+    expect(feed.page.map((r) => r.product.title)).toEqual(["Proven", "No data yet"]);
+    expect(status?.counts.winnersGated).toBe(2);
+  });
+
+  it("the watchdog skips a step that stopped reporting and the run goes on to the end", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("products", winner({ title: "Proven", category: "Pet Supplies", aiScore: 80 })));
+    const old = new Date(Date.now() - 30 * 60_000).toISOString();
+    await t.run((ctx) =>
+      ctx.db.insert("siteStats", {
+        key: "productPipeline",
+        updatedAt: old,
+        data: { state: "running", stage: "dedupe", day: "2026-09-30", startedAt: old, updatedAt: old, runId: "r1", counts: { productsCreated: 0, adsLinked: 0, winners: 0, snapshots: 0, pruned: 0 } },
+      }),
+    );
+    await t.mutation(internal.productPipeline.watchdog, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const status = await t.withIdentity({ subject: "test|s" }).query(api.productPipeline.status, {});
+    expect(status?.state).toBe("done");
+    expect(status?.warnings?.[0]).toMatch(/Merging duplicates: no progress for 30 min/);
+    expect(status?.counts.winners).toBe(1);
+  });
+
+  it("an admin can restart a stalled run, and the old run's steps quit", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" }));
+    const old = new Date(Date.now() - 30 * 60_000).toISOString();
+    await t.run((ctx) =>
+      ctx.db.insert("siteStats", {
+        key: "productPipeline",
+        updatedAt: old,
+        data: { state: "running", stage: "link", day: "2026-09-30", startedAt: old, updatedAt: old, runId: "old", counts: { productsCreated: 0, adsLinked: 0, winners: 0, snapshots: 0, pruned: 0 } },
+      }),
+    );
+    expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runNow, {})).toEqual({ started: true });
+    // A leftover step of the old run does nothing.
+    await t.mutation(internal.productPipeline.step, { stage: "prune", cursor: null, day: "2026-09-30", runId: "old" });
+    const status = await t.withIdentity({ subject: "test|s" }).query(api.productPipeline.status, {});
+    expect(status?.stage).toBe("hashImages");
+  });
+
+  it("marks a duplicate merge that stopped reporting as stalled so it can be started again", async () => {
+    const t = convexTest(schema, modules);
+    const old = new Date(Date.now() - 30 * 60_000).toISOString();
+    await t.run((ctx) => ctx.db.insert("siteStats", { key: "productDedup", updatedAt: old, data: { state: "running", merged: 0, startedAt: old } }));
+    await t.mutation(internal.productPipeline.watchdog, {});
+    const d = await t.run(async (ctx) => (await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productDedup")).unique())?.data);
+    expect(d).toMatchObject({ state: "stalled" });
   });
 });

@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Puzzle,
   Trophy,
+  ShoppingBag,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
@@ -24,14 +25,19 @@ import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar.tsx";
 import AIAssistant from "./ai/AIAssistant.tsx";
+import { openAssistant } from "@/lib/assistant.ts";
+import { setDisplayCurrency } from "@/lib/money.ts";
 import Logo from "@/components/Logo.tsx";
+import OnboardingDialog from "./OnboardingDialog.tsx";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: Trophy, label: "Winning Products", href: "/dashboard/winners" },
+// `short` is the label in the mobile bottom bar (5 items at 360px wide).
+const navItems: { icon: typeof Search; label: string; href: string; short?: string }[] = [
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", short: "Home" },
+  { icon: Trophy, label: "Winning Products", href: "/dashboard/winners", short: "Winners" },
   { icon: TrendingUp, label: "Products", href: "/dashboard/products" },
   { icon: Search, label: "Ad Spy", href: "/dashboard/ad-spy" },
-  { icon: Sparkles, label: "Hooks of the week", href: "/dashboard/hooks" },
+  { icon: Sparkles, label: "Hooks of the week", href: "/dashboard/hooks", short: "Hooks" },
+  { icon: ShoppingBag, label: "TikTok Shop", href: "/dashboard/tiktok-shop" },
   { icon: LineChart, label: "Research", href: "/dashboard/research" },
   { icon: Store, label: "Store Tracker", href: "/dashboard/stores" },
   { icon: BookmarkCheck, label: "Saved", href: "/dashboard/saved" },
@@ -56,6 +62,9 @@ export default function DashboardLayout() {
   const isAdmin = useQuery(api.users.isAdmin);
   const unreadCount = useQuery(api.notifications.getUnreadCount, user ? {} : "skip");
   const refreshMyPlan = useAction(api.proPlan.refreshMyPlan);
+  // The user's display currency for every amount on the page (lib/money.ts).
+  const currency = useQuery(api.currency.mine, {});
+  if (currency) setDisplayCurrency(currency.code, currency.rate);
 
   // Re-read the plan from the AdSpy Pro backend when pages open (the server
   // checks at most every 2 minutes), so an ended subscription shows as Free.
@@ -78,6 +87,16 @@ export default function DashboardLayout() {
         {/* Logo */}
         <div className="flex items-center px-5 h-14 border-b border-border">
           <Logo />
+        </div>
+        <div className="px-3 pt-3">
+          <button
+            type="button"
+            onClick={openAssistant}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-3 py-2 text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4" />
+            Ask AI
+          </button>
         </div>
 
         {/* Nav */}
@@ -147,6 +166,15 @@ export default function DashboardLayout() {
         <header className="md:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-sidebar shrink-0">
           <Logo />
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openAssistant}
+              aria-label="Open AI assistant"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Ask AI
+            </button>
             {isAdmin && (
               <Link
                 to="/dashboard/admin"
@@ -171,12 +199,14 @@ export default function DashboardLayout() {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
-          <Outlet />
+          {/* Remount pages when the currency changes so every amount updates. */}
+          <Outlet key={currency?.code ?? "USD"} />
         </main>
         <AIAssistant />
+        <OnboardingDialog />
 
         {/* Bottom nav — mobile */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50 pb-[env(safe-area-inset-bottom)]">
           {navItems.slice(0, 5).map((item) => {
             const active = item.href === "/dashboard"
               ? location.pathname === "/dashboard"
@@ -186,12 +216,12 @@ export default function DashboardLayout() {
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "flex-1 flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors cursor-pointer",
+                  "flex-1 min-w-0 flex flex-col items-center gap-1 py-2.5 px-0.5 text-xs font-medium transition-colors cursor-pointer",
                   active ? "text-primary" : "text-muted-foreground"
                 )}
               >
                 <item.icon className="w-5 h-5" />
-                <span className="text-[10px]">{item.label.split(" ")[0]}</span>
+                <span className="text-[10px] leading-tight text-center whitespace-nowrap">{item.short ?? item.label}</span>
               </Link>
             );
           })}

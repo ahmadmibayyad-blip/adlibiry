@@ -17,7 +17,7 @@ afterEach(() => vi.useRealTimers());
 describe("follow alerts", () => {
   it("follows and unfollows an advertiser", async () => {
     const t = convexTest(schema, modules);
-    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" }));
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u1", role: "user", plan: "pro", subscriptionStatus: "active" }));
     await expect(t.mutation(api.follows.toggleFollow, { name: "PawCo" })).rejects.toThrow(/sign in/);
     const me = t.withIdentity({ subject: "u1|s" });
     expect(await me.mutation(api.follows.toggleFollow, { name: "PawCo" })).toEqual({ following: true });
@@ -32,8 +32,8 @@ describe("follow alerts", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-01T08:35:00Z"));
     const [u1, u2] = await t.run(async (ctx) => {
-      const a = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
-      const b = await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" });
+      const a = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user", plan: "pro", subscriptionStatus: "active" });
+      const b = await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user", plan: "pro", subscriptionStatus: "active" });
       for (const userId of [a, b]) await ctx.db.insert("followedAdvertisers", { userId, name: "PawCo", followedAt: "2026-09-01T00:00:00Z" });
       await ctx.db.insert("alertPreferences", {
         userId: b, watchedNiches: [], notifyNewWinners: true, notifyNewAdsInNiches: true, notifyTrackedStoreUpdates: true,

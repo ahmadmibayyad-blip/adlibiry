@@ -13,6 +13,10 @@ import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { storeImage } from "@/lib/storeImage.ts";
 import StoreSales from "./StoreSales.tsx";
+import ProductImage from "@/components/ProductImage.tsx";
+import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
+import { errorMessage } from "@/lib/errorMessage.ts";
+import StoreCatalog from "./StoreCatalog.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -26,8 +30,8 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
     try {
       const result = await toggleTrack({ storeId: store._id });
       toast.success(result.tracked ? "Store added to watchlist!" : "Removed from watchlist");
-    } catch {
-      toast.error("Please sign in to track stores");
+    } catch (e) {
+      toast.error(errorMessage(e, "Please sign in to track stores"));
     }
   };
 
@@ -59,8 +63,10 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="bg-muted rounded-lg p-3 flex flex-col items-center text-center gap-1">
             <DollarSign className="w-4 h-4 text-muted-foreground" />
-            <div className="text-sm font-bold">{store.estimatedRevenueRange}</div>
-            <div className="text-[11px] text-muted-foreground">Est. revenue</div>
+            <div className="text-sm font-bold">{storeRevenueLabel(store) ?? "Tracking"}</div>
+            <div className="text-[11px] text-muted-foreground">
+              Est. revenue{store.revenueConfidence ? ` · ${store.revenueConfidence} confidence` : ""}
+            </div>
           </div>
           <div className="bg-muted rounded-lg p-3 flex flex-col items-center text-center gap-1">
             <Users className="w-4 h-4 text-muted-foreground" />
@@ -75,13 +81,14 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
         </div>
 
         <StoreSales storeId={store._id} />
+        <StoreCatalog storeId={store._id} />
 
         <div className="mb-5">
           <h3 className="font-semibold text-sm mb-3">Best Sellers</h3>
           <div className="space-y-2.5">
             {store.bestSellers.map((product) => (
               <div key={product.title} className="flex items-center gap-3 bg-muted rounded-lg p-2.5">
-                <img src={product.imageUrl} alt={product.title} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                <ProductImage src={product.imageUrl} alt={product.title} className="w-12 h-12 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium leading-snug line-clamp-1">{product.title}</div>
                   <div className="text-xs text-muted-foreground">{product.estSalesRange}</div>

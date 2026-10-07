@@ -4,7 +4,9 @@ import { Check, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+import { api } from "@/convex/_generated/api.js";
 import { SignInButton } from "@/components/ui/signin.tsx";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import ProCheckoutDialog from "@/components/billing/ProCheckoutDialog.tsx";
@@ -22,6 +24,8 @@ const plans = [
       `First ${FREE_LIMIT} results of every list`,
       "Ad Spy: Facebook, Instagram and TikTok ads",
       "Winning products and store tracker",
+      "Should I test this? verdicts and supplier matches",
+      "Watch up to 5 competitor stores",
       "Save ads and products",
     ],
     missing: ["Every result, no limits"],
@@ -31,12 +35,14 @@ const plans = [
     id: "pro",
     name: "Pro",
     price: PRO_PRICE_EUR,
-    description: "Everything unlocked for serious sellers.",
+    description: "Everything unlocked for serious sellers. Try it free for 7 days, no card needed.",
     features: [
       "Every result in every list, no limits",
       "Full Ad Spy on all platforms",
       "All winning products, stores and trends",
-      "AI tools and alerts",
+      "Should I test this? verdicts and supplier matches",
+      "Watch up to 50 competitor stores",
+      "AI tools, alerts and the API",
       "Priority support",
     ],
     missing: [],
@@ -50,9 +56,47 @@ const buttonClass = (popular: boolean) =>
     popular ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-secondary text-secondary-foreground hover:bg-muted",
   );
 
+const daysLeft = (endsAt: number) => Math.max(1, Math.ceil((endsAt - Date.now()) / 86_400_000));
+
 function ProButton({ period }: { period: BillingPeriod }) {
   const { isPro, isLoading } = useUserPlan();
+  const trial = useQuery(api.billing.myTrial, {});
+  const startTrial = useMutation(api.billing.startProTrial);
   const [open, setOpen] = useState(false);
+  const checkout = <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />;
+  if (trial?.state === "available") {
+    return (
+      <>
+        <Button
+          className={buttonClass(true)}
+          onClick={async () => {
+            try {
+              await startTrial({});
+              toast.success("Your 7-day Pro trial has started");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start the trial");
+            }
+          }}
+        >
+          Start 7-day free trial
+        </Button>
+        <button type="button" onClick={() => setOpen(true)} className="-mt-4 mb-6 text-xs text-muted-foreground hover:text-foreground underline">
+          or upgrade now
+        </button>
+        {checkout}
+      </>
+    );
+  }
+  if (trial?.state === "active" && trial.endsAt) {
+    return (
+      <>
+        <Button onClick={() => setOpen(true)} className={buttonClass(true)}>
+          Pro trial: {daysLeft(trial.endsAt)} day{daysLeft(trial.endsAt) === 1 ? "" : "s"} left · Upgrade
+        </Button>
+        {checkout}
+      </>
+    );
+  }
   if (isPro) {
     return (
       <Button asChild variant="secondary" className={buttonClass(false)}>
@@ -65,7 +109,7 @@ function ProButton({ period }: { period: BillingPeriod }) {
       <Button onClick={() => setOpen(true)} disabled={isLoading} className={buttonClass(true)}>
         Upgrade to Pro
       </Button>
-      <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />
+      {checkout}
     </>
   );
 }
@@ -86,7 +130,7 @@ export default function Pricing() {
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">Simple pricing</h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
             Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
-            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly.
+            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly. Try Pro free for 7 days, no card needed.
           </p>
           <div className="inline-flex items-center gap-1 bg-card border border-border rounded-full p-1 mt-8">
             {(["monthly", "yearly"] as const).map((p) => (
@@ -153,9 +197,10 @@ export default function Pricing() {
                 )}
               </Authenticated>
               <Unauthenticated>
-                <SignInButton className={buttonClass(plan.popular)}>
-                  {plan.id === "pro" ? "Sign in to upgrade" : "Start free"}
-                </SignInButton>
+                <SignInButton
+                  className={buttonClass(plan.popular)}
+                  signInText={plan.id === "pro" ? "Start 7-day free trial" : "Start free"}
+                />
               </Unauthenticated>
 
               <ul className="space-y-3 flex-1">
@@ -182,7 +227,10 @@ export default function Pricing() {
           viewport={{ once: true }}
           className="text-center text-sm text-muted-foreground mt-8"
         >
-          Pro renews automatically each month or year until you turn it off in Settings. Payments by Stripe.
+          Pro renews automatically each month or year until you turn it off in Settings. Payments by Stripe.{" "}
+          <Link to="/methodology" className="text-primary hover:underline">
+            How our data and scores work
+          </Link>
         </motion.p>
       </div>
     </section>

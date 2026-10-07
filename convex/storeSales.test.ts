@@ -45,7 +45,52 @@ describe("store sales tracking", () => {
     expect(h?.days[2].topProducts[0].url).toBe("https://pawshop.com/products/cat-toy");
     expect(h?.check).toMatchObject({ ok: true, failures: 0 });
     const store = await t.run((ctx) => ctx.db.get("stores", storeId));
-    expect(store?.estimatedRevenueRange).toBe("$600–$1.8K/mo");
+    // One figure (middle of 1–3 orders per changed product), not a 3× range.
+    expect(store?.estimatedRevenueRange).toBe("~$1K/mo");
+    expect(store?.revenueConfidence).toBe("Medium");
+  });
+
+  it("respects robots.txt, converts prices from the store's currency and records catalog changes", async () => {
+    const t = convexTest(schema, modules);
+    const ids = await t.run(async (ctx) => {
+      await ctx.db.insert("siteStats", { key: "fxRates", data: { rates: { USD: 1, EUR: 0.8, GBP: 0.75, DKK: 6.5 }, all: { USD: 1, EUR: 0.8 }, date: "2026-10-01" }, updatedAt: "2026-10-01" });
+      return {
+        blocked: await ctx.db.insert("stores", { ...baseStore, name: "Private", url: "private.com" }),
+        euro: await ctx.db.insert("stores", { ...baseStore, name: "Euro Shop", url: "euro.shop" }),
+      };
+    });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    let catalog = [{ title: "Mug", handle: "mug", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-10-01T09:00:00Z", variants: [{ price: "8" }] }];
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (input: string | URL) => {
+      const url = String(input);
+      seen.push(url);
+      if (url.endsWith("/robots.txt")) {
+        return new Response(url.includes("private.com") ? "User-agent: *\nDisallow: /products.json" : "User-agent: *\nDisallow: /checkout", { status: 200 });
+      }
+      if (url.endsWith("/cart.js")) return new Response(JSON.stringify({ currency: "EUR" }), { status: 200 });
+      return new Response(JSON.stringify({ products: catalog }), { status: 200 });
+    });
+
+    vi.setSystemTime(new Date("2026-10-01T10:00:00Z"));
+    expect(await t.action(internal.storeSales.checkOne, { storeId: ids.blocked })).toEqual({
+      status: "error",
+      error: "The store's robots.txt asks crawlers not to read its catalog",
+    });
+    expect(seen.some((u) => u.includes("private.com/products.json"))).toBe(false);
+
+    await t.action(internal.storeSales.checkOne, { storeId: ids.euro });
+    let h = await t.withIdentity({ subject: "test|s" }).query(api.storeSales.history, { storeId: ids.euro });
+    expect(h?.days[0]).toMatchObject({ currency: "EUR", avgPrice: 10 }); // €8 at 0.8 €/$ = $10
+
+    vi.setSystemTime(new Date("2026-10-02T10:00:00Z"));
+    catalog = [
+      { title: "Mug", handle: "mug", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-10-02T09:00:00Z", variants: [{ price: "12" }] },
+      { title: "Plate", handle: "plate", created_at: "2026-10-02T08:00:00Z", updated_at: "2026-10-02T08:00:00Z", variants: [{ price: "4" }] },
+    ];
+    await t.action(internal.storeSales.checkOne, { storeId: ids.euro });
+    h = await t.withIdentity({ subject: "test|s" }).query(api.storeSales.history, { storeId: ids.euro });
+    expect(h?.days[1].diff).toMatchObject({ added: 1, removed: 0, priceChanges: 1 });
   });
 
   it("records failures and stops picking a store after 3", async () => {

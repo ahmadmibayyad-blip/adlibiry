@@ -1,9 +1,12 @@
+import { cleanAdCopy } from "../lib/adCopy";
 import { markStatsDirty } from "../stats";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { richAdFields, defined } from "../lib/adFields";
+import { fuseAd } from "../lib/fusion";
+import { logConflicts } from "../sourceConflicts";
 
 export const adFields = {
   externalId: v.string(),
@@ -30,7 +33,9 @@ const REQUIRED_TEXT_DEFAULTS = { headline: "", bodyText: "", creativeUrl: "", la
 
 // Insert or update one ad coming from Nexscope or Apify. On repeat sightings
 // metrics (likes, views, days running, score) refresh; the original
-// first-seen date and any enriched targeting are kept.
+// first-seen date and any enriched targeting are kept. When the same ad comes
+// from another source (Apify and Meta's API share "meta_<id>"), fields follow
+// the source priorities in lib/fusion.ts and disagreements are logged.
 const adArgs = v.object(adFields);
 export type ExternalAd = Infer<typeof adArgs>;
 
@@ -42,6 +47,12 @@ export async function upsertAd(
   opts: { refreshFirstSeen?: boolean } = {},
 ): Promise<"created" | "updated"> {
     const { externalId, source, targeting, ...rest } = args;
+    // Copy without page metadata ("Button: Shop Now"…); the CTA goes in its own field.
+    if (rest.bodyText) {
+      const copy = cleanAdCopy(rest.bodyText);
+      rest.bodyText = copy.text;
+      rest.ctaText ||= copy.cta;
+    }
     const fields = defined(rest) as typeof rest;
     const now = new Date().toISOString();
     const link = await ctx.db
@@ -52,11 +63,19 @@ export async function upsertAd(
       const adId = link.docId as Id<"ads">;
       const existing = await ctx.db.get("ads", adId);
       if (existing) {
+        const fused = fuseAd(existing, fields, source, now.slice(0, 10));
+        for (const k of fused.drop) delete (fields as Record<string, unknown>)[k];
+        await logConflicts(ctx, "ad", adId, fused.conflicts, now.slice(0, 10));
         await ctx.db.patch("ads", adId, {
           ...fields,
+          sources: fused.sources,
+          sourceFields: fused.sourceFields,
+          // Seen again today: our own record of how long it has run.
+          lastSeenAt: fields.lastSeenAt ?? now,
           firstSeenAt: opts.refreshFirstSeen ? fields.firstSeenAt : existing.firstSeenAt,
           ...(targeting ? { targeting } : {}),
-          source,
+          // The ad's main source: the best one for whether it's live.
+          source: fused.sourceFields.live?.source ?? existing.source ?? source,
         });
         await ctx.db.patch("syncLinks", link._id, { lastSyncedAt: now });
         return "updated";
@@ -64,14 +83,19 @@ export async function upsertAd(
       await ctx.db.delete("syncLinks", link._id); // ad was deleted by an admin — recreate
     }
     await markStatsDirty(ctx);
+    const fused = fuseAd(null, fields, source, now.slice(0, 10));
     const adId = await ctx.db.insert("ads", {
       // defined() drops empty strings; the ads table still needs these.
       ...REQUIRED_TEXT_DEFAULTS,
+      lastSeenAt: now,
       ...fields,
       externalKey: externalId,
       targeting: targeting ?? { ageRange: "Unknown", gender: "All", interests: [] },
       source,
+      sources: fused.sources,
+      sourceFields: fused.sourceFields,
     });
+    await logConflicts(ctx, "ad", adId, fused.conflicts, now.slice(0, 10));
     await ctx.db.insert("syncLinks", { kind: "ad", externalId, docId: adId, source, lastSyncedAt: now });
     return "created";
   }

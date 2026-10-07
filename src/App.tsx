@@ -27,6 +27,8 @@ import { Skeleton } from "./components/ui/skeleton.tsx";
 import { SignInButton } from "./components/ui/signin.tsx";
 import { LogoMark } from "./components/Logo.tsx";
 import { useServiceWorker } from "./hooks/use-service-worker.ts";
+import UnsubscribePage from "./pages/Unsubscribe.tsx";
+import TikTokShopPage from "./pages/dashboard/tiktok-shop/page.tsx";
 
 function DashboardGuard({ children }: { children: React.ReactNode }) {
   return (
@@ -67,6 +69,14 @@ export default function App() {
           <Route path="/" element={<Index />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/login" element={<LoginPage />} />
+          {/* Common addresses people type or link to */}
+          {["/signup", "/sign-up", "/sign-in", "/signin", "/register"].map((path) => (
+            <Route key={path} path={path} element={<Navigate to="/login" replace />} />
+          ))}
+          <Route path="/pricing" element={<Navigate to="/#pricing" replace />} />
+          {/* Fallback from api/landing.ts when it can't read the page. */}
+          <Route path="/app.html" element={<Navigate to="/" replace />} />
+          <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
           {/* Dashboard — protected */}
           <Route
@@ -89,6 +99,7 @@ export default function App() {
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="agents" element={<AgentsPage />} />
             <Route path="hooks" element={<HooksPage />} />
+            <Route path="tiktok-shop" element={<TikTokShopPage />} />
             <Route path="extension" element={<ExtensionPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />

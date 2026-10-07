@@ -4,5 +4,8 @@
   "installCommand": "pnpm install",
   "buildCommand": "node scripts/setup-convex-env.mjs && npx convex deploy --cmd 'pnpm run build'",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!assets/|chrome-extension/|icon/|sw.js|site.webmanifest|offline.html|adspy-pro-extension.zip).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/", "destination": "/api/landing" },
+    { "source": "/((?!assets/|chrome-extension/|icon/|sw.js|site.webmanifest|offline.html|adspy-pro-extension.zip).*)", "destination": "/app.html" }
+  ]
 }

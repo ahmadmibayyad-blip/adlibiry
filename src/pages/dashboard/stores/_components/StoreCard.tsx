@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Authenticated } from "convex/react";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { storeImage } from "@/lib/storeImage.ts";
+import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -20,8 +22,8 @@ function TrackButton({ storeId }: { storeId: StoreDoc["_id"] }) {
     try {
       const result = await toggleTrack({ storeId });
       toast.success(result.tracked ? "Store added to watchlist!" : "Removed from watchlist");
-    } catch {
-      toast.error("Please sign in to track stores");
+    } catch (e) {
+      toast.error(errorMessage(e, "Please sign in to track stores"));
     }
   };
 
@@ -91,10 +93,12 @@ export default function StoreCard({
         <div className="text-xs text-muted-foreground mb-3">{store.niche} · {store.country}</div>
 
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <div className="font-semibold">{store.estimatedRevenueRange}</div>
-            <div className="text-[11px] text-muted-foreground">Est. revenue</div>
-          </div>
+          {storeRevenueLabel(store) && (
+            <div>
+              <div className="font-semibold">{storeRevenueLabel(store)}</div>
+              <div className="text-[11px] text-muted-foreground">Est. revenue{store.revenueConfidence ? ` · ${store.revenueConfidence}` : ""}</div>
+            </div>
+          )}
           <div>
             <div className="font-semibold">{store.trafficRange}</div>
             <div className="text-[11px] text-muted-foreground">Traffic</div>

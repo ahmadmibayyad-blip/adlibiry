@@ -5,6 +5,7 @@ import { NICHES } from "./lib/category";
 import { pickHooks } from "./lib/hooks";
 import { requireAdmin } from "./admin/helpers";
 import { requireSignedIn } from "./lib/access";
+import { angleSummary, type AngleSummary } from "./lib/hooks";
 
 // ── Hooks of the week ───────────────────────────────────────────────────────
 // Every Monday (convex/hooksBuilder.ts) we take the most engaging ads found or
@@ -64,14 +65,23 @@ export const latest = query({
       weeks.add(r.week);
       if (weeks.size >= 8) break;
     }
-    const niches: { niche: string; hooks: (Doc<"weeklyHooks"> & { ad: Doc<"ads"> | null })[] }[] = [];
+    const niches: { niche: string; angles: AngleSummary | null; hooks: (Doc<"weeklyHooks"> & { ad: Doc<"ads"> | null })[] }[] = [];
     for (const niche of NICHES) {
       const rows = await ctx.db
         .query("weeklyHooks")
         .withIndex("by_week_niche", (q) => q.eq("week", week).eq("niche", niche))
         .collect();
       if (!rows.length) continue;
-      niches.push({ niche, hooks: await Promise.all(rows.map(async (r) => ({ ...r, ad: await ctx.db.get("ads", r.adId) }))) });
+      // Angles over the last 4 weeks: which one is crowded, which are unclaimed.
+      const recentTypes: (string | undefined)[] = [];
+      for (const w of [...weeks].slice(0, 4)) {
+        for (const r of await ctx.db.query("weeklyHooks").withIndex("by_week_niche", (q) => q.eq("week", w).eq("niche", niche)).collect()) recentTypes.push(r.type);
+      }
+      niches.push({
+        niche,
+        angles: angleSummary(recentTypes),
+        hooks: await Promise.all(rows.map(async (r) => ({ ...r, ad: await ctx.db.get("ads", r.adId) }))),
+      });
     }
     return { week, weeks: [...weeks], niches };
   },

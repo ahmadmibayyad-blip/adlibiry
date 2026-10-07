@@ -2,12 +2,12 @@ import { motion } from "motion/react";
 import {
   Search,
   TrendingUp,
+  ClipboardCheck,
+  PackageSearch,
   Store,
-  BarChart3,
-  Globe,
+  ShoppingBag,
+  Quote,
   Sparkles,
-  Eye,
-  Target,
 } from "lucide-react";
 
 const features = [
@@ -15,65 +15,64 @@ const features = [
     icon: Search,
     title: "Ad Spy",
     description:
-      "Browse Facebook, Instagram and TikTok ads. Filter by spend, engagement, country and niche to find the creatives that are working.",
+      "Facebook, Instagram and TikTok ads with country, niche and engagement filters. The Scaling filter shows ads running 14+ days that are still growing.",
     gradient: "from-chart-1/15 to-chart-1/5",
     accent: "text-chart-1",
   },
   {
     icon: TrendingUp,
-    title: "Product Research",
+    title: "Winning products",
     description:
-      "Discover trending products before they go mainstream. See real-time sales velocity, saturation scores, and profit potential.",
+      "Products tied to the ads selling them, scored every morning. Every score shows how it was worked out, and revenue comes with a confidence label.",
     gradient: "from-chart-3/15 to-chart-3/5",
     accent: "text-chart-3",
   },
   {
-    icon: Store,
-    title: "Store Tracker",
+    icon: ClipboardCheck,
+    title: "Should I test this?",
     description:
-      "Analyze any Shopify store. See their revenue estimates, traffic sources, best-sellers, and ad strategies at a glance.",
-    gradient: "from-chart-4/15 to-chart-4/5",
-    accent: "text-chart-4",
-  },
-  {
-    icon: BarChart3,
-    title: "Ad Spend Analytics",
-    description:
-      "See exactly how much competitors are spending on ads. Identify scaling brands and emerging niches before they blow up.",
+      "One plain verdict per product: demand, room left in your country, margin and angles to learn from. Test, maybe or skip.",
     gradient: "from-brand/15 to-brand/5",
     accent: "text-brand-ink",
   },
   {
-    icon: Globe,
-    title: "Market Intelligence",
+    icon: PackageSearch,
+    title: "Supplier finder",
     description:
-      "Explore product trends across 180+ countries. Find untapped markets and understand demand by region.",
+      "The closest AliExpress matches for each product with price, rating and orders, so margins come from real supplier costs.",
+    gradient: "from-chart-4/15 to-chart-4/5",
+    accent: "text-chart-4",
+  },
+  {
+    icon: Store,
+    title: "Store watchlist",
+    description:
+      "Watch competitor Shopify stores: their catalog, estimated orders and ads. Get alerts for new products, price changes and new ads.",
     gradient: "from-chart-5/15 to-chart-5/5",
     accent: "text-chart-5",
   },
   {
-    icon: Sparkles,
-    title: "Magic AI",
-    description:
-      "Our AI engine scores every product and ad, predicts winners, finds your competitors, and gives you actionable insights instantly.",
-    gradient: "from-primary/20 to-primary/5",
-    accent: "text-primary",
-  },
-  {
-    icon: Eye,
-    title: "Creative Library",
-    description:
-      "Save winning ads to your personal library. Organize by niche, platform, and performance for instant creative inspiration.",
+    icon: ShoppingBag,
+    title: "TikTok Shop",
+    description: "TikTok Shop best-sellers ranked by estimated sales per month, filtered to your niches. Updated daily.",
     gradient: "from-chart-2/15 to-chart-2/5",
     accent: "text-chart-2",
   },
   {
-    icon: Target,
-    title: "Competitor Alerts",
+    icon: Quote,
+    title: "Hooks and angles",
     description:
-      "Set up real-time alerts when competitors launch new ads or products. Never miss a market move again.",
+      "The opening lines winning ads use, including what's said in the first 3 seconds of videos, and which angles your niche hasn't used yet.",
     gradient: "from-chart-3/15 to-chart-1/5",
     accent: "text-chart-3",
+  },
+  {
+    icon: Sparkles,
+    title: "AI tools",
+    description:
+      "Score a product, find competitors and get hooks and ad copy written from the app's own data. Use it in Claude or ChatGPT too.",
+    gradient: "from-primary/20 to-primary/5",
+    accent: "text-primary",
   },
 ];
 
@@ -93,7 +92,7 @@ export default function Features() {
             Every research tool in one place
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Ad search, product research, store tracking and AI checks, so you can go from an ad you saw to a product you can sell.
+            Find it, check it, source it and keep watching it, without five tabs and three other subscriptions.
           </p>
         </motion.div>
 

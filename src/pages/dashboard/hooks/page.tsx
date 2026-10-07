@@ -191,6 +191,21 @@ export default function HooksPage() {
           {shown.map((n) => (
             <section key={n.niche} className="space-y-3">
               {niche === "All" && <h2 className="text-lg font-bold">{n.niche}</h2>}
+              {n.angles && (n.angles.crowded || n.angles.unclaimed.length > 0) && (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                  {n.angles.crowded && (
+                    <>
+                      <strong className="text-foreground">Crowded:</strong> {n.angles.crowded.type} ({Math.round(n.angles.crowded.share * 100)}% of winning hooks
+                      lately).{" "}
+                    </>
+                  )}
+                  {n.angles.unclaimed.length > 0 && (
+                    <>
+                      <strong className="text-foreground">Unclaimed angles:</strong> {n.angles.unclaimed.slice(0, 4).join(", ")}.
+                    </>
+                  )}
+                </p>
+              )}
               <div className="grid sm:grid-cols-2 gap-4">
                 {(niche === "All" ? n.hooks.slice(0, 4) : n.hooks).map((h) => (
                   <HookCard key={h._id} h={h} rank={h.rank} />

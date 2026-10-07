@@ -4,6 +4,8 @@ import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
 import HideOnError from "@/components/HideOnError.tsx";
+import { initialStats } from "@/lib/landingHtml.ts";
+import ProductImage from "@/components/ProductImage.tsx";
 
 const fmt = (n: number | undefined) => (n === undefined ? "…" : n.toLocaleString("en-US"));
 
@@ -33,7 +35,7 @@ function TodaysWinners() {
             ))
           : rows.map((product) => (
               <li key={product._id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
-                <img src={product.imageUrl} alt="" loading="lazy" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
+                <ProductImage src={product.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold truncate">{product.title}</div>
                   <div className="text-xs text-muted-foreground">
@@ -60,7 +62,7 @@ function TodaysWinners() {
 }
 
 export default function Hero() {
-  const stats = useQuery(api.stats.get, {});
+  const stats = useQuery(api.stats.get, {}) ?? initialStats();
 
   return (
     <section className="pt-28 pb-20 lg:pt-36 lg:pb-28">
@@ -70,9 +72,11 @@ export default function Hero() {
             Find the products that are already selling.
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mb-8">
-            AdSpy Pro watches {fmt(stats?.ads.total)} ads on Facebook, Instagram and TikTok, ties them to the{" "}
-            {fmt(stats?.products.total)} products they sell, and scores every one. The strongest rise to the top of
-            your list each morning.
+            {stats
+              ? `AdSpy Pro watches ${fmt(stats.ads.total)} ads on Facebook, Instagram and TikTok, ties them to the ${fmt(stats.products.total)} products they sell, and scores every one.`
+              : "AdSpy Pro watches ads on Facebook, Instagram and TikTok, ties them to the products they sell, and scores every one."}{" "}
+            Then it tells you whether to test each one: demand, room left in your country, margin from real supplier prices, and the
+            ad angles already working.
           </p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">

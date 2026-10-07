@@ -1,33 +1,42 @@
 import { motion } from "motion/react";
-import { Search, BarChart3, Rocket } from "lucide-react";
+import { Search, ClipboardCheck, PackageSearch, Bell } from "lucide-react";
 
 const steps = [
   {
     number: "01",
     icon: Search,
-    title: "Discover Winning Ads",
+    title: "Discover",
     description:
-      "Search ads from Facebook, Instagram and TikTok. Filter by ad spend, engagement, country and niche to see exactly what's working right now.",
+      "Every morning: winning products tied to the Facebook, Instagram and TikTok ads selling them, plus TikTok Shop best-sellers. Filter for ads that are scaling right now.",
     color: "text-primary",
     bg: "bg-primary/10",
   },
   {
     number: "02",
-    icon: BarChart3,
-    title: "Validate & Analyze",
+    icon: ClipboardCheck,
+    title: "Validate",
     description:
-      "Dig into any product or store with one click. See real revenue estimates, traffic breakdown, ad spend history, and our proprietary AI score to instantly know if a product is worth pursuing.",
+      "“Should I test this?” gives a plain answer: is demand real, is there room left in your country, is the margin there, and are there angles to learn from.",
     color: "text-chart-3",
     bg: "bg-chart-3/10",
   },
   {
     number: "03",
-    icon: Rocket,
-    title: "Scale with Confidence",
+    icon: PackageSearch,
+    title: "Source",
     description:
-      "Build your campaign with proven creatives and tested angles. Import products directly, set competitor alerts, and track your market daily to stay ahead of the curve.",
+      "See the closest AliExpress suppliers with price, rating and orders. Your margin is worked out from the real supplier cost, not a guess.",
     color: "text-chart-4",
     bg: "bg-chart-4/10",
+  },
+  {
+    number: "04",
+    icon: Bell,
+    title: "Watch",
+    description:
+      "Watch competitor stores and get told when they add products, change prices or launch new ads, so you know when to scale or move on.",
+    color: "text-chart-5",
+    bg: "bg-chart-5/10",
   },
 ];
 
@@ -44,19 +53,20 @@ export default function HowItWorks() {
           className="text-center mb-20"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
-            From an ad to a product to a launch
+            From an ad you saw to a test you can run
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Most sellers spend weeks testing random products. AdSpy Pro starts you from products that are already selling.
+            Most sellers spend weeks testing random products. AdSpy Pro takes you from a product that's already selling to a sourced,
+            costed test decision, in one app.
           </p>
         </motion.div>
 
         {/* Steps */}
         <div className="relative">
           {/* Connector line */}
-          <div className="hidden lg:block absolute top-14 left-[16.67%] right-[16.67%] h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+          <div className="hidden lg:block absolute top-14 left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
             {steps.map((step, i) => {
               const Icon = step.icon;
               return (

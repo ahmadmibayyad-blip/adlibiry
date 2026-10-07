@@ -17,6 +17,7 @@ import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFo
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 import AdMedia from "../../_components/AdMedia.tsx";
 import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
+import ProductImage from "@/components/ProductImage.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -127,6 +128,11 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
             <div className="text-sm whitespace-pre-line leading-relaxed max-h-56 overflow-y-auto pr-1">
               {ad.headline && ad.headline !== ad.bodyText && <div className="font-semibold mb-1">{ad.headline}</div>}
               <span className="text-muted-foreground">{ad.bodyText}</span>
+              {ad.ctaText && (
+                <div className="mt-2">
+                  <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-md bg-muted border border-border">{ad.ctaText}</span>
+                </div>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -161,15 +167,22 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
               )}
             </div>
 
+            {/* Only the numbers we have: missing data is left out, not shown as "—". */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Stat icon={Eye} label="Impressions" value={ad.impressions ? compactNumber(ad.impressions) : ad.views && ad.views !== "0" ? ad.views : "—"} />
-              <Stat icon={Heart} label="Likes" value={ad.likes > 0 ? compactNumber(ad.likes) : "—"} />
-              <Stat icon={MessageCircle} label="Comments" value={compactNumber(ad.comments)} />
-              <Stat icon={Share2} label="Shares" value={compactNumber(ad.shares)} />
-              <Stat icon={DollarSign} label="Est. spend" value={spend ?? "—"} />
-              <Stat icon={Users} label="Reach" value={compactNumber(aud?.totalReach)} />
-              <Stat icon={Calendar} label="Days running" value={ad.daysRunning > 0 ? `${ad.daysRunning}` : "—"} />
-              <Stat icon={Globe} label="Countries" value={allCountries.length ? `${allCountries.length}` : "—"} />
+              {[
+                { icon: Eye, label: "Impressions", value: ad.impressions ? compactNumber(ad.impressions) : ad.views && ad.views !== "0" && ad.views !== "—" ? ad.views : undefined },
+                { icon: Heart, label: "Likes", value: ad.likes > 0 ? compactNumber(ad.likes) : undefined },
+                { icon: MessageCircle, label: "Comments", value: ad.comments ? compactNumber(ad.comments) : undefined },
+                { icon: Share2, label: "Shares", value: ad.shares ? compactNumber(ad.shares) : undefined },
+                { icon: DollarSign, label: "Est. spend", value: spend ?? undefined },
+                { icon: Users, label: "Reach", value: aud?.totalReach ? compactNumber(aud.totalReach) : undefined },
+                { icon: Calendar, label: "Days running", value: ad.daysRunning > 0 ? `${ad.daysRunning}` : undefined },
+                { icon: Globe, label: "Countries", value: allCountries.length ? `${allCountries.length}` : undefined },
+              ]
+                .filter((s): s is typeof s & { value: string } => !!s.value)
+                .map((s) => (
+                  <Stat key={s.label} icon={s.icon} label={s.label} value={s.value} />
+                ))}
             </div>
 
             {/* Timeline */}
@@ -298,7 +311,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 bg-muted rounded-lg p-2 hover:bg-muted/70 transition-colors"
                     >
-                      <img src={product.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
+                      <ProductImage src={product.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium line-clamp-1">{product.title}</div>
                         {product.price !== undefined && <div className="text-xs text-muted-foreground">${product.price}</div>}

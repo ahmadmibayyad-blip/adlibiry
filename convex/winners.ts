@@ -14,6 +14,8 @@ export const feed = query({
   args: {
     paginationOpts: paginationOptsValidator,
     niche: v.optional(v.string()),
+    // The user's niches (onboarding): any of these, when no single niche is picked.
+    niches: v.optional(v.array(v.string())),
     mode: v.optional(v.union(v.literal("mixed"), v.literal("byNiche"))),
     // Ad Spy-style filters (see convex/lib/winnerFilters.ts).
     search: v.optional(v.string()),
@@ -32,7 +34,8 @@ export const feed = query({
   },
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    const { paginationOpts, niche, mode, ...filters } = args;
+    const { paginationOpts, niche, niches, mode, ...filters } = args;
+    const nicheSet = !niche && niches?.length ? new Set(niches) : null;
     const rows = niche
       ? ctx.db.query("winningProducts").withIndex("by_niche_rank", (q) => q.eq("niche", niche))
       : mode === "byNiche"
@@ -47,7 +50,7 @@ export const feed = query({
         : null;
     };
 
-    if (!needsFiltering(filters)) {
+    if (!needsFiltering(filters) && !nicheSet) {
       return await limitedPage(ctx, paginationOpts, async (opts) => {
         const result = await rows.paginate(opts);
         const page = (await Promise.all(result.page.map(withProduct))).filter((x) => x !== null);
@@ -57,7 +60,7 @@ export const feed = query({
 
     // Filtered: the whole list is at most WINNERS_PER_NICHE per niche, so
     // read it all, filter + sort, and page by offset.
-    const all = (await Promise.all((await rows.collect()).map(withProduct))).filter((x) => x !== null);
+    const all = (await Promise.all((await rows.collect()).filter((r) => !nicheSet || nicheSet.has(r.niche)).map(withProduct))).filter((x) => x !== null);
     const matched = filterAndSortWinners(all, filters);
     return await limitedPage(ctx, paginationOpts, async (opts) => {
       const start = Number(opts.cursor ?? 0) || 0;

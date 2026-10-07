@@ -6,6 +6,7 @@ import Features from "./_components/Features.tsx";
 import HowItWorks from "./_components/HowItWorks.tsx";
 import AdSpy from "./_components/AdSpy.tsx";
 import Pricing from "./_components/Pricing.tsx";
+import Testimonials from "./_components/Testimonials.tsx";
 import FAQ from "./_components/FAQ.tsx";
 import FinalCTA from "./_components/FinalCTA.tsx";
 import Footer from "./_components/Footer.tsx";
@@ -33,6 +34,7 @@ export default function Index() {
       <HideOnError>
         <AdSpy />
       </HideOnError>
+      <Testimonials />
       <Pricing />
       <FAQ />
       <FinalCTA />

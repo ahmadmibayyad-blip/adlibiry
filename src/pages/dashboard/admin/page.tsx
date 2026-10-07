@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import {
   ShieldCheck, LayoutGrid, Package, Megaphone, Users, Plus, Search,
-  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw, Upload,
+  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw, Upload, Combine,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -27,6 +27,10 @@ import { useMutation, useAction } from "convex/react";
 import { toast } from "sonner";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdminGuard from "./_components/AdminGuard.tsx";
+import ScoreModelCard from "./_components/ScoreModelCard.tsx";
+import NorthStarCard from "./_components/NorthStarCard.tsx";
+import FusionCard from "./_components/FusionCard.tsx";
+import RevenueCalibrationCard from "./_components/RevenueCalibrationCard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
 import DataSourcesPanel from "./_components/DataSourcesPanel.tsx";
@@ -163,20 +167,40 @@ function OverviewTab() {
 }
 
 const PIPELINE_STAGES: Record<string, string> = {
+  hashImages: "Hashing new images",
   keys: "Preparing products",
   link: "Linking ads to products",
-  aggregate: "Adding up ad numbers",
+  landingPages: "Reading prices from landing pages",
+  dedupe: "Merging duplicate products",
+  stores: "Queuing store catalog checks",
+  aggregate: "Adding up ad numbers and scoring",
+  calibrateScan: "Ranking scores across all products",
+  calibrateApply: "Applying calibrated scores",
   winners: "Rebuilding Winning Products",
+  fusion: "Queuing source enrichment (new winners, niche spikes, missing ads)",
   snapshotProducts: "Saving product history",
   snapshotAds: "Saving ad history",
   prune: "Removing history older than 90 days",
+  alerts: "Sending follow alerts",
+  storeAds: "Alerting watchers of new store ads",
+  lists: "Rebuilding Research and site counts",
+  emails: "Queuing the morning digest",
   done: "Done",
 };
 
 function ProductPipelineCard() {
   const status = useQuery(api.productPipeline.status, {});
   const runNow = useMutation(api.productPipeline.runNow);
+  const runFrom = useMutation(api.productPipeline.runFrom);
+  const stopRun = useMutation(api.productPipeline.stop);
+  const [fromStage, setFromStage] = useState("keys");
+  const dedup = useQuery(api.productPipeline.dedupStatus, {});
+  const mergeNow = useMutation(api.productPipeline.mergeDuplicatesNow);
   const running = status?.state === "running";
+  const merging = dedup?.state === "running";
+  // A count is only meaningful if its step ran in the last run ("—" otherwise).
+  const ran = (stage: string) => !status?.log || status.log.some((l) => l.stage === stage);
+  const count = (stage: string, n: number | undefined) => (ran(stage) ? (n ?? 0) : "—");
   return (
     <div className="bg-card border border-border rounded-xl p-4 mb-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -186,8 +210,9 @@ function ProductPipelineCard() {
             <h3 className="font-semibold text-sm">Products from ads, Winning Products & history</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            Links ads to the products they sell and saves today's numbers for the charts, every day at 08:05 UTC. Winning Products get a new
-            mix every 3 days (50 per niche, score 65+: the best 25 stay, the rest rotate). "Run now" also draws a new mix today. No API credits used.
+            The daily chain after the imports: image hashes, linking ads to products, landing-page prices, merging duplicates, store checks,
+            scores, Winning Products, history, lists and the morning digest. Runs every day at 08:05 UTC. Winning Products get a new mix every
+            3 days (score 65+ and the winner gates; the best 25 per niche stay, the rest rotate); "Run now" also draws a new mix today.
           </p>
         </div>
         <Button
@@ -205,21 +230,142 @@ function ProductPipelineCard() {
           {running ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
           {running ? "Running…" : "Run now"}
         </Button>
+        {running && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const r = await stopRun({});
+                toast[r.stopped ? "success" : "info"](r.stopped ? "Stopping after the current step" : "Not running");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Could not stop");
+              }
+            }}
+          >
+            Stop
+          </Button>
+        )}
       </div>
       {status && (
         <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap text-xs">
           <span className="text-muted-foreground">
             Status <strong className={cn("text-foreground", status.state === "error" && "text-destructive")}>
-              {status.state === "running" ? PIPELINE_STAGES[status.stage] ?? status.stage : status.state === "done" ? `Done ${new Date(status.finishedAt ?? status.startedAt).toLocaleString()}` : "Failed"}
+              {status.state === "running"
+                ? PIPELINE_STAGES[status.stage] ?? status.stage
+                : status.state === "done"
+                  ? `Done ${new Date(status.finishedAt ?? status.startedAt).toLocaleString()}${status.warnings?.length ? ` · ${status.warnings.length} step${status.warnings.length === 1 ? "" : "s"} skipped` : ""}`
+                  : "Failed"}
             </strong>
           </span>
-          <span className="text-muted-foreground">Products created from ads <strong className="text-foreground">{status.counts.productsCreated}</strong></span>
-          <span className="text-muted-foreground">Ads linked <strong className="text-foreground">{status.counts.adsLinked}</strong></span>
-          <span className="text-muted-foreground">Winners <strong className="text-foreground">{status.counts.winners}</strong></span>
-          <span className="text-muted-foreground">History rows <strong className="text-foreground">{status.counts.snapshots}</strong></span>
+          <span className="text-muted-foreground">Products created from ads <strong className="text-foreground">{count("link", status.counts.productsCreated)}</strong></span>
+          <span className="text-muted-foreground">Ads linked <strong className="text-foreground">{count("link", status.counts.adsLinked)}</strong></span>
+          <span className="text-muted-foreground">Winners <strong className="text-foreground">{count("winners", status.counts.winners)}</strong></span>
+          <span className="text-muted-foreground">History rows <strong className="text-foreground">{count("snapshotProducts", status.counts.snapshots)}</strong></span>
+          {status.counts.winnersGated !== undefined && (
+            <span className="text-muted-foreground" title="Score 65+ but no real sales, under 3 live ads, falling, or crowded">
+              Kept out by winner gates <strong className="text-foreground">{status.counts.winnersGated}</strong>
+            </span>
+          )}
+          {status.counts.merged ? (
+            <span className="text-muted-foreground">Duplicates merged <strong className="text-foreground">{status.counts.merged}</strong></span>
+          ) : null}
           {status.error && <div className="w-full text-destructive">{status.error}</div>}
+          {!ran("link") && status.state !== "running" && (
+            <div className="w-full text-muted-foreground">
+              This run started after "link" and "winners", so those show "—". Press Run now for a full run.
+            </div>
+          )}
+          {status.warnings && status.warnings.length > 0 && (
+            <ul className="w-full space-y-0.5 text-amber-600 dark:text-amber-400">
+              {status.warnings.map((w, i) => <li key={i}>Skipped: {w}</li>)}
+            </ul>
+          )}
         </div>
       )}
+      {status?.log && status.log.length > 0 && (
+        <details className="mt-3 text-xs">
+          <summary className="cursor-pointer text-muted-foreground">Steps of the last run</summary>
+          <ol className="mt-2 space-y-1">
+            {status.log.map((l, i) => {
+              const next = status.log![i + 1];
+              const secs = next ? Math.round((Date.parse(next.at) - Date.parse(l.at)) / 1000) : null;
+              return (
+                <li key={`${l.stage}-${i}`} className="flex items-baseline justify-between gap-3">
+                  <span>
+                    {PIPELINE_STAGES[l.stage] ?? l.stage}
+                    {l.note && <span className="text-destructive"> ({l.note})</span>}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {new Date(l.at).toLocaleTimeString()}
+                    {secs !== null && ` · ${secs < 90 ? `${secs}s` : `${Math.round(secs / 60)} min`}`}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </details>
+      )}
+      <div className="mt-3 flex items-center gap-2 flex-wrap text-xs">
+        <span className="text-muted-foreground">Re-run from</span>
+        <select
+          value={fromStage}
+          onChange={(e) => setFromStage(e.target.value)}
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          aria-label="Step to re-run from"
+        >
+          {Object.entries(PIPELINE_STAGES)
+            .filter(([k]) => k !== "done")
+            .map(([k, label]) => (
+              <option key={k} value={k}>{label}</option>
+            ))}
+        </select>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={running}
+          onClick={async () => {
+            try {
+              const r = await runFrom({ stage: fromStage as never });
+              toast[r.started ? "success" : "info"](r.started ? "Started" : "Already running");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start");
+            }
+          }}
+        >
+          Run from this step
+        </Button>
+      </div>
+      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-3 flex-wrap text-xs">
+        <span className="text-muted-foreground">
+          Duplicate products (same image from two sources):{" "}
+          <strong className="text-foreground">
+            {merging
+              ? `merging… ${dedup.merged} so far`
+              : dedup?.state === "stalled"
+                ? `stopped with no progress after ${dedup.merged} merged — press Merge duplicates to try again`
+                : dedup
+                  ? `${dedup.merged} merged ${new Date(dedup.finishedAt ?? dedup.startedAt).toLocaleString()}`
+                  : "never merged"}
+          </strong>
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={merging}
+          onClick={async () => {
+            try {
+              await mergeNow({});
+              toast.success("Merging duplicates");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not start");
+            }
+          }}
+        >
+          {merging ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <Combine className="w-3.5 h-3.5 mr-1.5" />}
+          Merge duplicates
+        </Button>
+      </div>
     </div>
   );
 }
@@ -296,7 +442,11 @@ function ProductsTab() {
 
   return (
     <div>
+      <NorthStarCard />
+      <FusionCard />
       <ProductPipelineCard />
+      <ScoreModelCard />
+      <RevenueCalibrationCard />
       <div className="bg-card border border-border rounded-xl p-4 mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>

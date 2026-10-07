@@ -4,7 +4,7 @@
 // - push notifications: disabled
 // Every call fails loudly with a clear message instead of silently.
 
-type EmailArgs = { from: string; to: string; subject: string; html: string };
+type EmailArgs = { from: string; to: string; subject: string; html: string; headers?: Record<string, string> };
 
 class NotConfiguredError extends Error {
   constructor(feature: string, hint: string) {
@@ -16,13 +16,13 @@ export class Hercules {
   constructor(_opts?: { apiKey?: string; apiVersion?: string }) {}
 
   email = {
-    send: async ({ from, to, subject, html }: EmailArgs) => {
+    send: async ({ from, to, subject, html, headers }: EmailArgs) => {
       const key = process.env.RESEND_API_KEY;
       if (!key) throw new NotConfiguredError("Email", "Add a RESEND_API_KEY environment variable in Convex.");
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: process.env.EMAIL_FROM ?? from, to, subject, html }),
+        body: JSON.stringify({ from: process.env.EMAIL_FROM ?? from, to, subject, html, ...(headers ? { headers } : {}) }),
       });
       if (!res.ok) throw new Error(`Resend error ${res.status}: ${(await res.text()).slice(0, 200)}`);
       return await res.json();

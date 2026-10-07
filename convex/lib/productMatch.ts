@@ -146,6 +146,15 @@ export function gmvFromText(text: string): number | undefined {
   return m ? parseCompact(m[1]) : undefined;
 }
 
+// Product-level saturation from our own ad data: how many different
+// advertisers run ads for the product. One seller testing it = Low, a few =
+// Medium, five or more = High.
+export function saturationFromCompetition(distinctAdvertisers: number): "Low" | "Medium" | "High" {
+  if (distinctAdvertisers <= 1) return "Low";
+  if (distinctAdvertisers <= 4) return "Medium";
+  return "High";
+}
+
 // Round-robin across niches: best product from each niche in turn, niches
 // ordered by their best score. `lists` must each be sorted best first.
 export function roundRobin<T>(lists: T[][]): T[] {
@@ -159,3 +168,31 @@ export function roundRobin<T>(lists: T[][]): T[] {
   }
   return out;
 }
+
+// ── Same store, same product ────────────────────────────────────────────────
+// One shop listing the same product twice (a scraped name and the store's own
+// name) is a duplicate; on a marketplace the "store" says nothing.
+const MARKETPLACE_HOST = /(^|\.)(amazon|ebay|etsy|walmart|aliexpress|alibaba|temu|shein|tiktok|target|wish|bestbuy)\.[a-z.]+$/;
+
+export function storeHost(url: string | undefined): string | null {
+  try {
+    if (!url) return null;
+    const host = new URL(url.trim()).hostname.toLowerCase().replace(/^(www|m|shop)\./, "");
+    return host && !MARKETPLACE_HOST.test(host) ? host : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Share of title words in common (0–1), using the same normalised words as titleKey. */
+export function titleSimilarity(a: string, b: string): number {
+  const words = (t: string) => new Set((titleKey(t) ?? "").split(" ").filter(Boolean));
+  const x = words(a);
+  const y = words(b);
+  if (!x.size || !y.size) return 0;
+  let common = 0;
+  for (const w of x) if (y.has(w)) common++;
+  return common / (x.size + y.size - common);
+}
+
+export const SAME_TITLE_MIN = 0.7;

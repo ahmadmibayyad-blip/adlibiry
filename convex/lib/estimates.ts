@@ -91,3 +91,20 @@ export function unitsPerMonthFromText(text: string): number | undefined {
   if (day) return Math.round(Number(day[1].replace(/,/g, "")) * 30);
   return undefined;
 }
+
+// ── One number instead of a range ───────────────────────────────────────────
+// The app shows a single estimate (the geometric middle of the range) with a
+// confidence label from how it was worked out, rather than a wide range.
+
+export type Confidence = "High" | "Medium" | "Low";
+
+export function pointEstimate(r: Range | undefined): number | undefined {
+  if (!r || !(r.high > 0)) return undefined;
+  return Math.round(Math.sqrt(Math.max(r.low, 1) * r.high));
+}
+
+// Marketplace order counts are close to real sales; reported GMV is a running
+// total; the ad funnel is rules of thumb.
+export function revenueConfidence(basis: string | undefined): Confidence | undefined {
+  return basis === "marketplace_sales" ? "High" : basis === "reported_gmv" ? "Medium" : basis === "ad_funnel" ? "Low" : undefined;
+}

@@ -50,7 +50,7 @@ const TOOL_LIST = DATA_TOOLS.map((t) => {
   };
 });
 
-function readKey(request: Request): string | null {
+export function readKey(request: Request): string | null {
   const auth = request.headers.get("Authorization") ?? "";
   const bearer = auth.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   if (bearer) return bearer;
@@ -116,7 +116,7 @@ export const mcpPost = httpAction(async (ctx, request) => {
   const key = readKey(request);
   const found = key ? await ctx.runQuery(internal.mcpKeys.findKey, { keyHash: await hashKey(key) }) : null;
   if (!found) {
-    return json(rpcError(null, -32001, "Missing or invalid AdSpy Pro key. Create one in Settings → Connect your AI app."), 401);
+    return json(rpcError(null, -32001, "Missing or invalid AdSpy Pro key. Create one in Settings → Connect your AI app or the API."), 401);
   }
   if (!found.paying) {
     return json(rpcError(null, -32003, "Connecting an AI app is part of the paid plans. It works again once your paid plan is active."), 403);

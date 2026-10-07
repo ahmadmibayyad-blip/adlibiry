@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  adSellsProduct, gmvFromText, isProductPage, parseCompact, productFlags, productTitleForAd, roundRobin, titleFromUrl, titleKey, urlKey,
+  adSellsProduct, gmvFromText, isProductPage, parseCompact, productFlags, productTitleForAd, roundRobin, saturationFromCompetition, titleFromUrl, titleKey, urlKey,
 } from "./productMatch";
 
 describe("urlKey", () => {
@@ -74,5 +74,11 @@ describe("numbers", () => {
 describe("roundRobin", () => {
   it("takes one from each list in turn", () => {
     expect(roundRobin([["a1", "a2", "a3"], ["b1"], ["c1", "c2"]])).toEqual(["a1", "b1", "c1", "a2", "c2", "a3"]);
+  });
+});
+
+describe("saturationFromCompetition", () => {
+  it("maps the number of advertisers to a saturation band", () => {
+    expect([0, 1, 2, 4, 5, 30].map(saturationFromCompetition)).toEqual(["Low", "Low", "Medium", "Medium", "High", "High"]);
   });
 });

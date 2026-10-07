@@ -7,7 +7,9 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { toast } from "sonner";
 import { Authenticated } from "convex/react";
-import { rangeLabel } from "@/lib/estimateFormat.ts";
+import { revenueEstimate } from "@/lib/estimateFormat.ts";
+import ProductImage from "@/components/ProductImage.tsx";
+import { price } from "@/lib/money.ts";
 
 type Product = Doc<"products">;
 
@@ -72,6 +74,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
   const margin =
     hasPrice && hasCost ? Math.round(((product.price! - product.cost!) / product.price!) * 100) : null;
   const ads = product.linkedAds ?? 0;
+  const revenue = revenueEstimate(product);
 
   return (
     <Link
@@ -80,16 +83,15 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
     >
       {/* Image */}
       <div className="relative aspect-square sm:aspect-[4/3] overflow-hidden bg-muted">
-        <img
+        <ProductImage
           src={product.imageUrl}
           alt={product.title}
-          loading="lazy"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
           <div
             className={cn("flex items-baseline gap-1.5 rounded-lg px-2 py-1 shadow-sm", scoreTone(product.aiScore))}
-            title="AdSpy score out of 100: ad spend, trend, saturation and margin"
+            title="AdSpy score out of 100. The product page shows what it's based on."
           >
             <span className="text-[10px] font-medium opacity-80">Score</span>
             <span className="text-sm font-bold leading-none tabular-nums">{product.aiScore}</span>
@@ -120,12 +122,20 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
 
         {(product.winnerRank !== undefined || ads > 0) && (
           <div className="flex flex-wrap gap-1">
+            {product.verifiedWinner && (
+              <span
+                className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-good/15 text-good"
+                title="Verified winner: the ad registry, ad engagement and marketplace sales all point the same way, with a known margin and low competition."
+              >
+                ⭐ Verified
+              </span>
+            )}
             {product.winnerRank !== undefined && (
               <span
                 className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary"
-                title={`#${product.winnerRank} in ${product.category}`}
+                title={`Winning product: #${product.winnerRank} in ${product.category}`}
               >
-                Winner #{product.winnerRank}
+                #{product.winnerRank} in {product.category}
               </span>
             )}
             {ads > 0 && (
@@ -136,16 +146,17 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           </div>
         )}
 
-        {rangeLabel(product.estRevenue, true) && (
+        {revenue && (
           <div className="text-[11px] text-muted-foreground" title="Estimated revenue per month (see the product page for how)">
-            <span className="font-semibold text-foreground">{rangeLabel(product.estRevenue, true)}</span>/mo est. revenue
+            <span className="font-semibold text-foreground">{revenue.label}</span>/mo est. revenue
+            {revenue.confidence && <span> · {revenue.confidence} confidence</span>}
           </div>
         )}
         <div className="mt-auto pt-1 flex items-end justify-between gap-2">
           {hasPrice ? (
             <div className="min-w-0">
               <div className="flex items-baseline gap-1">
-                <span className="text-base font-bold tabular-nums">${product.price}</span>
+                <span className="text-base font-bold tabular-nums">{price(product.price!)}</span>
                 {product.priceSource === "estimated_market" && (
                   <span className="text-[10px] text-muted-foreground">est.</span>
                 )}
@@ -157,7 +168,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           ) : product.originalPrice ? (
             <span className="text-base font-bold truncate">{product.originalPrice}</span>
           ) : (
-            <span className="text-[11px] text-muted-foreground">Price not found yet</span>
+            <span />
           )}
           {margin !== null && (
             <div className="text-right shrink-0">

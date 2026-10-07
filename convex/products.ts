@@ -7,6 +7,7 @@ import { paginationOptsValidator } from "convex/server";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import type { SiteStats } from "./stats";
+import { recordEvent } from "./events";
 
 // ── Products ────────────────────────────────────────────────────────────────
 
@@ -85,9 +86,12 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
         if (args.category) s = s.eq("category", args.category);
         return s;
       })
+      // The other filters can't go in the search/price index; pages stay small.
+      // eslint-disable-next-line @convex-dev/no-filter-in-query
       .filter(conds)
       .paginate(args.paginationOpts);
   } else if (args.sort === "priceLow") {
+    // eslint-disable-next-line @convex-dev/no-filter-in-query
     result = await ctx.db.query("products").withIndex("by_price", (q) => q.gt("price", 0)).order("asc").filter(conds).paginate(args.paginationOpts);
   } else {
     const base = ctx.db.query("products");
@@ -124,6 +128,19 @@ export const list = query({
 
 // Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
 export const listInternal = internalQuery({ args: listArgs, handler: listImpl });
+
+// TikTok Shop best-sellers (roadmap P2-C), most sold per month first.
+export const tiktokShop = query({
+  args: { paginationOpts: paginationOptsValidator, niches: v.optional(v.array(v.string())) },
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    return await limitedPage(ctx, args.paginationOpts, (paginationOpts) => {
+      const q = ctx.db.query("products").withIndex("by_source_units", (i) => i.eq("source", "tiktok_shop")).order("desc");
+      // The user's niches: a cheap check on each row of an index-ordered page.
+      return (args.niches?.length ? q.filter((f) => f.or(...args.niches!.map((n) => f.eq(f.field("category"), n)))) : q).paginate(paginationOpts);
+    });
+  },
+});
 
 export const getById = query({
   args: { id: v.id("products") },
@@ -235,6 +252,7 @@ export const toggleSave = mutation({
         productId: args.productId,
         savedAt: new Date().toISOString(),
       });
+      await recordEvent(ctx, user._id, "product_save", args.productId);
       return { saved: true };
     }
   },

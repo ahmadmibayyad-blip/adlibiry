@@ -21,6 +21,14 @@ export default defineSchema({
     subscriptionStatus: v.optional(v.string()), // Stripe status: "trialing", "active", "past_due", "canceled", …
     subscriptionId: v.optional(v.string()),
     planRenewsAt: v.optional(v.number()), // ms
+    displayCurrency: v.optional(v.string()), // "USD" | "EUR" | "GBP" | "DKK" (lib/currency.ts)
+    // Onboarding (convex/onboarding.ts): the niches they sell in pre-filter the
+    // app; the timezone times their morning digest.
+    niches: v.optional(v.array(v.string())),
+    timezone: v.optional(v.string()), // IANA, e.g. "Europe/Copenhagen"
+    targetCountry: v.optional(v.string()), // ISO code of the market they sell to (verdict panel's "Room left")
+    onboardedAt: v.optional(v.string()),
+    proTrialEndsAt: v.optional(v.number()), // ms; set once when the 7-day Pro trial starts (lib/billing.ts)
     subscriptionEventAt: v.optional(v.number()), // Stripe event.created (s) of the last applied change
     role: v.optional(v.string()), // "admin" | "user"
     avatarUrl: v.optional(v.string()),
@@ -91,8 +99,71 @@ export default defineSchema({
     // More photos from the product's store page (convex/productImages.ts).
     images: v.optional(v.array(v.string())),
     imagesCheckedAt: v.optional(v.string()),
+    // Perceptual hash of imageUrl (convex/imageHashAction.ts), the key for
+    // spotting one product imported twice from different sources. "" = the
+    // image couldn't be read. imageHashUrl is the URL that was hashed, so a
+    // new imageUrl gets hashed again.
+    imageHash: v.optional(v.string()),
+    imageHashUrl: v.optional(v.string()),
+    // The hash in four parts, for finding near matches (lib/imageHash.ts hashBands).
+    hashBand0: v.optional(v.string()),
+    hashBand1: v.optional(v.string()),
+    hashBand2: v.optional(v.string()),
+    hashBand3: v.optional(v.string()),
+    // Score model v2 (lib/productScore.ts): the five parts (0–100), the raw
+    // weighted score (0–1), the importer's own score it started from, and the
+    // calibrated v2 score (live in aiScore once Admin switches to v2).
+    scoreParts: v.optional(v.object({
+      momentum: v.number(),
+      revenue: v.number(),
+      trend: v.number(),
+      saturation: v.number(),
+      margin: v.number(),
+      raw: v.number(),
+      source: v.number(),
+      v2: v.optional(v.number()),
+    })),
+    activeAds: v.optional(v.number()),  // ads running now (linked, seen in the last 14 days; else the source's count)
+    momentum14: v.optional(v.number()), // % change in linked-ad views over 14 days
+    costSource: v.optional(v.string()),   // "aliexpress" = landed cost from the AliExpress Affiliate API (convex/aliexpress.ts)
+    costUrl: v.optional(v.string()),      // the matched supplier listing
+    costCheckedAt: v.optional(v.string()), // last AliExpress supplier search
+    // Top 3 AliExpress suppliers by title match (convex/aliexpress.ts); url is the affiliate link when set up.
+    supplierMatches: v.optional(v.array(v.object({
+      title: v.string(),
+      price: v.number(),
+      url: v.string(),
+      imageUrl: v.optional(v.string()),
+      rating: v.optional(v.number()), // % positive feedback
+      orders: v.optional(v.number()), // last 30 days
+      similarity: v.number(),
+    }))),
+    // Distinct advertisers per country among ads seen in the last 7 days
+    // (our own data), most crowded first; "level" as lib/productMatch saturationFromCompetition.
+    saturationByCountry: v.optional(v.array(v.object({ country: v.string(), advertisers: v.number(), level: v.string() }))),
+    // Multi-source fusion (lib/fusion.ts): which source families back this product and how strongly they agree.
+    fusion: v.optional(v.object({
+      families: v.array(v.string()),
+      adLevel: v.boolean(),
+      productLevel: v.boolean(),
+      confidence: v.number(),
+      crossValidated: v.boolean(),
+    })),
+    verifiedWinner: v.optional(v.boolean()), // a winner that is also cross-validated (winners stage)
+    winnerSince: v.optional(v.string()),     // day it first entered the winners list; never cleared
+    enrichedAt: v.optional(v.string()),      // winner deep-enrichment queued (fusion.ts, trigger A)
+    backfillCheckedAt: v.optional(v.string()), // marketplace product searched for ads (trigger C)
+    storeHost: v.optional(v.string()),  // shop domain of the product page (not marketplaces), for same-store duplicates
+    aliases: v.optional(v.array(v.string())), // other names of merged duplicates
   })
     .index("by_url_key", ["urlKey"])
+    .index("by_image_hash", ["imageHash"])
+    .index("by_store_host", ["storeHost"])
+    .index("by_source_units", ["source", "unitsPerMonth"])
+    .index("by_hash_band_0", ["hashBand0"])
+    .index("by_hash_band_1", ["hashBand1"])
+    .index("by_hash_band_2", ["hashBand2"])
+    .index("by_hash_band_3", ["hashBand3"])
     .index("by_title_key", ["titleKey"])
     .index("by_margin", ["marginPercent"])
     .index("by_category_score", ["category", "aiScore"])
@@ -155,6 +226,15 @@ export default defineSchema({
     adLibraryUrl: v.optional(v.string()),
     gmv: v.optional(v.number()),              // est. sales from this ad (TikTok Shop), USD
     productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
+    imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
+    isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
+    sources: v.optional(v.array(v.string())), // every source that has delivered this ad
+    sourceFields: v.optional(v.object({ live: v.optional(v.object({ source: v.string(), at: v.string() })), advertiser: v.optional(v.object({ source: v.string(), at: v.string() })), engagement: v.optional(v.object({ source: v.string(), at: v.string() })) })), // who wrote each field group
+    landingHost: v.optional(v.string()),      // shop domain of the landing page (not marketplaces), ties ads to tracked stores
+    // Video transcript (convex/transcripts.ts) and the line spoken in its first 3 seconds.
+    transcript: v.optional(v.string()),
+    spokenHook: v.optional(v.string()),
+    transcriptCheckedAt: v.optional(v.string()),
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
@@ -166,6 +246,8 @@ export default defineSchema({
     .index("by_first_seen", ["firstSeenAt"])
     .index("by_advertiser", ["advertiserName"])
     .index("by_product", ["productId"])
+    .index("by_image_hash", ["imageHash"])
+    .index("by_landing_host", ["landingHost"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
     .index("by_score", ["aiScore"])
@@ -292,7 +374,27 @@ export default defineSchema({
     status: v.string(), // "started" | "imported" | "failed"
     createdAt: v.string(),
     result: v.optional(v.string()),
-  }).index("by_token", ["token"]),
+    trigger: v.optional(v.string()),   // "daily" | "winner" | "spike" | "backfill"
+    day: v.optional(v.string()),
+    capUsd: v.optional(v.number()),    // the most this run may cost (reserved against the daily budget)
+    costUsd: v.optional(v.number()),   // what Apify charged, read when the run finished
+    productId: v.optional(v.id("products")),
+  })
+    .index("by_token", ["token"])
+    .index("by_day", ["day"]),
+
+  // Sources disagreeing about the same field (lib/fusion.ts). Kept, not
+  // silently resolved; admins sample-review them monthly.
+  sourceConflicts: defineTable({
+    entity: v.string(),   // "ad" | "product"
+    entityId: v.string(),
+    field: v.string(),    // "live" | "advertiser" | "engagement_vs_age"
+    values: v.array(v.object({ source: v.string(), value: v.string() })),
+    day: v.string(),
+    reviewed: v.optional(v.boolean()),
+  })
+    .index("by_day", ["day"])
+    .index("by_entity_field", ["entityId", "field"]),
 
   // User saved ads (creative library)
   savedAds: defineTable({
@@ -376,7 +478,15 @@ export default defineSchema({
       error: v.optional(v.string()),
       failures: v.number(),             // failed checks in a row; skipped after 3
     })),
+    // Polite reading, refreshed weekly: robots.txt verdict for /products.json
+    // and the store's currency (from /cart.js).
+    polite: v.optional(v.object({ checkedAt: v.string(), robotsAllowed: v.boolean(), currency: v.optional(v.string()) })),
+    // Reviews gained per week on its best-selling products (weekly check).
+    reviews: v.optional(v.object({ checkedAt: v.string(), perWeek: v.optional(v.number()) })),
+    host: v.optional(v.string()),            // "shop.com" (set on catalog checks), for lookups by address
+    revenueConfidence: v.optional(v.string()), // "High" | "Medium" for estimatedRevenueRange (lib/revenueModel.ts)
   })
+    .index("by_host", ["host"])
     .index("by_niche", ["niche"])
     .index("by_spotted", ["spottedAt"])
     .searchIndex("search_name", { searchField: "name", filterFields: ["niche"] }),
@@ -402,8 +512,44 @@ export default defineSchema({
       price: v.number(),
       updatedAt: v.string(),
     })),
+    currency: v.optional(v.string()),   // the store's own currency (prices above are USD)
+    diff: v.optional(v.object({         // catalog changes since the previous check
+      added: v.number(),
+      removed: v.number(),
+      priceChanges: v.number(),
+      examples: v.array(v.object({ handle: v.string(), change: v.string(), from: v.optional(v.number()), to: v.optional(v.number()) })),
+    })),
   })
     .index("by_store_day", ["storeId", "day"]),
+
+  // Last catalog seen per store (handle, USD price, review count), for daily
+  // change lists. Its own table so store lists don't read it.
+  storeCatalogs: defineTable({
+    storeId: v.id("stores"),
+    // f: day we first saw the product (absent for products there at the first check)
+    entries: v.array(v.object({ h: v.string(), p: v.number(), r: v.optional(v.number()), f: v.optional(v.string()) })),
+  }).index("by_store", ["storeId"]),
+
+  // Product-funnel events for the north-star metric (convex/events.ts): one row
+  // per user, type and product per day.
+  events: defineTable({
+    userId: v.id("users"),
+    type: v.string(), // "product_open" | "verdict_view" | "product_save" | "supplier_click"
+    productId: v.optional(v.id("products")),
+    day: v.string(),
+    at: v.number(),
+  })
+    .index("by_type_day", ["type", "day"])
+    .index("by_user_day_type", ["userId", "day", "type"]),
+
+  // Known-truth revenue for calibrating estimates (convex/revenueTruth.ts).
+  revenueTruth: defineTable({
+    kind: v.string(), // "store" | "product"
+    url: v.string(),
+    monthlyRevenueUsd: v.number(),
+    note: v.optional(v.string()),
+    addedAt: v.string(),
+  }),
 
   // Store Tracker: user watchlist
   trackedStores: defineTable({
@@ -470,6 +616,20 @@ export default defineSchema({
     errors: v.array(v.string()), // at most 10
   }).index("by_job_started", ["job", "startedAt"]),
 
+  // Pro alerts on products (convex/follows.ts): new ads for it, or its score
+  // reaching minScore. last* are the values at the previous daily check.
+  followedProducts: defineTable({
+    userId: v.id("users"),
+    productId: v.id("products"),
+    minScore: v.optional(v.number()),
+    lastScore: v.optional(v.number()),
+    lastLinkedAds: v.optional(v.number()),
+    followedAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_product", ["productId"])
+    .index("by_user_and_product", ["userId", "productId"]),
+
   followedAdvertisers: defineTable({
     userId: v.id("users"),
     name: v.string(),        // exact ads.advertiserName
@@ -502,8 +662,12 @@ export default defineSchema({
     notifyFollowedAdvertisers: v.optional(v.boolean()), // missing = on
     emailDigestEnabled: v.boolean(),
     updatedAt: v.string(), // ISO 8601 UTC
+    unsubscribeToken: v.optional(v.string()), // in every digest's unsubscribe link (convex/digest.ts)
+    lastDigestDay: v.optional(v.string()),    // the user's local date of the last digest sent
   })
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_unsubscribe_token", ["unsubscribeToken"])
+    .index("by_digest", ["emailDigestEnabled"]),
 
   // Push notification identity mapping (Hercules SDK managed subscriptions)
   pushIdentities: defineTable({

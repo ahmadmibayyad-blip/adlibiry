@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import AIFeatureGate from "./AIFeatureGate.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 type CompetitorResult = {
   summary: string;
@@ -31,7 +32,7 @@ export default function AICompetitorFinderCard({
       const res = await findCompetitors({ productTitle, category });
       setResult(res);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to find competitors";
+      const message = errorMessage(error, "Failed to find competitors. Please try again.");
       toast.error(message);
     } finally {
       setIsLoading(false);

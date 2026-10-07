@@ -4,11 +4,15 @@ import { requireSignedIn } from "./lib/access";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
+import { effectivePlan } from "./lib/billing";
 
-// ── Follow alerts ───────────────────────────────────────────────────────────
-// Users follow advertisers (from an ad's page). Once a day, after the imports,
-// every follower gets one alert per advertiser that launched new ads.
-// Store alerts (new products, sales jumps) come from convex/storeSales.ts.
+// ── Follow alerts (Pro) ─────────────────────────────────────────────────────
+// Pro (and trial) users follow advertisers (from an ad's page) and products
+// (from a product's page, optionally with a score to watch for). Once a day,
+// in the daily pipeline's "alerts" step, followers get an in-app alert for
+// each advertiser that launched new ads, each followed product with new ads,
+// and each product whose score reached their threshold; the morning digest
+// email repeats the day's alerts. Store alerts come from convex/storeSales.ts.
 
 const MAX_FOLLOWS = 50;
 const MAX_FOLLOWS_ADMIN = 500;
@@ -21,6 +25,13 @@ async function currentUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
     .query("users")
     .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
     .unique();
+}
+
+// Following is a Pro feature (the 7-day trial counts); unfollowing always works.
+function requirePro(user: Doc<"users">) {
+  if (effectivePlan(user) === "none") {
+    throw new ConvexError({ code: "PRO_ONLY", message: "Alerts are a Pro feature. Start your free 7-day trial in Settings to follow advertisers and products." });
+  }
 }
 
 const visitorId = (user: Doc<"users">) => (user.tokenIdentifier ?? user._id).split("|")[1] ?? user.tokenIdentifier ?? user._id;
@@ -53,6 +64,7 @@ export const toggleFollow = mutation({
       await ctx.db.delete("followedAdvertisers", existing._id);
       return { following: false };
     }
+    requirePro(user);
     const max = user.role === "admin" ? MAX_FOLLOWS_ADMIN : MAX_FOLLOWS;
     const count = (await ctx.db.query("followedAdvertisers").withIndex("by_user", (q) => q.eq("userId", user._id)).take(max)).length;
     if (count >= max) throw new ConvexError({ code: "LIMIT", message: `You can follow up to ${max} advertisers. Unfollow one first.` });
@@ -91,6 +103,115 @@ export const listFollowing = query({
     );
   },
 });
+
+// ── Product follows ─────────────────────────────────────────────────────────
+
+export const productFollow = query({
+  args: { productId: v.id("products") },
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+    if (!user) return null;
+    const row = await ctx.db
+      .query("followedProducts")
+      .withIndex("by_user_and_product", (q) => q.eq("userId", user._id).eq("productId", args.productId))
+      .unique();
+    return row ? { minScore: row.minScore ?? null } : null;
+  },
+});
+
+// Follow (or update the score to watch for) a product. Pro.
+export const followProduct = mutation({
+  args: { productId: v.id("products"), minScore: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+    if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to follow products." });
+    requirePro(user);
+    const product = await ctx.db.get("products", args.productId);
+    if (!product) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found" });
+    const minScore = args.minScore === undefined ? undefined : Math.min(99, Math.max(1, Math.round(args.minScore)));
+    const existing = await ctx.db
+      .query("followedProducts")
+      .withIndex("by_user_and_product", (q) => q.eq("userId", user._id).eq("productId", args.productId))
+      .unique();
+    if (existing) {
+      await ctx.db.patch("followedProducts", existing._id, { minScore });
+      return { following: true };
+    }
+    const max = user.role === "admin" ? MAX_FOLLOWS_ADMIN : MAX_FOLLOWS;
+    const count = (await ctx.db.query("followedProducts").withIndex("by_user", (q) => q.eq("userId", user._id)).take(max)).length;
+    if (count >= max) throw new ConvexError({ code: "LIMIT", message: `You can follow up to ${max} products. Unfollow one first.` });
+    await ctx.db.insert("followedProducts", {
+      userId: user._id,
+      productId: args.productId,
+      minScore,
+      lastScore: product.aiScore,
+      lastLinkedAds: product.linkedAds ?? 0,
+      followedAt: new Date().toISOString(),
+    });
+    return { following: true };
+  },
+});
+
+export const unfollowProduct = mutation({
+  args: { productId: v.id("products") },
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+    if (!user) return { following: false };
+    const existing = await ctx.db
+      .query("followedProducts")
+      .withIndex("by_user_and_product", (q) => q.eq("userId", user._id).eq("productId", args.productId))
+      .unique();
+    if (existing) await ctx.db.delete("followedProducts", existing._id);
+    return { following: false };
+  },
+});
+
+// Alerts page: the products I follow.
+export const listFollowedProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await currentUser(ctx);
+    if (!user) return [];
+    const rows = await ctx.db.query("followedProducts").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").take(MAX_FOLLOWS_ADMIN);
+    const out = [];
+    for (const r of rows) {
+      const p = await ctx.db.get("products", r.productId);
+      if (p) out.push({ _id: r._id, productId: p._id, title: p.title, imageUrl: p.imageUrl, aiScore: p.aiScore, linkedAds: p.linkedAds ?? 0, minScore: r.minScore ?? null });
+    }
+    return out;
+  },
+});
+
+// One page of the daily product-follow check (daily pipeline, "alerts" step):
+// new ads linked to the product since the last check, and the score crossing
+// the follower's threshold. Returns how many alerts it wrote.
+export async function productFollowAlerts(ctx: MutationCtx, cursor: string | null): Promise<{ alerts: number; isDone: boolean; cursor: string }> {
+  const page = await ctx.db.query("followedProducts").paginate({ numItems: 100, cursor });
+  let alerts = 0;
+  const now = new Date().toISOString();
+  for (const f of page.page) {
+    const p = await ctx.db.get("products", f.productId);
+    if (!p) {
+      await ctx.db.delete("followedProducts", f._id);
+      continue;
+    }
+    const ads = p.linkedAds ?? 0;
+    const notes: { title: string; body: string }[] = [];
+    if (f.lastLinkedAds !== undefined && ads > f.lastLinkedAds) {
+      const n = ads - f.lastLinkedAds;
+      notes.push({ title: `${n} new ad${n === 1 ? "" : "s"} for ${p.title.slice(0, 60)}`, body: `Now found in ${ads} ad${ads === 1 ? "" : "s"}. More sellers testing it can mean it's scaling.` });
+    }
+    if (f.minScore !== undefined && f.lastScore !== undefined && f.lastScore < f.minScore && p.aiScore >= f.minScore) {
+      notes.push({ title: `${p.title.slice(0, 60)} reached a score of ${p.aiScore}`, body: `It crossed the ${f.minScore} you asked to be told about.` });
+    }
+    for (const n of notes) {
+      await ctx.db.insert("notifications", { userId: f.userId, type: "product_follow", ...n, link: `/dashboard/products/${p._id}`, isRead: false, createdAt: now });
+      alerts++;
+    }
+    if (f.lastScore !== p.aiScore || f.lastLinkedAds !== ads) await ctx.db.patch("followedProducts", f._id, { lastScore: p.aiScore, lastLinkedAds: ads });
+  }
+  return { alerts, isDone: page.isDone, cursor: page.continueCursor };
+}
 
 // Ad page: more ads from the same advertiser, newest first.
 export const advertiserAds = query({
@@ -193,3 +314,47 @@ async function alertBatch(
   else await ctx.db.insert("siteStats", { key: STATE_KEY, data, updatedAt: new Date(now).toISOString() });
   return { alerts };
 }
+
+// One page of the daily watched-store check (pipeline "storeAds" step): each
+// watched store with a shop domain gets one alert per watcher when ads linking
+// to that domain were first seen since the last run.
+export async function storeAdAlerts(ctx: MutationCtx, cursor: string | null, day: string): Promise<{ isDone: boolean; cursor: string }> {
+  const state = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "storeAdAlerts")).unique();
+  const data = state?.data as { since?: number; runDay?: string; nextSince?: number } | undefined;
+  // One window per day: the run that starts a day fixes "since" for all its pages.
+  const since = data?.runDay === day ? (data.since ?? Date.now() - 86_400_000) : (data?.nextSince ?? Date.now() - 86_400_000);
+  if (cursor === null) {
+    const patch = { since, runDay: day, nextSince: Date.now() };
+    if (state) await ctx.db.patch("siteStats", state._id, { data: patch, updatedAt: new Date().toISOString() });
+    else await ctx.db.insert("siteStats", { key: "storeAdAlerts", data: patch, updatedAt: new Date().toISOString() });
+  }
+  const page = await ctx.db.query("trackedStores").paginate({ numItems: 100, cursor });
+  // Per store on this page: its name and the ads first seen since the last run.
+  const fresh = new Map<string, { name: string; ads: Doc<"ads">[] }>();
+  for (const t of page.page) {
+    if (!fresh.has(t.storeId)) {
+      const store = await ctx.db.get("stores", t.storeId);
+      const ads: Doc<"ads">[] = [];
+      if (store?.host) {
+        for await (const ad of ctx.db.query("ads").withIndex("by_landing_host", (q) => q.eq("landingHost", store.host)).order("desc")) {
+          if (ad._creationTime <= since || ads.length >= 20) break;
+          ads.push(ad);
+        }
+      }
+      fresh.set(t.storeId, { name: store?.name ?? "A store you watch", ads });
+    }
+    const { name, ads } = fresh.get(t.storeId)!;
+    if (!ads.length) continue;
+    await ctx.db.insert("notifications", {
+      userId: t.userId,
+      type: "store_update",
+      title: `${name} launched ${ads.length === 20 ? "20+" : ads.length} new ad${ads.length === 1 ? "" : "s"}`,
+      body: ads[0].headline ? `Newest: “${ads[0].headline.slice(0, 120)}”` : "See it in Ad Spy.",
+      link: `/dashboard/ads/${ads[0]._id}`,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  return { isDone: page.isDone, cursor: page.continueCursor };
+}
+

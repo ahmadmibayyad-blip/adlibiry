@@ -1,10 +1,13 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
+import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { initialStats } from "@/lib/landingHtml.ts";
 
 // Live counts from the database, so the numbers are true and grow on their own.
 export default function StatsBar() {
-  const stats = useQuery(api.stats.get, {});
-  const n = (v: number | undefined) => (v === undefined ? "…" : v.toLocaleString("en-US"));
+  // Written into the page by the server (api/landing.ts) until the live query answers.
+  const stats = useQuery(api.stats.get, {}) ?? initialStats();
+  const n = (v: number | undefined) => (v === undefined ? <Skeleton className="h-8 w-20" /> : v.toLocaleString("en-US"));
   const items = [
     { value: n(stats?.ads.total), label: "Ads tracked" },
     { value: n(stats?.ads.activeCount), label: "Ads running now" },

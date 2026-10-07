@@ -1,5 +1,21 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
+
+// The niche's ads from our own database, trimmed to what the analyzer needs
+// (by_niche index, newest first).
+export const nicheAds = internalQuery({
+  args: { niche: v.string() },
+  handler: async (ctx, args) => {
+    const ads = await ctx.db.query("ads").withIndex("by_niche", (q) => q.eq("niche", args.niche)).order("desc").take(3000);
+    return ads.map((a) => ({
+      advertiserName: a.advertiserName,
+      firstSeenAt: a.lastSeenAt ?? a.firstSeenAt,
+      views: a.views,
+      country: a.country,
+      countries: a.countries,
+    }));
+  },
+});
 import { requireSignedIn } from "../lib/access";
 
 // V8 runtime — persists and reads real saturation-check snapshots. Kept out of
