@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils.ts";
 import { SATURATION_COUNTRIES, countryName } from "@/lib/countries.ts";
 import AIFeatureGate from "./AIFeatureGate.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 type SaturationSignals = {
   localAdvertiserCount: number;
@@ -188,7 +189,7 @@ export default function CountrySaturationCard({
       const res = await analyzeSaturation({ productTitle, niche, country });
       setResult(res);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to run saturation check";
+      const message = errorMessage(error, "Failed to run saturation check. Please try again.");
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -211,7 +212,7 @@ export default function CountrySaturationCard({
       const res = await compareCountries({ niche, countries: selectedCompareCountries });
       setComparison(res);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to compare countries";
+      const message = errorMessage(error, "Failed to compare countries. Please try again.");
       toast.error(message);
     } finally {
       setIsComparing(false);
