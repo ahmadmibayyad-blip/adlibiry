@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import AdminGuard from "./_components/AdminGuard.tsx";
 import ScoreModelCard from "./_components/ScoreModelCard.tsx";
+import NorthStarCard from "./_components/NorthStarCard.tsx";
 import RevenueCalibrationCard from "./_components/RevenueCalibrationCard.tsx";
 import ProductFormDialog from "./_components/ProductFormDialog.tsx";
 import AdFormDialog from "./_components/AdFormDialog.tsx";
@@ -397,6 +398,7 @@ function ProductsTab() {
 
   return (
     <div>
+      <NorthStarCard />
       <ProductPipelineCard />
       <ScoreModelCard />
       <RevenueCalibrationCard />

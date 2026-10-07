@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { cn } from "@/lib/utils.ts";
+import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 
 type Niche = (typeof NICHES)[number];
 const browserTimezone = () => {
@@ -24,13 +25,14 @@ export default function OnboardingDialog() {
   const complete = useMutation(api.onboarding.complete);
   const [picked, setPicked] = useState<Niche[]>([]);
   const [digest, setDigest] = useState(true);
+  const [country, setCountry] = useState("");
   const [saving, setSaving] = useState(false);
   const open = mine !== undefined && mine !== null && !mine.onboarded;
 
   const save = async (niches: Niche[], withDigest: boolean) => {
     setSaving(true);
     try {
-      await complete({ niches, digest: withDigest, timezone: browserTimezone() });
+      await complete({ niches, digest: withDigest, timezone: browserTimezone(), ...(country ? { targetCountry: country } : {}) });
       if (niches.length) toast.success("Your app now shows your niches first");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't save that");
@@ -65,6 +67,20 @@ export default function OnboardingDialog() {
             );
           })}
         </div>
+        <label className="flex flex-col gap-1 text-sm">
+          <span>Which country do you sell to?</span>
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">Choose a country (optional)</option>
+            {SATURATION_COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>{c.name}</option>
+            ))}
+          </select>
+          <span className="text-xs text-muted-foreground">Used to check how crowded a product is in your market.</span>
+        </label>
         <label className="flex items-start gap-2 text-sm cursor-pointer mt-1">
           <Checkbox checked={digest} onCheckedChange={(v) => setDigest(v === true)} className="mt-0.5" />
           <span>

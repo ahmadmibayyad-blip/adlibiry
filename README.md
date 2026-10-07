@@ -14,7 +14,7 @@ Admin → Data sources.
 | `SITE_URL` | The app's public address, used in emails and payment return links. Set it to `https://adspypro.net`. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sending email (morning digest). Verify `adspypro.net` in Resend first; `EMAIL_FROM` defaults to `AdSpy Pro <alerts@adspypro.net>`. |
 | `META_ACCESS_TOKEN` | Daily import from Meta's official Ad Library API (EU commercial ads). Needs a Meta developer app with Ad Library API access (identity verification). Optional: `META_AD_COUNTRIES` (default `DK,SE,DE,NL,FR`), `META_GRAPH_VERSION` (default `v23.0`). |
-| `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET` | Supplier cost (landed cost) from the AliExpress Affiliate API, for margins. Optional: `ALIEXPRESS_TRACKING_ID`, `ALIEXPRESS_SHIPPING_USD` (shipping estimate added to the price, default 3). |
+| `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET` | Supplier sourcing from the AliExpress Affiliate API: the top 3 suppliers per product (product page → Suppliers) and the landed cost for margins. `ALIEXPRESS_TRACKING_ID` makes supplier links affiliate links (commission on orders); `ALIEXPRESS_SHIPPING_USD` is the shipping estimate added to the price (default 3). |
 | `ADLIBRARY_API_KEY`, `NEXSCOPE_API_KEY`, `WINNINGHUNTER_API_KEY`, `PIPISPY_API_KEY` | The existing licensed data sources. |
 
 The daily Apify job that scraped facebook.com/ads/library is turned off (scraping Meta is against its terms).
@@ -62,3 +62,13 @@ re-run from any step.
 8. **Alerts**: on a Pro account follow a product (with "Score reaches 80") and an advertiser; next day's alerts
    appear under Alerts and in the morning email.
 9. **Email**: with Resend verified, turn the digest on and wait for 8:00 your time; the unsubscribe link turns it off.
+
+## Test-decision features (roadmap P1)
+
+- **Should I test this?** on every product page: Demand, Room left (competition in the user's country, set at
+  onboarding or in Settings), Margin and Angle bank, with one plain verdict line (`convex/lib/verdict.ts`).
+- **Suppliers**: the top 3 AliExpress matches with price, rating and 30-day orders; Open / Copy link.
+- **Scaling** filter in Ad Spy: ads running 14+ days whose views grew 10%+ in a week or whose engagement is at or
+  above their niche's median (`convex/lib/scaling.ts`).
+- **North star** (Admin): weekly validated tests per active user (verdict seen + product saved) and the funnel.
+

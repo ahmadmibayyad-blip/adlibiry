@@ -26,6 +26,7 @@ export default defineSchema({
     // app; the timezone times their morning digest.
     niches: v.optional(v.array(v.string())),
     timezone: v.optional(v.string()), // IANA, e.g. "Europe/Copenhagen"
+    targetCountry: v.optional(v.string()), // ISO code of the market they sell to (verdict panel's "Room left")
     onboardedAt: v.optional(v.string()),
     proTrialEndsAt: v.optional(v.number()), // ms; set once when the 7-day Pro trial starts (lib/billing.ts)
     subscriptionEventAt: v.optional(v.number()), // Stripe event.created (s) of the last applied change
@@ -126,7 +127,17 @@ export default defineSchema({
     momentum14: v.optional(v.number()), // % change in linked-ad views over 14 days
     costSource: v.optional(v.string()),   // "aliexpress" = landed cost from the AliExpress Affiliate API (convex/aliexpress.ts)
     costUrl: v.optional(v.string()),      // the matched supplier listing
-    costCheckedAt: v.optional(v.string()),
+    costCheckedAt: v.optional(v.string()), // last AliExpress supplier search
+    // Top 3 AliExpress suppliers by title match (convex/aliexpress.ts); url is the affiliate link when set up.
+    supplierMatches: v.optional(v.array(v.object({
+      title: v.string(),
+      price: v.number(),
+      url: v.string(),
+      imageUrl: v.optional(v.string()),
+      rating: v.optional(v.number()), // % positive feedback
+      orders: v.optional(v.number()), // last 30 days
+      similarity: v.number(),
+    }))),
     // Distinct advertisers per country among ads seen in the last 7 days
     // (our own data), most crowded first; "level" as lib/productMatch saturationFromCompetition.
     saturationByCountry: v.optional(v.array(v.object({ country: v.string(), advertisers: v.number(), level: v.string() }))),
@@ -476,6 +487,18 @@ export default defineSchema({
     storeId: v.id("stores"),
     entries: v.array(v.object({ h: v.string(), p: v.number(), r: v.optional(v.number()) })),
   }).index("by_store", ["storeId"]),
+
+  // Product-funnel events for the north-star metric (convex/events.ts): one row
+  // per user, type and product per day.
+  events: defineTable({
+    userId: v.id("users"),
+    type: v.string(), // "product_open" | "verdict_view" | "product_save" | "supplier_click"
+    productId: v.optional(v.id("products")),
+    day: v.string(),
+    at: v.number(),
+  })
+    .index("by_type_day", ["type", "day"])
+    .index("by_user_day_type", ["userId", "day", "type"]),
 
   // Known-truth revenue for calibrating estimates (convex/revenueTruth.ts).
   revenueTruth: defineTable({

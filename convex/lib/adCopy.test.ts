@@ -4,7 +4,7 @@ import { storeHost, titleSimilarity } from "./productMatch";
 import { catalogDiff, reviewCountFromHtml, reviewsPerWeek, robotsAllows } from "./politeFetch";
 import { calibrate, factorFor, storeRevenueEstimate } from "./revenueModel";
 import { metaAdToExternal } from "./metaAdLibrary";
-import { pickMatch, searchKeywords, signParams } from "./aliexpress";
+import { searchKeywords, signParams, topMatches } from "./aliexpress";
 
 describe("ad copy hygiene", () => {
   it("strips page metadata and keeps the call to action separately", () => {
@@ -99,8 +99,8 @@ describe("AliExpress supplier cost", () => {
       { product_title: "Phone case", target_sale_price: "2" },
       { product_title: "Pet Dog Cooling Mat Summer Large", target_sale_price: "7.5", product_detail_url: "https://aliexpress.com/item/1.html" },
     ];
-    expect(pickMatch("Dog Cooling Mat Large", products)).toMatchObject({ price: 7.5 });
-    expect(pickMatch("Wireless earbuds", products)).toBeUndefined();
+    expect(topMatches("Dog Cooling Mat Large", products)).toMatchObject([{ price: 7.5, url: "https://aliexpress.com/item/1.html" }]);
+    expect(topMatches("Wireless earbuds", products)).toEqual([]);
   });
 });
 

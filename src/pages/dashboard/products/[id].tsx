@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { useParams, Link } from "react-router-dom";
@@ -24,6 +25,8 @@ import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
 import { price } from "@/lib/money.ts";
 import { flag } from "@/lib/adFormat.ts";
 import FollowProduct from "./_components/FollowProduct.tsx";
+import VerdictPanel from "./_components/VerdictPanel.tsx";
+import SuppliersSection from "./_components/SuppliersSection.tsx";
 
 const saturationColors: Record<string, string> = {
   Low: "text-good bg-good/10 border-good/20",
@@ -72,6 +75,11 @@ export default function ProductDetail() {
     api.products.getById,
     id ? { id: id as Id<"products"> } : "skip"
   );
+  // North-star funnel: product opened (convex/events.ts).
+  const track = useMutation(api.events.track);
+  useEffect(() => {
+    if (id) track({ type: "product_open", productId: id as Id<"products"> }).catch(() => {});
+  }, [id, track]);
 
   if (product === undefined) {
     return (
@@ -201,6 +209,8 @@ export default function ProductDetail() {
 
           <ProductHeadline product={product} />
 
+          <VerdictPanel product={product} />
+
           {/* AI Score */}
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center gap-4">
@@ -298,6 +308,8 @@ export default function ProductDetail() {
               </p>
             </div>
           ) : null}
+
+          <SuppliersSection product={product} />
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
