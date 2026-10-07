@@ -27,6 +27,7 @@ type Ad = Doc<"ads">;
 // ("1000-" = at least 1000).
 type Filters = {
   platform?: string;
+  scaling?: boolean;
   niche?: string;
   firstSeen?: string; // days
   lastSeen?: string; // days
@@ -122,6 +123,7 @@ function toQueryArgs(f: Filters, search: string) {
     minAiScore: score.min,
     minCopies: f.repeated ? 2 : undefined,
     activeOnly: f.active || undefined,
+    scalingOnly: f.scaling || undefined,
     hasLandingPage: f.landing === "has" || undefined,
   };
 }
@@ -178,7 +180,7 @@ export default function AdSpyPage() {
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
   // Filters set inside "Advanced filters" (everything but platform and the four visible ones).
   const advancedCount = Object.entries(f).filter(
-    ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend"].includes(k) && v !== undefined && v !== false,
+    ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling"].includes(k) && v !== undefined && v !== false,
   ).length;
   const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
@@ -263,6 +265,12 @@ export default function AdSpyPage() {
           />
           <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
           <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
+          <Check
+            label="Scaling"
+            hint="Running 14+ days and still getting budget: views up 10%+ on last week, or engagement above the niche's median"
+            checked={!!f.scaling}
+            onChange={(v) => set("scaling", v || undefined)}
+          />
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}

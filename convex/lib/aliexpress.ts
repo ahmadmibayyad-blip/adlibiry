@@ -20,7 +20,44 @@ export async function signParams(params: Record<string, string>, secret: string)
   return [...mac].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
 }
 
-export type AliProduct = { product_id?: number | string; product_title?: string; target_sale_price?: string; product_detail_url?: string };
+export type AliProduct = {
+  product_id?: number | string;
+  product_title?: string;
+  target_sale_price?: string;
+  product_detail_url?: string;
+  promotion_link?: string; // affiliate-tagged link (when a tracking id is set)
+  product_main_image_url?: string;
+  evaluate_rate?: string; // e.g. "96.5%" positive feedback
+  lastest_volume?: number | string; // orders in the last 30 days (sic, the API's spelling)
+};
+
+export type SupplierMatch = { title: string; price: number; url: string; imageUrl?: string; rating?: number; orders?: number; similarity: number };
+
+export const SUPPLIER_FIELDS = "product_id,product_title,target_sale_price,product_detail_url,promotion_link,product_main_image_url,evaluate_rate,lastest_volume";
+
+/** Up to 3 close title matches with a price, best match first (more orders breaks ties); links prefer the affiliate one. */
+export function topMatches(title: string, products: AliProduct[], n = 3): SupplierMatch[] {
+  const out: SupplierMatch[] = [];
+  for (const p of products) {
+    const price = Number(p.target_sale_price);
+    const url = p.promotion_link || p.product_detail_url;
+    if (!p.product_title || !(price > 0) || !url) continue;
+    const similarity = titleSimilarity(title, p.product_title);
+    if (similarity < MIN_MATCH) continue;
+    const rating = parseFloat(String(p.evaluate_rate ?? "").replace("%", ""));
+    const orders = Number(p.lastest_volume);
+    out.push({
+      title: p.product_title.slice(0, 200),
+      price,
+      url,
+      ...(p.product_main_image_url ? { imageUrl: p.product_main_image_url } : {}),
+      ...(Number.isFinite(rating) && rating > 0 ? { rating } : {}),
+      ...(Number.isFinite(orders) && orders >= 0 ? { orders } : {}),
+      similarity: Math.round(similarity * 100) / 100,
+    });
+  }
+  return out.sort((a, b) => b.similarity - a.similarity || (b.orders ?? 0) - (a.orders ?? 0)).slice(0, n);
+}
 
 /** The search query for a product title: its first 8 meaningful words. */
 export function searchKeywords(title: string): string {
@@ -30,18 +67,6 @@ export function searchKeywords(title: string): string {
     .filter((w) => w.length > 1)
     .slice(0, 8)
     .join(" ");
-}
-
-/** Best title match with a price, or undefined when nothing is close enough. */
-export function pickMatch(title: string, products: AliProduct[]): { price: number; url?: string; similarity: number } | undefined {
-  let best: { price: number; url?: string; similarity: number } | undefined;
-  for (const p of products) {
-    const price = Number(p.target_sale_price);
-    if (!p.product_title || !(price > 0)) continue;
-    const similarity = titleSimilarity(title, p.product_title);
-    if (similarity >= MIN_MATCH && (!best || similarity > best.similarity)) best = { price, url: p.product_detail_url, similarity };
-  }
-  return best;
 }
 
 /** The products array from an affiliate.product.query response, whatever its nesting. */

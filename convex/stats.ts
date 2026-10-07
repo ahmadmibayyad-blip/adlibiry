@@ -3,6 +3,10 @@ import { internalAction, internalMutation, internalQuery, mutation, query, type 
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./admin/helpers";
 import type { Doc } from "./_generated/dataModel";
+import { engagementRate, median } from "./lib/scaling";
+import { parseCompact } from "./lib/productMatch";
+
+const adViewsCount = (d: Doc<"ads">) => d.impressions ?? parseCompact(d.views) ?? 0;
 
 // Everything the UI needs that would otherwise require scanning whole tables
 // (filter-dropdown counts, niche lists, admin totals) is computed here at most
@@ -10,7 +14,11 @@ import type { Doc } from "./_generated/dataModel";
 
 type Count = { value: string; n: number };
 export type SiteStats = {
-  ads: { total: number; activeCount: number; videoCount: number; ctas: Count[]; countries: Count[]; niches: Count[]; platforms: Count[]; languages?: Count[] };
+  ads: {
+    total: number; activeCount: number; videoCount: number; ctas: Count[]; countries: Count[]; niches: Count[]; platforms: Count[]; languages?: Count[];
+    // Median (likes + comments) ÷ views per niche, for the Scaling filter (lib/scaling.ts).
+    engagementMedians?: Record<string, number>;
+  };
   products: { total: number; categories: Count[]; sources?: Count[] };
   users: { total: number; admins: number };
   stores: { total: number };
@@ -30,7 +38,7 @@ const count = (vals: (string | undefined)[]): Count[] => {
 };
 
 // What scanPage keeps of each document (only the fields the counts need).
-type ScanRow = { a?: boolean; v?: boolean; cta?: string; c?: (string | undefined)[]; n?: string; p?: string; l?: string; s?: string; admin?: boolean };
+type ScanRow = { a?: boolean; v?: boolean; cta?: string; c?: (string | undefined)[]; n?: string; p?: string; l?: string; s?: string; admin?: boolean; e?: number };
 
 async function readStats(ctx: QueryCtx): Promise<SiteStats> {
   const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
@@ -52,6 +60,7 @@ export const scanPage = internalQuery({
             n: d.niche,
             p: d.platform,
             l: d.language,
+            e: engagementRate({ likes: d.likes, comments: d.comments, views: adViewsCount(d) }),
           }))
         : table === "products"
           ? (res.page as Doc<"products">[]).map((d) => ({ n: d.category, s: d.source ?? "curated" }))
@@ -91,8 +100,10 @@ export const recompute = internalAction({
     // count() skips empty values, so a missing field just isn't counted.
     const ctas: string[] = [], countries: string[] = [], langs: string[] = [];
     const niches: (string | undefined)[] = [], platforms: (string | undefined)[] = [], cats: (string | undefined)[] = [], psources: (string | undefined)[] = [];
+    const engagementByNiche = new Map<string, number[]>();
     await scan("ads", (r) => {
       stats.ads.total++;
+      if (r.n && r.e !== undefined && r.e > 0) engagementByNiche.set(r.n, [...(engagementByNiche.get(r.n) ?? []), r.e]);
       if (r.a) stats.ads.activeCount++;
       if (r.v) stats.ads.videoCount++;
       if (r.cta) ctas.push(r.cta);
@@ -116,6 +127,7 @@ export const recompute = internalAction({
     stats.ads.niches = count(niches);
     stats.ads.platforms = count(platforms);
     stats.ads.languages = count(langs).slice(0, 30);
+    stats.ads.engagementMedians = Object.fromEntries([...engagementByNiche].map(([n, xs]) => [n, Math.round((median(xs) ?? 0) * 1e5) / 1e5]));
     stats.products.categories = count(cats);
     stats.products.sources = count(psources);
     await ctx.runMutation(internal.stats.save, { data: stats });

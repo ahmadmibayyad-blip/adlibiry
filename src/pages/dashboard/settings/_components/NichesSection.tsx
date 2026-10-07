@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api.js";
 import { NICHES } from "@/convex/lib/category.ts";
 import { Switch } from "@/components/ui/switch.tsx";
 import { cn } from "@/lib/utils.ts";
+import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 
 type Niche = (typeof NICHES)[number];
 const browserTimezone = () => {
@@ -19,6 +20,7 @@ export default function NichesSection() {
   const mine = useQuery(api.onboarding.mine, {});
   const setNiches = useMutation(api.onboarding.setNiches);
   const setDigest = useMutation(api.onboarding.setDigest);
+  const setTargetCountry = useMutation(api.onboarding.setTargetCountry);
   if (!mine) return null;
   const niches = mine.niches as Niche[];
   const toggle = async (n: Niche) => {
@@ -50,6 +52,29 @@ export default function NichesSection() {
           ))}
         </div>
       </div>
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span>
+          Country I sell to
+          <span className="block text-xs text-muted-foreground">For "Room left" on each product's verdict.</span>
+        </span>
+        <select
+          value={mine.targetCountry ?? ""}
+          onChange={async (e) => {
+            try {
+              await setTargetCountry({ country: e.target.value });
+              toast.success("Saved");
+            } catch {
+              toast.error("Couldn't save that");
+            }
+          }}
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          {!mine.targetCountry && <option value="">Choose a country</option>}
+          {SATURATION_COUNTRIES.map((c) => (
+            <option key={c.code} value={c.code}>{c.name}</option>
+          ))}
+        </select>
+      </label>
       <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer">
         <span className="text-sm">
           Morning digest email

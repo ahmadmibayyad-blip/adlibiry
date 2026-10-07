@@ -7,6 +7,7 @@ import { paginationOptsValidator } from "convex/server";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import type { SiteStats } from "./stats";
+import { recordEvent } from "./events";
 
 // ── Products ────────────────────────────────────────────────────────────────
 
@@ -85,9 +86,12 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
         if (args.category) s = s.eq("category", args.category);
         return s;
       })
+      // The other filters can't go in the search/price index; pages stay small.
+      // eslint-disable-next-line @convex-dev/no-filter-in-query
       .filter(conds)
       .paginate(args.paginationOpts);
   } else if (args.sort === "priceLow") {
+    // eslint-disable-next-line @convex-dev/no-filter-in-query
     result = await ctx.db.query("products").withIndex("by_price", (q) => q.gt("price", 0)).order("asc").filter(conds).paginate(args.paginationOpts);
   } else {
     const base = ctx.db.query("products");
@@ -235,6 +239,7 @@ export const toggleSave = mutation({
         productId: args.productId,
         savedAt: new Date().toISOString(),
       });
+      await recordEvent(ctx, user._id, "product_save", args.productId);
       return { saved: true };
     }
   },

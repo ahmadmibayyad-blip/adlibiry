@@ -25,6 +25,7 @@ export const mine = query({
       niches: user.niches ?? [],
       onboarded: !!user.onboardedAt,
       timezone: user.timezone ?? null,
+      targetCountry: user.targetCountry ?? null,
       digest: prefs?.emailDigestEnabled ?? false,
     };
   },
@@ -51,7 +52,7 @@ async function savePrefs(ctx: MutationCtx, userId: Id<"users">, patch: { watched
 
 // The onboarding answer (or "Skip": no niches, digest off).
 export const complete = mutation({
-  args: { niches: v.array(niche), timezone: v.optional(v.string()), digest: v.boolean() },
+  args: { niches: v.array(niche), timezone: v.optional(v.string()), digest: v.boolean(), targetCountry: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const user = await me(ctx);
     if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in." });
@@ -60,6 +61,7 @@ export const complete = mutation({
       niches,
       onboardedAt: new Date().toISOString(),
       ...(args.timezone && args.timezone.length <= 64 ? { timezone: args.timezone } : {}),
+      ...(args.targetCountry && /^[A-Z]{2}$/.test(args.targetCountry) ? { targetCountry: args.targetCountry } : {}),
     });
     await savePrefs(ctx, user._id, { watchedNiches: niches, emailDigestEnabled: args.digest });
   },
@@ -74,6 +76,17 @@ export const setNiches = mutation({
     const niches = [...new Set(args.niches)];
     await ctx.db.patch("users", user._id, { niches, onboardedAt: user.onboardedAt ?? new Date().toISOString() });
     await savePrefs(ctx, user._id, { watchedNiches: niches });
+  },
+});
+
+// Settings: the country they sell to.
+export const setTargetCountry = mutation({
+  args: { country: v.string() },
+  handler: async (ctx, args) => {
+    const user = await me(ctx);
+    if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in." });
+    if (!/^[A-Z]{2}$/.test(args.country)) throw new ConvexError({ code: "BAD_REQUEST", message: "Pick a country." });
+    await ctx.db.patch("users", user._id, { targetCountry: args.country });
   },
 });
 

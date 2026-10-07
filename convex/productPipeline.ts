@@ -2,6 +2,7 @@ import { estimateProduct, pointEstimate, unitsPerMonthFromText } from "./lib/est
 import { HISTOGRAM_BINS, binOf, medianOf, percentileOf, rawScore, scoreFromPercentile, scoreParts, shareAtLeast } from "./lib/productScore";
 import { passesWinnerGates } from "./lib/winnerGates";
 import { cleanAdCopy } from "./lib/adCopy";
+import { engagementRate, isScaling } from "./lib/scaling";
 import { upgradeDescription } from "./lib/productCopy";
 import { factorFor, type BasisCalibration } from "./lib/revenueModel";
 import { readCalibration } from "./revenueTruth";
@@ -104,6 +105,12 @@ type Calibration = {
 };
 const zeros = (n: number) => new Array<number>(n).fill(0);
 const score100 = (n: number) => Math.min(100, Math.max(0, Math.round(n)));
+
+// Per-niche median engagement from the last site-stats run (convex/stats.ts).
+async function engagementMedians(ctx: MutationCtx): Promise<Record<string, number>> {
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "main")).unique();
+  return (doc?.data as { ads?: { engagementMedians?: Record<string, number> } } | undefined)?.ads?.engagementMedians ?? {};
+}
 
 // Which score model is live: "v1" (old per-source scores) until an admin
 // switches to "v2" after reviewing the calibration report.
@@ -382,8 +389,24 @@ export const step = internalMutation({
         cursor = page.continueCursor;
       } else if (stage === "snapshotAds") {
         const page = await ctx.db.query("ads").paginate({ numItems: 200, cursor: args.cursor });
+        const medians = await engagementMedians(ctx);
         for (const ad of page.page) {
-          await upsertSnapshot(ctx, args.day, "ad", ad._id, { score: ad.aiScore, adsRunning: 1, ...adNumbers(ad) });
+          const n = adNumbers(ad);
+          // Scaling: 14+ days and views up 10%+ on a week ago, or engagement at/above the niche median.
+          const weekAgo = await ctx.db
+            .query("dailySnapshots")
+            .withIndex("by_entity_day", (q) => q.eq("kind", "ad").eq("entityId", ad._id).lte("day", dayMinus(args.day, 7)))
+            .order("desc")
+            .first();
+          const scaling = isScaling({
+            daysRunning: ad.daysRunning,
+            viewsNow: n.views,
+            viewsWeekAgo: weekAgo?.views,
+            engagement: engagementRate({ likes: n.likes, comments: n.comments, views: n.views }),
+            nicheMedianEngagement: medians[ad.niche],
+          });
+          if ((ad.isScaling ?? false) !== scaling) await ctx.db.patch("ads", ad._id, { isScaling: scaling });
+          await upsertSnapshot(ctx, args.day, "ad", ad._id, { score: ad.aiScore, adsRunning: 1, ...n });
         }
         counts.snapshots += page.page.length;
         done = page.isDone;
