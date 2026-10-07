@@ -147,6 +147,7 @@ export default defineSchema({
     .index("by_url_key", ["urlKey"])
     .index("by_image_hash", ["imageHash"])
     .index("by_store_host", ["storeHost"])
+    .index("by_source_units", ["source", "unitsPerMonth"])
     .index("by_hash_band_0", ["hashBand0"])
     .index("by_hash_band_1", ["hashBand1"])
     .index("by_hash_band_2", ["hashBand2"])
@@ -215,6 +216,11 @@ export default defineSchema({
     productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
     imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
     isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
+    landingHost: v.optional(v.string()),      // shop domain of the landing page (not marketplaces), ties ads to tracked stores
+    // Video transcript (convex/transcripts.ts) and the line spoken in its first 3 seconds.
+    transcript: v.optional(v.string()),
+    spokenHook: v.optional(v.string()),
+    transcriptCheckedAt: v.optional(v.string()),
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
@@ -227,6 +233,7 @@ export default defineSchema({
     .index("by_advertiser", ["advertiserName"])
     .index("by_product", ["productId"])
     .index("by_image_hash", ["imageHash"])
+    .index("by_landing_host", ["landingHost"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
     .index("by_score", ["aiScore"])
@@ -485,7 +492,8 @@ export default defineSchema({
   // change lists. Its own table so store lists don't read it.
   storeCatalogs: defineTable({
     storeId: v.id("stores"),
-    entries: v.array(v.object({ h: v.string(), p: v.number(), r: v.optional(v.number()) })),
+    // f: day we first saw the product (absent for products there at the first check)
+    entries: v.array(v.object({ h: v.string(), p: v.number(), r: v.optional(v.number()), f: v.optional(v.string()) })),
   }).index("by_store", ["storeId"]),
 
   // Product-funnel events for the north-star metric (convex/events.ts): one row

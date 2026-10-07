@@ -6,7 +6,7 @@ import { engagementRate, isScaling } from "./lib/scaling";
 import { upgradeDescription } from "./lib/productCopy";
 import { factorFor, type BasisCalibration } from "./lib/revenueModel";
 import { readCalibration } from "./revenueTruth";
-import { productFollowAlerts } from "./follows";
+import { productFollowAlerts, storeAdAlerts } from "./follows";
 
 type Calibrations = Record<string, BasisCalibration> | undefined;
 import { v } from "convex/values";
@@ -56,7 +56,7 @@ const MAX_WINNER_CANDIDATES = 400; // per niche, so one mutation stays within re
 
 export const STAGES = [
   "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
-  "winners", "snapshotProducts", "snapshotAds", "prune", "alerts", "lists", "emails",
+  "winners", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails",
 ] as const;
 type Stage = (typeof STAGES)[number] | "done";
 const NEXT: Record<Stage, Stage> = {
@@ -73,7 +73,8 @@ const NEXT: Record<Stage, Stage> = {
   snapshotProducts: "snapshotAds",
   snapshotAds: "prune",
   prune: "alerts",
-  alerts: "lists",
+  alerts: "storeAds",
+  storeAds: "lists",
   lists: "emails",
   emails: "done",
   done: "done",
@@ -266,6 +267,11 @@ export const step = internalMutation({
         const r = await productFollowAlerts(ctx, args.cursor);
         done = r.isDone;
         cursor = r.cursor;
+      } else if (stage === "storeAds") {
+        // Watched stores that launched new ads since the last run.
+        const r = await storeAdAlerts(ctx, args.cursor, args.day);
+        done = r.isDone;
+        cursor = r.cursor;
       } else if (stage === "lists") {
         await ctx.scheduler.runAfter(0, internal.research.rebuild, {});
         await ctx.scheduler.runAfter(0, internal.stats.recompute, {});
@@ -295,6 +301,9 @@ export const step = internalMutation({
         const page = await ctx.db.query("ads").paginate({ numItems: 150, cursor: args.cursor });
         let created = 0;
         for (const ad of page.page) {
+          // Which shop the ad sends people to (ties ads to tracked stores).
+          const host = storeHost(ad.landingPageUrl) ?? undefined;
+          if (ad.landingHost !== host) await ctx.db.patch("ads", ad._id, { landingHost: host });
           // Days running from our own history too: first sighting → last sighting.
           const observed = observedDays(ad.firstSeenAt, ad.lastSeenAt);
           if (observed > ad.daysRunning) {

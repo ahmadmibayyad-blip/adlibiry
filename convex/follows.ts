@@ -314,3 +314,47 @@ async function alertBatch(
   else await ctx.db.insert("siteStats", { key: STATE_KEY, data, updatedAt: new Date(now).toISOString() });
   return { alerts };
 }
+
+// One page of the daily watched-store check (pipeline "storeAds" step): each
+// watched store with a shop domain gets one alert per watcher when ads linking
+// to that domain were first seen since the last run.
+export async function storeAdAlerts(ctx: MutationCtx, cursor: string | null, day: string): Promise<{ isDone: boolean; cursor: string }> {
+  const state = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "storeAdAlerts")).unique();
+  const data = state?.data as { since?: number; runDay?: string; nextSince?: number } | undefined;
+  // One window per day: the run that starts a day fixes "since" for all its pages.
+  const since = data?.runDay === day ? (data.since ?? Date.now() - 86_400_000) : (data?.nextSince ?? Date.now() - 86_400_000);
+  if (cursor === null) {
+    const patch = { since, runDay: day, nextSince: Date.now() };
+    if (state) await ctx.db.patch("siteStats", state._id, { data: patch, updatedAt: new Date().toISOString() });
+    else await ctx.db.insert("siteStats", { key: "storeAdAlerts", data: patch, updatedAt: new Date().toISOString() });
+  }
+  const page = await ctx.db.query("trackedStores").paginate({ numItems: 100, cursor });
+  // Per store on this page: its name and the ads first seen since the last run.
+  const fresh = new Map<string, { name: string; ads: Doc<"ads">[] }>();
+  for (const t of page.page) {
+    if (!fresh.has(t.storeId)) {
+      const store = await ctx.db.get("stores", t.storeId);
+      const ads: Doc<"ads">[] = [];
+      if (store?.host) {
+        for await (const ad of ctx.db.query("ads").withIndex("by_landing_host", (q) => q.eq("landingHost", store.host)).order("desc")) {
+          if (ad._creationTime <= since || ads.length >= 20) break;
+          ads.push(ad);
+        }
+      }
+      fresh.set(t.storeId, { name: store?.name ?? "A store you watch", ads });
+    }
+    const { name, ads } = fresh.get(t.storeId)!;
+    if (!ads.length) continue;
+    await ctx.db.insert("notifications", {
+      userId: t.userId,
+      type: "store_update",
+      title: `${name} launched ${ads.length === 20 ? "20+" : ads.length} new ad${ads.length === 1 ? "" : "s"}`,
+      body: ads[0].headline ? `Newest: “${ads[0].headline.slice(0, 120)}”` : "See it in Ad Spy.",
+      link: `/dashboard/ads/${ads[0]._id}`,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  return { isDone: page.isDone, cursor: page.continueCursor };
+}
+

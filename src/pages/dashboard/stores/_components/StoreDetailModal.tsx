@@ -15,6 +15,8 @@ import { storeImage } from "@/lib/storeImage.ts";
 import StoreSales from "./StoreSales.tsx";
 import ProductImage from "@/components/ProductImage.tsx";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
+import { errorMessage } from "@/lib/errorMessage.ts";
+import StoreCatalog from "./StoreCatalog.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -28,8 +30,8 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
     try {
       const result = await toggleTrack({ storeId: store._id });
       toast.success(result.tracked ? "Store added to watchlist!" : "Removed from watchlist");
-    } catch {
-      toast.error("Please sign in to track stores");
+    } catch (e) {
+      toast.error(errorMessage(e, "Please sign in to track stores"));
     }
   };
 
@@ -79,6 +81,7 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
         </div>
 
         <StoreSales storeId={store._id} />
+        <StoreCatalog storeId={store._id} />
 
         <div className="mb-5">
           <h3 className="font-semibold text-sm mb-3">Best Sellers</h3>

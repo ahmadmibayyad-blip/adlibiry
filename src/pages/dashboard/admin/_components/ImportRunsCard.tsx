@@ -11,7 +11,8 @@ const LABELS: Record<string, string> = {
   apify: "Apify Meta Ad Library (turned off)",
   metaAdLibrary: "Meta Ad Library API (official)",
   pipispy: "PiPiSpy",
-  aliexpressCosts: "AliExpress supplier costs",
+  aliexpressCosts: "AliExpress suppliers",
+  transcripts: "Video transcripts (Deepgram)",
   winninghunter: "WinningHunter ads",
 };
 

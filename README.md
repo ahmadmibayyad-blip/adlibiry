@@ -15,6 +15,7 @@ Admin → Data sources.
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sending email (morning digest). Verify `adspypro.net` in Resend first; `EMAIL_FROM` defaults to `AdSpy Pro <alerts@adspypro.net>`. |
 | `META_ACCESS_TOKEN` | Daily import from Meta's official Ad Library API (EU commercial ads). Needs a Meta developer app with Ad Library API access (identity verification). Optional: `META_AD_COUNTRIES` (default `DK,SE,DE,NL,FR`), `META_GRAPH_VERSION` (default `v23.0`). |
 | `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET` | Supplier sourcing from the AliExpress Affiliate API: the top 3 suppliers per product (product page → Suppliers) and the landed cost for margins. `ALIEXPRESS_TRACKING_ID` makes supplier links affiliate links (commission on orders); `ALIEXPRESS_SHIPPING_USD` is the shipping estimate added to the price (default 3). |
+| `DEEPGRAM_API_KEY` | Video ad transcripts: the line spoken in the first 3 seconds becomes the ad's hook in Hooks of the week (about 40 videos a day, scaling ads first). |
 | `ADLIBRARY_API_KEY`, `NEXSCOPE_API_KEY`, `WINNINGHUNTER_API_KEY`, `PIPISPY_API_KEY` | The existing licensed data sources. |
 
 The daily Apify job that scraped facebook.com/ads/library is turned off (scraping Meta is against its terms).
@@ -71,4 +72,13 @@ re-run from any step.
 - **Scaling** filter in Ad Spy: ads running 14+ days whose views grew 10%+ in a week or whose engagement is at or
   above their niche's median (`convex/lib/scaling.ts`).
 - **North star** (Admin): weekly validated tests per active user (verdict seen + product saved) and the funnel.
+
+## Roadmap P2
+
+- **Store watchlist**: watch up to 5 stores on Free, 50 on Pro. Alerts for new products, price changes, sales jumps
+  and new ads linking to the store's domain; the store popup shows its ads and its catalog with estimated 30-day
+  orders, reviews and first-seen dates.
+- **TikTok Shop** tab: TikTok Shop best-sellers ranked by estimated monthly sales (Nexscope data; no scraping).
+- **Angles**: Hooks of the week shows each niche's crowded angle and the angles no winning hook uses yet.
+- **Transcripts**: spoken hooks from video ads (needs `DEEPGRAM_API_KEY`).
 

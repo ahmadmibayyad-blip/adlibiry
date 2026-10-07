@@ -115,6 +115,7 @@ import type * as stats from "../stats.js";
 import type * as storeSales from "../storeSales.js";
 import type * as stores from "../stores.js";
 import type * as submittedAds from "../submittedAds.js";
+import type * as transcripts from "../transcripts.js";
 import type * as trends from "../trends.js";
 import type * as users from "../users.js";
 import type * as videoDownload from "../videoDownload.js";
@@ -235,6 +236,7 @@ declare const fullApi: ApiFromModules<{
   storeSales: typeof storeSales;
   stores: typeof stores;
   submittedAds: typeof submittedAds;
+  transcripts: typeof transcripts;
   trends: typeof trends;
   users: typeof users;
   videoDownload: typeof videoDownload;

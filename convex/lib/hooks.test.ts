@@ -35,3 +35,26 @@ describe("hooks", () => {
     expect(isoWeek(Date.parse("2027-01-01T12:00:00Z"))).toBe("2026-W53");
   });
 });
+
+describe("angles and spoken hooks (roadmap P2-B)", () => {
+  it("finds the crowded angle and the unclaimed ones", async () => {
+    const { angleSummary } = await import("./hooks");
+    const s = angleSummary(["Social proof", "Social proof", "Social proof", "Question", "Problem → solution", "Other"])!;
+    expect(s.crowded).toEqual({ type: "Social proof", share: 0.6 });
+    expect(s.unclaimed).toContain("This vs that");
+    expect(s.unclaimed).not.toContain("Question");
+    expect(angleSummary(["Question", "Other"])).toBeNull();
+  });
+
+  it("takes a video's first 3 seconds, finishing the sentence", async () => {
+    const { spokenHook, hookText } = await import("./hooks");
+    const w = (word: string, start: number) => ({ word, punctuated_word: word, start, end: start + 0.3 });
+    expect(spokenHook([w("Stop", 0.1), w("scrolling", 0.4), w("if", 1), w("your", 1.3), w("dog", 2.8), w("hates", 3.2), w("summer.", 3.6), w("Here's", 4), w("why", 4.4)])).toBe(
+      "Stop scrolling if your dog hates summer.",
+    );
+    expect(spokenHook([w("Hi", 0.2)])).toBeNull();
+    expect(hookText({ headline: "Cooling mat", bodyText: "Buy now.", views: "1K", likes: 0, spokenHook: "Stop scrolling if your dog hates summer." })).toBe(
+      "Stop scrolling if your dog hates summer.",
+    );
+  });
+});
