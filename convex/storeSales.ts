@@ -255,7 +255,7 @@ const summaryValidator = v.object({
 });
 
 const politeValidator = v.object({ checkedAt: v.string(), robotsAllowed: v.boolean(), currency: v.optional(v.string()) });
-const catalogValidator = v.array(v.object({ h: v.string(), p: v.number(), r: v.optional(v.number()) }));
+const catalogValidator = v.array(v.object({ h: v.string(), p: v.number(), r: v.optional(v.number()), f: v.optional(v.string()) }));
 
 export const recordRobotsBlock = internalMutation({
   args: { storeId: v.id("stores"), polite: politeValidator },
@@ -284,8 +284,14 @@ export const saveSnapshot = internalMutation({
     const day = args.takenAt.slice(0, 10);
     // Review counts not re-read this time carry over from the last catalog.
     const saved = await ctx.db.query("storeCatalogs").withIndex("by_store", (q) => q.eq("storeId", args.storeId)).unique();
-    const oldReviews = new Map((saved?.entries ?? []).filter((e) => e.r !== undefined).map((e) => [e.h, e.r]));
-    const catalog = args.catalog?.map((e) => (e.r === undefined && oldReviews.has(e.h) ? { ...e, r: oldReviews.get(e.h) } : e));
+    // First-seen days carry over; products new since the last check are first seen today.
+    const before = new Map((saved?.entries ?? []).map((e) => [e.h, e]));
+    const catalog = args.catalog?.map((e) => {
+      const old = before.get(e.h);
+      const r = e.r ?? old?.r;
+      const f = old ? old.f : saved ? day : undefined;
+      return { h: e.h, p: e.p, ...(r !== undefined ? { r } : {}), ...(f ? { f } : {}) };
+    });
     const diff = catalog ? catalogDiff(saved?.entries, catalog) : undefined;
     if (catalog) {
       if (saved) await ctx.db.patch("storeCatalogs", saved._id, { entries: catalog });
@@ -322,6 +328,18 @@ export const saveSnapshot = internalMutation({
       .order("desc")
       .take(30);
     // Alert the store's trackers on the first check of the day only.
+    if (!existing && diff && diff.priceChanges > 0) {
+      await ctx.scheduler.runAfter(0, internal.notifications.notifyTrackersOfStoreUpdate, {
+        storeId: args.storeId,
+        title: `${store.name} changed ${diff.priceChanges} price${diff.priceChanges === 1 ? "" : "s"}`,
+        body: diff.examples
+          .filter((e) => e.change === "price")
+          .slice(0, 2)
+          .map((e) => `${e.handle.replace(/-/g, " ")}: $${e.from} → $${e.to}`)
+          .join(" · "),
+        link: `/dashboard/stores?store=${args.storeId}`,
+      });
+    }
     if (!existing) {
       const alert = storeAlert(store.name, row, recent.slice(1, 8));
       if (alert) {
@@ -380,6 +398,38 @@ export const recordFailure = internalMutation({
 });
 
 // ── Store popup ─────────────────────────────────────────────────────────────
+
+// The store's catalog (newest first, with first-seen day, reviews and an
+// estimate of orders in the last 30 days from how often each product changed)
+// and the ads that link to its domain.
+export const catalog = query({
+  args: { storeId: v.id("stores") },
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    const store = await ctx.db.get("stores", args.storeId);
+    if (!store) return null;
+    const saved = await ctx.db.query("storeCatalogs").withIndex("by_store", (q) => q.eq("storeId", args.storeId)).unique();
+    const days = await ctx.db.query("storeSalesSnapshots").withIndex("by_store_day", (q) => q.eq("storeId", args.storeId)).order("desc").take(30);
+    const changes = new Map<string, number>();
+    for (const d of days) for (const t of d.topProducts) {
+      const handle = t.url.split("/products/")[1];
+      if (handle) changes.set(handle, (changes.get(handle) ?? 0) + 1);
+    }
+    const entries = (saved?.entries ?? [])
+      .map((e) => ({ handle: e.h, price: e.p, reviews: e.r, firstSeen: e.f, estOrders30d: changes.has(e.h) ? Math.round(changes.get(e.h)! * 1.7) : undefined }))
+      .sort((a, b) => (b.estOrders30d ?? 0) - (a.estOrders30d ?? 0) || (b.firstSeen ?? "").localeCompare(a.firstSeen ?? ""))
+      .slice(0, 100);
+    const ads = store.host
+      ? await ctx.db.query("ads").withIndex("by_landing_host", (q) => q.eq("landingHost", store.host)).order("desc").take(12)
+      : [];
+    return {
+      origin: storeOrigin(store.url),
+      entries,
+      totalProducts: saved?.entries.length ?? 0,
+      ads: ads.map((a) => ({ _id: a._id, headline: a.headline, creativeUrl: a.creativeUrl, platform: a.platform, firstSeenAt: a.firstSeenAt, daysRunning: a.daysRunning })),
+    };
+  },
+});
 
 export const history = query({
   args: { storeId: v.id("stores") },

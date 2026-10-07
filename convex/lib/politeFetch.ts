@@ -51,7 +51,7 @@ function matches(pattern: string, path: string): boolean {
 
 // ── Catalog changes ─────────────────────────────────────────────────────────
 
-export type CatalogEntry = { h: string; p: number; r?: number }; // handle, price (USD), review count
+export type CatalogEntry = { h: string; p: number; r?: number; f?: string }; // handle, price (USD), review count, first seen day
 export type CatalogDiff = {
   added: number;
   removed: number;

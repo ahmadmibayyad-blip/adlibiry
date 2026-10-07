@@ -7,6 +7,7 @@ import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import { internal } from "./_generated/api";
+import { effectivePlan } from "./lib/billing";
 
 // ── Store search & profiles ─────────────────────────────────────────────────
 
@@ -155,11 +156,14 @@ export const getTrackedStores = query({
       .query("trackedStores")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
-      .take(50);
+      .take(500);
     const stores = await Promise.all(tracked.map((t) => ctx.db.get("stores", t.storeId)));
     return stores.filter(Boolean);
   },
 });
+
+export const FREE_WATCHED_STORES = 5;
+export const PRO_WATCHED_STORES = 50;
 
 export const toggleTrackStore = mutation({
   args: { storeId: v.id("stores") },
@@ -181,6 +185,15 @@ export const toggleTrackStore = mutation({
       await ctx.db.delete("trackedStores", existing._id);
       return { tracked: false };
     } else {
+      // Watch limit: 5 stores on Free, 50 on Pro (and the trial), 500 for admins.
+      const max = user.role === "admin" ? 500 : effectivePlan(user) === "none" ? FREE_WATCHED_STORES : PRO_WATCHED_STORES;
+      const count = (await ctx.db.query("trackedStores").withIndex("by_user", (q) => q.eq("userId", user._id)).take(max)).length;
+      if (count >= max) {
+        throw new ConvexError({
+          code: "LIMIT",
+          message: max === FREE_WATCHED_STORES ? `Free accounts can watch ${max} stores. Upgrade to Pro (or start the free trial) to watch up to ${PRO_WATCHED_STORES}.` : `You can watch up to ${max} stores. Remove one first.`,
+        });
+      }
       await ctx.db.insert("trackedStores", {
         userId: user._id,
         storeId: args.storeId,

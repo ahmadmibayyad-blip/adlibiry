@@ -8,6 +8,7 @@ import { Authenticated } from "convex/react";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { storeImage } from "@/lib/storeImage.ts";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 type StoreDoc = Doc<"stores">;
 
@@ -21,8 +22,8 @@ function TrackButton({ storeId }: { storeId: StoreDoc["_id"] }) {
     try {
       const result = await toggleTrack({ storeId });
       toast.success(result.tracked ? "Store added to watchlist!" : "Removed from watchlist");
-    } catch {
-      toast.error("Please sign in to track stores");
+    } catch (e) {
+      toast.error(errorMessage(e, "Please sign in to track stores"));
     }
   };
 
