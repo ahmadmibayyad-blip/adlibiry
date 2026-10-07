@@ -153,6 +153,26 @@ export default defineSchema({
     winnerSince: v.optional(v.string()),     // day it first entered the winners list; never cleared
     enrichedAt: v.optional(v.string()),      // winner deep-enrichment queued (fusion.ts, trigger A)
     backfillCheckedAt: v.optional(v.string()), // marketplace product searched for ads (trigger C)
+    // Its Amazon twin, matched by image through Nexscope (trigger D); demand backing for ad-only products.
+    marketplaceMatch: v.optional(v.object({
+      asin: v.string(),
+      title: v.string(),
+      url: v.string(),
+      price: v.optional(v.number()),
+      unitsPerMonth: v.optional(v.number()),
+      imageUrl: v.optional(v.string()),
+    })),
+    imageMatchedAt: v.optional(v.string()),
+    // 1688 wholesale offers matched by image through Nexscope (trigger E); shown next to AliExpress suppliers.
+    wholesaleMatches: v.optional(v.array(v.object({
+      title: v.string(),
+      priceUsd: v.number(),
+      url: v.string(),
+      moq: v.optional(v.number()),
+      monthlySales: v.optional(v.number()),
+      imageUrl: v.optional(v.string()),
+    }))),
+    wholesaleCheckedAt: v.optional(v.string()),
     storeHost: v.optional(v.string()),  // shop domain of the product page (not marketplaces), for same-store duplicates
     aliases: v.optional(v.array(v.string())), // other names of merged duplicates
   })

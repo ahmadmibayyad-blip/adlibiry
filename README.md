@@ -13,10 +13,11 @@ Admin → Data sources.
 |---|---|
 | `SITE_URL` | The app's public address, used in emails and payment return links. Set it to `https://adspypro.net`. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sending email (morning digest). Verify `adspypro.net` in Resend first; `EMAIL_FROM` defaults to `AdSpy Pro <alerts@adspypro.net>`. |
-| `META_ACCESS_TOKEN` | Daily import from Meta's official Ad Library API (EU commercial ads). Needs a Meta developer app with Ad Library API access (identity verification). Optional: `META_AD_COUNTRIES` (default `DK,SE,DE,NL,FR`), `META_GRAPH_VERSION` (default `v23.0`). |
+| `META_ACCESS_TOKEN` | Daily import from Meta's official Ad Library API. It only has commercial ads for EU countries and the UK, so `META_AD_COUNTRIES` (default `DK,SE,DE,NL,FR`) skips any other country with a note. Long-lived tokens expire after about 60 days; Admin → Daily imports then says "Meta token expired". Needs identity confirmation (facebook.com/ID) and the Ad Library API terms. Optional: `META_GRAPH_VERSION` (default `v23.0`). |
 | `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET` | Supplier sourcing from the AliExpress Affiliate API: the top 3 suppliers per product (product page → Suppliers) and the landed cost for margins. `ALIEXPRESS_TRACKING_ID` makes supplier links affiliate links (commission on orders); `ALIEXPRESS_SHIPPING_USD` is the shipping estimate added to the price (default 3). |
 | `DEEPGRAM_API_KEY` | Video ad transcripts: the line spoken in the first 3 seconds becomes the ad's hook in Hooks of the week (about 40 videos a day, scaling ads first). |
 | `APIFY_TOKEN`, `APIFY_COUNTRIES` | Daily Meta Ad Library ads through Apify (actor `curious_coder/facebook-ads-library-scraper`): 6 niches × 50 ads per country, about $0.23 per country per day. `APIFY_COUNTRIES` e.g. `DK,SE`; each run is capped at about $0.07 (`APIFY_MAX_RUN_USD` overrides). Meta's terms don't allow scraping its Ad Library, so this is your call. |
+| `ADLIBRARY_PAUSED` | `true` stops AdLibrary's daily bulk sync (e.g. while it's out of credits) but keeps the key for the targeted "sales but no ads" searches. |
 | `ADLIBRARY_API_KEY`, `NEXSCOPE_API_KEY`, `WINNINGHUNTER_API_KEY`, `PIPISPY_API_KEY` | The existing licensed data sources. |
 
 
@@ -113,6 +114,12 @@ Shopify) feed one record per ad and product (`convex/lib/fusion.ts`, `convex/fus
   - advertisers in a niche × country double in a week (5+ new) → alert that niche's watchers, one Apify pass;
   - marketplace best-seller with no ads → one AdLibrary search for its brand (one search credit each, uses
     `ADLIBRARY_API_KEY`); without an AdLibrary key, Meta's free official API (`META_ACCESS_TOKEN`).
+  - ad-only product → its Amazon twin by image (Nexscope `reverse-product-image-search`): shown on the product page and counted as
+    marketplace demand (`FUSION_IMAGE_MATCH_PER_DAY`, default 10);
+  - winner → 1688 wholesale offers by image (Nexscope `1688-search-by-image`), shown under Suppliers next to AliExpress
+    (`FUSION_WHOLESALE_PER_DAY`, default 10). Each product is re-checked at most monthly. If Nexscope's reply has fields
+    we don't read yet, Admin → Source fusion lists them.
+- If AdLibrary runs out of credits, the "sales but no ads" lookup switches to Meta's API for the rest of the run.
 - **Budget**: triggered Apify runs share `APIFY_DAILY_BUDGET_USD` (default 10), winners first; each run is
   capped (about $0.07). Per day: `FUSION_ENRICH_PER_DAY` (default 10 winners), `FUSION_BACKFILL_PER_DAY`
   (default 20 products).

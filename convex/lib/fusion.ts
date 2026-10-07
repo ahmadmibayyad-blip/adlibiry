@@ -113,6 +113,8 @@ export const familyOf = (source: string): Family | undefined => FAMILY[source];
 export type FusionInput = {
   productSource: string;
   unitsPerMonth?: number;
+  /** Monthly sales of its Amazon twin, matched by image (fusion.ts trigger D). */
+  twinUnitsPerMonth?: number;
   trend?: string;
   growthPercent?: number;
   momentum14?: number;
@@ -136,12 +138,13 @@ export function fusion(p: FusionInput): Fusion {
     const f = familyOf(s);
     if (f && f !== "marketplace") families.add(f);
   }
-  const marketplaceDemand = familyOf(p.productSource) === "marketplace" && (p.unitsPerMonth ?? 0) > 0;
+  const marketplaceDemand =
+    (familyOf(p.productSource) === "marketplace" && (p.unitsPerMonth ?? 0) > 0) || (p.twinUnitsPerMonth ?? 0) > 0;
   if (marketplaceDemand) families.add("marketplace");
   const liveOfficial = p.ads.some((a) => a.isActive !== false && a.sources.some((s) => familyOf(s) === "registry"));
   const scalingAds = p.ads.some((a) => a.isScaling) || (p.momentum14 ?? -1) > 0;
   const adLevel = liveOfficial && scalingAds;
-  const demandRising = marketplaceDemand && (p.trend === "Rising" || (p.growthPercent ?? 0) > 0 || (p.unitsPerMonth ?? 0) > 0);
+  const demandRising = marketplaceDemand;
   const productLevel = demandRising && (scalingAds || p.activeAds >= 3);
   const confidence = Math.min(100, families.size * 20 + (adLevel ? 20 : 0) + (productLevel ? 20 : 0));
   const crossValidated = adLevel && productLevel && p.marginKnown && p.saturation === "Low";

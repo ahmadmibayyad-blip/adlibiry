@@ -1,10 +1,12 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdmin } from "./admin/helpers";
 import { backfillTerm, budgetLeft, entrantSpikes } from "./lib/fusion";
-import { metaAdToExternal } from "./lib/metaAdLibrary";
+import { metaAdToExternal, metaCountries } from "./lib/metaAdLibrary";
+import { fieldsOf, pickAmazonTwin, pickWholesale } from "./lib/marketplaceMatch";
+import { runSkill } from "./nexscope/productDiscovery";
 import { searchMetaAds } from "./metaAdLibrary";
 import { adLibraryUrl, runCostCap } from "./apify";
 import { NICHE_KEYWORDS } from "./adlibrary/client";
@@ -17,7 +19,9 @@ import { NICHE_KEYWORDS } from "./adlibrary/client";
 //      watchers and send one Apify pass over the newcomers;
 //   C. a marketplace product (sales, no ads) → one AdLibrary search for its
 //      brand (or Meta's free official API without an AdLibrary key), so the
-//      next run can link its ads.
+//      next run can link its ads;
+//   D. an ad-only product → its Amazon twin by image (Nexscope), with sales;
+//   E. a winner → 1688 wholesale suppliers by image (Nexscope).
 // Apify runs count against APIFY_DAILY_BUDGET_USD (default 10), winners first,
 // then spikes; each run reserves its cost cap until Apify reports the real cost.
 
@@ -33,14 +37,19 @@ const dailyBudget = () => numEnv("APIFY_DAILY_BUDGET_USD", 10);
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 type TriggerResult = { done: number; skipped?: string; errors: string[] };
+type TriggerName = "winner" | "spike" | "backfill" | "twin" | "wholesale";
+const CNY_PER_USD_FALLBACK = 7.1;
+const adLibraryPaused = () => /^(1|true|yes|on)$/i.test(process.env.ADLIBRARY_PAUSED ?? "");
 
 export const runTriggers = internalAction({
   args: { day: v.string() },
   handler: async (ctx, args) => {
-    const out: Record<"winner" | "spike" | "backfill", TriggerResult> = {
+    const out: Record<TriggerName, TriggerResult> = {
       winner: { done: 0, errors: [] },
       spike: { done: 0, errors: [] },
       backfill: { done: 0, errors: [] },
+      twin: { done: 0, errors: [] },
+      wholesale: { done: 0, errors: [] },
     };
     const apify = !!process.env.APIFY_TOKEN;
     let spent: number = await ctx.runQuery(internal.fusion.spentOn, { day: args.day });
@@ -118,31 +127,44 @@ export const runTriggers = internalAction({
     }
 
     // C. Marketplace products without ads → one targeted search: AdLibrary when
-    // its key is set (one search credit each), else Meta's free official API.
+    // its key is set and it isn't paused (one search credit each), else Meta's
+    // free official API, which also takes over if AdLibrary runs out of credits.
     try {
-      const countries = (process.env.META_AD_COUNTRIES ?? "DK,SE,DE,NL,FR").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
-      const adLibrary = !!process.env.ADLIBRARY_API_KEY;
-      if (!adLibrary && !process.env.META_ACCESS_TOKEN?.trim()) out.backfill.skipped = "neither ADLIBRARY_API_KEY nor META_ACCESS_TOKEN is set";
+      const { use: countries } = metaCountries(process.env.META_AD_COUNTRIES ?? process.env.META_ADS_COUNTRIES);
+      const meta = !!process.env.META_ACCESS_TOKEN?.trim() && countries.length > 0;
+      let adLibrary = !!process.env.ADLIBRARY_API_KEY && !adLibraryPaused();
+      if (!adLibrary && !meta) out.backfill.skipped = "needs ADLIBRARY_API_KEY (not paused) or META_ACCESS_TOKEN";
       else {
         const todo = await ctx.runQuery(internal.fusion.backfillCandidates, { day: args.day, limit: numEnv("FUSION_BACKFILL_PER_DAY", 20) });
-        for (const [i, p] of todo.entries()) {
+        let searched = 0;
+        for (const p of todo) {
           const term = backfillTerm(p);
-          if (adLibrary) {
-            if (term.length >= 3) {
-              // AdLibrary allows 10 requests a minute.
-              if (i > 0) await new Promise((resolve) => setTimeout(resolve, ADLIBRARY_GAP_MS));
-              const r = await ctx.runAction(internal.adlibrary.sync.searchKeyword, { keyword: term, niche: p.category });
-              if (r?.error) {
-                out.backfill.errors.push(`${term}: ${r.error}`.slice(0, 200));
-                if (r.error.includes("402")) break; // out of credits: stop for today
-              } else if (r?.found) out.backfill.done++;
-            }
+          if (term.length < 3) {
             await ctx.runMutation(internal.fusion.markBackfilled, { id: p._id, day: args.day });
             continue;
           }
-          const r = term.length >= 3 ? await searchMetaAds(term, countries) : null;
-          if (r && "error" in r) out.backfill.errors.push(`${term}: ${r.error}`.slice(0, 200));
-          else if (r?.ads.length) {
+          if (adLibrary) {
+            // AdLibrary allows 10 requests a minute.
+            if (searched++ > 0) await new Promise((resolve) => setTimeout(resolve, ADLIBRARY_GAP_MS));
+            const r = await ctx.runAction(internal.adlibrary.sync.searchKeyword, { keyword: term, niche: p.category });
+            if (r?.error?.includes("402")) {
+              out.backfill.errors.push(`AdLibrary is out of credits${meta ? "; switched to Meta's API" : ""}`);
+              adLibrary = false;
+              if (!meta) break;
+            } else {
+              if (r?.error) out.backfill.errors.push(`${term}: ${r.error}`.slice(0, 200));
+              else if (r?.found) out.backfill.done++;
+              await ctx.runMutation(internal.fusion.markBackfilled, { id: p._id, day: args.day });
+              continue;
+            }
+          }
+          const r = await searchMetaAds(term, countries);
+          if (r && "error" in r) {
+            out.backfill.errors.push(`${term}: ${r.error}`.slice(0, 200));
+            if (r.stop) break; // token or access problem: every search would fail the same way
+            continue;
+          }
+          if (r?.ads.length) {
             const now = Date.now();
             const saved = await ctx.runMutation(internal.sources.links.upsertExternalAds, {
               ads: r.ads.map((a) => metaAdToExternal(a, countries[0] ?? "INTL", p.category, now)),
@@ -155,6 +177,51 @@ export const runTriggers = internalAction({
       }
     } catch (e) {
       out.backfill.errors.push(errorText(e));
+    }
+
+    // D. Ad-only products → their Amazon twin by image (Nexscope), for demand backing.
+    // E. Winners → 1688 wholesale suppliers by image (Nexscope), next to AliExpress.
+    const nexscopeKey = process.env.NEXSCOPE_API_KEY;
+    if (!nexscopeKey) {
+      out.twin.skipped = "NEXSCOPE_API_KEY isn't set";
+      out.wholesale.skipped = "NEXSCOPE_API_KEY isn't set";
+    } else {
+      try {
+        const todo = await ctx.runQuery(internal.fusion.twinCandidates, { day: args.day, limit: numEnv("FUSION_IMAGE_MATCH_PER_DAY", 10) });
+        for (const p of todo) {
+          const reply = await runSkill(nexscopeKey, "reverse-product-image-search", { image_url: p.imageUrl });
+          if ("error" in reply) {
+            out.twin.errors.push(reply.error.slice(0, 200));
+            if (/ 40[123]\b/.test(reply.error)) break;
+            continue;
+          }
+          const twin = pickAmazonTwin(reply.products);
+          if (twin) out.twin.done++;
+          else if (reply.products.length && out.twin.errors.length < 3) out.twin.errors.push(`No usable match. Fields sent: ${fieldsOf(reply.products)}`);
+          await ctx.runMutation(internal.fusion.saveTwin, { id: p._id, day: args.day, ...(twin ? { twin } : {}) });
+        }
+      } catch (e) {
+        out.twin.errors.push(errorText(e));
+      }
+      try {
+        const todo = await ctx.runQuery(internal.fusion.wholesaleCandidates, { day: args.day, limit: numEnv("FUSION_WHOLESALE_PER_DAY", 10) });
+        const rates: Record<string, number> = todo.length ? await ctx.runQuery(internal.currency.allRates, {}) : {};
+        const cnyPerUsd = rates.CNY && rates.CNY > 1 ? rates.CNY : CNY_PER_USD_FALLBACK;
+        for (const p of todo) {
+          const reply = await runSkill(nexscopeKey, "1688-search-by-image", { image_url: p.imageUrl });
+          if ("error" in reply) {
+            out.wholesale.errors.push(reply.error.slice(0, 200));
+            if (/ 40[123]\b/.test(reply.error)) break;
+            continue;
+          }
+          const offers = pickWholesale(reply.products, cnyPerUsd);
+          if (offers.length) out.wholesale.done++;
+          else if (reply.products.length && out.wholesale.errors.length < 3) out.wholesale.errors.push(`No usable offers. Fields sent: ${fieldsOf(reply.products)}`);
+          await ctx.runMutation(internal.fusion.saveWholesale, { id: p._id, day: args.day, offers });
+        }
+      } catch (e) {
+        out.wholesale.errors.push(errorText(e));
+      }
     }
 
     await ctx.runMutation(internal.sourceConflicts.prune, { day: args.day });
@@ -321,7 +388,73 @@ export const adminSummary = query({
       winners: winners.length,
       verified,
       multiSource,
-      lastRun: (last?.data ?? null) as null | ({ day: string } & Partial<Record<"winner" | "spike" | "backfill", TriggerResult>>),
+      lastRun: (last?.data ?? null) as null | ({ day: string } & Partial<Record<TriggerName, TriggerResult>>),
     };
+  },
+});
+
+const IMAGE_RECHECK_DAYS = 30;
+
+/** Ad-only products with an image and no marketplace sales, winners first, then the best scores. */
+export const twinCandidates = internalQuery({
+  args: { day: v.string(), limit: v.number() },
+  handler: async (ctx, args) => {
+    const recheck = dayMinus(args.day, IMAGE_RECHECK_DAYS);
+    const out: { _id: Id<"products">; imageUrl: string }[] = [];
+    const seen = new Set<string>();
+    const consider = (p: Doc<"products"> | null) => {
+      if (!p || out.length >= args.limit || seen.has(p._id)) return;
+      seen.add(p._id);
+      if (p.source !== "ads" || !/^https:\/\//.test(p.imageUrl) || (p.unitsPerMonth ?? 0) > 0) return;
+      if (p.imageMatchedAt && p.imageMatchedAt > recheck) return;
+      out.push({ _id: p._id, imageUrl: p.imageUrl });
+    };
+    for (const w of await ctx.db.query("winningProducts").withIndex("by_position").take(600)) consider(await ctx.db.get("products", w.productId));
+    if (out.length < args.limit) for (const p of await ctx.db.query("products").withIndex("by_score").order("desc").take(400)) consider(p);
+    return out;
+  },
+});
+
+export const saveTwin = internalMutation({
+  args: {
+    id: v.id("products"),
+    day: v.string(),
+    twin: v.optional(
+      v.object({ asin: v.string(), title: v.string(), url: v.string(), price: v.optional(v.number()), unitsPerMonth: v.optional(v.number()), imageUrl: v.optional(v.string()) }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    if (!(await ctx.db.get("products", args.id))) return;
+    await ctx.db.patch("products", args.id, { imageMatchedAt: args.day, ...(args.twin ? { marketplaceMatch: args.twin } : {}) });
+  },
+});
+
+/** Winners with an image and no wholesale offers yet (re-checked monthly). */
+export const wholesaleCandidates = internalQuery({
+  args: { day: v.string(), limit: v.number() },
+  handler: async (ctx, args) => {
+    const recheck = dayMinus(args.day, IMAGE_RECHECK_DAYS);
+    const out: { _id: Id<"products">; imageUrl: string }[] = [];
+    for (const w of await ctx.db.query("winningProducts").withIndex("by_position").take(600)) {
+      if (out.length >= args.limit) break;
+      const p = await ctx.db.get("products", w.productId);
+      if (!p || !/^https:\/\//.test(p.imageUrl) || (p.wholesaleCheckedAt && p.wholesaleCheckedAt > recheck)) continue;
+      out.push({ _id: p._id, imageUrl: p.imageUrl });
+    }
+    return out;
+  },
+});
+
+export const saveWholesale = internalMutation({
+  args: {
+    id: v.id("products"),
+    day: v.string(),
+    offers: v.array(
+      v.object({ title: v.string(), priceUsd: v.number(), url: v.string(), moq: v.optional(v.number()), monthlySales: v.optional(v.number()), imageUrl: v.optional(v.string()) }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    if (!(await ctx.db.get("products", args.id))) return;
+    await ctx.db.patch("products", args.id, { wholesaleCheckedAt: args.day, ...(args.offers.length ? { wholesaleMatches: args.offers } : {}) });
   },
 });
