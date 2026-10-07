@@ -82,3 +82,15 @@ re-run from any step.
 - **Angles**: Hooks of the week shows each niche's crowded angle and the angles no winning hook uses yet.
 - **Transcripts**: spoken hooks from video ads (needs `DEEPGRAM_API_KEY`).
 
+
+## Public API (roadmap P3-B)
+
+Paid accounts use the same keys as the MCP connector (Settings → Connect your AI app or the API), as
+`Authorization: Bearer <key>` or `?key=<key>`, on the Convex HTTP host (`https://<deployment>.convex.site`):
+
+- `GET /v1/products`: search, category, maxPrice, minMargin, trend, winnerOfDayOnly, sort, limit (1–15)
+- `GET /v1/ads`: search, niche, platform, country, mediaType, minDaysRunning, sort, limit (1–15)
+- `GET /v1/niches`
+
+Answers are `{ "data": [...] }` or `{ "error": "..." }` (401 bad key, 403 not paying, 400 bad parameters,
+429 daily cap). MCP and the API share the daily cap `MCP_DAILY_LIMIT` (default 300 per user).

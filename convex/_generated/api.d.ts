@@ -102,6 +102,7 @@ import type * as proPlan from "../proPlan.js";
 import type * as productImages from "../productImages.js";
 import type * as productPipeline from "../productPipeline.js";
 import type * as products from "../products.js";
+import type * as publicApi from "../publicApi.js";
 import type * as pushIdentities from "../pushIdentities.js";
 import type * as pushNotifications from "../pushNotifications.js";
 import type * as research from "../research.js";
@@ -223,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   productImages: typeof productImages;
   productPipeline: typeof productPipeline;
   products: typeof products;
+  publicApi: typeof publicApi;
   pushIdentities: typeof pushIdentities;
   pushNotifications: typeof pushNotifications;
   research: typeof research;
