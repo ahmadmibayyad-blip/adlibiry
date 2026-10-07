@@ -16,9 +16,9 @@ Admin → Data sources.
 | `META_ACCESS_TOKEN` | Daily import from Meta's official Ad Library API (EU commercial ads). Needs a Meta developer app with Ad Library API access (identity verification). Optional: `META_AD_COUNTRIES` (default `DK,SE,DE,NL,FR`), `META_GRAPH_VERSION` (default `v23.0`). |
 | `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET` | Supplier sourcing from the AliExpress Affiliate API: the top 3 suppliers per product (product page → Suppliers) and the landed cost for margins. `ALIEXPRESS_TRACKING_ID` makes supplier links affiliate links (commission on orders); `ALIEXPRESS_SHIPPING_USD` is the shipping estimate added to the price (default 3). |
 | `DEEPGRAM_API_KEY` | Video ad transcripts: the line spoken in the first 3 seconds becomes the ad's hook in Hooks of the week (about 40 videos a day, scaling ads first). |
+| `APIFY_TOKEN`, `APIFY_COUNTRIES` | Daily Meta Ad Library ads through Apify (actor `curious_coder/facebook-ads-library-scraper`): 6 niches × 50 ads per country, about $0.23 per country per day. `APIFY_COUNTRIES` e.g. `DK,SE`; each run is capped at about $0.07 (`APIFY_MAX_RUN_USD` overrides). Meta's terms don't allow scraping its Ad Library, so this is your call. |
 | `ADLIBRARY_API_KEY`, `NEXSCOPE_API_KEY`, `WINNINGHUNTER_API_KEY`, `PIPISPY_API_KEY` | The existing licensed data sources. |
 
-The daily Apify job that scraped facebook.com/ads/library is turned off (scraping Meta is against its terms).
 
 ## Daily pipeline
 
@@ -94,3 +94,26 @@ Paid accounts use the same keys as the MCP connector (Settings → Connect your 
 
 Answers are `{ "data": [...] }` or `{ "error": "..." }` (401 bad key, 403 not paying, 400 bad parameters,
 429 daily cap). MCP and the API share the daily cap `MCP_DAILY_LIMIT` (default 300 per user).
+
+## Multi-source fusion
+
+Apify, Meta's Ad Library (official API and AdLibrary) and marketplace data (Nexscope: Amazon, TikTok Shop,
+Shopify) feed one record per ad and product (`convex/lib/fusion.ts`, `convex/fusion.ts`).
+
+- **Provenance**: each ad lists every source that delivered it (`sources`) and who wrote its live status,
+  advertiser and engagement (`sourceFields`). Priorities: live status and advertiser name from the official
+  registry over Apify; engagement from Apify and ad-spy feeds; price from the store's own page over
+  marketplace data over ad text. Disagreements are logged (`sourceConflicts`, 90 days) and sampled in
+  Admin → Source fusion.
+- **Verified winners (⭐)**: a winner whose sources agree: a live ad in the official registry with rising
+  engagement, marketplace sales with ads scaling, a known margin and low competition. Products show which
+  sources back them on their page.
+- **Triggers** (pipeline stage "fusion", after the winners are rebuilt):
+  - new winner → Apify pulls its advertiser's ads;
+  - advertisers in a niche × country double in a week (5+ new) → alert that niche's watchers, one Apify pass;
+  - marketplace best-seller with no ads → one free, official Meta Ad Library search for its brand (needs
+    `META_ACCESS_TOKEN`).
+- **Budget**: triggered Apify runs share `APIFY_DAILY_BUDGET_USD` (default 10), winners first; each run is
+  capped (about $0.07). Per day: `FUSION_ENRICH_PER_DAY` (default 10 winners), `FUSION_BACKFILL_PER_DAY`
+  (default 20 products).
+- Before marketing "Verified winners", confirm the Nexscope contract allows derived scores built on its data.

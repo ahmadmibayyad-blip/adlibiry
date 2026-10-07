@@ -135,12 +135,16 @@ const SAVED_KEY = "adspy.savedSearches";
 const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code === code)?.name ?? code;
 
 export default function AdSpyPage() {
-  // ?source=…&sort=…&platform=… (e.g. from an admin import's "View" link) preset the filters.
+  // ?source=…&sort=…&platform=…&niche=…&country=…&firstSeen=… (e.g. from an admin import's "View" link) preset the filters.
   const [params] = useSearchParams();
   const [f, setF] = useState<Filters>(() => ({
     ...(params.get("source") ? { source: params.get("source")! } : {}),
     ...(params.get("sort") ? { sort: params.get("sort")! } : {}),
     ...(params.get("platform") ? { platform: params.get("platform")! } : {}),
+    // From a "new sellers entered <niche> in <country>" alert.
+    ...(params.get("niche") ? { niche: params.get("niche")! } : {}),
+    ...(params.get("country") ? { country: params.get("country")! } : {}),
+    ...(params.get("firstSeen") ? { firstSeen: params.get("firstSeen")! } : {}),
   }));
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);

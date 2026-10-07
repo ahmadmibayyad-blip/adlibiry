@@ -26,6 +26,7 @@ import { price } from "@/lib/money.ts";
 import { flag } from "@/lib/adFormat.ts";
 import FollowProduct from "./_components/FollowProduct.tsx";
 import VerdictPanel from "./_components/VerdictPanel.tsx";
+import SourceAgreement from "./_components/SourceAgreement.tsx";
 import SuppliersSection from "./_components/SuppliersSection.tsx";
 
 const saturationColors: Record<string, string> = {
@@ -210,6 +211,8 @@ export default function ProductDetail() {
           <ProductHeadline product={product} />
 
           <VerdictPanel product={product} />
+
+          <SourceAgreement product={product} />
 
           {/* AI Score */}
           <div className="bg-card border border-border rounded-xl p-4">
