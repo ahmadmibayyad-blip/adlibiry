@@ -111,8 +111,8 @@ Shopify) feed one record per ad and product (`convex/lib/fusion.ts`, `convex/fus
 - **Triggers** (pipeline stage "fusion", after the winners are rebuilt):
   - new winner → Apify pulls its advertiser's ads;
   - advertisers in a niche × country double in a week (5+ new) → alert that niche's watchers, one Apify pass;
-  - marketplace best-seller with no ads → one free, official Meta Ad Library search for its brand (needs
-    `META_ACCESS_TOKEN`).
+  - marketplace best-seller with no ads → one AdLibrary search for its brand (one search credit each, uses
+    `ADLIBRARY_API_KEY`); without an AdLibrary key, Meta's free official API (`META_ACCESS_TOKEN`).
 - **Budget**: triggered Apify runs share `APIFY_DAILY_BUDGET_USD` (default 10), winners first; each run is
   capped (about $0.07). Per day: `FUSION_ENRICH_PER_DAY` (default 10 winners), `FUSION_BACKFILL_PER_DAY`
   (default 20 products).

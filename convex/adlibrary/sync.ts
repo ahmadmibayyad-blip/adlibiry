@@ -13,6 +13,7 @@ import {
   NICHE_KEYWORDS,
   estimateSpendRange,
   platformLabel,
+  type AdLibraryResult,
   type AdLibrarySearchResponse,
 } from "./client";
 
@@ -207,35 +208,7 @@ export const runSync = internalAction({
               country = "INTL";
             }
 
-            const headline = item.title || item.message || item.caption || "Untitled ad";
-            const bodyText = item.body || item.message || item.caption || "";
-            const outcome: "created" | "updated" = await ctx.runMutation(internal.adlibrary.sync.upsertAd, {
-              externalId: item.ad_key,
-              advertiserName: item.advertiser_name || item.page_name || "Unknown advertiser",
-              platform: platformLabel(item.platform),
-              country,
-              // What the ad actually sells; the search niche only when unclear.
-              niche: classifyNiche(
-                { title: headline, body: bodyText, url: item.landing_page_url, advertiser: item.advertiser_name || item.page_name },
-                niche,
-              ),
-              headline,
-              bodyText,
-              creativeUrl: item.preview_img_url || item.video_url || "",
-              landingPageUrl: item.landing_page_url || "",
-              spendEstimate: spendFrom(item.estimated_spend) ?? estimateSpendRange(item.impression || item.all_exposure_value),
-              likes: item.like_count ?? 0,
-              // view_count is usually empty for Meta ads; impressions are the
-              // real reach signal AdLibrary returns for them.
-              views: formatViews(item.view_count || item.impression || item.all_exposure_value),
-              daysRunning: computeDaysRunning(item),
-              aiScore: computeHeatScore(item),
-              firstSeenAt: item.first_seen
-                ? new Date(item.first_seen * 1000).toISOString()
-                : new Date().toISOString(),
-              firstSeenKnown: !!item.first_seen,
-              ...searchRich(item),
-            });
+            const outcome: "created" | "updated" = await ctx.runMutation(internal.adlibrary.sync.upsertAd, itemToAd(item, country, niche));
 
             if (outcome === "created") {
               result.created += 1;
@@ -260,6 +233,78 @@ export const runSync = internalAction({
     void newAdKeys;
 
     return result;
+  },
+});
+
+// One AdLibrary search result → the fields upsertAd takes.
+function itemToAd(item: AdLibraryResult, country: string, niche: string) {
+  const headline = item.title || item.message || item.caption || "Untitled ad";
+  const bodyText = item.body || item.message || item.caption || "";
+  return {
+    externalId: item.ad_key,
+    advertiserName: item.advertiser_name || item.page_name || "Unknown advertiser",
+    platform: platformLabel(item.platform),
+    country,
+    // What the ad actually sells; the search niche only when unclear.
+    niche: classifyNiche(
+      { title: headline, body: bodyText, url: item.landing_page_url, advertiser: item.advertiser_name || item.page_name },
+      niche,
+    ),
+    headline,
+    bodyText,
+    creativeUrl: item.preview_img_url || item.video_url || "",
+    landingPageUrl: item.landing_page_url || "",
+    spendEstimate: spendFrom(item.estimated_spend) ?? estimateSpendRange(item.impression || item.all_exposure_value),
+    likes: item.like_count ?? 0,
+    // view_count is usually empty for Meta ads; impressions are the
+    // real reach signal AdLibrary returns for them.
+    views: formatViews(item.view_count || item.impression || item.all_exposure_value),
+    daysRunning: computeDaysRunning(item),
+    aiScore: computeHeatScore(item),
+    firstSeenAt: item.first_seen ? new Date(item.first_seen * 1000).toISOString() : new Date().toISOString(),
+    firstSeenKnown: !!item.first_seen,
+    ...searchRich(item),
+  };
+}
+
+// One targeted search (fusion.ts trigger C: a marketplace product with sales
+// but no ads): the brand or product name as an exact phrase, one page of 20.
+// Costs one AdLibrary search credit; null when ADLIBRARY_API_KEY isn't set.
+export const searchKeyword = internalAction({
+  args: { keyword: v.string(), niche: v.string() },
+  handler: async (ctx, args): Promise<{ found: number; created: number; error?: string } | null> => {
+    const apiKey = process.env.ADLIBRARY_API_KEY;
+    if (!apiKey) return null;
+    try {
+      const response = await fetch(ADLIBRARY_SEARCH_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          keyword: args.keyword,
+          appType: "3",
+          preciseSearch: true,
+          sortField: "-heat_degree",
+          daysBack: 90,
+          platform: ["facebook", "instagram", "tiktok"],
+          geo: TARGET_COUNTRIES_ALPHA2.map((code) => ALPHA2_TO_ALPHA3[code]),
+          duplicateRemoval: true,
+          page: 1,
+          pageSize: 20,
+        }),
+      });
+      if (response.status === 402) return { found: 0, created: 0, error: "AdLibrary: out of credits (HTTP 402)" };
+      if (!response.ok) return { found: 0, created: 0, error: `AdLibrary ${response.status}: ${(await response.text()).slice(0, 120)}` };
+      const results = ((await response.json()) as AdLibrarySearchResponse).results ?? [];
+      let created = 0;
+      for (const item of results) {
+        if (!item.title && !item.message && !item.body) continue;
+        const outcome = await ctx.runMutation(internal.adlibrary.sync.upsertAd, itemToAd(item, resolveCountry(item.geo) ?? "INTL", args.niche));
+        if (outcome === "created") created++;
+      }
+      return { found: results.length, created };
+    } catch (e) {
+      return { found: 0, created: 0, error: e instanceof Error ? e.message : String(e) };
+    }
   },
 });
 

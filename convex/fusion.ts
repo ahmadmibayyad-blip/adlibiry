@@ -15,12 +15,14 @@ import { NICHE_KEYWORDS } from "./adlibrary/client";
 //      (spend goes where users look);
 //   B. a niche × country suddenly draws new sellers → alert that niche's
 //      watchers and send one Apify pass over the newcomers;
-//   C. a marketplace product (sales, no ads) → one free, official Meta Ad
-//      Library search for its brand, so the next run can link its ads.
+//   C. a marketplace product (sales, no ads) → one AdLibrary search for its
+//      brand (or Meta's free official API without an AdLibrary key), so the
+//      next run can link its ads.
 // Apify runs count against APIFY_DAILY_BUDGET_USD (default 10), winners first,
 // then spikes; each run reserves its cost cap until Apify reports the real cost.
 
 const MAX_ADS = 50;
+const ADLIBRARY_GAP_MS = Number(process.env.ADLIBRARY_GAP_MS ?? 6500);
 const dayMinus = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
 const numEnv = (name: string, fallback: number) => {
   const raw = process.env[name];
@@ -115,14 +117,29 @@ export const runTriggers = internalAction({
       out.spike.errors.push(errorText(e));
     }
 
-    // C. Marketplace products without ads → targeted, free Meta search.
+    // C. Marketplace products without ads → one targeted search: AdLibrary when
+    // its key is set (one search credit each), else Meta's free official API.
     try {
       const countries = (process.env.META_AD_COUNTRIES ?? "DK,SE,DE,NL,FR").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
-      if (!process.env.META_ACCESS_TOKEN?.trim()) out.backfill.skipped = "META_ACCESS_TOKEN isn't set";
+      const adLibrary = !!process.env.ADLIBRARY_API_KEY;
+      if (!adLibrary && !process.env.META_ACCESS_TOKEN?.trim()) out.backfill.skipped = "neither ADLIBRARY_API_KEY nor META_ACCESS_TOKEN is set";
       else {
         const todo = await ctx.runQuery(internal.fusion.backfillCandidates, { day: args.day, limit: numEnv("FUSION_BACKFILL_PER_DAY", 20) });
-        for (const p of todo) {
+        for (const [i, p] of todo.entries()) {
           const term = backfillTerm(p);
+          if (adLibrary) {
+            if (term.length >= 3) {
+              // AdLibrary allows 10 requests a minute.
+              if (i > 0) await new Promise((resolve) => setTimeout(resolve, ADLIBRARY_GAP_MS));
+              const r = await ctx.runAction(internal.adlibrary.sync.searchKeyword, { keyword: term, niche: p.category });
+              if (r?.error) {
+                out.backfill.errors.push(`${term}: ${r.error}`.slice(0, 200));
+                if (r.error.includes("402")) break; // out of credits: stop for today
+              } else if (r?.found) out.backfill.done++;
+            }
+            await ctx.runMutation(internal.fusion.markBackfilled, { id: p._id, day: args.day });
+            continue;
+          }
           const r = term.length >= 3 ? await searchMetaAds(term, countries) : null;
           if (r && "error" in r) out.backfill.errors.push(`${term}: ${r.error}`.slice(0, 200));
           else if (r?.ads.length) {

@@ -139,7 +139,7 @@ describe("event-driven enrichment", () => {
     expect(await t.run((ctx) => ctx.db.query("notifications").collect())).toHaveLength(1);
   });
 
-  it("C: looks up marketplace best-sellers without ads on Meta's official API, by brand", async () => {
+  it("C: without an AdLibrary key, looks up marketplace best-sellers on Meta's official API, by brand", async () => {
     vi.stubEnv("META_ACCESS_TOKEN", "meta_test");
     const searched: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (u: URL | string) => {
@@ -166,11 +166,41 @@ describe("event-driven enrichment", () => {
     expect(searched).toHaveLength(1); // not searched again for 14 days
   });
 
+  it("C: prefers AdLibrary when its key is set: one exact-phrase search per product", async () => {
+    vi.stubEnv("ADLIBRARY_API_KEY", "al_test");
+    vi.stubEnv("META_ACCESS_TOKEN", "meta_test");
+    const bodies: { keyword: string; preciseSearch: boolean }[] = [];
+    const hosts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: URL | string, init?: { body?: string }) => {
+      const url = new URL(String(u));
+      hosts.push(url.hostname);
+      if (url.hostname === "adlibrary.com") {
+        bodies.push(JSON.parse(init?.body ?? "{}"));
+        return new Response(JSON.stringify({
+          results: [{ ad_key: "al_1", advertiser_name: "Corecare", platform: "facebook", title: "Instant Posture Corrector", landing_page_url: "https://corecareshop.com/products/x", first_seen: 1788000000 }],
+          total: 1,
+        }), { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }));
+    const t = convexTest(schema, modules);
+    const id = await t.run((ctx) =>
+      ctx.db.insert("products", { ...product, title: "Instant Posture Corrector", category: "Health & Wellness", aiScore: 60, source: "shopify", unitsPerMonth: 800, storeHost: "corecareshop.com" }),
+    );
+    const r = await t.action(internal.fusion.runTriggers, { day: DAY });
+    expect(r.backfill).toMatchObject({ done: 1, errors: [] });
+    expect(bodies).toEqual([expect.objectContaining({ keyword: "corecareshop", preciseSearch: true })]);
+    expect(hosts).not.toContain("graph.facebook.com");
+    const ads = await t.run((ctx) => ctx.db.query("ads").collect());
+    expect(ads[0]).toMatchObject({ source: "adlibrary_api", advertiserName: "Corecare", landingPageUrl: "https://corecareshop.com/products/x" });
+    expect((await t.run((ctx) => ctx.db.get("products", id)))?.backfillCheckedAt).toBe(DAY);
+  });
+
   it("reports what isn't set up instead of failing", async () => {
     const t = convexTest(schema, modules);
     await winnerWithAdvertiser(t, "Paw", 95);
     const r = await t.action(internal.fusion.runTriggers, { day: DAY });
     expect(r.winner.skipped).toBe("APIFY_TOKEN isn't set");
-    expect(r.backfill.skipped).toBe("META_ACCESS_TOKEN isn't set");
+    expect(r.backfill.skipped).toBe("neither ADLIBRARY_API_KEY nor META_ACCESS_TOKEN is set");
   });
 });
