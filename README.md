@@ -16,9 +16,9 @@ Admin → Data sources.
 | `META_ACCESS_TOKEN` | Daily import from Meta's official Ad Library API (EU commercial ads). Needs a Meta developer app with Ad Library API access (identity verification). Optional: `META_AD_COUNTRIES` (default `DK,SE,DE,NL,FR`), `META_GRAPH_VERSION` (default `v23.0`). |
 | `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET` | Supplier sourcing from the AliExpress Affiliate API: the top 3 suppliers per product (product page → Suppliers) and the landed cost for margins. `ALIEXPRESS_TRACKING_ID` makes supplier links affiliate links (commission on orders); `ALIEXPRESS_SHIPPING_USD` is the shipping estimate added to the price (default 3). |
 | `DEEPGRAM_API_KEY` | Video ad transcripts: the line spoken in the first 3 seconds becomes the ad's hook in Hooks of the week (about 40 videos a day, scaling ads first). |
+| `APIFY_TOKEN`, `APIFY_COUNTRIES` | Daily Meta Ad Library ads through Apify (actor `curious_coder/facebook-ads-library-scraper`): 6 niches × 50 ads per country, about $0.23 per country per day. `APIFY_COUNTRIES` e.g. `DK,SE`; each run is capped at about $0.07 (`APIFY_MAX_RUN_USD` overrides). Meta's terms don't allow scraping its Ad Library, so this is your call. |
 | `ADLIBRARY_API_KEY`, `NEXSCOPE_API_KEY`, `WINNINGHUNTER_API_KEY`, `PIPISPY_API_KEY` | The existing licensed data sources. |
 
-The daily Apify job that scraped facebook.com/ads/library is turned off (scraping Meta is against its terms).
 
 ## Daily pipeline
 

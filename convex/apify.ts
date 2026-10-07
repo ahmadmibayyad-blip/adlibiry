@@ -16,7 +16,8 @@ type ApiJson = any;
 // calls /apify/webhook when the run finishes → we import every dataset item.
 // Env: APIFY_TOKEN (required), APIFY_ACTOR (optional, default
 // curious_coder~facebook-ads-library-scraper),
-// APIFY_COUNTRIES (optional, e.g. "DK,SE" → daily automatic runs).
+// APIFY_COUNTRIES (optional, e.g. "DK,SE" → daily automatic runs),
+// APIFY_MAX_RUN_USD (optional cap on what one run may cost, see runCostCap).
 
 const DEFAULT_ACTOR = "curious_coder~facebook-ads-library-scraper";
 
@@ -69,6 +70,25 @@ function adLibraryUrl(country: string, keyword: string) {
 
 type StartResult = { runId: string; status: string };
 
+// The default actor charges $0.00075 per ad. Cap each run at 1.5× the ads it
+// asked for (plus the start fee) so a misbehaving run can't drain the account;
+// APIFY_MAX_RUN_USD overrides it.
+export function runCostCap(maxAds: number, override?: string): number {
+  const set = Number(override);
+  if (override && Number.isFinite(set) && set > 0) return set;
+  return Math.max(0.05, Math.round((maxAds * 0.00075 * 1.5 + 0.01) * 100) / 100);
+}
+
+// Catalog and dynamic ads carry template text such as "{{product.name}}".
+const isTemplate = (s: string | undefined) => !!s && /\{\{[^}]+\}\}/.test(s);
+
+/** A real headline: the ad's title, else its card title, link title, first body line or advertiser. */
+export function pickHeadline(title: string | undefined, cardTitle: string | undefined, linkTitle: string | undefined, body: string, pageName: string): string {
+  const firstLine = body.split("\n").find((l) => l.trim() && !isTemplate(l))?.trim();
+  for (const c of [title, cardTitle, linkTitle, firstLine]) if (c?.trim() && !isTemplate(c)) return c.trim();
+  return pageName;
+}
+
 async function startRun(
   country: string,
   keyword: string,
@@ -79,7 +99,7 @@ async function startRun(
   if (!token) throw new Error("APIFY_TOKEN is not set. Add it in the Convex dashboard → Settings → Environment Variables.");
   const site = process.env.CONVEX_SITE_URL;
   const actor = process.env.APIFY_ACTOR ?? DEFAULT_ACTOR;
-  const query = new URLSearchParams({ token });
+  const query = new URLSearchParams({ token, maxTotalChargeUsd: String(runCostCap(maxAds, process.env.APIFY_MAX_RUN_USD)) });
   if (site) {
     const hook = new URL(`${site}/apify/webhook`);
     hook.searchParams.set("run", webhookToken);
@@ -249,9 +269,8 @@ export const importDataset = internalAction({
         }
         const cards: ApiJson[] = pick(s, "cards") ?? [];
         let body: string = pick(s, "body.text", "body.markup.__html") ?? (typeof s.body === "string" ? s.body : "") ?? "";
-        if ((!body || /\{\{[^}]+\}\}/.test(body)) && cards[0]?.body) body = cards[0].body;
-        let title: string = pick(s, "title") ?? "";
-        if ((!title || /\{\{[^}]+\}\}/.test(title)) && cards[0]?.title) title = cards[0].title;
+        if ((!body || isTemplate(body)) && cards[0]?.body) body = cards[0].body;
+        if (isTemplate(body)) body = "";
         const image =
           pick(s, "images.0.original_image_url", "images.0.originalImageUrl", "images.0.resized_image_url", "images.0.resizedImageUrl") ??
           pick(s, "videos.0.video_preview_image_url", "videos.0.videoPreviewImageUrl") ??
@@ -265,6 +284,7 @@ export const importDataset = internalAction({
         const copies = Number(pick(it, "collation_count", "collationCount") ?? 1) || 1;
         const reach = Number(pick(it, "reach_estimate", "reachEstimate", "eu_total_reach", "euTotalReach") ?? 0) || 0;
         const pageName = String(pick(it, "page_name", "pageName") ?? pick(s, "page_name", "pageName") ?? "Unknown advertiser");
+        const title = pickHeadline(pick(s, "title"), cards[0]?.title, pick(s, "link_description"), String(body ?? ""), pageName);
         const cta = pick(s, "cta_text", "ctaText") ?? cards[0]?.cta_text;
         const link = cleanLink(pick(s, "link_url", "linkUrl") ?? cards.find((c) => c.link_url || c.linkUrl)?.link_url);
         const video =
@@ -283,7 +303,7 @@ export const importDataset = internalAction({
           country: args.country.toUpperCase(),
           // What the ad actually sells; the searched niche only when unclear.
           niche: classifyNiche({ title, body, url: link, advertiser: pageName }, args.niche),
-          headline: (title || body.split("\n")[0] || "Sponsored ad").slice(0, 500),
+          headline: title.slice(0, 500),
           bodyText: String(body ?? "").slice(0, 2000),
           creativeUrl: String(image),
           landingPageUrl: link,
