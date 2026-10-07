@@ -203,6 +203,7 @@ export default defineSchema({
     gmv: v.optional(v.number()),              // est. sales from this ad (TikTok Shop), USD
     productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
     imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
+    isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),

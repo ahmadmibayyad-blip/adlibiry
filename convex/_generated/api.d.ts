@@ -76,6 +76,7 @@ import type * as lib_rangeParsing from "../lib/rangeParsing.js";
 import type * as lib_research from "../lib/research.js";
 import type * as lib_revenueModel from "../lib/revenueModel.js";
 import type * as lib_saturationScoring from "../lib/saturationScoring.js";
+import type * as lib_scaling from "../lib/scaling.js";
 import type * as lib_shopifyExport from "../lib/shopifyExport.js";
 import type * as lib_snapshots from "../lib/snapshots.js";
 import type * as lib_storeSales from "../lib/storeSales.js";
@@ -192,6 +193,7 @@ declare const fullApi: ApiFromModules<{
   "lib/research": typeof lib_research;
   "lib/revenueModel": typeof lib_revenueModel;
   "lib/saturationScoring": typeof lib_saturationScoring;
+  "lib/scaling": typeof lib_scaling;
   "lib/shopifyExport": typeof lib_shopifyExport;
   "lib/snapshots": typeof lib_snapshots;
   "lib/storeSales": typeof lib_storeSales;

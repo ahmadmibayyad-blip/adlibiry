@@ -16,6 +16,7 @@ const listArgs = {
   platform: v.optional(v.string()),
   niche: v.optional(v.string()),
   niches: v.optional(v.array(v.string())), // any of these (the user's niches), when no single niche is picked
+  scalingOnly: v.optional(v.boolean()), // ads the pipeline marked Scaling (lib/scaling.ts)
   country: v.optional(v.string()),
   search: v.optional(v.string()),
   minDaysRunning: v.optional(v.number()),
@@ -59,6 +60,7 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
     if (args.minAiScore !== undefined) c.push(q.gte(q.field("aiScore"), args.minAiScore));
     if (args.mediaType) c.push(q.eq(q.field("mediaType"), args.mediaType));
     if (args.activeOnly) c.push(q.eq(q.field("isActive"), true));
+    if (args.scalingOnly) c.push(q.eq(q.field("isScaling"), true));
     if (args.firstSeenWithinDays !== undefined)
       c.push(q.gte(q.field("firstSeenAt"), new Date(Date.now() - args.firstSeenWithinDays * 86_400_000).toISOString()));
     if (args.minImpressions !== undefined) c.push(q.gte(q.field("impressions"), args.minImpressions));

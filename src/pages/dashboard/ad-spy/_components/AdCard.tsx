@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useMutation, useQuery, Authenticated } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import {
-  Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layers, Calendar, Copy, Zap, ExternalLink, X,
-} from "lucide-react";
+import { Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layers, Calendar, Copy, Zap, ExternalLink, X, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
@@ -209,6 +207,15 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
             <Calendar className="w-3 h-3" />
             {ad.daysRunning > 0 ? `${ad.daysRunning}d` : "New"}
           </span>
+          {ad.isScaling && (
+            <span
+              className="flex items-center gap-1 bg-good/90 text-white text-[11px] font-semibold rounded-md px-1.5 py-0.5"
+              title="Scaling: running 14+ days and still getting budget"
+            >
+              <TrendingUp className="w-3 h-3" />
+              Scaling
+            </span>
+          )}
           {(ad.relatedAdsCount ?? 0) > 1 && (
             <span className="flex items-center gap-1 bg-primary/90 text-primary-foreground text-[11px] font-semibold rounded-md px-1.5 py-0.5" title="Ad copies running with this creative — a scaling signal">
               <Copy className="w-3 h-3" />×{ad.relatedAdsCount}

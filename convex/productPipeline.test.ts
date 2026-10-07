@@ -223,6 +223,27 @@ describe("Winning Products", () => {
   });
 });
 
+describe("Scaling ads", () => {
+  it("marks ads running 14+ days whose views grew 10%+ in a week, and Ad Spy can filter them", async () => {
+    const t = convexTest(schema, modules);
+    const { scalingId, flatId } = await t.run(async (ctx) => {
+      const scalingId = await ctx.db.insert("ads", ad({ daysRunning: 30, views: "12.0K", likes: 0 }));
+      const flatId = await ctx.db.insert("ads", ad({ daysRunning: 30, views: "10.0K", likes: 0, advertiserName: "Other" }));
+      for (const [id, views] of [[scalingId, 10_000], [flatId, 10_000]] as const) {
+        await ctx.db.insert("dailySnapshots", { day: "2026-09-20", kind: "ad", entityId: id, score: 70, adsRunning: 1, views, likes: 0, comments: 0, spend: 0, gmv: 0 });
+      }
+      await ctx.db.insert("users", { tokenIdentifier: "pro", role: "user", plan: "pro", subscriptionStatus: "active" });
+      return { scalingId, flatId };
+    });
+    await runPipeline(t);
+    const ads = await t.run(async (ctx) => [await ctx.db.get("ads", scalingId), await ctx.db.get("ads", flatId)]);
+    expect(ads[0]?.isScaling).toBe(true); // 10K → 12K
+    expect(ads[1]?.isScaling).toBeFalsy();
+    const page = await t.withIdentity({ subject: "pro|s" }).query(api.ads.list, { paginationOpts: { numItems: 10, cursor: null }, scalingOnly: true });
+    expect(page.page.map((a) => a._id)).toEqual([scalingId]);
+  });
+});
+
 describe("Pro product alerts", () => {
   it("free users can't follow; Pro users get alerts for new ads and a score past their threshold", async () => {
     const t = convexTest(schema, modules);
