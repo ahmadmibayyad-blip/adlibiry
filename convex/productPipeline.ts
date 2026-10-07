@@ -195,6 +195,20 @@ async function advance(ctx: MutationCtx, data: Status, counts: Status["counts"],
   await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: nextStage, cursor: null, day: data.day });
 }
 
+// Admin: stop a running pipeline. The next step sees it isn't "running" and
+// quits (see step); whatever steps already ran stay done.
+export const stop = mutation({
+  args: {},
+  handler: async (ctx): Promise<{ stopped: boolean }> => {
+    await requireAdmin(ctx);
+    const status = await readStatus(ctx);
+    if (status?.data.state !== "running") return { stopped: false };
+    const now = new Date().toISOString();
+    await writeStatus(ctx, { ...status.data, state: "error", error: `Stopped by an admin at "${status.data.stage}"`, updatedAt: now, finishedAt: now });
+    return { stopped: true };
+  },
+});
+
 export const start = internalMutation({ args: {}, handler: async (ctx) => void (await begin(ctx)) });
 
 export const runNow = mutation({

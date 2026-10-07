@@ -192,6 +192,7 @@ function ProductPipelineCard() {
   const status = useQuery(api.productPipeline.status, {});
   const runNow = useMutation(api.productPipeline.runNow);
   const runFrom = useMutation(api.productPipeline.runFrom);
+  const stopRun = useMutation(api.productPipeline.stop);
   const [fromStage, setFromStage] = useState("keys");
   const dedup = useQuery(api.productPipeline.dedupStatus, {});
   const mergeNow = useMutation(api.productPipeline.mergeDuplicatesNow);
@@ -225,6 +226,22 @@ function ProductPipelineCard() {
           {running ? <Spinner className="w-3.5 h-3.5 mr-1.5" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
           {running ? "Running…" : "Run now"}
         </Button>
+        {running && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const r = await stopRun({});
+                toast[r.stopped ? "success" : "info"](r.stopped ? "Stopping after the current step" : "Not running");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Could not stop");
+              }
+            }}
+          >
+            Stop
+          </Button>
+        )}
       </div>
       {status && (
         <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap text-xs">
