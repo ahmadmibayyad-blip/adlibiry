@@ -9,8 +9,11 @@ import { Input } from "@/components/ui/input.tsx";
 
 // The MCP endpoint is served from the Convex HTTP host: same deployment as
 // VITE_CONVEX_URL, on ".convex.site" instead of ".convex.cloud".
-const SERVER_URL = `${(import.meta.env.VITE_CONVEX_SITE_URL as string | undefined) ??
-  String(import.meta.env.VITE_CONVEX_URL ?? "").replace(/\.convex\.cloud\/?$/, ".convex.site")}/mcp`;
+const SITE_URL = (import.meta.env.VITE_CONVEX_SITE_URL as string | undefined) ??
+  String(import.meta.env.VITE_CONVEX_URL ?? "").replace(/\.convex\.cloud\/?$/, ".convex.site");
+const SERVER_URL = `${SITE_URL}/mcp`;
+// Public REST API (convex/publicApi.ts): same keys, plain GET requests.
+const API_URL = `${SITE_URL}/v1`;
 
 function copy(text: string, label: string) {
   navigator.clipboard
@@ -58,11 +61,12 @@ export default function McpSection() {
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-center gap-2 mb-1">
         <Plug className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold text-sm">Connect your AI app (MCP)</h2>
+        <h2 className="font-semibold text-sm">Connect your AI app or the API</h2>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
         Use AdSpy Pro's winning products and ads inside Claude, ChatGPT, Cursor or any app that supports MCP.
-        Create a key, then add AdSpy Pro as a connector in your app. Treat the key like a password.
+        Create a key, then add AdSpy Pro as a connector in your app. The same key works for the REST API, for your own scripts,
+        sheets and dashboards. Treat the key like a password.
       </p>
 
       {newKey ? (
@@ -82,6 +86,10 @@ export default function McpSection() {
             <p>
               <strong className="text-foreground">Other apps:</strong> add a remote MCP server (Streamable HTTP) with the connector URL,
               or with <code>{SERVER_URL}</code> and the key as a Bearer token.
+            </p>
+            <p>
+              <strong className="text-foreground">REST API:</strong>{" "}
+              <code className="break-all">curl -H "Authorization: Bearer {newKey}" "{API_URL}/products?category=Beauty&amp;sort=score&amp;limit=10"</code>
             </p>
           </div>
           <Button size="sm" variant="ghost" onClick={() => setNewKey(null)}>Done</Button>
@@ -106,6 +114,28 @@ export default function McpSection() {
           </Button>
         </form>
       )}
+
+      <details className="mb-4 text-[11px] text-muted-foreground">
+        <summary className="cursor-pointer text-foreground font-medium">REST API reference</summary>
+        <div className="mt-2 space-y-1.5">
+          <p>
+            Send <code>Authorization: Bearer &lt;key&gt;</code> (or <code>?key=&lt;key&gt;</code>). Every answer is JSON:{" "}
+            <code>{"{ data: [...] }"}</code> or <code>{"{ error }"}</code>.
+          </p>
+          <p>
+            <code className="break-all">GET {API_URL}/products</code>: search, category, maxPrice, minMargin, trend (Rising, Stable,
+            Declining), winnerOfDayOnly, sort (newest, score, ads, likes, growth, margin), limit (1–15).
+          </p>
+          <p>
+            <code className="break-all">GET {API_URL}/ads</code>: search, niche, platform (Facebook, Instagram, TikTok), country, mediaType
+            (video, image, carousel), minDaysRunning, sort (newest, score, mostLiked, longestRunning, impressions, comments), limit (1–15).
+          </p>
+          <p>
+            <code className="break-all">GET {API_URL}/niches</code>: the niche names to use above.
+          </p>
+          <p>Requests are shared with your AI app connections: 300 a day, reset at midnight UTC.</p>
+        </div>
+      </details>
 
       {keys && keys.length > 0 && (
         <div className="rounded-lg border border-border divide-y divide-border">

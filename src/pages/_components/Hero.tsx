@@ -75,7 +75,8 @@ export default function Hero() {
             {stats
               ? `AdSpy Pro watches ${fmt(stats.ads.total)} ads on Facebook, Instagram and TikTok, ties them to the ${fmt(stats.products.total)} products they sell, and scores every one.`
               : "AdSpy Pro watches ads on Facebook, Instagram and TikTok, ties them to the products they sell, and scores every one."}{" "}
-            The strongest rise to the top of your list each morning.
+            Then it tells you whether to test each one: demand, room left in your country, margin from real supplier prices, and the
+            ad angles already working.
           </p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">

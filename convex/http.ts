@@ -4,6 +4,7 @@ import { api, internal } from "./_generated/api";
 import { auth } from "./auth";
 import { parseExtensionAd } from "./lib/extensionSubmission";
 import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
+import { apiGet } from "./publicApi";
 import { serveVideo } from "./videoDownload";
 
 const http = httpRouter();
@@ -101,6 +102,10 @@ http.route({ path: "/mcp", method: "POST", handler: mcpPost });
 http.route({ path: "/mcp", method: "GET", handler: mcpNotAllowed });
 http.route({ path: "/mcp", method: "DELETE", handler: mcpNotAllowed });
 http.route({ path: "/mcp", method: "OPTIONS", handler: mcpOptions });
+
+// Public REST API over the same tools and keys (see convex/publicApi.ts).
+http.route({ pathPrefix: "/v1/", method: "GET", handler: apiGet });
+http.route({ pathPrefix: "/v1/", method: "OPTIONS", handler: mcpOptions });
 
 // Stripe → Developers → Webhooks → endpoint https://<deployment>.convex.site/stripe/webhook
 // with the customer.subscription.created/updated/deleted events (see "Billing" in CLAUDE.md).
