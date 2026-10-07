@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalAction, internalMutation, query, type ActionCtx } from "./_generated/server";
+import { internalAction, internalMutation, mutation, query, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./admin/helpers";
 import { summarizeRun } from "./lib/importRuns";
@@ -53,6 +53,16 @@ async function runJob(ctx: ActionCtx, name: (typeof JOBS)[number]): Promise<unkn
       return { started: 1 };
   }
 }
+
+// Admin → Daily imports → "Run now": run one import immediately (e.g. to test
+// a newly added API key); it's logged like the scheduled runs.
+export const runNow = mutation({
+  args: { job },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    await ctx.scheduler.runAfter(0, internal.importRuns.run, { job: args.job });
+  },
+});
 
 export const record = internalMutation({
   args: {
