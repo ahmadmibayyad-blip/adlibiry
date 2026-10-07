@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import AIFeatureGate from "./AIFeatureGate.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 type ScoreResult = {
   score: number;
@@ -44,7 +45,7 @@ export default function AIProductScoreCard({
       const res = await scoreProduct({ title, description, price, cost, category });
       setResult(res);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to generate AI score";
+      const message = errorMessage(error, "Failed to generate AI score. Please try again.");
       toast.error(message);
     } finally {
       setIsLoading(false);
