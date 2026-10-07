@@ -198,6 +198,9 @@ function ProductPipelineCard() {
   const mergeNow = useMutation(api.productPipeline.mergeDuplicatesNow);
   const running = status?.state === "running";
   const merging = dedup?.state === "running";
+  // A count is only meaningful if its step ran in the last run ("—" otherwise).
+  const ran = (stage: string) => !status?.log || status.log.some((l) => l.stage === stage);
+  const count = (stage: string, n: number | undefined) => (ran(stage) ? (n ?? 0) : "—");
   return (
     <div className="bg-card border border-border rounded-xl p-4 mb-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -208,7 +211,8 @@ function ProductPipelineCard() {
           </div>
           <p className="text-xs text-muted-foreground">
             The daily chain after the imports: image hashes, linking ads to products, landing-page prices, merging duplicates, store checks,
-            scores, Winning Products (score 65+ and the winner gates), history, lists and the morning digest. Runs every day at 08:05 UTC.
+            scores, Winning Products, history, lists and the morning digest. Runs every day at 08:05 UTC. Winning Products get a new mix every
+            3 days (score 65+ and the winner gates; the best 25 per niche stay, the rest rotate); "Run now" also draws a new mix today.
           </p>
         </div>
         <Button
@@ -247,13 +251,17 @@ function ProductPipelineCard() {
         <div className="mt-3 pt-3 border-t border-border flex items-center gap-4 flex-wrap text-xs">
           <span className="text-muted-foreground">
             Status <strong className={cn("text-foreground", status.state === "error" && "text-destructive")}>
-              {status.state === "running" ? PIPELINE_STAGES[status.stage] ?? status.stage : status.state === "done" ? `Done ${new Date(status.finishedAt ?? status.startedAt).toLocaleString()}` : "Failed"}
+              {status.state === "running"
+                ? PIPELINE_STAGES[status.stage] ?? status.stage
+                : status.state === "done"
+                  ? `Done ${new Date(status.finishedAt ?? status.startedAt).toLocaleString()}${status.warnings?.length ? ` · ${status.warnings.length} step${status.warnings.length === 1 ? "" : "s"} skipped` : ""}`
+                  : "Failed"}
             </strong>
           </span>
-          <span className="text-muted-foreground">Products created from ads <strong className="text-foreground">{status.counts.productsCreated}</strong></span>
-          <span className="text-muted-foreground">Ads linked <strong className="text-foreground">{status.counts.adsLinked}</strong></span>
-          <span className="text-muted-foreground">Winners <strong className="text-foreground">{status.counts.winners}</strong></span>
-          <span className="text-muted-foreground">History rows <strong className="text-foreground">{status.counts.snapshots}</strong></span>
+          <span className="text-muted-foreground">Products created from ads <strong className="text-foreground">{count("link", status.counts.productsCreated)}</strong></span>
+          <span className="text-muted-foreground">Ads linked <strong className="text-foreground">{count("link", status.counts.adsLinked)}</strong></span>
+          <span className="text-muted-foreground">Winners <strong className="text-foreground">{count("winners", status.counts.winners)}</strong></span>
+          <span className="text-muted-foreground">History rows <strong className="text-foreground">{count("snapshotProducts", status.counts.snapshots)}</strong></span>
           {status.counts.winnersGated !== undefined && (
             <span className="text-muted-foreground" title="Score 65+ but no real sales, under 3 live ads, falling, or crowded">
               Kept out by winner gates <strong className="text-foreground">{status.counts.winnersGated}</strong>
@@ -263,6 +271,16 @@ function ProductPipelineCard() {
             <span className="text-muted-foreground">Duplicates merged <strong className="text-foreground">{status.counts.merged}</strong></span>
           ) : null}
           {status.error && <div className="w-full text-destructive">{status.error}</div>}
+          {!ran("link") && status.state !== "running" && (
+            <div className="w-full text-muted-foreground">
+              This run started after "link" and "winners", so those show "—". Press Run now for a full run.
+            </div>
+          )}
+          {status.warnings && status.warnings.length > 0 && (
+            <ul className="w-full space-y-0.5 text-amber-600 dark:text-amber-400">
+              {status.warnings.map((w, i) => <li key={i}>Skipped: {w}</li>)}
+            </ul>
+          )}
         </div>
       )}
       {status?.log && status.log.length > 0 && (
@@ -322,7 +340,13 @@ function ProductPipelineCard() {
         <span className="text-muted-foreground">
           Duplicate products (same image from two sources):{" "}
           <strong className="text-foreground">
-            {merging ? `merging… ${dedup.merged} so far` : dedup ? `${dedup.merged} merged ${new Date(dedup.finishedAt ?? dedup.startedAt).toLocaleString()}` : "never merged"}
+            {merging
+              ? `merging… ${dedup.merged} so far`
+              : dedup?.state === "stalled"
+                ? `stopped with no progress after ${dedup.merged} merged — press Merge duplicates to try again`
+                : dedup
+                  ? `${dedup.merged} merged ${new Date(dedup.finishedAt ?? dedup.startedAt).toLocaleString()}`
+                  : "never merged"}
           </strong>
         </span>
         <Button

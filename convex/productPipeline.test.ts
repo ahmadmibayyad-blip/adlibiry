@@ -203,8 +203,13 @@ describe("Winning Products", () => {
     expect(feed.page[0]).toMatchObject({ nicheRank: 1, isNewToday: true });
     expect(feed.page[0].product.winnerRank).toBe(1);
 
-    // Next day: still a winner, no longer "new today".
+    // Next day: same round, still "new". Three days later a new round: the
+    // best product stays and is no longer new.
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await runPipeline(t);
+    const sameRound = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 1, cursor: null } });
+    expect(sameRound.page[0].isNewToday).toBe(true);
+    vi.setSystemTime(new Date("2026-10-03T08:05:00Z"));
     await runPipeline(t);
     const again = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 1, cursor: null } });
     expect(again.page[0].isNewToday).toBe(false);
@@ -595,5 +600,120 @@ describe("Winning Products filters", () => {
     const rest = await user.query(api.winners.feed, { paginationOpts: { numItems: 2, cursor: first.continueCursor }, sort: "score" });
     expect([...first.page, ...rest.page].map((r) => r.product.title)).toEqual(["Dog cooling mat", "Cat water fountain", "Yoga mat"]);
     expect(rest.isDone).toBe(true);
+  });
+});
+
+describe("Winning Products every 3 days", () => {
+  const ids = async (t: ReturnType<typeof convexTest>) =>
+    new Set(await t.run(async (ctx) => (await ctx.db.query("winningProducts").collect()).map((r) => r.productId as string)));
+
+  it("keeps the mix between rounds and draws a new one every 3 days", async () => {
+    const t = convexTest(schema, modules);
+    const best = await t.run(async (ctx) => {
+      const out: Id<"products">[] = [];
+      for (let i = 0; i < 120; i++) out.push(await ctx.db.insert("products", product({ title: `Pet ${i}`, category: "Pet Supplies", aiScore: 99 - Math.floor(i / 4) })));
+      return out.slice(0, 25);
+    });
+    await runPipeline(t);
+    const round1 = await ids(t);
+    expect(round1.size).toBe(50);
+    const summary = await t.query(api.winners.summary, {});
+    expect(summary).toMatchObject({ roundDay: "2026-09-30", nextRoundDay: "2026-10-03", roundDays: 3 });
+
+    // A new product scoring 100 the next day doesn't jump in mid-round.
+    await t.run((ctx) => ctx.db.insert("products", product({ title: "New star", category: "Pet Supplies", aiScore: 100 })));
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await runPipeline(t);
+    expect(await ids(t)).toEqual(round1);
+
+    // Round 2: the best 25 (now incl. the new one) stay, the rotating half is
+    // drawn from products that weren't shown last time.
+    vi.setSystemTime(new Date("2026-10-03T08:05:00Z"));
+    await runPipeline(t);
+    const round2 = await ids(t);
+    expect(round2.size).toBe(50);
+    for (const id of best.slice(0, 24)) expect(round2.has(id)).toBe(true);
+    const rotated = [...round2].filter((id) => !round1.has(id));
+    expect(rotated.length).toBeGreaterThanOrEqual(25);
+  });
+
+  it("lets the admin's Run now draw a new mix the same day", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { email: "a@x.com", tokenIdentifier: "a1", role: "admin" });
+      for (let i = 0; i < 120; i++) await ctx.db.insert("products", product({ title: `Pet ${i}`, category: "Pet Supplies", aiScore: 70 + (i % 20) }));
+    });
+    await runPipeline(t);
+    const before = await ids(t);
+    vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
+    await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runNow, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const after = await ids(t);
+    expect([...after].filter((id) => !before.has(id)).length).toBeGreaterThan(0);
+    expect((await t.query(api.winners.summary, {})).roundDay).toBe("2026-10-01");
+  });
+});
+
+describe("pipeline never gets stuck", () => {
+  it("fills Winning Products with products that only lack data, never with ones that fail on real numbers", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("products", winner({ title: "Proven", category: "Pet Supplies", aiScore: 80 }));
+      // No price/sales and no ad count yet: unknown, not failed.
+      await ctx.db.insert("products", product({ title: "No data yet", category: "Pet Supplies", aiScore: 95 }));
+      await ctx.db.insert("products", winner({ title: "Tiny sales", category: "Pet Supplies", aiScore: 99, unitsPerMonth: 10 }));
+      await ctx.db.insert("products", product({ title: "Crowded, no data", category: "Pet Supplies", aiScore: 97, saturation: "High" }));
+    });
+    const status = await runPipeline(t);
+    const feed = await t.withIdentity({ subject: "test|s" }).query(api.winners.feed, { paginationOpts: { numItems: 10, cursor: null } });
+    // Proven winners first, then the best of the ones we lack data for.
+    expect(feed.page.map((r) => r.product.title)).toEqual(["Proven", "No data yet"]);
+    expect(status?.counts.winnersGated).toBe(2);
+  });
+
+  it("the watchdog skips a step that stopped reporting and the run goes on to the end", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("products", winner({ title: "Proven", category: "Pet Supplies", aiScore: 80 })));
+    const old = new Date(Date.now() - 30 * 60_000).toISOString();
+    await t.run((ctx) =>
+      ctx.db.insert("siteStats", {
+        key: "productPipeline",
+        updatedAt: old,
+        data: { state: "running", stage: "dedupe", day: "2026-09-30", startedAt: old, updatedAt: old, runId: "r1", counts: { productsCreated: 0, adsLinked: 0, winners: 0, snapshots: 0, pruned: 0 } },
+      }),
+    );
+    await t.mutation(internal.productPipeline.watchdog, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const status = await t.withIdentity({ subject: "test|s" }).query(api.productPipeline.status, {});
+    expect(status?.state).toBe("done");
+    expect(status?.warnings?.[0]).toMatch(/Merging duplicates: no progress for 30 min/);
+    expect(status?.counts.winners).toBe(1);
+  });
+
+  it("an admin can restart a stalled run, and the old run's steps quit", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" }));
+    const old = new Date(Date.now() - 30 * 60_000).toISOString();
+    await t.run((ctx) =>
+      ctx.db.insert("siteStats", {
+        key: "productPipeline",
+        updatedAt: old,
+        data: { state: "running", stage: "link", day: "2026-09-30", startedAt: old, updatedAt: old, runId: "old", counts: { productsCreated: 0, adsLinked: 0, winners: 0, snapshots: 0, pruned: 0 } },
+      }),
+    );
+    expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runNow, {})).toEqual({ started: true });
+    // A leftover step of the old run does nothing.
+    await t.mutation(internal.productPipeline.step, { stage: "prune", cursor: null, day: "2026-09-30", runId: "old" });
+    const status = await t.withIdentity({ subject: "test|s" }).query(api.productPipeline.status, {});
+    expect(status?.stage).toBe("hashImages");
+  });
+
+  it("marks a duplicate merge that stopped reporting as stalled so it can be started again", async () => {
+    const t = convexTest(schema, modules);
+    const old = new Date(Date.now() - 30 * 60_000).toISOString();
+    await t.run((ctx) => ctx.db.insert("siteStats", { key: "productDedup", updatedAt: old, data: { state: "running", merged: 0, startedAt: old } }));
+    await t.mutation(internal.productPipeline.watchdog, {});
+    const d = await t.run(async (ctx) => (await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productDedup")).unique())?.data);
+    expect(d).toMatchObject({ state: "stalled" });
   });
 });

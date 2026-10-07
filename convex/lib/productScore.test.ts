@@ -69,3 +69,14 @@ describe("one revenue number with a confidence label", () => {
     expect(revenueConfidence(undefined)).toBeUndefined();
   });
 });
+
+describe("known-data gates", () => {
+  it("lets missing data through but not bad numbers", async () => {
+    const { passesKnownGates } = await import("./winnerGates");
+    expect(passesKnownGates({ revenuePerMonth: undefined, activeAds: undefined })).toBe(true);
+    expect(passesKnownGates({ revenuePerMonth: 2_000 })).toBe(false);
+    expect(passesKnownGates({ activeAds: 1 })).toBe(false);
+    expect(passesKnownGates({ momentum14: -5 })).toBe(false);
+    expect(passesKnownGates({ saturation: "High" })).toBe(false);
+  });
+});

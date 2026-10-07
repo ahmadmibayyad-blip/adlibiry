@@ -405,7 +405,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
         <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-2xl">
           <Zap className="w-10 h-10 text-muted-foreground mb-3" />
           <h3 className="font-semibold mb-1">No winning products yet</h3>
-          <p className="text-sm text-muted-foreground">They're picked every morning from products scoring {summary?.minScore ?? 65} or more.</p>
+          <p className="text-sm text-muted-foreground">A new mix every 3 days from products scoring {summary?.minScore ?? 65} or more.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
@@ -480,7 +480,7 @@ export default function DashboardHome() {
           label="Winning products"
           value={summary === undefined ? undefined : summary.total || (stats?.winnersToday ?? 0)}
           tint="bg-yellow-500/10 text-yellow-600"
-          sub={summary?.newToday ? <span className="text-primary font-medium">{summary.newToday} new today</span> : undefined}
+          sub={summary?.newToday ? <span className="text-primary font-medium">{summary.newToday} new this round</span> : undefined}
         />
         <StatCard
           icon={Megaphone}

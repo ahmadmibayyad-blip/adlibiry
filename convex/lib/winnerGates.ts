@@ -26,3 +26,15 @@ export function passesWinnerGates(p: GateInput): GateResult {
   if (p.saturation === "High") return { ok: false, reason: "saturation" };
   return { ok: true };
 }
+
+// Same gates, but data we don't have yet (no revenue estimate, no ad count)
+// doesn't fail a product; only the numbers we do have can. Used to fill a
+// niche when too few products pass the full gates, so missing data never
+// empties Winning Products.
+export function passesKnownGates(p: Omit<GateInput, "activeAds"> & { activeAds?: number }): boolean {
+  if (p.revenuePerMonth !== undefined && p.revenuePerMonth < WINNER_GATES.minRevenuePerMonth) return false;
+  if (p.activeAds !== undefined && p.activeAds < WINNER_GATES.minActiveAds) return false;
+  if (p.momentum14 !== undefined && p.momentum14 < WINNER_GATES.minMomentumPercent) return false;
+  if (p.saturation === "High") return false;
+  return true;
+}

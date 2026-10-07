@@ -1,6 +1,6 @@
 import { estimateProduct, pointEstimate, unitsPerMonthFromText } from "./lib/estimates";
 import { HISTOGRAM_BINS, binOf, medianOf, percentileOf, rawScore, scoreFromPercentile, scoreParts, shareAtLeast } from "./lib/productScore";
-import { passesWinnerGates } from "./lib/winnerGates";
+import { passesKnownGates, passesWinnerGates } from "./lib/winnerGates";
 import { fusion, isVerifiedWinner } from "./lib/fusion";
 import { cleanAdCopy } from "./lib/adCopy";
 import { engagementRate, isScaling } from "./lib/scaling";
@@ -11,7 +11,7 @@ import { productFollowAlerts, storeAdAlerts } from "./follows";
 
 type Calibrations = Record<string, BasisCalibration> | undefined;
 import { v } from "convex/values";
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireSignedIn } from "./lib/access";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -26,6 +26,7 @@ import {
 } from "./lib/productMatch";
 import { shouldWriteSnapshot } from "./lib/snapshots";
 import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/imageHash";
+import { WINNERS_ROUND_DAYS, addDays, daysBetween, pickNicheMix } from "./lib/winnerMix";
 
 // ── Daily pipeline ──────────────────────────────────────────────────────────
 // Runs once a day after the imports (see crons.ts), as a chain of small,
@@ -39,7 +40,8 @@ import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/i
 //   stores         – Shopify store catalog checks are queued (they run alongside)
 //   aggregate      – each product adds up its ads and gets its score parts
 //   calibrate…     – scores ranked across the catalog (model v2)
-//   winners        – Winning Products: score 65+ and the winner gates
+//   winners        – Winning Products: score 65+ and the winner gates; a new
+//                    mix every 3 days, other days only drop-outs are removed
 //   snapshots      – one history row per product and per ad for today
 //   prune          – history older than 90 days is removed
 //   alerts         – Pro follow alerts: advertisers with new ads, followed
@@ -84,6 +86,8 @@ const NEXT: Record<Stage, Stage> = {
 // Steps that hand off to an action and continue when it reports back (actionDone).
 const ACTION_STAGES = new Set<Stage>(["hashImages", "landingPages"]);
 const STUCK_MS = 3 * 3_600_000; // a run with no progress for 3 hours is considered dead
+const STALL_MS = 20 * 60_000; // watchdog: a step with no progress this long failed
+const ACTION_STALL_MS = 90 * 60_000; // image hashes / landing pages run long
 
 type Status = {
   state: "running" | "done" | "error";
@@ -96,6 +100,11 @@ type Status = {
   calib?: Calibration;
   log?: { stage: Stage; at: string; note?: string }[]; // when each step started
   updatedAt?: string;
+  // Id of this run: steps of an older (stopped / restarted) run quit.
+  runId?: string;
+  // Steps that failed or stalled; the run skipped them and went on.
+  warnings?: string[];
+  forceWinners?: boolean; // an admin's Run now: draw a new Winning Products mix today
 };
 
 // Score calibration state carried between steps: the histogram of raw scores,
@@ -144,23 +153,29 @@ async function writeStatus(ctx: MutationCtx, data: Status) {
   else await ctx.db.insert("siteStats", { key: "productPipeline", data, updatedAt });
 }
 
-async function begin(ctx: MutationCtx, from: Stage = "hashImages"): Promise<boolean> {
+// One run at a time. A run with no progress for STUCK_MS is considered dead;
+// for an admin's Run now / Run from, already after the watchdog's stall limit
+// (the old run's steps then see a different runId and quit).
+async function begin(ctx: MutationCtx, from: Stage = "hashImages", byAdmin = false): Promise<boolean> {
   const current = await readStatus(ctx);
-  // One run at a time; a run with no progress for STUCK_MS is considered dead.
   const lastProgress = current?.data.updatedAt ?? current?.data.startedAt;
-  if (current?.data.state === "running" && lastProgress && Date.now() - Date.parse(lastProgress) < STUCK_MS) return false;
+  const deadAfter = !byAdmin ? STUCK_MS : ACTION_STAGES.has(current?.data.stage ?? "done") ? ACTION_STALL_MS : STALL_MS;
+  if (current?.data.state === "running" && lastProgress && Date.now() - Date.parse(lastProgress) < deadAfter) return false;
   const day = today();
   const now = new Date().toISOString();
+  const runId = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
   await writeStatus(ctx, {
     state: "running",
     stage: from,
     day,
     startedAt: now,
     updatedAt: now,
+    runId,
+    ...(byAdmin ? { forceWinners: true } : {}),
     counts: { productsCreated: 0, adsLinked: 0, winners: 0, snapshots: 0, pruned: 0 },
     log: [{ stage: from, at: now }],
   });
-  await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: from, cursor: null, day });
+  await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: from, cursor: null, day, runId });
   return true;
 }
 
@@ -169,7 +184,7 @@ export const runFrom = mutation({
   args: { stage: v.union(...STAGES.map((s) => v.literal(s))) },
   handler: async (ctx, args): Promise<{ started: boolean }> => {
     await requireAdmin(ctx);
-    return { started: await begin(ctx, args.stage) };
+    return { started: await begin(ctx, args.stage, true) };
   },
 });
 
@@ -192,8 +207,38 @@ async function advance(ctx: MutationCtx, data: Status, counts: Status["counts"],
     return;
   }
   await writeStatus(ctx, { ...data, counts, calib, log: [...log, { stage: nextStage, at: now }].slice(-40), stage: nextStage, updatedAt: now });
-  await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: nextStage, cursor: null, day: data.day });
+  await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage: nextStage, cursor: null, day: data.day, runId: data.runId });
 }
+
+// A step that failed or stalled is skipped: note it and go on, so one broken
+// step (e.g. duplicate merging) never keeps linking and winners from running.
+async function skipStage(ctx: MutationCtx, data: Status, stage: Stage, why: string) {
+  const warning = `${PIPELINE_STAGE_NAMES[stage] ?? stage}: ${why}`.slice(0, 300);
+  await advance(ctx, { ...data, warnings: [...(data.warnings ?? []), warning].slice(-10) }, data.counts, data.calib, stage, why.slice(0, 120));
+}
+const PIPELINE_STAGE_NAMES: Partial<Record<Stage, string>> = { dedupe: "Merging duplicates", link: "Linking ads", winners: "Winning Products" };
+
+// Every 10 minutes (crons.ts): a running step with no progress for a while
+// failed without reporting back (e.g. it hit a Convex limit). Skip it.
+export const watchdog = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const status = await readStatus(ctx);
+    if (status?.data.state === "running") {
+      const last = Date.parse(status.data.updatedAt ?? status.data.startedAt);
+      const limit = ACTION_STAGES.has(status.data.stage) ? ACTION_STALL_MS : STALL_MS;
+      if (Date.now() - last > limit) {
+        await skipStage(ctx, status.data, status.data.stage, `no progress for ${Math.round((Date.now() - last) / 60_000)} min, skipped`);
+      }
+    }
+    // Duplicate merging started from Admin: a failed page leaves it "running".
+    const dedup = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productDedup")).unique();
+    const d = dedup?.data as DedupStatus | undefined;
+    if (dedup && d?.state === "running" && Date.now() - Date.parse(dedup.updatedAt) > STALL_MS) {
+      await writeDedup(ctx, { ...d, state: "stalled", finishedAt: new Date().toISOString() });
+    }
+  },
+});
 
 // Admin: stop a running pipeline. The next step sees it isn't "running" and
 // quits (see step); whatever steps already ran stay done.
@@ -215,7 +260,7 @@ export const runNow = mutation({
   args: {},
   handler: async (ctx): Promise<{ started: boolean }> => {
     await requireAdmin(ctx);
-    return { started: await begin(ctx) };
+    return { started: await begin(ctx, "hashImages", true) };
   },
 });
 
@@ -247,11 +292,12 @@ function productText(p: Pick<Doc<"products">, "title" | "description" | "tags">)
 // ── Steps ───────────────────────────────────────────────────────────────────
 
 export const step = internalMutation({
-  args: { stage: v.string(), cursor: v.union(v.string(), v.null()), day: v.string() },
+  args: { stage: v.string(), cursor: v.union(v.string(), v.null()), day: v.string(), runId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const stage = args.stage as Stage;
     const status = await readStatus(ctx);
     if (!status || status.data.state !== "running" || status.data.day !== args.day) return; // cancelled or superseded
+    if (status.data.runId && args.runId !== status.data.runId) return; // a step of an older run
     const counts = { ...status.data.counts };
     let calib = status.data.calib;
     let done = true;
@@ -391,9 +437,15 @@ export const step = internalMutation({
         cursor = page.continueCursor;
         if (done) await writeCalibrationReport(ctx, args.day, model, calib);
       } else if (stage === "winners") {
-        const w = await rebuildWinners(ctx, args.day);
-        counts.winners = w.winners;
-        counts.winnersGated = w.gated;
+        const round = await readWinnersRound(ctx);
+        const due = status.data.forceWinners || !round || daysBetween(round.day, args.day) >= WINNERS_ROUND_DAYS;
+        if (due) {
+          const w = await rebuildWinners(ctx, args.day);
+          counts.winners = w.winners;
+          counts.winnersGated = w.gated;
+        } else {
+          counts.winners = await pruneWinners(ctx);
+        }
       } else if (stage === "fusion") {
         // Event-driven enrichment (convex/fusion.ts): new winners, niche entrant
         // spikes and marketplace products without ads. Runs in the background;
@@ -451,14 +503,8 @@ export const step = internalMutation({
         done = old.length < 1000;
       }
     } catch (e) {
-      await writeStatus(ctx, {
-        ...status.data,
-        counts,
-        calib: undefined,
-        state: "error",
-        error: `${stage}: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
-        finishedAt: new Date().toISOString(),
-      });
+      // Skip the failed step and carry on with the rest of the run.
+      await skipStage(ctx, { ...status.data, counts, calib }, stage, `failed: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
 
@@ -467,7 +513,7 @@ export const step = internalMutation({
       return;
     }
     await writeStatus(ctx, { ...status.data, counts, calib, updatedAt: new Date().toISOString() });
-    await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage, cursor, day: args.day });
+    await ctx.scheduler.runAfter(0, internal.productPipeline.step, { stage, cursor, day: args.day, runId: args.runId });
   },
 });
 
@@ -547,7 +593,7 @@ export async function linkAd(ctx: MutationCtx, ad: Doc<"ads">): Promise<"created
 // Started from Admin; runs in steps over the image-hash index and records the
 // result in siteStats["productDedup"].
 
-type DedupStatus = { state: "running" | "done"; merged: number; startedAt: string; finishedAt?: string };
+type DedupStatus = { state: "running" | "done" | "stalled"; merged: number; startedAt: string; finishedAt?: string };
 
 async function writeDedup(ctx: MutationCtx, data: DedupStatus) {
   const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productDedup")).unique();
@@ -629,7 +675,7 @@ export const mergeDuplicatesStep = internalMutation({
 // store + same title) are looked up across the whole table; a group met again
 // later is down to one row by then.
 async function mergePage(ctx: MutationCtx, cursor: string | null): Promise<{ merged: number; isDone: boolean; cursor: string }> {
-  const page = await ctx.db.query("products").paginate({ numItems: 50, cursor }); // each looks up to ~65 candidates
+  const page = await ctx.db.query("products").paginate({ numItems: 10, cursor }); // each looks up to ~65 candidates and may move ads
   let merged = 0;
   for (const { _id } of page.page) {
     const p = await ctx.db.get("products", _id);
@@ -917,14 +963,46 @@ function buckets(h: number[]): number[] {
   return out;
 }
 
-// Winning Products: per niche, the top 50 by score (65+), without big
-// brands, personalised / print-on-demand items and services; then dealt out
-// round-robin so the feed alternates niches. Never padded with weaker ones.
+// ── Winning Products ────────────────────────────────────────────────────────
+// Every WINNERS_ROUND_DAYS a new mix is drawn from the products we have.
+// Per niche, products with score 65+ (no big brands, print-on-demand or
+// services) that pass the winner gates (lib/winnerGates.ts) come first: the
+// best 25 always stay, the other places rotate, products not shown last
+// round first (lib/winnerMix.ts). Free places go to products that fail a gate
+// only because we don't have the data yet; never to ones that fail on real
+// numbers. Niches are dealt out round-robin so the feed alternates.
+
+type WinnersRound = { day: string; nextDay: string };
+
+export async function readWinnersRound(ctx: { db: QueryCtx["db"] }): Promise<WinnersRound | null> {
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "winnersRound")).unique();
+  return (doc?.data as WinnersRound | undefined) ?? null;
+}
+
+async function writeWinnersRound(ctx: MutationCtx, day: string) {
+  const data: WinnersRound = { day, nextDay: addDays(day, WINNERS_ROUND_DAYS) };
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "winnersRound")).unique();
+  const updatedAt = new Date().toISOString();
+  if (doc) await ctx.db.patch("siteStats", doc._id, { data, updatedAt });
+  else await ctx.db.insert("siteStats", { key: "winnersRound", data, updatedAt });
+}
+
+const listable = (p: Doc<"products">) => p.aiScore >= WINNER_MIN_SCORE && !p.isBigBrand && !p.isPersonalised && !p.isService && !!p.imageUrl;
+const gateInput = (p: Doc<"products">) => ({
+  revenuePerMonth: pointEstimate(p.estRevenue),
+  activeAds: p.activeAds ?? p.adsCount,
+  momentum14: p.momentum14,
+  saturation: p.saturation,
+});
+
 export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<{ winners: number; gated: number }> {
+  const previous = await ctx.db.query("winningProducts").collect();
+  const shownBefore = new Set(previous.map((r) => r.productId as string));
   const perNiche: { niche: string; products: Doc<"products">[] }[] = [];
   let gated = 0;
   for (const niche of NICHES) {
-    const top: Doc<"products">[] = [];
+    const proven: Doc<"products">[] = [];
+    const unproven: Doc<"products">[] = []; // fail a gate only for missing data
     const candidates = ctx.db
       .query("products")
       .withIndex("by_category_score", (q) => q.eq("category", niche).gte("aiScore", WINNER_MIN_SCORE))
@@ -932,35 +1010,27 @@ export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<{ w
     let scanned = 0;
     for await (const p of candidates) {
       if (++scanned > MAX_WINNER_CANDIDATES) break;
-      if (p.isBigBrand || p.isPersonalised || p.isService || !p.imageUrl) continue;
-      // A high score isn't enough: real sales, live ads, momentum, room left (lib/winnerGates.ts).
-      const gate = passesWinnerGates({
-        revenuePerMonth: pointEstimate(p.estRevenue),
-        activeAds: p.activeAds ?? p.adsCount ?? 0,
-        momentum14: p.momentum14,
-        saturation: p.saturation,
-      });
-      if (!gate.ok) {
-        gated++;
-        continue;
-      }
-      top.push(p);
-      if (top.length >= WINNERS_PER_NICHE) break;
+      if (!listable(p)) continue;
+      // A high score isn't enough: real sales, live ads, momentum, room left.
+      const g = gateInput(p);
+      if (passesWinnerGates({ ...g, activeAds: g.activeAds ?? 0 }).ok) proven.push(p);
+      else if (passesKnownGates(g)) unproven.push(p);
+      else gated++;
     }
-    if (top.length) perNiche.push({ niche, products: top });
+    const picks = pickNicheMix(proven, shownBefore, `${day}:${niche}`, WINNERS_PER_NICHE);
+    const fill = pickNicheMix(unproven, shownBefore, `${day}:${niche}:fill`, WINNERS_PER_NICHE - picks.length);
+    gated += unproven.length - fill.length;
+    const products = [...picks, ...fill];
+    if (products.length) perNiche.push({ niche, products });
   }
   perNiche.sort((a, b) => b.products[0].aiScore - a.products[0].aiScore);
   const feed = roundRobin(perNiche.map((n) => n.products.map((p, i) => ({ p, niche: n.niche, rank: i + 1 }))));
 
-  const previous = await ctx.db.query("winningProducts").collect();
   const enteredBefore = new Map(previous.map((r) => [r.productId as string, r.enteredDay]));
   const keep = new Set(feed.map((f) => f.p._id as string));
   for (const r of previous) {
     await ctx.db.delete("winningProducts", r._id);
-    if (!keep.has(r.productId)) {
-      const p = await ctx.db.get("products", r.productId);
-      if (p && (p.winnerRank !== undefined || p.verifiedWinner)) await ctx.db.patch("products", p._id, { winnerRank: undefined, verifiedWinner: undefined });
-    }
+    if (!keep.has(r.productId)) await clearWinner(ctx, r.productId);
   }
   for (const [position, f] of feed.entries()) {
     await ctx.db.insert("winningProducts", {
@@ -977,7 +1047,30 @@ export async function rebuildWinners(ctx: MutationCtx, day: string): Promise<{ w
       await ctx.db.patch("products", f.p._id, { winnerRank: f.rank, verifiedWinner: verified, winnerSince: f.p.winnerSince ?? day });
     }
   }
+  await writeWinnersRound(ctx, day);
   return { winners: feed.length, gated };
+}
+
+async function clearWinner(ctx: MutationCtx, productId: Id<"products">) {
+  const p = await ctx.db.get("products", productId);
+  if (p && (p.winnerRank !== undefined || p.verifiedWinner)) await ctx.db.patch("products", p._id, { winnerRank: undefined, verifiedWinner: undefined });
+}
+
+// Between rounds: keep the mix, only take out products that were deleted,
+// moved niche or now fail on real numbers. Nothing new is added.
+export async function pruneWinners(ctx: MutationCtx): Promise<number> {
+  const rows = await ctx.db.query("winningProducts").collect();
+  let kept = 0;
+  for (const r of rows) {
+    const p = await ctx.db.get("products", r.productId);
+    if (p && listable(p) && p.category === r.niche && passesKnownGates(gateInput(p))) {
+      kept++;
+      continue;
+    }
+    await ctx.db.delete("winningProducts", r._id);
+    await clearWinner(ctx, r.productId);
+  }
+  return kept;
 }
 
 type SnapshotValues = Omit<Doc<"dailySnapshots">, "_id" | "_creationTime" | "day" | "kind" | "entityId">;

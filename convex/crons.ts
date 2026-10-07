@@ -91,6 +91,9 @@ crons.hourly("refresh Pro plans from the AdSpy Pro backend", { minuteUTC: 50 }, 
 // Daily pipeline: images → link → landing pages → dedupe → stores → score →
 // winner gates → history → lists → morning emails (convex/productPipeline.ts).
 crons.daily("daily pipeline: link, dedupe, score, winners, lists, emails", { hourUTC: 8, minuteUTC: 5 }, internal.productPipeline.start);
+// Watchdog: a pipeline step (or Admin's duplicate merge) that failed without
+// reporting back is skipped after 20 minutes, so the run still finishes.
+crons.interval("pipeline watchdog", { minutes: 10 }, internal.productPipeline.watchdog, {});
 
 // Rebuild filter counts / admin totals once a day as a backstop.
 crons.daily("rebuild site stats", { hourUTC: 9, minuteUTC: 5 }, internal.stats.recompute);

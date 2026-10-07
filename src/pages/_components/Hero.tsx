@@ -19,8 +19,8 @@ function TodaysWinners() {
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-baseline justify-between gap-4 px-5 pt-4 pb-3 border-b border-border">
-        <h2 className="font-display text-lg font-bold">Today's winners</h2>
-        <span className="text-xs text-muted-foreground">Rebuilt every morning</span>
+        <h2 className="font-display text-lg font-bold">Current winners</h2>
+        <span className="text-xs text-muted-foreground">New mix every 3 days</span>
       </div>
       <ul aria-busy={rows === undefined}>
         {rows === undefined
