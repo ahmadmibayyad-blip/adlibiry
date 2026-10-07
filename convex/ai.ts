@@ -7,6 +7,7 @@ import * as z from "zod";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { claimAiRequest } from "./lib/aiQuota";
+import { isDemoAd, isDemoStore, productFacts } from "./lib/aiFacts";
 
 const openai = new OpenAI({
   // Your own OpenAI (or any OpenAI-compatible) key. Set OPENAI_API_KEY in Convex.
@@ -34,13 +35,13 @@ export const scoreProduct = action({
   args: {
     title: v.string(),
     description: v.string(),
-    price: v.number(),
-    cost: v.number(),
+    // Missing when we don't know them: the AI is told "unknown", never $0.
+    price: v.optional(v.number()),
+    cost: v.optional(v.number()),
     category: v.string(),
   },
   handler: async (ctx, args): Promise<z.infer<typeof ProductScoreSchema>> => {
     await claimAiRequest(ctx);
-    const margin = Math.round(((args.price - args.cost) / args.price) * 100);
     try {
       const response = await openai.chat.completions.parse({
         model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
@@ -49,11 +50,11 @@ export const scoreProduct = action({
           {
             role: "system",
             content:
-              "You are a blunt, experienced dropshipping analyst. Rate products on winning potential for paid social ads (Facebook/TikTok). Be honest and specific — never inflate scores. Consider: 'wow factor' for video ads, problem-solution clarity, price point vs perceived value, margin health, market saturation risk, and shipping/return friction. A score of 90+ should be rare and reserved for genuinely exceptional products.",
+              "You are a blunt, experienced dropshipping analyst. Rate products on winning potential for paid social ads (Facebook/TikTok). Be honest and specific — never inflate scores. Consider: 'wow factor' for video ads, problem-solution clarity, price point vs perceived value, margin health, market saturation risk, and shipping/return friction. A score of 90+ should be rare and reserved for genuinely exceptional products. If the price, cost or margin is unknown, say so instead of assuming one.",
           },
           {
             role: "user",
-            content: `Product: ${args.title}\nCategory: ${args.category}\nDescription: ${args.description}\nSell price: $${args.price}\nSupplier cost: $${args.cost}\nMargin: ${margin}%\n\nRate this product's winning potential 0-100 and explain your reasoning.`,
+            content: `${productFacts(args)}\n\nRate this product's winning potential 0-100 and explain your reasoning.`,
           },
         ],
         response_format: zodResponseFormat(ProductScoreSchema, "score"),
@@ -162,13 +163,14 @@ export const findCompetitors = action({
       }),
     ]);
 
-    const matchedAds: AdMatch[] = adsResult.page.map((a) => ({
+    // Demo rows from the admin seed functions aren't real competitors.
+    const matchedAds: AdMatch[] = adsResult.page.filter((a) => !isDemoAd(a)).map((a) => ({
       advertiserName: a.advertiserName,
       platform: a.platform,
       niche: a.niche,
       headline: a.headline,
     }));
-    const matchedStores: StoreMatch[] = storesResult.page.map((s) => ({
+    const matchedStores: StoreMatch[] = storesResult.page.filter((s) => !isDemoStore(s)).map((s) => ({
       name: s.name,
       niche: s.niche,
       url: s.url,

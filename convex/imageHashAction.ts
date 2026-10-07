@@ -1,7 +1,6 @@
 "use node";
 
 import { v } from "convex/values";
-import { Jimp } from "jimp";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { ADS_PER_ROUND, dHashFromGray, grayGrid } from "./lib/imageHash";
@@ -25,6 +24,8 @@ async function hashUrl(url: string): Promise<string> {
     if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) return "";
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length > MAX_BYTES) return "";
+    // Loaded on first use: the library is large, and runs without images never need it.
+    const { Jimp } = await import("jimp");
     const { data, width, height } = (await Jimp.read(buf)).bitmap;
     return dHashFromGray(grayGrid(data, width, height));
   } catch {

@@ -354,8 +354,8 @@ export default function ProductDetail() {
             <AIProductScoreCard
               title={product.title}
               description={product.description}
-              price={product.price ?? 0}
-              cost={product.cost ?? 0}
+              price={product.price}
+              cost={product.cost}
               category={product.category}
             />
             <AIAdAnglesCard

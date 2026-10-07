@@ -49,6 +49,7 @@ import type * as importRuns from "../importRuns.js";
 import type * as lib_adCopy from "../lib/adCopy.js";
 import type * as lib_adFields from "../lib/adFields.js";
 import type * as lib_adspyBackend from "../lib/adspyBackend.js";
+import type * as lib_aiFacts from "../lib/aiFacts.js";
 import type * as lib_aiQuota from "../lib/aiQuota.js";
 import type * as lib_aiTools from "../lib/aiTools.js";
 import type * as lib_aliexpress from "../lib/aliexpress.js";
@@ -164,6 +165,7 @@ declare const fullApi: ApiFromModules<{
   "lib/adCopy": typeof lib_adCopy;
   "lib/adFields": typeof lib_adFields;
   "lib/adspyBackend": typeof lib_adspyBackend;
+  "lib/aiFacts": typeof lib_aiFacts;
   "lib/aiQuota": typeof lib_aiQuota;
   "lib/aiTools": typeof lib_aiTools;
   "lib/aliexpress": typeof lib_aliexpress;
