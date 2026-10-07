@@ -36,6 +36,19 @@ describe("daily import run log", () => {
     await expect(t.withIdentity({ subject: "u1|s" }).query(api.importRuns.latest, {})).rejects.toThrow();
   });
 
+  it("lets an admin run one import now; it's logged like a scheduled run", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "admin1", role: "admin" });
+      await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+    });
+    await expect(t.withIdentity({ subject: "u1|s" }).mutation(api.importRuns.runNow, { job: "metaAdLibrary" })).rejects.toThrow();
+    await t.withIdentity({ subject: "admin1|s" }).mutation(api.importRuns.runNow, { job: "metaAdLibrary" });
+    await t.finishAllScheduledFunctions(() => {});
+    const runs = await t.withIdentity({ subject: "admin1|s" }).query(api.importRuns.latest, {});
+    expect(runs.find((r) => r.job === "metaAdLibrary")?.last).toMatchObject({ status: "skipped", summary: "META_ACCESS_TOKEN isn't set (Meta Ad Library API)" });
+  });
+
   it("keeps importing other countries after one fails, and logs every failure", async () => {
     vi.stubEnv("NEXSCOPE_TIKTOK_COUNTRIES", "gb,de");
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 500 })));

@@ -1,14 +1,17 @@
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/convex/_generated/api.js";
 import { cn } from "@/lib/utils.ts";
+import { Button } from "@/components/ui/button.tsx";
 
 const LABELS: Record<string, string> = {
   adlibrary: "AdLibrary ads",
   nexscopePricing: "Nexscope pricing",
   nexscopeDiscovery: "Nexscope product discovery",
   nexscopeTikTok: "Nexscope TikTok ads",
-  apify: "Apify Meta Ad Library (turned off)",
+  apify: "Apify Meta Ad Library",
   metaAdLibrary: "Meta Ad Library API (official)",
   pipispy: "PiPiSpy",
   aliexpressCosts: "AliExpress suppliers",
@@ -27,6 +30,9 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 // shows up here instead of only as data quietly not growing.
 export default function ImportRunsCard() {
   const runs = useQuery(api.importRuns.latest, {});
+  const runNow = useMutation(api.importRuns.runNow);
+  // Jobs started here, until a newer run shows up in the log.
+  const [started, setStarted] = useState<Record<string, number>>({});
 
   return (
     <section className="bg-card border border-border rounded-xl p-5 mb-5">
@@ -53,6 +59,24 @@ export default function ImportRunsCard() {
                     </span>
                   )}
                   {problemsLast7 > 1 && <span className="text-xs text-bad">Problems in {problemsLast7} of the last 7 runs</span>}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 ml-auto"
+                    disabled={started[job] !== undefined && (!last || last.startedAt < started[job])}
+                    onClick={async () => {
+                      try {
+                        setStarted((s) => ({ ...s, [job]: Date.now() - 5_000 }));
+                        await runNow({ job: job as never });
+                        toast.success(`${LABELS[job] ?? job} started. The result appears here when it finishes.`);
+                      } catch (e) {
+                        setStarted(({ [job]: _done, ...rest }) => rest);
+                        toast.error(e instanceof Error ? e.message : "Could not start");
+                      }
+                    }}
+                  >
+                    {started[job] !== undefined && (!last || last.startedAt < started[job]) ? "Running…" : "Run now"}
+                  </Button>
                 </div>
                 {last && <p className="text-xs text-muted-foreground mt-1">{last.summary}</p>}
                 {last && last.errors.length > 0 && (
