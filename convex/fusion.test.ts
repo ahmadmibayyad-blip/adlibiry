@@ -201,6 +201,6 @@ describe("event-driven enrichment", () => {
     await winnerWithAdvertiser(t, "Paw", 95);
     const r = await t.action(internal.fusion.runTriggers, { day: DAY });
     expect(r.winner.skipped).toBe("APIFY_TOKEN isn't set");
-    expect(r.backfill.skipped).toBe("neither ADLIBRARY_API_KEY nor META_ACCESS_TOKEN is set");
+    expect(r.backfill.skipped).toBe("needs ADLIBRARY_API_KEY (not paused) or META_ACCESS_TOKEN");
   });
 });

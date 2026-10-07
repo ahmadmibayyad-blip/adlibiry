@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils.ts";
 const FAMILIES: { key: string; label: string; what: string }[] = [
   { key: "registry", label: "Ad registry", what: "Meta's official Ad Library lists its ads as live" },
   { key: "engagement", label: "Ad engagement", what: "ad-spy feeds see views and likes on its ads" },
-  { key: "marketplace", label: "Marketplace sales", what: "TikTok Shop, Amazon or the store reports sales" },
+  { key: "marketplace", label: "Marketplace sales", what: "TikTok Shop, Amazon or the store reports sales (or its Amazon twin sells)" },
 ];
 
 export default function SourceAgreement({ product }: { product: Doc<"products"> }) {
@@ -41,6 +41,17 @@ export default function SourceAgreement({ product }: { product: Doc<"products"> 
           );
         })}
       </ul>
+      {product.marketplaceMatch && (
+        <p className="text-xs mt-3">
+          <strong className="font-medium">Amazon twin</strong> (matched by image):{" "}
+          <a href={product.marketplaceMatch.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+            {product.marketplaceMatch.title.slice(0, 70)}
+          </a>
+          {product.marketplaceMatch.unitsPerMonth !== undefined && (
+            <span className="text-muted-foreground"> · ~{product.marketplaceMatch.unitsPerMonth.toLocaleString("en-US")} sold / month</span>
+          )}
+        </p>
+      )}
       <p className="text-[11px] text-muted-foreground mt-3">
         {f.adLevel && f.productLevel
           ? "Live ads, rising engagement and real sales agree."

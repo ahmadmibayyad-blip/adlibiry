@@ -30,6 +30,8 @@ export const run = internalAction({
 async function runJob(ctx: ActionCtx, name: (typeof JOBS)[number]): Promise<unknown> {
   switch (name) {
     case "adlibrary":
+      // ADLIBRARY_PAUSED=true keeps the key (for targeted searches) but stops the daily bulk sync.
+      if (/^(1|true|yes|on)$/i.test(process.env.ADLIBRARY_PAUSED ?? "")) return { notConfigured: "Paused (ADLIBRARY_PAUSED is set)" };
       return await ctx.runAction(internal.adlibrary.sync.runSync, {});
     case "nexscopePricing":
       return await ctx.runAction(internal.nexscope.pricing.backfillProductPricing, {});

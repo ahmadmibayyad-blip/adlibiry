@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button.tsx";
 const TRIGGERS: Record<string, string> = {
   winner: "New winners → advertiser's ads (Apify)",
   spike: "Niche spikes → newcomers (Apify)",
-  backfill: "Marketplace products → ads (Meta API, free)",
+  backfill: "Marketplace products → ads (AdLibrary or Meta API)",
+  twin: "Ad-only products → Amazon twin by image (Nexscope)",
+  wholesale: "Winners → 1688 suppliers by image (Nexscope)",
   daily: "Daily keyword imports (Apify)",
 };
 const FIELDS: Record<string, string> = {
@@ -31,7 +33,7 @@ export default function FusionCard() {
         <h3 className="font-semibold text-sm">Source fusion</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        Apify, Meta's Ad Library and marketplace data combined per product. Triggered Apify runs share a daily budget of $
+        Apify, Meta's Ad Library, AdLibrary and Nexscope combined per product. Triggered Apify runs share a daily budget of $
         {data.budget.toFixed(2)} (APIFY_DAILY_BUDGET_USD).
       </p>
       <div className="grid grid-cols-3 gap-2 mb-4">
@@ -71,7 +73,7 @@ export default function FusionCard() {
         <>
           <h4 className="text-xs font-semibold mb-1.5">Last run ({last.day})</h4>
           <ul className="text-xs space-y-1 mb-4">
-            {(["winner", "spike", "backfill"] as const).map((k) => {
+            {(["winner", "spike", "backfill", "twin", "wholesale"] as const).map((k) => {
               const r = last[k];
               if (!r) return null;
               return (

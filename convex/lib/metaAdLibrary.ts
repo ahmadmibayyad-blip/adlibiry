@@ -83,3 +83,44 @@ export function metaAdToExternal(ad: MetaArchiveAd, country: string, niche: stri
     adLibraryUrl: `https://www.facebook.com/ads/library/?id=${encodeURIComponent(ad.id)}`,
   };
 }
+
+// Commercial ads exist in the API only where the EU's Digital Services Act (or
+// the UK's rules) require them; anywhere else a search comes back empty.
+export const META_COMMERCIAL_COUNTRIES = new Set([
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+  "PL", "PT", "RO", "SK", "SI", "ES", "SE", "GB",
+]);
+
+/** META_AD_COUNTRIES (or META_ADS_COUNTRIES) split into the ones the API can serve and the ones it can't. */
+export function metaCountries(raw: string | undefined): { use: string[]; skipped: string[] } {
+  const list = (raw ?? "DK,SE,DE,NL,FR").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
+  const use = list.map((c) => (c === "UK" ? "GB" : c)).filter((c) => META_COMMERCIAL_COUNTRIES.has(c));
+  return { use: [...new Set(use)], skipped: list.filter((c) => !META_COMMERCIAL_COUNTRIES.has(c === "UK" ? "GB" : c)) };
+}
+
+export type MetaApiError = { code?: number; error_subcode?: number; message?: string; type?: string };
+
+/**
+ * A Graph API error in plain words, and what to do: `stop` for token and
+ * permission problems (every further call fails the same way), `retry` when
+ * Meta is throttling us.
+ */
+export function describeMetaError(err: MetaApiError | undefined, status: number): { message: string; stop: boolean; retry: boolean } {
+  const code = err?.code;
+  const raw = err?.message ? ` (Meta: ${err.message.slice(0, 120)})` : "";
+  if (code === 190 || status === 401) {
+    return { message: `Meta token expired or invalid (code 190). Make a new long-lived token and update META_ACCESS_TOKEN.${raw}`, stop: true, retry: false };
+  }
+  if (code === 10 || code === 200 || code === 2332 || (code !== undefined && code >= 200 && code < 300) || status === 403) {
+    return {
+      message: `Meta refused access (code ${code ?? status}): finish identity confirmation at facebook.com/ID and accept the Ad Library API terms at facebook.com/ads/library/api.${raw}`,
+      stop: true,
+      retry: false,
+    };
+  }
+  if (code === 4 || code === 17 || code === 32 || code === 613 || status === 429) {
+    return { message: `Meta is rate-limiting us (code ${code ?? status}); try again later.${raw}`, stop: false, retry: true };
+  }
+  if (code === 100) return { message: `Meta rejected a parameter (code 100).${raw}`, stop: false, retry: false };
+  return { message: `Meta API error ${code ?? `HTTP ${status}`}.${raw}`, stop: false, retry: false };
+}

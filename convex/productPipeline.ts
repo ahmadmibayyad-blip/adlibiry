@@ -843,6 +843,7 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
   patch.fusion = fusion({
     productSource: p.source ?? "",
     unitsPerMonth: p.unitsPerMonth,
+    twinUnitsPerMonth: p.marketplaceMatch?.unitsPerMonth,
     trend: p.trend,
     growthPercent: p.growthPercent,
     momentum14: patch.momentum14,

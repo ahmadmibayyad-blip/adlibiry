@@ -39,7 +39,7 @@ type DiscoveryResult = {
 };
 
 // POST one Nexscope skill; returns its product list or an error message.
-async function runSkill(apiKey: string, skill: string, body: unknown): Promise<{ products: unknown[] } | { error: string }> {
+export async function runSkill(apiKey: string, skill: string, body: unknown): Promise<{ products: unknown[] } | { error: string }> {
   const response = await fetch(nexscopeSkillUrl(skill), {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

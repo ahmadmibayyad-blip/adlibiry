@@ -23,7 +23,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   ok: { label: "OK", cls: "bg-good/10 text-good" },
   partial: { label: "Partly failed", cls: "bg-warn/10 text-warn" },
   failed: { label: "Failed", cls: "bg-bad/10 text-bad" },
-  skipped: { label: "Not set up", cls: "bg-muted text-muted-foreground" },
+  skipped: { label: "Not set up / paused", cls: "bg-muted text-muted-foreground" },
 };
 
 // The last run of each daily import, so a failure (e.g. out of API credits)
