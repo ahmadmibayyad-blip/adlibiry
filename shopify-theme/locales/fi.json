@@ -31,6 +31,7 @@
     "rating": "{{ rating }}/5 tähteä",
     "guarantee_title": "{{ days }} päivän rahat takaisin -takuu",
     "guarantee_text": "Etkö ole tyytyväinen? Palauta tuote {{ days }} päivän sisällä ja saat rahasi takaisin.",
+    "view_product": "Katso tuote",
     "choose_product": "Valitse tuote tälle osiolle teemaeditorissa."
   },
   "cart": {

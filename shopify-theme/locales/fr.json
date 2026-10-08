@@ -31,6 +31,7 @@
     "rating": "{{ rating }} sur 5 étoiles",
     "guarantee_title": "Satisfait ou remboursé {{ days }} jours",
     "guarantee_text": "Pas convaincu ? Renvoyez-le sous {{ days }} jours et vous serez remboursé.",
+    "view_product": "Voir le produit",
     "choose_product": "Choisissez un produit pour cette section dans l'éditeur de thème."
   },
   "cart": {

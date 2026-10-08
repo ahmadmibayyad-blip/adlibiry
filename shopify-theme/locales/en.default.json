@@ -31,6 +31,7 @@
     "rating": "{{ rating }} out of 5 stars",
     "guarantee_title": "{{ days }}-day money-back guarantee",
     "guarantee_text": "Not happy with it? Send it back within {{ days }} days and get your money back.",
+    "view_product": "See the product",
     "choose_product": "Choose a product for this section in the theme editor."
   },
   "cart": {

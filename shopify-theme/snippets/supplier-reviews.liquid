@@ -1,0 +1,30 @@
+{%- comment -%}
+  Reviews from buyers at the supplier (Launch: convex/lib/supplierReviews.ts), labelled as such,
+  with the listing's real average and count. `reviews`: the product's adspy.reviews metafield value;
+  `heading`: optional, replaces the default heading.
+{%- endcomment -%}
+<div class="section__head">
+  <h2 class="h2">{%- if heading != blank -%}{{ heading | escape }}{%- else -%}{{ 'products.reviews_heading' | t }}{%- endif -%}</h2>
+  <p class="reviews__summary">
+    {% render 'stars', rating: reviews.average %}
+    <strong>{{ reviews.average }}</strong>
+    <span class="muted">{{ 'products.reviews_source' | t: count: reviews.total }}</span>
+  </p>
+</div>
+<div class="reviews__grid">
+  {%- for r in reviews.items -%}
+    <figure class="review">
+      {% render 'stars', rating: r.rating %}
+      <blockquote class="review__text">{{ r.text | escape }}</blockquote>
+      {%- if r.images.size > 0 -%}
+        <div class="review__photos">
+          {%- for img in r.images -%}<img src="{{ img | escape }}" alt="" loading="lazy" width="72" height="72">{%- endfor -%}
+        </div>
+      {%- endif -%}
+      <figcaption class="review__by">
+        {%- if r.name != blank -%}{{ r.name | escape }}{%- else -%}{{ 'products.reviews_buyer' | t }}{%- endif -%}
+        {%- if r.country != blank %} · {{ r.country | escape }}{%- endif -%}
+      </figcaption>
+    </figure>
+  {%- endfor -%}
+</div>

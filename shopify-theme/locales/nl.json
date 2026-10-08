@@ -31,6 +31,7 @@
     "rating": "{{ rating }} van 5 sterren",
     "guarantee_title": "{{ days }} dagen geld-terug-garantie",
     "guarantee_text": "Niet tevreden? Stuur het binnen {{ days }} dagen terug en krijg je geld terug.",
+    "view_product": "Bekijk het product",
     "choose_product": "Kies een product voor deze sectie in de thema-editor."
   },
   "cart": {

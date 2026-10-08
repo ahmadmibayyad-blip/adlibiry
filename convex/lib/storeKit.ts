@@ -281,10 +281,12 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
         scheme: style.schemes.story,
       },
     },
+    // Shows the product's supplier reviews when the launch added them, nothing otherwise.
+    reviews: { type: "reviews", settings: { product: t.productHandle, scheme: style.schemes.story === "surface" ? "base" : "surface" } },
     faq: { type: "faq", settings: { heading: c.faq.heading, scheme: style.schemes.faq }, ...blocks("f", c.faq.items.slice(0, 6), "question", (f) => ({ question: f.q, answer: `<p>${esc(f.a)}</p>` })) },
     newsletter: { type: "newsletter", settings: { heading: c.newsletter.heading, text: c.newsletter.text, scheme: style.schemes.newsletter } },
   };
-  const order = ["hero", "trust", "product", "benefits", "steps", "story", "faq", "newsletter"].filter((k) => {
+  const order = ["hero", "trust", "product", "benefits", "steps", "story", "reviews", "faq", "newsletter"].filter((k) => {
     if (k === "benefits") return c.benefits.items.length > 0;
     if (k === "steps") return c.steps.items.length > 0;
     if (k === "faq") return c.faq.items.length > 0;

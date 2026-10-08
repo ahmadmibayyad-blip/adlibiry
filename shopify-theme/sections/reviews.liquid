@@ -1,0 +1,25 @@
+{%- comment -%} Home page: the supplier reviews of the store's product (snippets/supplier-reviews.liquid). Shows nothing without them. {%- endcomment -%}
+{%- assign featured = section.settings.product -%}
+{%- assign reviews = featured.metafields.adspy.reviews.value -%}
+{%- if reviews.items.size > 0 -%}
+  <section class="section scheme-{{ section.settings.scheme }}">
+    <div class="page-width">
+      {% render 'supplier-reviews', reviews: reviews, heading: section.settings.heading %}
+      {%- if featured.url -%}
+        <p class="link-center"><a href="{{ featured.url }}#Reviews" class="btn btn--outline">{{ 'products.view_product' | t }}</a></p>
+      {%- endif -%}
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Reviews",
+  "settings": [
+    { "type": "product", "id": "product", "label": "Product" },
+    { "type": "text", "id": "heading", "label": "Heading (empty: “What buyers say”)" },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "surface", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "presets": [{ "name": "Reviews" }]
+}
+{% endschema %}
