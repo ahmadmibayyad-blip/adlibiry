@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bigBrandIn,
   adSellsProduct, gmvFromText, isProductPage, parseCompact, productFlags, productTitleForAd, roundRobin, saturationFromCompetition, titleFromUrl, titleKey, urlKey,
 } from "./productMatch";
 
@@ -53,6 +54,17 @@ describe("flags", () => {
     expect(productFlags("Custom pet portrait canvas").isPersonalised).toBe(true);
     expect(productFlags("$50 gift card").isService).toBe(true);
     expect(productFlags("Dog cooling mat")).toEqual({ isBigBrand: false, isPersonalised: false, isService: false });
+  });
+  it("names the big brand, and leaves everyday words alone", () => {
+    expect(bigBrandIn("Roku Streaming Stick HD with Voice Remote")).toBe("Roku");
+    expect(bigBrandIn("Stanley Quencher tumbler 40oz")).toBe("Stanley Quencher");
+    expect(bigBrandIn("Ring Video Doorbell battery")).toBe("Ring Video Doorbell");
+    expect(bigBrandIn("Silicone case for Apple Watch")).toBe("Apple Watch");
+    expect(bigBrandIn("Pokémon plush 30 cm")).toBe("Pokémon");
+    expect(bigBrandIn("Black+Decker cordless drill")).toBe("Black+Decker");
+    for (const ok of ["Apple slicer and corer", "LED ring light with tripod", "Dove grey linen napkins", "Heart beats night light", "Vinyl record cleaning kit", "Snuffle mat for dogs", "Whoop whoop party horn"]) {
+      expect(bigBrandIn(ok)).toBeNull();
+    }
   });
   it("only counts ads that sell one physical product", () => {
     const ad = { headline: "Keep your dog cool", bodyText: "", advertiserName: "Paws" };

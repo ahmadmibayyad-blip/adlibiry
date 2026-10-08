@@ -25,7 +25,7 @@ export type StoreCheckInput = {
   themeCount?: number;
   /** What the store's launch promised (the latest Full store launch). */
   facts?: StoreFacts | null;
-  products: { title: string; status: string; hasImage: boolean; bigBrand: boolean }[];
+  products: { title: string; status: string; hasImage: boolean; bigBrand: boolean; brand?: string }[];
 };
 
 export const adminUrl = (shopDomain: string, path: string) => `https://admin.shopify.com/store/${shopDomain.replace(/\.myshopify\.com$/, "")}/${path}`;
@@ -160,7 +160,13 @@ export function storeChecks(i: StoreCheckInput): StoreCheckItem[] {
   // The launched products.
   for (const p of i.products) {
     if (p.bigBrand && p.status === "ACTIVE") {
-      out.push({ id: `brand:${p.title}`, status: "fix", title: `“${p.title}” is a big-brand product`, detail: "Selling it risks trademark claims and bans on Meta and Shopify. Set it to draft.", fixUrl: admin("products") });
+      out.push({
+        id: `brand:${p.title}`,
+        status: "fix",
+        title: `“${p.title}” is a big-brand product`,
+        detail: `${p.brand ? `It's named after ${p.brand}. ` : ""}Selling it risks trademark claims and bans on Meta and Shopify. Set it to draft.`,
+        fixUrl: admin("products"),
+      });
     }
     if (!p.hasImage && p.status === "ACTIVE") {
       out.push({ id: `photo:${p.title}`, status: "fix", title: `“${p.title}” has no photos`, detail: "Visitors see an empty picture. Add photos, or launch it again with AI photos.", fixUrl: admin("products") });

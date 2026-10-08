@@ -3,6 +3,7 @@ import { action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { stableToken } from "./lib/authIdentity";
 import { decryptToken } from "./lib/shopifyOAuth";
+import { bigBrandIn } from "./lib/productMatch";
 import { NoAccess, adminGql as gql } from "./lib/shopifyAdmin";
 import { storeChecks, type ShippingZone, type StoreCheckItem } from "./lib/storeCheck";
 import type { StoreFacts } from "./lib/storeKit";
@@ -131,7 +132,10 @@ export const run = action({
       facts: c.facts,
       products: Object.values(products ?? {})
         .filter((p): p is NonNullable<typeof p> => !!p?.id)
-        .map((p) => ({ title: p.title, status: p.status, hasImage: !!p.featuredImage, bigBrand: bigBrand.has(p.id) })),
+        .map((p) => {
+          const brand = bigBrandIn(p.title);
+          return { title: p.title, status: p.status, hasImage: !!p.featuredImage, bigBrand: !!brand || bigBrand.has(p.id), ...(brand ? { brand } : {}) };
+        }),
     });
     return { shopDomain: shop, items };
   },

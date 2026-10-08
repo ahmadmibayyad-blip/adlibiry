@@ -93,8 +93,16 @@ export function titleKey(title: string | undefined): string | null {
   return tokens.length >= 3 ? tokens.join(" ").slice(0, 200) : null;
 }
 
+// Brands whose products (or products named after them) bring trademark claims and Meta/Shopify bans.
+// Ambiguous words are only matched with the product word next to them ("ring doorbell", not "ring").
 const BIG_BRANDS =
-  /\b(apple|iphone|ipad|airpods|samsung|galaxy s\d+|sony|playstation|xbox|nintendo|nike|adidas|puma|reebok|dyson|bissell|shark ninja|ninja foodi|lego|disney|ikea|amazon basics|google pixel|microsoft|dell|hp laptop|lenovo|bose|beats|gucci|louis vuitton|chanel|dior|prada|rolex|zara|h&m|uniqlo|shein|temu|walmart|costco|l'or[eé]al|loreal|maybelline|nivea|olay|dove|colgate|gillette|philips|braun|kitchenaid|instant pot|xiaomi|huawei|garmin|fitbit|gopro|canon|nikon|stanley cup|yeti|owala|lululemon|under armour|the north face|patagonia|crocs|skechers|new balance|converse|vans)\b/i;
+  /\b(apple (watch|pencil|tv|magsafe|vision|airpods|iphone|ipad|macbook)|iphone|ipad|airpods|airtag|macbook|apple watch|samsung|galaxy s\d+|galaxy buds|sony|playstation|ps5|xbox|nintendo|switch oled|nike|air jordan|jordan \d+|adidas|yeezy|puma|reebok|asics|hoka|new balance|converse|vans|skechers|crocs|birkenstock|ugg|dr\.? ?martens|timberland|dyson|bissell|shark ninja|ninja foodi|ninja creami|lego|disney|marvel|star wars|harry potter|pok[eé]mon|barbie|hot wheels|mattel|hasbro|squishmallows?|stitch plush|ikea|amazon basics|kindle|echo dot|fire ?tv|fire ?stick|ring (video )?doorbell|roku|chromecast|google pixel|google nest|microsoft|dell|hp laptop|lenovo|bose|beats (by dre|headphones|earbuds|studio|solo|fit|pill)|jbl|sonos|logitech|razer|steelseries|anker|gucci|louis vuitton|chanel|dior|prada|rolex|cartier|tiffany & co|versace|balenciaga|burberry|fendi|herm[eè]s|michael kors|ralph lauren|tommy hilfiger|calvin klein|levi'?s|ray-?ban|oakley|pandora (charm|bracelet|ring|necklace)|swarovski|zara|h&m|uniqlo|shein|temu|walmart|costco|starbucks|red bull|coca-?cola|nutella|l'or[eé]al|loreal|maybelline|nivea|olay|dove (soap|body ?wash|deodorant|shampoo)|colgate|oral-?b|gillette|philips|braun|kitchenaid|nespresso|keurig|de'?longhi|smeg|le creuset|tefal|instant pot|bosch|makita|dewalt|milwaukee (tool|drill|battery)|ryobi|black ?(\+|&|and) ?decker|xiaomi|huawei|garmin|fitbit|whoop (band|strap)|oura ring|gopro|dji|canon|nikon|theragun|therabody|stanley cup|stanley quencher|yeti|owala|hydro ?flask|lululemon|under armour|the north face|patagonia|carhartt|stussy)\b/i;
+
+/** The big brand named in the text ("Roku"), or null. */
+export function bigBrandIn(text: string): string | null {
+  const m = text.match(BIG_BRANDS);
+  return m ? m[0] : null;
+}
 
 const PERSONALISED =
   /\b(personali[sz]ed|personali[sz]able|custom(i[sz]ed|i[sz]able)?|engraved|monogram(med)?|your (name|photo|text)|name (necklace|bracelet|mug|shirt)|print[- ]on[- ]demand|made to order|photo (blanket|pillow|mug)|custom (photo|name|text|portrait)|pet portrait|family portrait)\b/i;
