@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { charmFor, cleanCopy, handleFor, launchFacts, launchProductInput, pageHtml, proofLine, scrubClaims, suggestPrice, type LaunchCopy } from "./launchCopy";
+import { charmFor, cleanCopy, handleFor, launchFacts, launchImages, launchProductInput, pageHtml, proofLine, scrubClaims, suggestPrice, type LaunchCopy } from "./launchCopy";
 import { authorizeUrl, decryptToken, encryptToken, verifyQueryHmac, verifyWebhookHmac } from "./shopifyOAuth";
 
 const copy: LaunchCopy = {
@@ -85,7 +85,7 @@ describe("Launch page and Shopify product", () => {
 
   it("builds the productSet input: price, cost, images, SEO and the metafield", () => {
     const input = launchProductInput(
-      { title: "Old title", description: "", category: "Health & Wellness", imageUrl: "https://cdn.x/1.jpg", images: ["https://cdn.x/1.jpg", "https://cdn.x/2.jpg", "http://insecure/3.jpg"] },
+      { title: "Old title", description: "", category: "Health & Wellness", imageUrl: "https://cdn.x/1.jpg", images: ["https://cdn.x/1.jpg", "https://cdn.x/2.jpg", "javascript:alert(1)"] },
       copy,
       { price: 27.99, cost: 10, status: "DRAFT" },
     );
@@ -93,6 +93,18 @@ describe("Launch page and Shopify product", () => {
     expect(input.variants[0]).toMatchObject({ price: "27.99", inventoryItem: { cost: "10.00", tracked: false } });
     expect(input.files.map((f) => f.originalSource)).toEqual(["https://cdn.x/1.jpg", "https://cdn.x/2.jpg"]);
     expect(JSON.parse(input.metafields[0].value).benefits).toHaveLength(3);
+  });
+
+  it("sends Shopify photos it can download", () => {
+    const now = Date.parse("2026-10-08T12:00:00Z");
+    const hex = (iso: string) => Math.floor(Date.parse(iso) / 1000).toString(16).toUpperCase();
+    const expired = `https://scontent.fgye7-1.fna.fbcdn.net/v/t45/1_n.jpg?stp=x&oe=${hex("2026-10-02T21:19:27Z")}`;
+    const fresh = `https://scontent.xx.fbcdn.net/v/t45/2_n.jpg?oe=${hex("2026-10-12T00:00:00Z")}`;
+    expect(launchImages([expired, "http://pets-dreams.uk/cdn/shop/files/mat.jpg?v=1", "//cdn.shopify.com/s/a.jpg", fresh, "http://localhost/x.jpg", "not a url"], now)).toEqual([
+      "https://pets-dreams.uk/cdn/shop/files/mat.jpg?v=1",
+      "https://cdn.shopify.com/s/a.jpg",
+      fresh,
+    ]);
   });
 });
 

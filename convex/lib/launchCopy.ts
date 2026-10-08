@@ -209,13 +209,36 @@ export const handleFor = (title: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "product";
 
+/**
+ * Photos Shopify can download: http links (common in shops' og:image) become https, and Facebook/Instagram
+ * links past their expiry (the hex `oe` timestamp) are left out, since Shopify would get nothing from them.
+ */
+export function launchImages(urls: string[], now = Date.now()): string[] {
+  const out: string[] = [];
+  for (const raw of urls) {
+    let u: URL;
+    try {
+      u = new URL(raw.trim().replace(/^\/\//, "https://"));
+    } catch {
+      continue;
+    }
+    if ((u.protocol !== "https:" && u.protocol !== "http:") || !u.hostname.includes(".")) continue;
+    u.protocol = "https:";
+    const oe = u.searchParams.get("oe");
+    if (/(^|\.)(fbcdn\.net|cdninstagram\.com)$/.test(u.hostname) && oe && /^[0-9a-f]+$/i.test(oe) && parseInt(oe, 16) * 1000 < now + 3_600_000) continue;
+    const url = u.toString();
+    if (!out.includes(url)) out.push(url);
+  }
+  return out.slice(0, 10);
+}
+
 /** Shopify productSet input: the page, price and cost, images, SEO, and the copy as a metafield for our theme block. */
 export function launchProductInput(
   p: LaunchProduct,
   c: LaunchCopy,
   o: { price?: number; cost?: number; status: "DRAFT" | "ACTIVE"; language?: string; forStoreTheme?: boolean },
 ) {
-  const images = [...new Set([p.imageUrl, ...(p.images ?? [])].filter((u) => /^https:\/\//.test(u)))].slice(0, 10);
+  const images = launchImages([p.imageUrl, ...(p.images ?? [])]);
   const title = c.title || p.title.slice(0, 255);
   return {
     title,
