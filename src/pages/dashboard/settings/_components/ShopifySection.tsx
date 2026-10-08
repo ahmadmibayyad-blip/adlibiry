@@ -6,9 +6,12 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import ConnectShopify from "@/components/ConnectShopify.tsx";
+import ShopifyTokenForm from "@/components/ShopifyTokenForm.tsx";
 
 // Settings → Shopify: the connected store (convex/shopifyApp.ts), and the
 // message after Shopify sends the merchant back (?shopify=connected|error).
+// Stores connected with a token can paste a new one here (e.g. with the
+// scopes Full store needs); app installs missing scopes get a Reconnect.
 export default function ShopifySection() {
   const status = useQuery(api.shopifyApp.status, {});
   const disconnect = useMutation(api.shopifyImport.disconnect);
@@ -33,13 +36,13 @@ export default function ShopifySection() {
         <h2 className="font-semibold text-sm">Shopify</h2>
       </div>
       {store ? (
+        <div className="space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <p className="text-xs text-muted-foreground">
             Connected to <strong className="text-foreground">{store.shopName}</strong> ({store.shopDomain})
-            {store.viaApp ? "" : " with a pasted token. Reconnect through the AdSpy Pro app when it's available."}
+            {store.viaApp ? " through the AdSpy Pro app." : " with an Admin API token from your store's custom app."}
           </p>
           <div className="flex gap-2">
-            {!store.viaApp && status.appReady && <ConnectShopify />}
             <Button
               size="sm"
               variant="ghost"
@@ -51,6 +54,31 @@ export default function ShopifySection() {
               Disconnect
             </Button>
           </div>
+        </div>
+        {store.viaApp ? (
+          store.missingStoreScopes.length > 0 && (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+              <p className="text-sm">Reconnect once to allow <strong>Full store</strong> (adding a theme, pages and menus to your store).</p>
+              <div className="max-w-sm">
+                <ConnectShopify />
+              </div>
+            </div>
+          )
+        ) : (
+          <details className="rounded-lg border border-border p-3 group">
+            <summary className="cursor-pointer text-sm font-medium">Update token (needed once for Full store)</summary>
+            <div className="mt-3 max-w-md space-y-4">
+              {status.appReady && (
+                <div className="space-y-2">
+                  <p className="text-sm">Easiest: connect through the AdSpy Pro app instead.</p>
+                  <ConnectShopify />
+                  <p className="text-xs text-muted-foreground">Or paste a new token from your custom app:</p>
+                </div>
+              )}
+              <ShopifyTokenForm shopDomain={store.shopDomain} submitLabel="Save new token" />
+            </div>
+          </details>
+        )}
         </div>
       ) : status.appReady ? (
         <>
