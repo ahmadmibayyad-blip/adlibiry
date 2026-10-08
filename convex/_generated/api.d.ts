@@ -119,6 +119,7 @@ import type * as shopifyImport from "../shopifyImport.js";
 import type * as sourceConflicts from "../sourceConflicts.js";
 import type * as sources_links from "../sources/links.js";
 import type * as stats from "../stats.js";
+import type * as storeCheck from "../storeCheck.js";
 import type * as storeSales from "../storeSales.js";
 import type * as storeThemeHttp from "../storeThemeHttp.js";
 import type * as stores from "../stores.js";
@@ -248,6 +249,7 @@ declare const fullApi: ApiFromModules<{
   sourceConflicts: typeof sourceConflicts;
   "sources/links": typeof sources_links;
   stats: typeof stats;
+  storeCheck: typeof storeCheck;
   storeSales: typeof storeSales;
   storeThemeHttp: typeof storeThemeHttp;
   stores: typeof stores;

@@ -9,7 +9,9 @@
 export const STORE_SCOPES = ["write_themes", "write_online_store_pages", "write_online_store_navigation"] as const;
 export const SHOPIFY_SCOPES =
   "write_products,read_products,write_publications,read_publications," +
-  "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation";
+  "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation," +
+  // "Ready to sell?" (storeCheck.ts) reads these; without them it asks to reconnect.
+  "read_shipping,read_legal_policies";
 
 /** Store scopes an app install is missing (a write scope implies its read scope). Unknown scopes (pasted tokens): none. */
 export function missingStoreScopes(granted: string | undefined): string[] {

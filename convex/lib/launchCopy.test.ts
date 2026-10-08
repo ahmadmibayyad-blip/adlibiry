@@ -152,7 +152,8 @@ describe("Shopify app security", () => {
     expect(url.origin).toBe("https://my-store.myshopify.com");
     expect(url.searchParams.get("scope")).toBe(
       "write_products,read_products,write_publications,read_publications," +
-        "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation",
+        "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation," +
+        "read_shipping,read_legal_policies",
     );
     expect(url.searchParams.get("state")).toBe("st");
   });

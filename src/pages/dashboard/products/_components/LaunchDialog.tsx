@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import ConnectShopify from "@/components/ConnectShopify.tsx";
+import StoreCheck from "@/components/StoreCheck.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
 import AdKit from "./AdKit.tsx";
@@ -178,6 +179,10 @@ function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: ()
           </div>
           <GoLive l={l} />
           {l.error ? <p className="text-sm text-bad">{l.error}</p> : null}
+          <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm">Before you run ads, check that the store can take real orders.</p>
+            <StoreCheck variant="default" label="Is my store ready to sell?" />
+          </div>
           <p className="text-xs text-muted-foreground">
             Checkout is Shopify's own secure checkout. Set up payments, shipping rates and your legal policies in Shopify Settings before you run ads.
           </p>
