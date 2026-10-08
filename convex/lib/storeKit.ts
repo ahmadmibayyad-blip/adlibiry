@@ -158,13 +158,25 @@ export const STORE_MENU_HANDLES = { main: "adspy-main", footer: "adspy-footer" }
 
 type MenuItem = { title: string; type: string; url?: string; resourceId?: string };
 
+/** A product title short enough for the header menu: the part before a dash or colon, cut at a word. */
+export function menuLabel(title: string, max = 30): string {
+  const head = title.split(/\s[–—-]\s|:|\||,/)[0].trim() || title.trim();
+  let label = "";
+  for (const word of head.split(/\s+/)) {
+    const next = label ? `${label} ${word}` : word;
+    if (next.length > max) break;
+    label = next;
+  }
+  return label || head.slice(0, max);
+}
+
 /** Header and footer menus. Our own handles, so the live theme's menus stay as they are. */
 export function storeMenus(c: StoreCopy, ids: { productId: string; pages: Partial<Record<StorePageKey, string>> }, productTitle: string) {
   const page = (key: StorePageKey, title: string): MenuItem[] => (ids.pages[key] ? [{ title, type: "PAGE", resourceId: ids.pages[key] }] : []);
   const main: MenuItem[] = [
     { title: c.menu.home, type: "FRONTPAGE", url: "/" },
     { title: c.menu.shop, type: "CATALOG", url: "/collections/all" },
-    { title: productTitle.slice(0, 40), type: "PRODUCT", resourceId: ids.productId },
+    { title: menuLabel(productTitle), type: "PRODUCT", resourceId: ids.productId },
     ...page("about", c.menu.about),
     ...page("faq", c.menu.faq),
     ...page("contact", c.menu.contact),

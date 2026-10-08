@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { THEME_FILES } from "./lib/themeFiles.generated";
-import { cleanStore, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
+import { cleanStore, menuLabel, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
 import { crc32, zipFiles } from "./lib/zip";
 import { readTheme } from "../scripts/build-theme.mjs";
@@ -136,6 +136,14 @@ describe("storefront theme", () => {
     const menus = storeMenus(c, { productId: "gid://shopify/Product/1", pages: { about: "gid://shopify/Page/1", contact: "gid://shopify/Page/2" } }, "Posture corrector");
     expect(menus.main.map((m) => m.type)).toEqual(["FRONTPAGE", "CATALOG", "PRODUCT", "PAGE", "PAGE"]);
     expect(menus.footer.map((m) => m.title)).toEqual(["Contact", "Search"]);
+  });
+
+  it("keeps the product's menu label short", () => {
+    expect(menuLabel("SteamPet Pro Comb – 4-i-1 dampbørste til kæledyr")).toBe("SteamPet Pro Comb");
+    expect(menuLabel("Pibende hundelegetøj i latex – sæt med 4")).toBe("Pibende hundelegetøj i latex");
+    expect(menuLabel("Squeaky Dog Toys Set of 4 - Fun and Durable Latex Chew Toys for Dogs")).toBe("Squeaky Dog Toys Set of 4");
+    expect(menuLabel("MAGCUBIC Mini Hjemmeprojektor med indbygget højttaler og fjernbetjening")).toBe("MAGCUBIC Mini Hjemmeprojektor");
+    expect(menuLabel("Posture corrector")).toBe("Posture corrector");
   });
 
   it("zips files Shopify can unpack", () => {
