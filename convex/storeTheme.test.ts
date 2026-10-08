@@ -184,6 +184,22 @@ describe("Launch → Full store", () => {
     expect((await user.query(api.launch.prepare, { productId }))?.suggested).toEqual({ price: 79, cost: 26.88, marginPercent: 66 });
   });
 
+  it("reads the currency of stores connected with a token, and a new token keeps the store's pages", async () => {
+    const { t, user, productId } = await setup({ currency: undefined, locale: undefined, storePages: { about: "gid://shopify/Page/1" } });
+    vi.stubGlobal("fetch", vi.fn(async (_u: string, init?: RequestInit) => {
+      const q: string = JSON.parse(String(init?.body)).query;
+      if (q.includes("shopLocales")) return json({ errors: [{ message: "Access denied for shopLocales field. Required access: `read_locales`" }] });
+      return json({ data: { shop: { name: "Rank Ryg", myshopifyDomain: "rank.myshopify.com", currencyCode: "DKK" } } });
+    }));
+    expect((await user.query(api.launch.prepare, { productId }))?.store).toMatchObject({ currency: "USD", currencyKnown: false, viaApp: false });
+    await user.action(api.shopifyImport.refreshStoreInfo, {});
+    expect((await user.query(api.launch.prepare, { productId }))?.store).toMatchObject({ currency: "DKK", currencyKnown: true });
+
+    await user.action(api.shopifyImport.connect, { shopDomain: "rank.myshopify.com", accessToken: `shpat_${"a".repeat(32)}` });
+    const conn = await t.run(async (ctx) => (await ctx.db.query("shopifyConnections").collect())[0]);
+    expect(conn).toMatchObject({ currency: "DKK", accessToken: `shpat_${"a".repeat(32)}`, storePages: { about: "gid://shopify/Page/1" } });
+  });
+
   it("asks app installs from before Full store to reconnect", async () => {
     const { user, productId } = await setup({ via: "oauth", scopes: "write_products,write_publications" });
     expect((await user.query(api.launch.prepare, { productId }))?.store?.missingStoreScopes).toHaveLength(3);

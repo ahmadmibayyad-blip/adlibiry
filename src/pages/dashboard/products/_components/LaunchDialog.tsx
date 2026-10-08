@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Authenticated, useMutation, useQuery } from "convex/react";
+import { useEffect, useRef, useState } from "react";
+import { Authenticated, useAction, useMutation, useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, Eye, FileText, Paintbrush, Rocket, Store } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -245,6 +245,15 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
   const prep = useQuery(api.launch.prepare, open ? { productId: product._id } : "skip");
   const status = useQuery(api.shopifyApp.status, open ? {} : "skip");
   const start = useMutation(api.launch.start);
+  const refreshStoreInfo = useAction(api.shopifyImport.refreshStoreInfo);
+  const refreshed = useRef(false);
+  // Token-connected stores from before we saved the currency: read it once, so the price is in the store's currency.
+  useEffect(() => {
+    if (prep?.store && !prep.store.currencyKnown && !refreshed.current) {
+      refreshed.current = true;
+      refreshStoreInfo({}).catch(() => {});
+    }
+  }, [prep?.store, refreshStoreInfo]);
   // null: not touched yet, so the suggested price and the store's language apply.
   const [priceInput, setPrice] = useState<string | null>(null);
   const [languageInput, setLanguage] = useState<string | null>(null);
@@ -358,6 +367,13 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
                   <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
                 </section>
               )}
+
+              {mode === "store" && !prep.store.viaApp && !needsReconnect ? (
+                <p className="text-xs text-muted-foreground">
+                  Your store is connected with a custom-app token. It needs the theme, page and navigation permissions for a full store:{" "}
+                  <Link to="/dashboard/settings" className="text-primary hover:underline">Settings → Shopify → Update token</Link>.
+                </p>
+              ) : null}
 
               {needsReconnect ? (
                 <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-sm">

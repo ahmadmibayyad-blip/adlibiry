@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { httpAction, internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { authorizeUrl, encryptToken, verifyQueryHmac, verifyWebhookHmac } from "./lib/shopifyOAuth";
+import { authorizeUrl, encryptToken, missingStoreScopes, verifyQueryHmac, verifyWebhookHmac } from "./lib/shopifyOAuth";
 import { normalizeShopDomain, SHOPIFY_API_VERSION } from "./lib/shopifyExport";
 import { appUrl } from "./lib/billing";
 import { stableToken } from "./lib/authIdentity";
@@ -39,7 +39,18 @@ export const status = query({
     const c = user ? await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique() : null;
     return {
       appReady: !!config(),
-      store: c ? { shopDomain: c.shopDomain, shopName: c.shopName, connectedAt: c.connectedAt, viaApp: c.via === "oauth", locale: c.locale, currency: c.currency } : null,
+      store: c
+        ? {
+            shopDomain: c.shopDomain,
+            shopName: c.shopName,
+            connectedAt: c.connectedAt,
+            viaApp: c.via === "oauth",
+            locale: c.locale,
+            currency: c.currency,
+            // App installs from before Full store lack its scopes (pasted tokens: unknown).
+            missingStoreScopes: c.via === "oauth" ? missingStoreScopes(c.scopes ?? "") : [],
+          }
+        : null,
     };
   },
 });

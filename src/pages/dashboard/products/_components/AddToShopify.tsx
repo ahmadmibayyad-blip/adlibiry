@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import ConnectShopify from "@/components/ConnectShopify.tsx";
+import ShopifyTokenForm from "@/components/ShopifyTokenForm.tsx";
 
 // One-click Shopify import (convex/shopifyImport.ts): adds the product to the
 // user's store as a draft. Without a connected store: connect, or download
@@ -32,48 +33,7 @@ function downloadCsv(product: Doc<"products">) {
 function Connect({ onDone }: { onDone: () => void }) {
   const app = useQuery(api.shopifyApp.status, {});
   if (app?.appReady) return <ConnectShopify />;
-  return <TokenConnect onDone={onDone} />;
-}
-
-// Before the AdSpy Pro Shopify app is set up: a custom-app token (only works for
-// stores that created one before Shopify ended custom apps in 2026).
-function TokenConnect({ onDone }: { onDone: () => void }) {
-  const connect = useAction(api.shopifyImport.connect);
-  const [shop, setShop] = useState("");
-  const [token, setToken] = useState("");
-  const [busy, setBusy] = useState(false);
-  return (
-    <div className="space-y-3">
-      <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
-        <li>In your Shopify admin go to <strong>Settings → Apps and sales channels → Develop apps</strong> and create an app.</li>
-        <li>Under <strong>Configuration → Admin API scopes</strong> tick <code>write_products</code> and save.</li>
-        <li>Click <strong>Install app</strong>, then copy the <strong>Admin API access token</strong> (starts with <code>shpat_</code>).</li>
-      </ol>
-      <Input value={shop} onChange={(e) => setShop(e.target.value)} placeholder="my-store.myshopify.com" autoComplete="off" />
-      <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="shpat_…" type="password" autoComplete="off" />
-      <Button
-        className="w-full"
-        disabled={busy || !shop.trim() || !token.trim()}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            const r = await connect({ shopDomain: shop, accessToken: token });
-            toast.success(`Connected to ${r.shopName}`);
-            setToken("");
-            onDone();
-          } catch (e) {
-            toast.error(errorText(e, "Couldn't connect the store"));
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {busy && <Spinner />}
-        Connect store
-      </Button>
-      <p className="text-[11px] text-muted-foreground">The token is stored on our server and only used to create products in your store. Disconnect any time.</p>
-    </div>
-  );
+  return <ShopifyTokenForm onDone={onDone} />;
 }
 
 function AddButton({ product }: { product: Doc<"products"> }) {

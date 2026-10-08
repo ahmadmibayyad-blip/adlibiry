@@ -44,7 +44,7 @@ describe("shopify import", () => {
     expect(conn).not.toHaveProperty("accessToken");
 
     expect(await me.action(api.shopifyImport.pushProduct, { productId })).toEqual({ adminUrl: "https://paw-shop.myshopify.com/admin/products/123" });
-    const push = calls[1];
+    const push = calls.find((c) => String(c.body.query).includes("productSet"))!;
     expect(push.url).toMatch(/^https:\/\/paw-shop\.myshopify\.com\/admin\/api\/\d{4}-\d{2}\/graphql\.json$/);
     expect(push.headers.get("X-Shopify-Access-Token")).toBe(TOKEN);
     expect(push.body.query).toContain("productSet(input: $input, synchronous: true)");
