@@ -645,6 +645,11 @@ export default defineSchema({
     aiPhotoUrls: v.optional(v.array(v.string())),
     aiPhotoIds: v.optional(v.array(v.id("_storage"))),
     aiPhotoNote: v.optional(v.string()),
+    // Ad images (launchAds.ts): one picture per ad of the ad kit, same order; the app writes the text on it.
+    adImages: v.optional(v.array(v.object({ id: v.id("_storage"), url: v.string(), angle: v.string(), ad: v.number() }))),
+    adImagesStatus: v.optional(v.string()), // "making" | "done"
+    adImagesNote: v.optional(v.string()),
+    adImageRuns: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_product", ["userId", "productId"]),

@@ -197,6 +197,7 @@ export const myQuota = query({
     const now = month();
     return {
       plan: effectivePlan(user),
+      aiPhotosReady: aiPhotosReady(),
       // null when Launch isn't in the plan; left/limit null = unlimited.
       allowed: allowed ?? null,
       used: allowed && allowed.limit !== null && allowed.left !== null ? allowed.limit - allowed.left : null,
@@ -271,6 +272,48 @@ export const setStatus = internalMutation({
       if (row) await ctx.db.patch("launchUsage", row._id, { count: row.count + 1 });
       else await ctx.db.insert("launchUsage", { userId: launch.userId, month: month(), count: 1 });
     }
+  },
+});
+
+// ── Ad images (launchAds.ts) ─────────────────────────────────────────────────
+
+export const MAX_AD_IMAGE_RUNS = 3;
+
+/** Claims an ad-image run for the launch's owner: the launch, its product's photos, and the ad kit. */
+export const startAdImages = internalMutation({
+  args: { launchId: v.id("launches"), token: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
+    const l = await ctx.db.get("launches", args.launchId);
+    if (!user || !l || l.userId !== user._id) return { error: "Launch not found." };
+    const adKit = (l.copy as { adKit?: { angle: string; hook: string }[] } | undefined)?.adKit ?? [];
+    if (l.status !== "published" || !adKit.length) return { error: "This launch has no ad kit yet." };
+    if (l.adImagesStatus === "making") return { error: "The ad images are already being made." };
+    if ((l.adImageRuns ?? 0) >= MAX_AD_IMAGE_RUNS) return { error: `You've made ad images ${MAX_AD_IMAGE_RUNS} times for this launch.` };
+    const product = await ctx.db.get("products", l.productId);
+    if (!product) return { error: "The product is gone." };
+    await ctx.db.patch("launches", l._id, { adImagesStatus: "making", adImagesNote: undefined, adImageRuns: (l.adImageRuns ?? 0) + 1 });
+    return { product: { title: product.title, category: product.category, imageUrl: product.imageUrl, images: product.images ?? [] }, aiPhotoUrls: l.aiPhotoUrls ?? [], adKit };
+  },
+});
+
+export const saveAdImages = internalMutation({
+  args: {
+    launchId: v.id("launches"),
+    images: v.array(v.object({ id: v.id("_storage"), url: v.string(), angle: v.string(), ad: v.number() })),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const l = await ctx.db.get("launches", args.launchId);
+    if (!l) return;
+    // A new set replaces the old one; keep the old set if nothing new came out.
+    const replaced = args.images.length ? l.adImages ?? [] : [];
+    for (const old of replaced) await ctx.storage.delete(old.id).catch(() => {});
+    await ctx.db.patch("launches", args.launchId, {
+      adImagesStatus: "done",
+      adImagesNote: args.note,
+      ...(args.images.length ? { adImages: args.images } : {}),
+    });
   },
 });
 

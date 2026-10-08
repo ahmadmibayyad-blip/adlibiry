@@ -1,12 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ExternalLink, Rocket, ShoppingBag } from "lucide-react";
+import { ExternalLink, Megaphone, Rocket, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
 import ConnectShopify from "@/components/ConnectShopify.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
+import AdKit from "@/pages/dashboard/products/_components/AdKit.tsx";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
 
 // Every product page launched to Shopify (convex/launch.ts), newest first.
 // The header shows the quota (api.launch.myQuota) and the connected store;
@@ -22,6 +25,8 @@ export default function LaunchesPage() {
   const rows = useQuery(api.launch.mine, {});
   const quota = useQuery(api.launch.myQuota, {});
   const [params, setParams] = useSearchParams();
+  const [adsFor, setAdsFor] = useState<Id<"launches"> | null>(null);
+  const adsLaunch = rows?.find((l) => l._id === adsFor);
 
   useEffect(() => {
     const outcome = params.get("shopify");
@@ -78,9 +83,9 @@ export default function LaunchesPage() {
       ) : (
         <ul className="divide-y divide-border border border-border rounded-xl bg-card">
           {rows.map((l) => (
-            <li key={l._id} className="flex items-center gap-3 p-3">
+            <li key={l._id} className="flex flex-wrap items-center gap-3 p-3">
               <ProductImage src={l.product?.imageUrl} alt="" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-48">
                 <Link to={`/dashboard/products/${l.productId}`} className="text-sm font-medium line-clamp-1 hover:underline">
                   {(l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "Product"}
                 </Link>
@@ -92,6 +97,12 @@ export default function LaunchesPage() {
                 </div>
                 {l.status === "failed" && l.error && <div className="text-xs text-bad mt-0.5">{l.error}</div>}
               </div>
+              {l.status === "published" && (l.copy as { adKit?: unknown[] } | undefined)?.adKit?.length ? (
+                <button type="button" onClick={() => setAdsFor(l._id)} className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
+                  <Megaphone className="w-3.5 h-3.5" />
+                  Ads
+                </button>
+              ) : null}
               {l.themePreviewUrl && (
                 <a href={l.themePreviewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -108,6 +119,15 @@ export default function LaunchesPage() {
           ))}
         </ul>
       )}
+      <Dialog open={!!adsLaunch} onOpenChange={(o) => !o && setAdsFor(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ads for {(adsLaunch?.copy as { title?: string } | undefined)?.title ?? adsLaunch?.product?.title ?? "this product"}</DialogTitle>
+            <DialogDescription>Ad text written from the ads already winning, and ready-made ad images.</DialogDescription>
+          </DialogHeader>
+          {adsLaunch ? <AdKit l={adsLaunch} ready={!!quota?.aiPhotosReady} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
