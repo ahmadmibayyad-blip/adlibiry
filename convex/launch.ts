@@ -217,15 +217,22 @@ export const context = internalQuery({
     if (!launch) return null;
     const product = await ctx.db.get("products", launch.productId);
     const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", launch.userId)).unique();
-    if (!product || !store) return { launch, product: null, store: null, ads: [], rate: 1 };
+    if (!product || !store) return { launch, product: null, store: null, ads: [], rate: 1, previousShopifyProductId: undefined };
     // The ads already selling it, best first: their angles shape the page and ad kit.
     const ads = (await Promise.all((product.adIds ?? []).slice(0, 30).map((id) => ctx.db.get("ads", id))))
       .filter((a): a is Doc<"ads"> => !!a)
       .sort((a, b) => b.aiScore - a.aiScore)
       .slice(0, 3)
       .map((a) => ({ headline: a.headline, bodyText: a.bodyText, platform: a.platform, ...(a.spokenHook ? { spokenHook: a.spokenHook } : {}) }));
+    // The product an earlier launch of this product created in this store: launching again updates it.
+    const earlier = await ctx.db
+      .query("launches")
+      .withIndex("by_user_product", (q) => q.eq("userId", launch.userId).eq("productId", launch.productId))
+      .order("desc")
+      .take(20);
+    const previousShopifyProductId = earlier.find((l) => l._id !== launch._id && l.shopDomain === store.shopDomain && l.shopifyProductId)?.shopifyProductId;
     // rate: store currency per USD, for the supplier cost we send to Shopify.
-    return { launch, product, store, ads, rate: await usdRate(ctx, store.currency ?? "USD") };
+    return { launch, product, store, ads, rate: await usdRate(ctx, store.currency ?? "USD"), previousShopifyProductId };
   },
 });
 

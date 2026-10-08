@@ -23,6 +23,8 @@ const LANGUAGES: Record<string, string> = {
   en: "English", da: "Danish", de: "German", sv: "Swedish", nb: "Norwegian", no: "Norwegian", fr: "French", es: "Spanish",
   nl: "Dutch", it: "Italian", pl: "Polish", fi: "Finnish", pt: "Portuguese",
 };
+// When we can't read the store's language (needs read_locales), its currency is a good guess.
+const CURRENCY_LANGUAGE: Record<string, string> = { DKK: "Danish", SEK: "Swedish", NOK: "Norwegian", PLN: "Polish", GBP: "English", USD: "English" };
 const TONES = [
   ["friendly", "Friendly"],
   ["premium", "Premium"],
@@ -270,7 +272,8 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
   const [busy, setBusy] = useState(false);
 
   const price = priceInput ?? (prep?.suggested.price ? String(prep.suggested.price) : "");
-  const language = languageInput ?? (prep?.store?.locale ? (LANGUAGES[prep.store.locale.slice(0, 2)] ?? "English") : "English");
+  const storeLocale = prep?.store?.locale && prep.store.locale !== "en" ? prep.store.locale.slice(0, 2) : undefined;
+  const language = languageInput ?? (storeLocale && LANGUAGES[storeLocale]) ?? CURRENCY_LANGUAGE[prep?.store?.currency ?? ""] ?? "English";
   const brand = brandInput ?? prep?.store?.shopName ?? "";
   // A full store shows the product on its home page, so it goes live by default (the store itself can stay password-protected).
   const publish = publishInput ?? (mode === "store" ? "ACTIVE" : "DRAFT");
