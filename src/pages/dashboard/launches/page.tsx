@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ExternalLink, Megaphone, Rocket, ShoppingBag } from "lucide-react";
+import { ExternalLink, Megaphone, Rocket, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
@@ -10,6 +10,7 @@ import StoreCheck from "@/components/StoreCheck.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import AdKit from "@/pages/dashboard/products/_components/AdKit.tsx";
+import DeleteLaunches from "./_components/DeleteLaunches.tsx";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 
 // Every product page launched to Shopify (convex/launch.ts), newest first.
@@ -28,6 +29,9 @@ export default function LaunchesPage() {
   const [params, setParams] = useSearchParams();
   const [adsFor, setAdsFor] = useState<Id<"launches"> | null>(null);
   const adsLaunch = rows?.find((l) => l._id === adsFor);
+  const [toDelete, setToDelete] = useState<Id<"launches">[] | null>(null);
+  const failed = rows?.filter((l) => l.status === "failed") ?? [];
+  const deleting = rows?.filter((l) => toDelete?.includes(l._id)) ?? [];
 
   useEffect(() => {
     const outcome = params.get("shopify");
@@ -69,7 +73,15 @@ export default function LaunchesPage() {
           </div>
         )}
       </div>
-      <p className="text-sm text-muted-foreground mb-6">Products you launched to your Shopify store, with their ad kits. Launch more from any product page.</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-6">
+        <p className="text-sm text-muted-foreground">Products you launched to your Shopify store, with their ad kits. Launch more from any product page.</p>
+        {failed.length ? (
+          <button type="button" onClick={() => setToDelete(failed.map((l) => l._id))} className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
+            <Trash2 className="w-3.5 h-3.5" />
+            Clear failed ({failed.length})
+          </button>
+        ) : null}
+      </div>
       {quota && !quota.store && (
         <div className="mb-6 rounded-xl border border-dashed border-primary/20 bg-primary/10 p-4 max-w-sm space-y-3">
           <p className="text-sm">Connect your Shopify store to launch winning products as ready-made product pages.</p>
@@ -117,10 +129,16 @@ export default function LaunchesPage() {
                   Shopify
                 </a>
               )}
+              {l.status !== "generating" && l.status !== "publishing" && (
+                <button type="button" onClick={() => setToDelete([l._id])} aria-label="Delete launch" title="Delete launch" className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-bad hover:bg-muted shrink-0">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
+      {deleting.length ? <DeleteLaunches key={deleting.map((l) => l._id).join()} launches={deleting} open onOpenChange={(o) => !o && setToDelete(null)} /> : null}
       <Dialog open={!!adsLaunch} onOpenChange={(o) => !o && setAdsFor(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

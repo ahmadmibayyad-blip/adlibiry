@@ -3,7 +3,7 @@ import { action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { stableToken } from "./lib/authIdentity";
 import { decryptToken } from "./lib/shopifyOAuth";
-import { SHOPIFY_API_VERSION } from "./lib/shopifyExport";
+import { NoAccess, adminGql as gql } from "./lib/shopifyAdmin";
 import { storeChecks, type ShippingZone, type StoreCheckItem } from "./lib/storeCheck";
 import type { StoreFacts } from "./lib/storeKit";
 
@@ -35,23 +35,6 @@ export const context = internalQuery({
     return { shopDomain: store.shopDomain, accessToken: store.accessToken, currency: store.currency ?? "USD", facts, products };
   },
 });
-
-class NoAccess extends Error {}
-
-async function gql<T>(shop: string, token: string, query: string, variables?: Record<string, unknown>): Promise<T> {
-  const res = await fetch(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
-    body: JSON.stringify({ query, variables }),
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (res.status === 401) throw new ConvexError({ code: "RECONNECT", message: "Shopify refused access. Reconnect your store in Settings → Shopify." });
-  const body = (await res.json().catch(() => ({}))) as { data?: T; errors?: { message: string }[] | string };
-  const msg = typeof body.errors === "string" ? body.errors : (body.errors ?? []).map((e) => e.message).join("; ");
-  if (res.status === 403 || /access denied|required access/i.test(msg)) throw new NoAccess(msg);
-  if (!res.ok || msg || !body.data) throw new Error(`Shopify: ${msg || `HTTP ${res.status}`}`.slice(0, 300));
-  return body.data;
-}
 
 /** The query's data, or null when the token lacks the scope. */
 async function maybe<T>(run: () => Promise<T>): Promise<T | null> {
