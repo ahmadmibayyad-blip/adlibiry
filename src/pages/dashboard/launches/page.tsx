@@ -54,7 +54,7 @@ export default function LaunchesPage() {
           <h1 className="text-2xl font-bold">Launch</h1>
         </div>
         {quota && (
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs flex-wrap">
             {quota.allowed ? (
               <span className="border border-border rounded-md px-2.5 h-8 inline-flex items-center gap-1.5">
                 <Rocket className="w-3.5 h-3.5 text-primary" />
