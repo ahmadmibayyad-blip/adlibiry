@@ -8,6 +8,7 @@ import { cleanStore, deliveryDays, menuLabel, storeMenus, storePages, themeFiles
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
 import { crc32, zipFiles } from "./lib/zip";
 import { readTheme } from "../scripts/build-theme.mjs";
+import { settle } from "./lib/settle";
 
 const modules = import.meta.glob("./**/*.ts");
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -250,7 +251,7 @@ describe("Launch → Full store", () => {
       productId, language: "Danish", tone: "friendly", publish: "DRAFT", mode: "store", style: "nordic", facts: { shippingTime: "5–8 dage", returnDays: 30 },
       reviewsUrl: "https://www.aliexpress.com/item/1005012299631792.html?spm=x",
     });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     expect(feedbackUrl).toContain("productId=1005012299631792");
     const reviews = JSON.parse(productSet!.metafields.find((m) => m.key === "reviews")!.value);
     expect(reviews).toEqual({
@@ -284,7 +285,7 @@ describe("Launch → Full store", () => {
     const { launchId } = await user.mutation(api.launch.start, {
       productId, language: "Danish", tone: "friendly", publish: "DRAFT", mode: "store", style: "playful", facts: { shippingTime: "5–8 dage", returnDays: 30 },
     });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     const l = await user.query(api.launch.get, { launchId });
     expect(storeCalls).toBe(2);
     expect(l?.store).toMatchObject({ hero: { heading: "Sit straighter, all day" }, trust: [{ icon: "truck" }] });
@@ -310,7 +311,7 @@ describe("Launch → Full store", () => {
     }));
     const { t, productId, user } = await setup();
     const first = await user.mutation(api.launch.start, { productId, language: "Danish", tone: "friendly", publish: "DRAFT" });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     expect(await user.query(api.launch.get, { launchId: first.launchId })).toMatchObject({ status: "published", shopifyProductId: "gid://shopify/Product/2" });
     expect(inputs.map((i) => i.handle)).toEqual(["rank-ryg-holdningskorrektor", expect.stringMatching(/^rank-ryg-holdningskorrektor-[a-z0-9]{4}$/)]);
 
@@ -319,7 +320,7 @@ describe("Launch → Full store", () => {
     inputs.length = 0;
     taken = false;
     const again = await user.mutation(api.launch.start, { productId, language: "Danish", tone: "friendly", publish: "DRAFT" });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     expect(inputs).toHaveLength(1);
     expect(inputs[0]).toMatchObject({ id: "gid://shopify/Product/1" });
     expect(await user.query(api.launch.get, { launchId: again.launchId })).toMatchObject({ status: "published", shopifyProductId: "gid://shopify/Product/1" });
@@ -374,7 +375,7 @@ describe("Launch → Full store", () => {
       productId, language: "Danish", tone: "friendly", publish: "ACTIVE", mode: "store", style: "nordic", brandName: "Rank Ryg",
       facts: { shippingTime: "5–8 hverdage", returnDays: 30, freeShippingFrom: 299, supportEmail: "hej@rankryg.dk" },
     });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     const l = await user.query(api.launch.get, { launchId });
     expect(l).toMatchObject({
       status: "published", mode: "store", style: "nordic", price: 79, productHandle: "rank-ryg",
@@ -411,7 +412,7 @@ describe("Launch → Full store", () => {
     // Going live is the user's call.
     expect(calls.some((c) => c.query.includes("themePublish"))).toBe(false);
     await user.mutation(api.launch.publishTheme, { launchId });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     expect(await user.query(api.launch.get, { launchId })).toMatchObject({ themeLive: true });
   });
 });

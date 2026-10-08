@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import { summarizeRun } from "./lib/importRuns";
+import { settle } from "./lib/settle";
 
 const modules = import.meta.glob("./**/*.ts");
 afterEach(() => {
@@ -44,7 +45,7 @@ describe("daily import run log", () => {
     });
     await expect(t.withIdentity({ subject: "u1|s" }).mutation(api.importRuns.runNow, { job: "metaAdLibrary" })).rejects.toThrow();
     await t.withIdentity({ subject: "admin1|s" }).mutation(api.importRuns.runNow, { job: "metaAdLibrary" });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     const runs = await t.withIdentity({ subject: "admin1|s" }).query(api.importRuns.latest, {});
     expect(runs.find((r) => r.job === "metaAdLibrary")?.last).toMatchObject({ status: "skipped", summary: "META_ACCESS_TOKEN isn't set (Meta Ad Library API)" });
   });

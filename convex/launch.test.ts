@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
+import { settle } from "./lib/settle";
 
 const modules = import.meta.glob("./**/*.ts");
 const SECRET = "app_secret";
@@ -120,7 +121,7 @@ describe("Launch", () => {
     expect(prep).toMatchObject({ allowed: { left: 10, limit: 10 }, store: { shopName: "My Store" }, suggested: { price: 21.99, cost: 8, marginPercent: 64 }, blocked: null });
 
     const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT" });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     const launch = await user.query(api.launch.get, { launchId });
     expect(launch).toMatchObject({ status: "published", adminUrl: "https://my-store.myshopify.com/admin/products/987", storeUrl: "https://my-store.myshopify.com/products/x?preview=1", price: 21.99 });
     expect(launch?.copy.benefits).toEqual(["Pulls shoulders back", "Fits under clothes"]); // "Clinically proven" dropped
@@ -159,14 +160,14 @@ describe("Launch", () => {
     // Without a Google key it's off, and a request for photos is ignored.
     expect(await user.query(api.launch.prepare, { productId })).toMatchObject({ aiPhotosReady: false });
     const off = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT", aiPhotos: 4 });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     expect(await user.query(api.launch.get, { launchId: off.launchId })).not.toHaveProperty("aiPhotos");
     expect(geminiBodies).toHaveLength(0);
 
     vi.stubEnv("GEMINI_API_KEY", "g-test");
     expect(await user.query(api.launch.prepare, { productId })).toMatchObject({ aiPhotosReady: true });
     const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT", aiPhotos: 4 });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     const launch = await user.query(api.launch.get, { launchId });
     expect(launch).toMatchObject({ status: "published", aiPhotos: 4, aiPhotoNote: "1 of 4 AI photos couldn't be made." });
     expect(launch?.aiPhotoUrls).toHaveLength(3);
@@ -176,6 +177,82 @@ describe("Launch", () => {
     expect(productSetInput?.files.map((f) => f.originalSource)).toEqual(["https://cdn.x/p.jpg", ...launch!.aiPhotoUrls!, "https://cdn.x/p2.jpg"]);
     const stored = await t.run(async (ctx) => Promise.all(launch!.aiPhotoIds!.map((id) => ctx.storage.get(id).then((b) => b?.text()))));
     expect(stored?.sort()).toEqual(["png-1", "png-2", "png-4"]);
+  });
+
+  it("relaunches with the same settings and new extras, and replaces the old launch once the new one is ready", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    const productSets: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("anthropic.com")) {
+        return json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text: JSON.stringify(aiCopy) }], usage: { input_tokens: 1, output_tokens: 1 } });
+      }
+      if (url.includes("feedback.aliexpress.com")) return json({ data: { productEvaluationStatistic: { evarageStar: 0, totalNum: 0 }, evaViewList: [] } });
+      if (url.includes("/graphql.json")) {
+        productSets.push(JSON.parse(String(init?.body)).variables.input);
+        return json({ data: { productSet: { product: { id: "gid://shopify/Product/987", handle: "x" }, userErrors: [] } } });
+      }
+      return new Response("", { status: 404 });
+    }));
+    const { t, user } = await setup({ plan: "pro", subscriptionStatus: "active" });
+    const productId = (await t.run((ctx) => ctx.db.query("products").collect()))[0]._id;
+    const first = await user.mutation(api.launch.start, { productId, language: "Danish", tone: "premium", publish: "DRAFT", price: 149 });
+    await settle(t);
+
+    const again = await user.mutation(api.launch.relaunch, { launchId: first.launchId, reviewsUrl: "https://www.aliexpress.com/item/1005012299631792.html", replaceOld: true });
+    expect(await user.query(api.launch.get, { launchId: again.launchId })).toMatchObject({
+      language: "Danish", tone: "premium", publish: "DRAFT", price: 149, reviewsUrl: "https://www.aliexpress.com/item/1005012299631792.html", replacesLaunchId: first.launchId,
+    });
+    await settle(t);
+    expect(await user.query(api.launch.get, { launchId: again.launchId })).toMatchObject({ status: "published", shopifyProductId: "gid://shopify/Product/987" });
+    expect(await user.query(api.launch.get, { launchId: first.launchId })).toBeNull(); // replaced
+    expect(productSets[1]).toMatchObject({ id: "gid://shopify/Product/987" }); // the same Shopify product, updated
+
+    // A launch whose store is live is never replaced, and only the owner can relaunch.
+    await t.run((ctx) => ctx.db.patch("launches", again.launchId, { themeLive: true }));
+    const third = await user.mutation(api.launch.relaunch, { launchId: again.launchId, replaceOld: true });
+    expect((await user.query(api.launch.get, { launchId: third.launchId }))?.replacesLaunchId).toBeUndefined();
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" }));
+    await expect(t.withIdentity({ subject: "u2|s" }).mutation(api.launch.relaunch, { launchId: again.launchId })).rejects.toThrow(/not found/);
+  });
+
+  it("uses the launch's AI photos as ad pictures, rotating through them, and keeps them when new ad images replace them", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "g-test");
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url === "https://cdn.x/p.jpg") return new Response(new Uint8Array([0xff, 0xd8, 0xff, 9]), { headers: { "Content-Type": "image/jpeg" } });
+      if (url.includes("generativelanguage.googleapis.com")) {
+        return json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: btoa(`new-${Math.random()}`) } }] } }] });
+      }
+      return new Response("", { status: 404 });
+    }));
+    const { t, productId, user } = await setup({ plan: "pro", subscriptionStatus: "active" });
+    const { launchId, photos } = await t.run(async (ctx) => {
+      const userId = (await ctx.db.query("users").collect())[0]._id;
+      const photos = await Promise.all(["p1", "p2", "p3", "p4"].map((p) => ctx.storage.store(new Blob([p]))));
+      const adKit = ["Desk workers", "Gamers", "Parents"].map((angle) => ({ angle, hook: `${angle} hook`, primaryText: "Text", headline: "Head" }));
+      const launchId = await ctx.db.insert("launches", {
+        userId, productId, shopDomain: "my-store.myshopify.com", status: "published", language: "English", tone: "friendly", publish: "DRAFT",
+        createdAt: "2026-10-08T00:00:00Z", copy: { adKit }, aiPhotoIds: photos, aiPhotoUrls: photos.map((p) => `https://x/${p}`),
+      });
+      return { launchId, photos };
+    });
+    const ids = async () => (await user.query(api.launch.get, { launchId }))?.adImages?.map((a) => a.id);
+
+    expect(await user.action(api.launchAds.fromAiPhotos, { launchId })).toEqual({ made: 3, next: 3 });
+    expect(await ids()).toEqual([photos[0], photos[1], photos[2]]);
+    expect(await user.action(api.launchAds.fromAiPhotos, { launchId, offset: 3 })).toEqual({ made: 3, next: 2 });
+    expect(await ids()).toEqual([photos[3], photos[0], photos[1]]);
+    expect((await user.query(api.launch.get, { launchId }))?.adImageRuns).toBeUndefined(); // free: no run used
+
+    // Made ad images replace them, and every AI photo is still there.
+    await user.action(api.launchAds.make, { launchId });
+    expect((await ids())?.some((id) => photos.includes(id!))).toBe(false);
+    expect(await t.run(async (ctx) => Promise.all(photos.map(async (p) => !!(await ctx.storage.get(p)))))).toEqual([true, true, true, true]);
+
+    await t.run((ctx) => ctx.db.patch("launches", launchId, { aiPhotoIds: [] }));
+    await expect(user.action(api.launchAds.fromAiPhotos, { launchId })).rejects.toThrow(/no AI photos/);
   });
 
   it("makes ad images for the owner's ad kit and serves them signed, with CORS", async () => {
@@ -203,7 +280,7 @@ describe("Launch", () => {
     vi.stubEnv("CONVEX_SITE_URL", "https://x.convex.site");
     const { t, productId, user } = await setup({ plan: "pro", subscriptionStatus: "active" });
     const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT" });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
 
     await expect(user.action(api.launchAds.make, { launchId })).rejects.toThrow(/switched on/);
     vi.stubEnv("GEMINI_API_KEY", "g-test");
@@ -262,7 +339,7 @@ describe("Launch", () => {
   it("records a clear failure when the AI isn't set up", async () => {
     const { t, productId, user } = await setup({ plan: "pro", subscriptionStatus: "active" });
     const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "premium", publish: "ACTIVE" });
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     expect(await user.query(api.launch.get, { launchId })).toMatchObject({ status: "failed", error: "The AI isn't set up yet (missing ANTHROPIC_API_KEY)." });
     expect((await user.query(api.launch.prepare, { productId }))?.allowed).toMatchObject({ left: 10 }); // failures don't use the quota
   });

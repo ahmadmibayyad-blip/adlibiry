@@ -22,6 +22,31 @@ export async function adImageUrl(id: string): Promise<string> {
   return `${site}/launch/ad-image?id=${encodeURIComponent(id)}&s=${await themeSignature(`ad-image:${id}`, themeSecret() ?? "")}`;
 }
 
+/**
+ * Ad pictures from the launch's AI photos: no new images, so it's instant and free. `offset` picks which photo
+ * goes with the first ad, so pressing again shows other photos.
+ */
+export const fromAiPhotos = action({
+  args: { launchId: v.id("launches"), offset: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<{ made: number; next: number }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
+    if (!themeSecret()) throw new ConvexError({ code: "NOT_SET_UP", message: "Ad images aren't switched on yet." });
+    const src = await ctx.runQuery(internal.launch.aiPhotosForAds, { launchId: args.launchId, token: stableToken(identity) });
+    if ("error" in src) throw new ConvexError({ code: "NOT_ALLOWED", message: src.error ?? "Can't use AI photos for this launch." });
+    const n = src.photoIds.length;
+    const start = (((Math.round(args.offset ?? 0)) % n) + n) % n;
+    const images = await Promise.all(
+      src.angles.map(async (angle, i) => {
+        const id = src.photoIds[(start + i) % n];
+        return { id, url: await adImageUrl(id), angle, ad: i };
+      }),
+    );
+    await ctx.runMutation(internal.launch.saveAdImages, { launchId: args.launchId, images });
+    return { made: images.length, next: (start + src.angles.length) % n };
+  },
+});
+
 export const make = action({
   args: { launchId: v.id("launches") },
   handler: async (ctx, args): Promise<{ made: number; note?: string }> => {

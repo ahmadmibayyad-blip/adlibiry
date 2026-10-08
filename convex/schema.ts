@@ -654,6 +654,8 @@ export default defineSchema({
     reviewsUrl: v.optional(v.string()),
     reviews: v.optional(v.any()),
     reviewsNote: v.optional(v.string()),
+    // A relaunch that replaces this earlier launch (its theme and row go once this one is ready).
+    replacesLaunchId: v.optional(v.id("launches")),
   })
     .index("by_user", ["userId"])
     .index("by_user_product", ["userId", "productId"]),

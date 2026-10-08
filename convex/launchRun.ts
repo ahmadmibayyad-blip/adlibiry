@@ -302,6 +302,7 @@ export const run = internalAction({
           adminUrl: `https://${store.shopDomain}/admin/products/${numericId(created.id)}`,
           ...(storeUrl ? { storeUrl } : {}),
         });
+        if (launch.replacesLaunchId) await ctx.scheduler.runAfter(0, internal.launchCleanup.replaceOld, { userId: launch.userId, launchId: launch.replacesLaunchId });
         return;
       }
 
@@ -344,6 +345,8 @@ export const run = internalAction({
         themeEditorUrl: `https://${store.shopDomain}/admin/themes/${id}/editor`,
         step: "done",
       });
+      // A relaunch replaces the older launch: its unused theme goes now that the new one is ready.
+      if (launch.replacesLaunchId) await ctx.scheduler.runAfter(0, internal.launchCleanup.replaceOld, { userId: launch.userId, launchId: launch.replacesLaunchId });
     } catch (e) {
       console.error("Launch: publish failed", e);
       return fail(e instanceof Error ? e.message : "Publishing to Shopify failed.");

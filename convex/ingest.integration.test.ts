@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import schema from "./schema";
 import { internal, api } from "./_generated/api";
 import { initNewUser } from "./lib/userRole";
+import { settle } from "./lib/settle";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -160,7 +161,7 @@ describe("niches and winners", () => {
       await ctx.db.insert("ads", { ...base, niche: "Beauty", headline: "No-pull dog harness", source: "curated" });
     });
     await t.withIdentity({ subject: "admin1|s" }).mutation(api.admin.reclassify.start, {});
-    await t.finishAllScheduledFunctions(() => {});
+    await settle(t);
     const ads = await t.run((ctx) => ctx.db.query("ads").collect());
     expect(ads.find((a) => a.source === "apify")?.niche).toBe("Pet Supplies");
     expect(ads.find((a) => a.source === "curated")?.niche).toBe("Beauty"); // hand-set niches are kept
