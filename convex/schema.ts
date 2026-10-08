@@ -650,6 +650,10 @@ export default defineSchema({
     adImagesStatus: v.optional(v.string()), // "making" | "done"
     adImagesNote: v.optional(v.string()),
     adImageRuns: v.optional(v.number()),
+    // Supplier reviews (lib/supplierReviews.ts): the AliExpress listing they come from, and what was added.
+    reviewsUrl: v.optional(v.string()),
+    reviews: v.optional(v.any()),
+    reviewsNote: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_product", ["userId", "productId"]),

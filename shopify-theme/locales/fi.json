@@ -25,6 +25,12 @@
     "view_image": "Näytä kuva {{ number }}",
     "description": "Kuvaus",
     "faq": "Kysymykset ja vastaukset",
+    "reviews_heading": "Ostajat kertovat",
+    "reviews_source": "{{ count }} arviota tämän tuotteen ostajilta toimittajaltamme",
+    "reviews_buyer": "Varmistettu ostaja",
+    "rating": "{{ rating }}/5 tähteä",
+    "guarantee_title": "{{ days }} päivän rahat takaisin -takuu",
+    "guarantee_text": "Etkö ole tyytyväinen? Palauta tuote {{ days }} päivän sisällä ja saat rahasi takaisin.",
     "choose_product": "Valitse tuote tälle osiolle teemaeditorissa."
   },
   "cart": {

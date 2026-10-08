@@ -1,0 +1,5 @@
+{%- comment -%} Five stars, `rating` (1–5, rounded) of them filled. {%- endcomment -%}
+{%- assign filled = rating | round -%}
+<span class="stars" role="img" aria-label="{{ 'products.rating' | t: rating: rating }}">
+  {%- for i in (1..5) -%}<span class="stars__star{% if i > filled %} is-off{% endif %}">{% render 'icon', name: 'star' %}</span>{%- endfor -%}
+</span>

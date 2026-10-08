@@ -98,7 +98,7 @@ describe("storefront theme", () => {
       const input: ThemeInput = { style, brandName: "Rank Ryg", productHandle: "posture-corrector", pageHandles: { about: "about-1" }, copy: clean, product: { title: "Posture corrector" }, facts };
       const files = themeOverrides(input);
       const settings = JSON.parse(files["config/settings_data.json"]);
-      expect(settings.current).toMatchObject({ ...STORE_STYLES[style].settings, brand_name: "Rank Ryg", free_shipping_threshold: 299, delivery_min_days: 5, delivery_max_days: 8, show_add_another: true });
+      expect(settings.current).toMatchObject({ ...STORE_STYLES[style].settings, brand_name: "Rank Ryg", free_shipping_threshold: 299, delivery_min_days: 5, delivery_max_days: 8, show_add_another: true, guarantee_days: 30 });
       for (const group of ["templates/index.json", "sections/header-group.json", "sections/footer-group.json"]) {
         const tpl = JSON.parse(files[group]);
         for (const key of tpl.order) {
@@ -216,6 +216,44 @@ describe("Launch → Full store", () => {
     await user.action(api.shopifyImport.connect, { shopDomain: "rank.myshopify.com", accessToken: `shpat_${"a".repeat(32)}` });
     const conn = await t.run(async (ctx) => (await ctx.db.query("shopifyConnections").collect())[0]);
     expect(conn).toMatchObject({ currency: "DKK", accessToken: `shpat_${"a".repeat(32)}`, storePages: { about: "gid://shopify/Page/1" } });
+  });
+
+  it("adds the supplier's reviews, translated, for the theme's reviews section", async () => {
+    let productSet: { metafields: { key: string; value: string }[] } | undefined;
+    let feedbackUrl = "";
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("anthropic.com")) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        const msg = (text: string) => json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text }], usage: { input_tokens: 1, output_tokens: 1 } });
+        if (String(body.messages[0].content).includes("Translate these customer reviews into Danish")) return msg('["Min hund elsker den, og det gør hundene jeg træner også."]');
+        return msg(JSON.stringify(String(body.system).includes("rest of a one-product dropshipping store") ? storeCopy : productCopy));
+      }
+      if (url.includes("feedback.aliexpress.com")) {
+        feedbackUrl = url;
+        return json({ data: { productEvaluationStatistic: { evarageStar: 4.7, totalNum: 42 }, evaViewList: [
+          { anonymous: true, buyerName: "AliExpress Shopper", buyerCountry: "BR", buyerEval: 100, buyerTranslationFeedback: "My dogs love it, and so do the dogs I train.", evalDate: "28 Jul 2026", images: [] },
+          { anonymous: false, buyerName: "k***a", buyerCountry: "PL", buyerEval: 100, buyerTranslationFeedback: "Fast shipping, arrived in 10 days", evalDate: "1 Aug 2026", images: [] },
+        ] } });
+      }
+      const q = JSON.parse(String(init?.body)).variables?.input;
+      if (q?.metafields) productSet = q;
+      return json({ errors: [{ message: "stop here" }] }); // Shopify: only the product input matters here
+    }));
+    const { t, productId, user } = await setup();
+    const { launchId } = await user.mutation(api.launch.start, {
+      productId, language: "Danish", tone: "friendly", publish: "DRAFT", mode: "store", style: "nordic", facts: { shippingTime: "5–8 dage", returnDays: 30 },
+      reviewsUrl: "https://www.aliexpress.com/item/1005012299631792.html?spm=x",
+    });
+    await t.finishAllScheduledFunctions(() => {});
+    expect(feedbackUrl).toContain("productId=1005012299631792");
+    const reviews = JSON.parse(productSet!.metafields.find((m) => m.key === "reviews")!.value);
+    expect(reviews).toEqual({
+      source: "aliexpress", average: 4.7, total: 42,
+      items: [{ name: "", country: "BR", rating: 5, text: "Min hund elsker den, og det gør hundene jeg træner også.", date: "28 Jul 2026", images: [] }],
+    });
+    expect(await user.query(api.launch.get, { launchId })).toMatchObject({ reviews: { total: 42 } });
   });
 
   it("still writes the store when the API won't compile its schema", async () => {

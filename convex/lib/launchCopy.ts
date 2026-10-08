@@ -2,6 +2,8 @@
 // must follow, the product page it becomes, and the Shopify product we create.
 // Pure and unit-tested; no network.
 
+import type { SupplierReviews } from "./supplierReviews";
+
 export type LaunchCopy = {
   title: string;
   subtitle: string;
@@ -236,7 +238,7 @@ export function launchImages(urls: string[], now = Date.now()): string[] {
 export function launchProductInput(
   p: LaunchProduct,
   c: LaunchCopy,
-  o: { price?: number; cost?: number; status: "DRAFT" | "ACTIVE"; language?: string; forStoreTheme?: boolean },
+  o: { price?: number; cost?: number; status: "DRAFT" | "ACTIVE"; language?: string; forStoreTheme?: boolean; reviews?: SupplierReviews },
 ) {
   const images = launchImages([p.imageUrl, ...(p.images ?? [])]);
   const title = c.title || p.title.slice(0, 255);
@@ -257,6 +259,10 @@ export function launchProductInput(
       },
     ],
     files: images.map((u, i) => ({ originalSource: u, contentType: "IMAGE", alt: i === 0 ? title.slice(0, 200) : `${title.slice(0, 180)} ${i + 1}` })),
-    metafields: [{ namespace: "adspy", key: "page", type: "json", value: JSON.stringify({ subtitle: c.subtitle, benefits: c.benefits, faq: c.faq, proof: proofLine(p) ?? null }) }],
+    metafields: [
+      { namespace: "adspy", key: "page", type: "json", value: JSON.stringify({ subtitle: c.subtitle, benefits: c.benefits, faq: c.faq, proof: proofLine(p) ?? null }) },
+      // Our theme's product page shows these, labelled as reviews from the supplier's buyers (lib/supplierReviews.ts).
+      ...(o.reviews ? [{ namespace: "adspy", key: "reviews", type: "json", value: JSON.stringify(o.reviews) }] : []),
+    ],
   };
 }

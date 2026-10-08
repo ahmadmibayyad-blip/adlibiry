@@ -268,11 +268,13 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
   const [freeShipping, setFreeShipping] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
   const [aiPhotosInput, setAiPhotos] = useState<number | null>(null);
+  const [reviewsInput, setReviewsUrl] = useState<string | null>(null);
   const [launchId, setLaunchId] = useState<Id<"launches"> | null>(null);
   const [busy, setBusy] = useState(false);
 
   const price = priceInput ?? (prep?.suggested.price ? String(prep.suggested.price) : "");
   const aiPhotos = prep?.aiPhotosReady ? (aiPhotosInput ?? 4) : 0;
+  const reviewsUrl = reviewsInput ?? prep?.supplierUrl ?? "";
   const storeLocale = prep?.store?.locale && prep.store.locale !== "en" ? prep.store.locale.slice(0, 2) : undefined;
   const language = languageInput ?? (storeLocale && LANGUAGES[storeLocale]) ?? CURRENCY_LANGUAGE[prep?.store?.currency ?? ""] ?? "English";
   const brand = brandInput ?? prep?.store?.shopName ?? "";
@@ -336,6 +338,7 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
                     publish,
                     ...(priceNum > 0 ? { price: priceNum } : {}),
                     ...(aiPhotos > 0 ? { aiPhotos } : {}),
+                    ...(mode === "store" && reviewsUrl.trim() ? { reviewsUrl: reviewsUrl.trim() } : {}),
                     ...(mode === "store"
                       ? {
                           mode,
@@ -467,6 +470,21 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
                       : "AI photos aren't switched on yet."}
                   </span>
                 </div>
+                {mode === "store" && (
+                  <label className="block text-sm">
+                    <span className="font-medium">Supplier reviews</span>
+                    <Input
+                      type="url"
+                      value={reviewsUrl}
+                      onChange={(e) => setReviewsUrl(e.target.value)}
+                      placeholder="AliExpress product link, optional"
+                      className="mt-1"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Real reviews from buyers of this product on AliExpress, translated and shown on your product page as reviews from your supplier's buyers.
+                    </span>
+                  </label>
+                )}
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={publish === "ACTIVE"} onChange={(e) => setPublish(e.target.checked ? "ACTIVE" : "DRAFT")} />
                   {mode === "store" ? "Make the product active (needed for it to show on the new home page)" : "Publish it live now (otherwise it's saved as a draft for you to check)"}

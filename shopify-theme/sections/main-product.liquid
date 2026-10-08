@@ -5,6 +5,57 @@
   </div>
 </section>
 
+{%- comment -%}
+  Reviews from buyers at the supplier (Launch: convex/lib/supplierReviews.ts), labelled as such,
+  with the listing's real average and count.
+{%- endcomment -%}
+{%- assign reviews = product.metafields.adspy.reviews.value -%}
+{%- if section.settings.show_reviews and reviews.items.size > 0 -%}
+  <section class="section" id="Reviews-{{ section.id }}">
+    <div class="page-width">
+      <div class="section__head">
+        <h2 class="h2">{{ 'products.reviews_heading' | t }}</h2>
+        <p class="reviews__summary">
+          {% render 'stars', rating: reviews.average %}
+          <strong>{{ reviews.average }}</strong>
+          <span class="muted">{{ 'products.reviews_source' | t: count: reviews.total }}</span>
+        </p>
+      </div>
+      <div class="reviews__grid">
+        {%- for r in reviews.items -%}
+          <figure class="review">
+            {% render 'stars', rating: r.rating %}
+            <blockquote class="review__text">{{ r.text | escape }}</blockquote>
+            {%- if r.images.size > 0 -%}
+              <div class="review__photos">
+                {%- for img in r.images -%}<img src="{{ img | escape }}" alt="" loading="lazy" width="72" height="72">{%- endfor -%}
+              </div>
+            {%- endif -%}
+            <figcaption class="review__by">
+              {%- if r.name != blank -%}{{ r.name | escape }}{%- else -%}{{ 'products.reviews_buyer' | t }}{%- endif -%}
+              {%- if r.country != blank %} · {{ r.country | escape }}{%- endif -%}
+            </figcaption>
+          </figure>
+        {%- endfor -%}
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
+{%- if settings.guarantee_days > 0 -%}
+  <section class="section section--tight">
+    <div class="page-width page-width--narrow">
+      <div class="guarantee">
+        {% render 'icon', name: 'shield' %}
+        <div>
+          <h2 class="h4">{{ 'products.guarantee_title' | t: days: settings.guarantee_days }}</h2>
+          <p>{{ 'products.guarantee_text' | t: days: settings.guarantee_days }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
 {%- if page_data.faq.size > 0 -%}
   <section class="section scheme-surface">
     <div class="page-width page-width--narrow">
@@ -44,7 +95,8 @@
     { "type": "checkbox", "id": "show_vendor", "label": "Show vendor", "default": false },
     { "type": "checkbox", "id": "show_description", "label": "Show description", "default": true },
     { "type": "checkbox", "id": "show_dynamic_checkout", "label": "Show express checkout buttons", "default": true },
-    { "type": "checkbox", "id": "sticky_bar", "label": "Show an add-to-cart bar when scrolling", "default": true }
+    { "type": "checkbox", "id": "sticky_bar", "label": "Show an add-to-cart bar when scrolling", "default": true },
+    { "type": "checkbox", "id": "show_reviews", "label": "Show reviews from the supplier's buyers (added by AdSpy Pro Launch)", "default": true }
   ]
 }
 {% endschema %}
