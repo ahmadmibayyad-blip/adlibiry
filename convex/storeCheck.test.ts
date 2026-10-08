@@ -29,7 +29,7 @@ describe("Ready to sell?", () => {
     const queries: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
       const url = String(u instanceof Request ? u.url : u);
-      if (url === "https://my-store.myshopify.com/") return new Response(null, { status: 302, headers: { Location: "https://my-store.myshopify.com/password" } });
+      if (url === "https://my-store.myshopify.com/") return new Response('<form method="post" action="/password">', { status: 200, headers: { "Content-Type": "text/html" } });
       const q = String(JSON.parse(String(init?.body)).query);
       queries.push(q);
       if (q.includes("shopPolicies")) return json({ errors: [{ message: "Access denied for shopPolicies field. Required access: `read_legal_policies` access scope." }] });
@@ -42,7 +42,7 @@ describe("Ready to sell?", () => {
           ] },
         }] } }] }] } } });
       }
-      if (q.includes("nodes(ids")) return json({ data: { nodes: [{ id: "gid://shopify/Product/1", title: "Roku stick", status: "ACTIVE", media: { nodes: [] } }] } });
+      if (q.includes("product(id:")) return json({ data: { p0: { id: "gid://shopify/Product/1", title: "Roku stick", status: "ACTIVE", featuredImage: null } } });
       return json({ data: { shop: { plan: { displayName: "Basic", partnerDevelopment: false }, billingAddress: { countryCodeV2: "DK" } }, themes: { nodes: Array.from({ length: 19 }, (_, i) => ({ id: `t${i}` })) } } });
     }));
     const { user } = await setup();
@@ -57,7 +57,7 @@ describe("Ready to sell?", () => {
     expect(byId["photo:Roku stick"].status).toBe("fix");
     expect(byId.themes.title).toBe("19 of 20 themes used");
     expect(byId.plan).toMatchObject({ status: "ok", title: "Shopify plan: Basic" });
-    expect(queries.filter((q) => q.includes("nodes(ids"))).toHaveLength(1);
+    expect(queries.filter((q) => q.includes("product(id:"))).toHaveLength(1); // the relaunch shares the product
   });
 
   it("needs a connected store", async () => {

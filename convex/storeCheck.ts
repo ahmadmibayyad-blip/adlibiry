@@ -58,8 +58,9 @@ async function maybe<T>(run: () => Promise<T>): Promise<T | null> {
   try {
     return await run();
   } catch (e) {
-    if (e instanceof NoAccess) return null;
-    throw e;
+    if (!(e instanceof NoAccess)) throw e;
+    console.warn("Store check: no access", e.message.slice(0, 200));
+    return null;
   }
 }
 
@@ -70,7 +71,9 @@ const SHIPPING = `{ deliveryProfiles(first: 5) { nodes { profileLocationGroups {
   methodDefinitions(first: 20) { nodes { name active description
     rateProvider { ... on DeliveryRateDefinition { price { amount } } }
     methodConditions { field operator conditionCriteria { __typename ... on MoneyV2 { amount } } } } } } } } } } }`;
-const PRODUCTS = `query P($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id title status media(first: 1) { nodes { id } } } } }`;
+// One aliased product() per launched product. featuredImage needs only read_products (media also wants read_files).
+const productsQuery = (ids: string[]) =>
+  `{ ${ids.map((id, i) => `p${i}: product(id: ${JSON.stringify(id)}) { id title status featuredImage { id } }`).join(" ")} }`;
 
 type ShippingData = {
   deliveryProfiles: { nodes: { profileLocationGroups: { locationGroupZones: { nodes: {
@@ -102,12 +105,13 @@ export function shippingZones(d: ShippingData): ShippingZone[] {
   );
 }
 
-/** true when the storefront sends visitors to its password page; null when we can't tell. */
+/** true when the storefront shows visitors its password page; null when we can't tell. Follows the redirect to the store's own domain. */
 async function passwordProtected(shop: string): Promise<boolean | null> {
   try {
-    const res = await fetch(`https://${shop}/`, { redirect: "manual", signal: AbortSignal.timeout(10_000) });
-    if (res.status >= 300 && res.status < 400) return /\/password/.test(res.headers.get("location") ?? "") ? true : null;
-    return res.ok ? false : null;
+    const res = await fetch(`https://${shop}/`, { redirect: "follow", signal: AbortSignal.timeout(10_000) });
+    if (/\/password(?:[/?#]|$)/.test(res.url)) return true;
+    if (!res.ok) return null;
+    return /action=["']\/password["']/.test(await res.text());
   } catch {
     return null;
   }
@@ -123,12 +127,12 @@ export const run = action({
     const token = await decryptToken(c.accessToken, process.env.SHOPIFY_TOKEN_KEY?.trim());
     const shop = c.shopDomain;
     type ShopData = { shop: { plan: { displayName: string; partnerDevelopment: boolean }; billingAddress: { countryCodeV2: string | null } | null }; themes: { nodes: { id: string }[] } };
-    type ProductsData = { nodes: ({ id: string; title: string; status: string; media: { nodes: { id: string }[] } } | null)[] };
+    type ProductsData = Record<string, { id: string; title: string; status: string; featuredImage: { id: string } | null } | null>;
     const [info, policies, shipping, products, password] = await Promise.all([
       maybe(() => gql<ShopData>(shop, token, SHOP)),
       maybe(() => gql<{ shop: { shopPolicies: { type: string; body: string }[] } }>(shop, token, POLICIES)),
       maybe(() => gql<ShippingData>(shop, token, SHIPPING)),
-      c.products.length ? maybe(() => gql<ProductsData>(shop, token, PRODUCTS, { ids: c.products.map((p) => p.id) })) : Promise.resolve({ nodes: [] }),
+      c.products.length ? maybe(() => gql<ProductsData>(shop, token, productsQuery(c.products.map((p) => p.id)))) : Promise.resolve({} as ProductsData),
       passwordProtected(shop),
     ]);
     const bigBrand = new Set(c.products.filter((p) => p.bigBrand).map((p) => p.id));
@@ -142,9 +146,9 @@ export const run = action({
       shipping: shipping ? shippingZones(shipping) : null,
       themeCount: info?.themes.nodes.length,
       facts: c.facts,
-      products: (products?.nodes ?? [])
+      products: Object.values(products ?? {})
         .filter((p): p is NonNullable<typeof p> => !!p?.id)
-        .map((p) => ({ title: p.title, status: p.status, hasImage: p.media.nodes.length > 0, bigBrand: bigBrand.has(p.id) })),
+        .map((p) => ({ title: p.title, status: p.status, hasImage: !!p.featuredImage, bigBrand: bigBrand.has(p.id) })),
     });
     return { shopDomain: shop, items };
   },

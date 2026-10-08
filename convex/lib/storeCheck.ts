@@ -36,7 +36,7 @@ const range = (d: { min: number; max: number }) => (d.min === d.max ? `${d.max}`
 /** Day counts a policy mentions ("14 dage", "30 days", "30-day"), in any of the theme's languages. */
 export function policyDays(body: string): number[] {
   const text = body.replace(/<[^>]+>/g, " ");
-  const re = /(\d{1,3})\s*-?\s*(?:days?|dage?|dagar|dager|dagen|tage?n?|jours?|d[ií]as|giorni|dni|päivä\w*)\b/gi;
+  const re = /(\d{1,3})\s*-?\s*(?:days?|dag\w*|tag\w*|jours?|d[ií]as|giorni|dni|päivä\w*)\b/gi;
   return [...new Set([...text.matchAll(re)].map((m) => Number(m[1])).filter((n) => n > 0 && n <= 365))];
 }
 
