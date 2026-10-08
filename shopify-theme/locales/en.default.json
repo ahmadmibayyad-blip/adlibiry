@@ -41,7 +41,10 @@
     "continue": "Continue shopping",
     "note": "Order note",
     "free_shipping_remaining": "You're {{ amount }} away from free shipping",
-    "free_shipping_unlocked": "You've got free shipping"
+    "free_shipping_unlocked": "You've got free shipping",
+    "delivery_eta_html": "Estimated delivery: {{ dates }}",
+    "add_another": "Add one more – {{ price }}",
+    "payment_methods": "Payment methods"
   },
   "collections": {
     "view_all": "View all",

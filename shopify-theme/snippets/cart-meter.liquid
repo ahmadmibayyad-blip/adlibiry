@@ -1,0 +1,17 @@
+{%- comment -%} Free-shipping progress (settings.free_shipping_threshold, in the store currency). Cart page and drawer. {%- endcomment -%}
+{%- if settings.free_shipping_threshold > 0 and cart.item_count > 0 -%}
+  {%- liquid
+    assign threshold = settings.free_shipping_threshold | times: 100
+    assign remaining = threshold | minus: cart.total_price
+    assign remaining_money = remaining | money
+    assign pct = cart.total_price | times: 100 | divided_by: threshold | at_most: 100
+  -%}
+  <div class="ship-meter{% if remaining <= 0 %} is-done{% endif %}">
+    {%- if remaining > 0 -%}
+      <p>{{ 'cart.free_shipping_remaining' | t: amount: remaining_money }}</p>
+    {%- else -%}
+      <p>{% render 'icon', name: 'truck' %} {{ 'cart.free_shipping_unlocked' | t }}</p>
+    {%- endif -%}
+    <div class="ship-meter__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct }}"><span style="width: {{ pct }}%"></span></div>
+  </div>
+{%- endif -%}

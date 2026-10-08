@@ -41,7 +41,10 @@
     "continue": "Continuer vos achats",
     "note": "Note de commande",
     "free_shipping_remaining": "Plus que {{ amount }} pour bénéficier de la livraison gratuite",
-    "free_shipping_unlocked": "Vous bénéficiez de la livraison gratuite"
+    "free_shipping_unlocked": "Vous bénéficiez de la livraison gratuite",
+    "delivery_eta_html": "Livraison estimée : {{ dates }}",
+    "add_another": "En ajouter un autre – {{ price }}",
+    "payment_methods": "Moyens de paiement"
   },
   "collections": {
     "view_all": "Voir tout",

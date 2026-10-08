@@ -74,6 +74,32 @@
     });
   }
 
+  // "Estimated delivery: 14–21 Oct": business days from today, in the page's language.
+  function addBusinessDays(from, days) {
+    const d = new Date(from);
+    let left = days;
+    while (left > 0) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) left -= 1;
+    }
+    return d;
+  }
+  function fillDeliveryDates(scope) {
+    $$('[data-eta]', scope).forEach((el) => {
+      const min = Number(el.dataset.min) || 0;
+      const max = Math.max(min, Number(el.dataset.max) || 0);
+      const out = $('[data-eta-dates]', el);
+      if (!max || !out) return;
+      const lang = document.documentElement.lang || undefined;
+      const fmt = (d) => d.toLocaleDateString(lang, { day: 'numeric', month: 'short' });
+      const now = new Date();
+      const a = fmt(addBusinessDays(now, min));
+      const b = fmt(addBusinessDays(now, max));
+      out.textContent = a === b ? a : `${a} – ${b}`;
+      el.hidden = false;
+    });
+  }
+
   async function refreshDrawer() {
     const d = drawer();
     if (!d) return;
@@ -85,6 +111,7 @@
     if (!fresh) return;
     const wasOpen = d.classList.contains('is-open');
     d.innerHTML = fresh.innerHTML;
+    fillDeliveryDates(d);
     if (wasOpen) $('.drawer__panel', d)?.focus();
   }
 
@@ -157,6 +184,12 @@
     }
     if (t.closest('[data-drawer-close]')) {
       closeDrawer();
+      return;
+    }
+    const another = t.closest('[data-line-add]');
+    if (another) {
+      another.classList.add('is-loading');
+      changeLine(another.dataset.lineAdd, another.dataset.lineNext);
       return;
     }
     const remove = t.closest('[data-line-remove]');
@@ -240,6 +273,8 @@
       window.history.replaceState({}, '', url.toString());
     }
   }
+
+  fillDeliveryDates(document);
 
   // Sticky add-to-cart bar once the main button scrolls out of view.
   const sticky = $('[data-sticky-buy]');

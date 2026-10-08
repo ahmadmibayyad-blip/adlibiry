@@ -2,6 +2,7 @@
   <div class="page-width">
     <h1 class="h1">{{ 'cart.title' | t }}</h1>
     {%- if cart.item_count > 0 -%}
+      {% render 'cart-meter' %}
       <div class="cart-page">
         <div>{% render 'cart-items' %}</div>
         <form action="{{ routes.cart_url }}" method="post" class="cart-summary">
@@ -18,6 +19,7 @@
           <p class="small muted">{{ 'cart.taxes_shipping' | t }}</p>
           <button type="submit" name="checkout" class="btn btn--block btn--large">{% render 'icon', name: 'lock' %} {{ 'cart.checkout' | t }}</button>
           {%- if additional_checkout_buttons -%}<div class="cart-extra">{{ content_for_additional_checkout_buttons }}</div>{%- endif -%}
+          {% render 'cart-extras' %}
         </form>
       </div>
     {%- else -%}

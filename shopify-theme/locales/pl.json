@@ -41,7 +41,10 @@
     "continue": "Kontynuuj zakupy",
     "note": "Uwagi do zamówienia",
     "free_shipping_remaining": "Brakuje Ci {{ amount }} do darmowej dostawy",
-    "free_shipping_unlocked": "Masz darmową dostawę"
+    "free_shipping_unlocked": "Masz darmową dostawę",
+    "delivery_eta_html": "Przewidywana dostawa: {{ dates }}",
+    "add_another": "Dodaj jeszcze jeden – {{ price }}",
+    "payment_methods": "Metody płatności"
   },
   "collections": {
     "view_all": "Zobacz wszystkie",

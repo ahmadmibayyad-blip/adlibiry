@@ -41,7 +41,10 @@
     "continue": "Weiter einkaufen",
     "note": "Bestellnotiz",
     "free_shipping_remaining": "Dir fehlen noch {{ amount }} bis zum kostenlosen Versand",
-    "free_shipping_unlocked": "Du bekommst kostenlosen Versand"
+    "free_shipping_unlocked": "Du bekommst kostenlosen Versand",
+    "delivery_eta_html": "Voraussichtliche Lieferung: {{ dates }}",
+    "add_another": "Noch eins hinzufügen – {{ price }}",
+    "payment_methods": "Zahlungsarten"
   },
   "collections": {
     "view_all": "Alle ansehen",

@@ -205,11 +205,23 @@ export type ThemeInput = {
 
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 
+/** "5–10 business days" → 5 and 10; "1–2 uger" (weeks) → 5 and 10 business days; null without numbers. For the cart's delivery dates. */
+export function deliveryDays(text: string): { min: number; max: number } | null {
+  const nums = [...text.matchAll(/\d+/g)].map((m) => Number(m[0])).slice(0, 2);
+  if (!nums.length) return null;
+  const perUnit = /week|wk|uge|woche|veck|uke|semaine|semana|settiman|tydz|tygod|viik/i.test(text) ? 5 : 1;
+  const [a, b = a] = nums.map((n) => n * perUnit);
+  const min = Math.min(a, b);
+  const max = Math.max(a, b);
+  return max > 0 && max <= 90 ? { min, max } : null;
+}
+
 /** The store-specific files that replace the theme's defaults: settings, home page, header and footer. */
 export function themeOverrides(t: ThemeInput): Record<string, string> {
   const style = STORE_STYLES[t.style];
   const c = t.copy;
   const presets = Object.fromEntries(Object.values(STORE_STYLES).map((s) => [s.name, { ...s.settings }]));
+  const days = deliveryDays(t.facts.shippingTime);
   const settings = {
     current: {
       ...style.settings,
@@ -220,6 +232,10 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
       trust_line_3: c.productTrust.payment,
       cart_type: "drawer",
       free_shipping_threshold: t.facts.freeShippingFrom ? Math.round(t.facts.freeShippingFrom) : 0,
+      delivery_min_days: days?.min ?? 0,
+      delivery_max_days: days?.max ?? 0,
+      show_add_another: true,
+      show_payment_icons: true,
     },
     presets,
   };

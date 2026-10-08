@@ -41,7 +41,10 @@
     "continue": "Fortsett å handle",
     "note": "Ordremerknad",
     "free_shipping_remaining": "Du er {{ amount }} unna gratis frakt",
-    "free_shipping_unlocked": "Du har fått gratis frakt"
+    "free_shipping_unlocked": "Du har fått gratis frakt",
+    "delivery_eta_html": "Forventet levering: {{ dates }}",
+    "add_another": "Legg til én til – {{ price }}",
+    "payment_methods": "Betalingsmåter"
   },
   "collections": {
     "view_all": "Se alle",

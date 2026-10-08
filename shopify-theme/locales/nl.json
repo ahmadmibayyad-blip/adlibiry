@@ -41,7 +41,10 @@
     "continue": "Verder winkelen",
     "note": "Opmerking bij bestelling",
     "free_shipping_remaining": "Nog {{ amount }} tot gratis verzending",
-    "free_shipping_unlocked": "Je krijgt gratis verzending"
+    "free_shipping_unlocked": "Je krijgt gratis verzending",
+    "delivery_eta_html": "Verwachte levering: {{ dates }}",
+    "add_another": "Voeg er nog één toe – {{ price }}",
+    "payment_methods": "Betaalmethoden"
   },
   "collections": {
     "view_all": "Alles bekijken",

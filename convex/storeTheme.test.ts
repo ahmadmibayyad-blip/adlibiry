@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { THEME_FILES } from "./lib/themeFiles.generated";
-import { cleanStore, menuLabel, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
+import { cleanStore, deliveryDays, menuLabel, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
 import { crc32, zipFiles } from "./lib/zip";
 import { readTheme } from "../scripts/build-theme.mjs";
@@ -98,7 +98,7 @@ describe("storefront theme", () => {
       const input: ThemeInput = { style, brandName: "Rank Ryg", productHandle: "posture-corrector", pageHandles: { about: "about-1" }, copy: clean, product: { title: "Posture corrector" }, facts };
       const files = themeOverrides(input);
       const settings = JSON.parse(files["config/settings_data.json"]);
-      expect(settings.current).toMatchObject({ ...STORE_STYLES[style].settings, brand_name: "Rank Ryg", free_shipping_threshold: 299 });
+      expect(settings.current).toMatchObject({ ...STORE_STYLES[style].settings, brand_name: "Rank Ryg", free_shipping_threshold: 299, delivery_min_days: 5, delivery_max_days: 8, show_add_another: true });
       for (const group of ["templates/index.json", "sections/header-group.json", "sections/footer-group.json"]) {
         const tpl = JSON.parse(files[group]);
         for (const key of tpl.order) {
@@ -136,6 +136,16 @@ describe("storefront theme", () => {
     const menus = storeMenus(c, { productId: "gid://shopify/Product/1", pages: { about: "gid://shopify/Page/1", contact: "gid://shopify/Page/2" } }, "Posture corrector");
     expect(menus.main.map((m) => m.type)).toEqual(["FRONTPAGE", "CATALOG", "PRODUCT", "PAGE", "PAGE"]);
     expect(menus.footer.map((m) => m.title)).toEqual(["Contact", "Search"]);
+  });
+
+  it("reads the delivery time for the cart's delivery dates", () => {
+    expect(deliveryDays("5–10 business days")).toEqual({ min: 5, max: 10 });
+    expect(deliveryDays("3-5 hverdage")).toEqual({ min: 3, max: 5 });
+    expect(deliveryDays("1–2 uger")).toEqual({ min: 5, max: 10 });
+    expect(deliveryDays("2 weeks")).toEqual({ min: 10, max: 10 });
+    expect(deliveryDays("7 Tage")).toEqual({ min: 7, max: 7 });
+    expect(deliveryDays("fast delivery")).toBeNull();
+    expect(deliveryDays("365 days")).toBeNull();
   });
 
   it("keeps the product's menu label short", () => {

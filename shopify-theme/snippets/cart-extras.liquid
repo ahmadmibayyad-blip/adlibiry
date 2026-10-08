@@ -1,0 +1,23 @@
+{%- comment -%}
+  Under the checkout button (cart page and drawer): the estimated delivery dates
+  (settings.delivery_min_days–delivery_max_days business days, filled in by theme.js
+  in the shopper's language), the returns promise, and the store's payment methods.
+{%- endcomment -%}
+<div class="cart-extras">
+  {%- if settings.delivery_max_days > 0 -%}
+    <p class="cart-eta" data-eta data-min="{{ settings.delivery_min_days | default: settings.delivery_max_days }}" data-max="{{ settings.delivery_max_days }}" hidden>
+      {% render 'icon', name: 'truck' %}
+      <span>{{ 'cart.delivery_eta_html' | t: dates: '<strong data-eta-dates></strong>' }}</span>
+    </p>
+  {%- endif -%}
+  {%- if settings.trust_line_2 != blank -%}
+    <p class="cart-promise">{% render 'icon', name: 'return' %} <span>{{ settings.trust_line_2 | escape }}</span></p>
+  {%- endif -%}
+  {%- if settings.show_payment_icons and shop.enabled_payment_types.size > 0 -%}
+    <ul class="pay-icons" role="list" aria-label="{{ 'cart.payment_methods' | t }}">
+      {%- for type in shop.enabled_payment_types -%}
+        <li>{{ type | payment_type_svg_tag }}</li>
+      {%- endfor -%}
+    </ul>
+  {%- endif -%}
+</div>

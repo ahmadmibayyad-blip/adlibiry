@@ -316,7 +316,7 @@ textarea.input { min-height: 120px; }
 .cart-line__title { font-weight: 600; text-decoration: none; }
 .cart-line__variant, .cart-line__discount { font-size: .875rem; color: var(--c-muted); margin: 2px 0 0; }
 .cart-line__row { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
-.cart-line__price { text-align: right; font-weight: 600; display: grid; align-content: start; }
+.cart-line__price { text-align: right; font-weight: 600; display: grid; align-content: start; white-space: nowrap; }
 .cart-line__price s { font-weight: 400; color: var(--c-muted); font-size: .875rem; }
 .cart-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 1.1rem; }
 .empty { text-align: center; padding: 40px 0; }
@@ -339,6 +339,17 @@ textarea.input { min-height: 120px; }
 .ship-meter .icon { width: 18px; height: 18px; }
 .ship-meter__bar { height: 6px; border-radius: 99px; background: var(--c-border); overflow: hidden; }
 .ship-meter__bar span { display: block; height: 100%; background: var(--c-accent); border-radius: inherit; transition: width .4s ease; }
+[data-cart-page] .ship-meter { border-radius: var(--radius); margin-bottom: 20px; }
+.add-another { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 12px; padding: 10px 14px; border: 1px dashed var(--c-accent); border-radius: var(--radius); background: transparent; color: var(--c-text); font: inherit; font-weight: 600; cursor: pointer; }
+.add-another:hover { background: var(--c-surface); }
+.add-another .icon { width: 16px; height: 16px; color: var(--c-accent); }
+.add-another.is-loading { opacity: .6; pointer-events: none; }
+.cart-extras { display: grid; gap: 6px; font-size: .85rem; }
+.cart-eta, .cart-promise { display: flex; align-items: flex-start; gap: 8px; margin: 0; }
+.cart-eta[hidden] { display: none; }
+.cart-eta .icon, .cart-promise .icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; color: var(--c-accent); }
+.pay-icons { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+.pay-icons svg { width: 38px; height: 24px; display: block; }
 body.drawer-open { overflow: hidden; }
 
 /* ── footer ───────────────────────────────────────────────────────── */
