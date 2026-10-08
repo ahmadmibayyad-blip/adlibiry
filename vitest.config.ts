@@ -26,6 +26,9 @@ export default defineConfig({
           name: "convex",
           environment: "edge-runtime",
           include: ["convex/**/*.test.{ts,js}"],
+          // The pipeline's background fusion job is tested on its own (convex/fusion.test.ts);
+          // inside pipeline tests it only adds scheduled work that can exceed convex-test's timer pumps.
+          env: { FUSION_TRIGGERS: "off" },
         },
       },
       {

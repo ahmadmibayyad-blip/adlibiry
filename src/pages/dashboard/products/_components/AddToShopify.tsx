@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
+import ConnectShopify from "@/components/ConnectShopify.tsx";
 
 // One-click Shopify import (convex/shopifyImport.ts): adds the product to the
 // user's store as a draft. Without a connected store: connect, or download
@@ -29,6 +30,14 @@ function downloadCsv(product: Doc<"products">) {
 }
 
 function Connect({ onDone }: { onDone: () => void }) {
+  const app = useQuery(api.shopifyApp.status, {});
+  if (app?.appReady) return <ConnectShopify />;
+  return <TokenConnect onDone={onDone} />;
+}
+
+// Before the AdSpy Pro Shopify app is set up: a custom-app token (only works for
+// stores that created one before Shopify ended custom apps in 2026).
+function TokenConnect({ onDone }: { onDone: () => void }) {
   const connect = useAction(api.shopifyImport.connect);
   const [shop, setShop] = useState("");
   const [token, setToken] = useState("");

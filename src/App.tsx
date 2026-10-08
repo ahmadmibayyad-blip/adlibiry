@@ -29,6 +29,7 @@ import { LogoMark } from "./components/Logo.tsx";
 import { useServiceWorker } from "./hooks/use-service-worker.ts";
 import UnsubscribePage from "./pages/Unsubscribe.tsx";
 import TikTokShopPage from "./pages/dashboard/tiktok-shop/page.tsx";
+import LaunchesPage from "./pages/dashboard/launches/page.tsx";
 
 function DashboardGuard({ children }: { children: React.ReactNode }) {
   return (
@@ -100,6 +101,9 @@ export default function App() {
             <Route path="agents" element={<AgentsPage />} />
             <Route path="hooks" element={<HooksPage />} />
             <Route path="tiktok-shop" element={<TikTokShopPage />} />
+            <Route path="launch" element={<LaunchesPage />} />
+            <Route path="launch/shopify-callback" element={<LaunchesPage />} />
+            <Route path="launches" element={<LaunchesPage />} />
             <Route path="extension" element={<ExtensionPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />

@@ -5,6 +5,7 @@ import { auth } from "./auth";
 import { parseExtensionAd } from "./lib/extensionSubmission";
 import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
 import { apiGet } from "./publicApi";
+import { callback as shopifyCallback, webhook as shopifyWebhook } from "./shopifyApp";
 import { serveVideo } from "./videoDownload";
 
 const http = httpRouter();
@@ -102,6 +103,10 @@ http.route({ path: "/mcp", method: "POST", handler: mcpPost });
 http.route({ path: "/mcp", method: "GET", handler: mcpNotAllowed });
 http.route({ path: "/mcp", method: "DELETE", handler: mcpNotAllowed });
 http.route({ path: "/mcp", method: "OPTIONS", handler: mcpOptions });
+
+// Shopify app install and webhooks (see convex/shopifyApp.ts).
+http.route({ path: "/shopify/callback", method: "GET", handler: shopifyCallback });
+http.route({ path: "/shopify/webhooks", method: "POST", handler: shopifyWebhook });
 
 // Public REST API over the same tools and keys (see convex/publicApi.ts).
 http.route({ pathPrefix: "/v1/", method: "GET", handler: apiGet });

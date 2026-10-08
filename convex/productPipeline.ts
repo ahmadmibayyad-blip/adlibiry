@@ -450,7 +450,8 @@ export const step = internalMutation({
         // Event-driven enrichment (convex/fusion.ts): new winners, niche entrant
         // spikes and marketplace products without ads. Runs in the background;
         // Apify results come back later through its webhook.
-        await ctx.scheduler.runAfter(0, internal.fusion.runTriggers, { day: args.day });
+        // FUSION_TRIGGERS=off skips it (the pipeline tests; fusion has its own tests).
+        if (process.env.FUSION_TRIGGERS !== "off") await ctx.scheduler.runAfter(0, internal.fusion.runTriggers, { day: args.day });
       } else if (stage === "snapshotProducts") {
         const page = await ctx.db.query("products").paginate({ numItems: 200, cursor: args.cursor });
         for (const p of page.page) {

@@ -124,3 +124,20 @@ Shopify) feed one record per ad and product (`convex/lib/fusion.ts`, `convex/fus
   capped (about $0.07). Per day: `FUSION_ENRICH_PER_DAY` (default 10 winners), `FUSION_BACKFILL_PER_DAY`
   (default 20 products).
 - Before marketing "Verified winners", confirm the Nexscope contract allows derived scores built on its data.
+
+## Launch (one-click product pages in Shopify)
+
+A **Launch** button on product pages writes a product page with Claude (from the product's facts, its real supplier
+order count and the ads already selling it), cleans unprovable claims, and creates it in the user's Shopify store as a
+draft (or live), with price from supplier cost × ~2.8, images, SEO and an ad kit. History: `/dashboard/launches`.
+Quota: Pro 10 pages/month (`LAUNCH_MONTHLY_PRO`), Pro trial 2, agency/admin unlimited. Big-brand products are blocked.
+
+Stores connect through the **AdSpy Pro Shopify app** (OAuth, `convex/shopifyApp.ts`); pasted custom-app tokens still
+work for stores that already have one. Setup:
+
+1. Shopify Dev Dashboard → create the app "AdSpy Pro – Launch". Redirect URL:
+   `https://careful-raccoon-363.convex.site/shopify/callback`. Copy its client ID into `shopify-app/shopify.app.toml`
+   and run `npx @shopify/cli@latest app deploy` in `shopify-app/` (scopes and webhooks).
+2. Convex (Production) env: `SHOPIFY_API_KEY` (client ID), `SHOPIFY_API_SECRET` (client secret), `SHOPIFY_TOKEN_KEY`
+   (32 random bytes, base64: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+3. Until the app passes Shopify's review, it can be installed on development stores and with custom distribution links.
