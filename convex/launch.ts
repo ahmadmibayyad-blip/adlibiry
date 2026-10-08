@@ -6,6 +6,7 @@ import { stableToken } from "./lib/authIdentity";
 import { effectivePlan, onProTrial } from "./lib/billing";
 import { MAX_AI_PHOTOS, aiPhotosReady } from "./lib/aiPhotos";
 import { suggestPrice } from "./lib/launchCopy";
+import { bigBrandIn } from "./lib/productMatch";
 import { missingStoreScopes } from "./lib/shopifyOAuth";
 import { isStoreStyle } from "./lib/storeStyles";
 
@@ -52,6 +53,13 @@ async function allowance(ctx: QueryCtx, user: Doc<"users">): Promise<{ left: num
   return { left: Math.max(0, PRO_MONTHLY() - (row?.count ?? 0)), limit: PRO_MONTHLY() };
 }
 
+/** Why Launch is off for a big-brand product (flagged on import, or a brand in its title), or null. */
+function bigBrandBlock(p: Doc<"products">): string | null {
+  const brand = bigBrandIn(p.title);
+  if (!brand && !p.isBigBrand) return null;
+  return `${brand ? `This looks like a ${brand} product.` : "This is a big-brand product."} Selling it risks trademark claims and Meta and Shopify bans, so Launch is off for it.`;
+}
+
 /** The Launch dialog: store, quota, suggested price and the last launch of this product. */
 export const prepare = query({
   args: { productId: v.id("products") },
@@ -83,7 +91,7 @@ export const prepare = query({
             missingStoreScopes: store.via === "oauth" ? missingStoreScopes(store.scopes ?? "") : [],
           }
         : null,
-      blocked: product.isBigBrand ? "This is a big-brand product. Selling it risks trademark claims and Meta and Shopify bans, so Launch is off for it." : null,
+      blocked: bigBrandBlock(product),
       // In the store's currency (product prices and costs are USD).
       suggested: suggestPrice({ price: product.price, cost: product.cost }, { currency, rate: await usdRate(ctx, currency) }),
       last: last ?? null,
@@ -115,7 +123,8 @@ export const start = mutation({
     if (allowed.left === 0) throw new ConvexError({ code: "LIMIT", message: `You've used your ${allowed.limit} launches${allowed.limit === TRIAL_TOTAL ? " on the trial" : " this month"}.` });
     const product = await ctx.db.get("products", args.productId);
     if (!product) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found." });
-    if (product.isBigBrand) throw new ConvexError({ code: "BLOCKED", message: "Launch is off for big-brand products (trademark risk)." });
+    const blocked = bigBrandBlock(product);
+    if (blocked) throw new ConvexError({ code: "BLOCKED", message: blocked });
     const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
     if (!store) throw new ConvexError({ code: "NO_STORE", message: "Connect your Shopify store first (Settings → Shopify)." });
     const running = await ctx.db

@@ -250,6 +250,13 @@ describe("Launch", () => {
     const pro = await setup({ plan: "pro", subscriptionStatus: "active" });
     await pro.t.run((ctx) => ctx.db.patch("products", pro.productId, { isBigBrand: true }));
     await expect(pro.user.mutation(api.launch.start, { productId: pro.productId, language: "English", tone: "bold", publish: "DRAFT" })).rejects.toThrow(/big-brand/);
+
+    // A brand in the title is enough, even when the import didn't flag it.
+    await pro.t.run((ctx) => ctx.db.patch("products", pro.productId, { isBigBrand: false, title: "Roku Streaming Stick HD with Voice Remote" }));
+    expect((await pro.user.query(api.launch.prepare, { productId: pro.productId }))?.blocked).toBe(
+      "This looks like a Roku product. Selling it risks trademark claims and Meta and Shopify bans, so Launch is off for it.",
+    );
+    await expect(pro.user.mutation(api.launch.start, { productId: pro.productId, language: "English", tone: "bold", publish: "DRAFT" })).rejects.toThrow(/Roku/);
   });
 
   it("records a clear failure when the AI isn't set up", async () => {

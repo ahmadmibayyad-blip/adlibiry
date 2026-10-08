@@ -53,7 +53,7 @@ describe("Ready to sell?", () => {
     expect(byId["free-shipping"].detail).toContain("from 299 DKK, but Shopify gives it from 249 DKK");
     expect(byId["delivery-time"]).toMatchObject({ status: "check", title: "Check your delivery times say 5–10 business days" });
     expect(byId.policies.status).toBe("reconnect"); // no read_legal_policies yet
-    expect(byId["brand:Roku stick"].status).toBe("fix");
+    expect(byId["brand:Roku stick"]).toMatchObject({ status: "fix", detail: expect.stringContaining("It's named after Roku.") });
     expect(byId["photo:Roku stick"].status).toBe("fix");
     expect(byId.themes.title).toBe("19 of 20 themes used");
     expect(byId.plan).toMatchObject({ status: "ok", title: "Shopify plan: Basic" });
