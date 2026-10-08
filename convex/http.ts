@@ -6,7 +6,7 @@ import { parseExtensionAd } from "./lib/extensionSubmission";
 import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
 import { apiGet } from "./publicApi";
 import { callback as shopifyCallback, webhook as shopifyWebhook } from "./shopifyApp";
-import { serveTheme } from "./storeThemeHttp";
+import { serveAdImage, serveTheme } from "./storeThemeHttp";
 import { serveVideo } from "./videoDownload";
 
 const http = httpRouter();
@@ -110,6 +110,7 @@ http.route({ path: "/shopify/callback", method: "GET", handler: shopifyCallback 
 http.route({ path: "/shopify/webhooks", method: "POST", handler: shopifyWebhook });
 // Launch → Full store: the storefront theme zip Shopify installs (convex/storeThemeHttp.ts).
 http.route({ path: "/shopify/theme.zip", method: "GET", handler: serveTheme });
+http.route({ path: "/launch/ad-image", method: "GET", handler: serveAdImage });
 
 // Public REST API over the same tools and keys (see convex/publicApi.ts).
 http.route({ pathPrefix: "/v1/", method: "GET", handler: apiGet });

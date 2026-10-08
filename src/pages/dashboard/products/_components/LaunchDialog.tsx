@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import ConnectShopify from "@/components/ConnectShopify.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import AdKit from "./AdKit.tsx";
 import StylePicker from "./StylePicker.tsx";
 
 // Launch (convex/launch.ts): the product becomes a written, priced product
@@ -41,24 +42,6 @@ const STORE_STEPS = [
   ["pages", "Adding pages and menus"],
   ["theme", "Installing your theme"],
 ] as const;
-
-function CopyButton({ text }: { text: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      type="button"
-      className="text-muted-foreground hover:text-foreground shrink-0"
-      aria-label="Copy"
-      onClick={() => {
-        navigator.clipboard?.writeText(text);
-        setDone(true);
-        setTimeout(() => setDone(false), 1500);
-      }}
-    >
-      {done ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-    </button>
-  );
-}
 
 function StoreSteps({ l }: { l: Doc<"launches"> }) {
   const steps = STORE_STEPS.filter(([k]) => k !== "photos" || (l.aiPhotos ?? 0) > 0);
@@ -146,6 +129,7 @@ function GoLive({ l }: { l: Doc<"launches"> }) {
 
 function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: () => void }) {
   const l = useQuery(api.launch.get, { launchId });
+  const quota = useQuery(api.launch.myQuota, {});
   if (!l) return <Spinner />;
   const isStore = l.mode === "store";
   if (l.status === "generating" || l.status === "publishing") {
@@ -218,25 +202,7 @@ function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: ()
         </>
       )}
       <AiPhotos l={l} />
-      {copy?.adKit?.length ? (
-        <div>
-          <h4 className="text-sm font-semibold mb-2">Your ad kit</h4>
-          <ul className="space-y-2">
-            {copy.adKit.map((a, i) => (
-              <li key={i} className="rounded-lg border border-border p-2.5 text-xs space-y-1">
-                <div className="font-medium">{a.angle}</div>
-                {[["Hook", a.hook], ["Primary text", a.primaryText], ["Headline", a.headline]].map(([label, text]) => (
-                  <div key={label} className="flex gap-2 items-start">
-                    <span className="text-muted-foreground w-20 shrink-0">{label}</span>
-                    <span className="flex-1">{text}</span>
-                    <CopyButton text={text} />
-                  </div>
-                ))}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <AdKit l={l} ready={!!quota?.aiPhotosReady} />
       <Link to="/dashboard/launch" className="text-xs text-primary hover:underline">All your launches →</Link>
     </div>
   );

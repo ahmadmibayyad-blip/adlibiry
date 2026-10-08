@@ -178,6 +178,63 @@ describe("Launch", () => {
     expect(stored?.sort()).toEqual(["png-1", "png-2", "png-4"]);
   });
 
+  it("makes ad images for the owner's ad kit and serves them signed, with CORS", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    const prompts: string[] = [];
+    let geminiFails = false;
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("anthropic.com")) {
+        return json({ id: "msg_1", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text: JSON.stringify(aiCopy) }], usage: { input_tokens: 10, output_tokens: 10 } });
+      }
+      if (url === "https://cdn.x/p.jpg") return new Response(new Uint8Array([0xff, 0xd8, 0xff, 9]), { headers: { "Content-Type": "image/jpeg" } });
+      if (url.includes("generativelanguage.googleapis.com")) {
+        const body = JSON.parse(String(init?.body));
+        prompts.push(`${body.generationConfig.imageConfig.aspectRatio} ${body.contents[0].parts[0].text}`);
+        if (geminiFails) return json({ error: { message: "quota" } }, 429);
+        return json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: btoa(`ad-${prompts.length}`) } }] } }] });
+      }
+      if (url.includes("/graphql.json")) {
+        return json({ data: { productSet: { product: { id: "gid://shopify/Product/987", handle: "x", onlineStorePreviewUrl: "https://my-store.myshopify.com/products/x" }, userErrors: [] } } });
+      }
+      return new Response("", { status: 404 });
+    }));
+    vi.stubEnv("CONVEX_SITE_URL", "https://x.convex.site");
+    const { t, productId, user } = await setup({ plan: "pro", subscriptionStatus: "active" });
+    const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT" });
+    await t.finishAllScheduledFunctions(() => {});
+
+    await expect(user.action(api.launchAds.make, { launchId })).rejects.toThrow(/switched on/);
+    vi.stubEnv("GEMINI_API_KEY", "g-test");
+    // Someone else's launch: refused.
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" }));
+    await expect(t.withIdentity({ subject: "u2|s" }).action(api.launchAds.make, { launchId })).rejects.toThrow(/not found/);
+
+    expect(await user.action(api.launchAds.make, { launchId })).toEqual({ made: 1 });
+    expect(prompts[0]).toMatch(/^4:5 /);
+    expect(prompts[0]).toContain('Its hook: "Your back at 5pm…"');
+    const launch = await user.query(api.launch.get, { launchId });
+    expect(launch).toMatchObject({ adImagesStatus: "done", adImageRuns: 1, adImages: [{ angle: "Desk workers", ad: 0 }] });
+    const link = new URL(launch!.adImages![0].url);
+    expect(link.origin + link.pathname).toBe("https://x.convex.site/launch/ad-image");
+
+    const res = await t.fetch(`/launch/ad-image${link.search}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(await res.text()).toBe("ad-1");
+    expect((await t.fetch(`/launch/ad-image?id=${link.searchParams.get("id")}&s=bad`)).status).toBe(404);
+
+    // A failed run keeps the images there are; at most 3 runs per launch.
+    geminiFails = true;
+    expect(await user.action(api.launchAds.make, { launchId })).toEqual({ made: 0, note: "The ad images couldn't be made this time. Try again." });
+    expect((await user.query(api.launch.get, { launchId }))?.adImages).toHaveLength(1);
+    geminiFails = false;
+    expect(await user.action(api.launchAds.make, { launchId })).toEqual({ made: 1 });
+    expect((await t.fetch(`/launch/ad-image${link.search}`)).status).toBe(404); // the replaced picture is gone
+    await expect(user.action(api.launchAds.make, { launchId })).rejects.toThrow(/3 times/);
+  });
+
   it("keeps Launch to paying plans, blocks big brands, and caps the trial at 2", async () => {
     const free = await setup({});
     await expect(free.user.mutation(api.launch.start, { productId: free.productId, language: "English", tone: "bold", publish: "DRAFT" })).rejects.toThrow(/part of Pro/);

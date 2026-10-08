@@ -49,6 +49,7 @@ import type * as imageHashAction from "../imageHashAction.js";
 import type * as imageSearch from "../imageSearch.js";
 import type * as importRuns from "../importRuns.js";
 import type * as launch from "../launch.js";
+import type * as launchAds from "../launchAds.js";
 import type * as launchRun from "../launchRun.js";
 import type * as lib_adCopy from "../lib/adCopy.js";
 import type * as lib_adFields from "../lib/adFields.js";
@@ -177,6 +178,7 @@ declare const fullApi: ApiFromModules<{
   imageSearch: typeof imageSearch;
   importRuns: typeof importRuns;
   launch: typeof launch;
+  launchAds: typeof launchAds;
   launchRun: typeof launchRun;
   "lib/adCopy": typeof lib_adCopy;
   "lib/adFields": typeof lib_adFields;

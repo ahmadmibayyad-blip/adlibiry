@@ -37,11 +37,27 @@ export function photoPrompts(p: { title: string; category?: string; description?
 
 export type InlineImage = { mimeType: string; data: string };
 
-/** The generateContent request: the prompt plus the real photo, asking for one square image back. */
-export function geminiImageRequest(prompt: string, photo: InlineImage) {
+/**
+ * The picture behind one ad of the launch's ad kit: portrait 4:5 (Facebook/Instagram feed), a scene that fits the
+ * ad's angle, and a calm top third where the app writes the hook (the model never writes text: it misspells).
+ */
+export function adPhotoPrompt(p: { title: string; category?: string }, ad: { angle: string; hook: string }): string {
+  return [
+    "Make a scroll-stopping, photorealistic social media ad photo, portrait 4:5, of the product in the attached photo.",
+    `The ad's angle: ${ad.angle.slice(0, 80)}. Its hook: "${ad.hook.slice(0, 160)}". Show a real-life scene that makes this angle obvious at a glance.`,
+    "Keep the product exactly as it is in the attached photo: the same shape, colours, materials, parts and proportions. Keep it large and clearly visible in the lower two thirds.",
+    "Keep the top third calm and uncluttered (a soft background, wall, sky or surface): a headline will be placed there.",
+    "No text, words, logos, watermarks, badges, prices or brand names anywhere in the image.",
+    "If people appear, they are adults with natural, relaxed poses. Animals only if the product is for them.",
+    `Product: ${p.title.slice(0, 160)}${p.category ? ` (${p.category})` : ""}`,
+  ].join("\n");
+}
+
+/** The generateContent request: the prompt plus the real photo, asking for one image back. */
+export function geminiImageRequest(prompt: string, photo: InlineImage, aspectRatio = "1:1") {
   return {
     contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: photo.mimeType, data: photo.data } }] }],
-    generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "1:1" } },
+    generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio } },
   };
 }
 
