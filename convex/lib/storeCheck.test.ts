@@ -83,6 +83,7 @@ describe("Ready to sell?", () => {
   it("reads day counts from policies in any language", () => {
     expect(policyDays("Returns within 30 days. Refunds in 5-7 days.")).toEqual([30, 7]);
     expect(policyDays("<p>Retur inden for 14 dage</p>")).toEqual([14]);
+    expect(policyDays("30 dages fortrydelsesret, og vi tilbagebetaler senest 14 dage efter")).toEqual([30, 14]);
     expect(policyDays("30-day money-back guarantee")).toEqual([30]);
     expect(policyDays("Rückgabe innerhalb von 30 Tagen")).toEqual([30]);
     expect(policyDays("no numbers")).toEqual([]);
