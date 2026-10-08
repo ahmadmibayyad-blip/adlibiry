@@ -196,8 +196,18 @@ export function proofLine(p: LaunchProduct): string | undefined {
   return orders && orders >= 100 ? `${Math.floor(orders / 100) * 100}+ ordered from our supplier in the last 30 days` : undefined;
 }
 
+// Letters NFKD doesn't split into a base letter + accent.
+const SPELLED: Record<string, string> = { æ: "ae", ø: "oe", å: "aa", ß: "ss", œ: "oe", ł: "l", đ: "d", þ: "th", ð: "d" };
+
 export const handleFor = (title: string) =>
-  title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "product";
+  title
+    .toLowerCase()
+    .replace(/[æøåßœłđþð]/g, (c) => SPELLED[c])
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "product";
 
 /** Shopify productSet input: the page, price and cost, images, SEO, and the copy as a metafield for our theme block. */
 export function launchProductInput(

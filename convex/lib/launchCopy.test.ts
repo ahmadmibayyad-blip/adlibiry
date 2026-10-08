@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { charmFor, cleanCopy, launchFacts, launchProductInput, pageHtml, proofLine, scrubClaims, suggestPrice, type LaunchCopy } from "./launchCopy";
+import { charmFor, cleanCopy, handleFor, launchFacts, launchProductInput, pageHtml, proofLine, scrubClaims, suggestPrice, type LaunchCopy } from "./launchCopy";
 import { authorizeUrl, decryptToken, encryptToken, verifyQueryHmac, verifyWebhookHmac } from "./shopifyOAuth";
 
 const copy: LaunchCopy = {
@@ -93,6 +93,14 @@ describe("Launch page and Shopify product", () => {
     expect(input.variants[0]).toMatchObject({ price: "27.99", inventoryItem: { cost: "10.00", tracked: false } });
     expect(input.files.map((f) => f.originalSource)).toEqual(["https://cdn.x/1.jpg", "https://cdn.x/2.jpg"]);
     expect(JSON.parse(input.metafields[0].value).benefits).toHaveLength(3);
+  });
+});
+
+describe("handleFor", () => {
+  it("spells out letters that have no accent-free form", () => {
+    expect(handleFor("Pibende hundelegetøj i latex – sæt med 4")).toBe("pibende-hundelegetoej-i-latex-saet-med-4");
+    expect(handleFor("Crème brûlée Straße")).toBe("creme-brulee-strasse");
+    expect(handleFor("!!!")).toBe("product");
   });
 });
 

@@ -228,6 +228,40 @@ describe("Launch → Full store", () => {
     expect(l?.error).toContain("stop here"); // got past the AI step
   });
 
+  it("updates the product an earlier launch made, and works around a taken handle", async () => {
+    const inputs: Record<string, unknown>[] = [];
+    let taken = true;
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("anthropic.com")) {
+        return json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text: JSON.stringify(productCopy) }], usage: { input_tokens: 1, output_tokens: 1 } });
+      }
+      const input = JSON.parse(String(init?.body)).variables.input;
+      inputs.push(input);
+      if (input.id === "gid://shopify/Product/1") return json({ data: { productSet: { product: { id: input.id, handle: "x" }, userErrors: [] } } });
+      if (taken && !String(input.handle).match(/-[a-z0-9]{4}$/)) {
+        return json({ data: { productSet: { product: null, userErrors: [{ field: ["input", "handle"], message: `Handle '${input.handle}' already in use. Please provide a new handle.` }] } } });
+      }
+      return json({ data: { productSet: { product: { id: "gid://shopify/Product/2", handle: input.handle }, userErrors: [] } } });
+    }));
+    const { t, productId, user } = await setup();
+    const first = await user.mutation(api.launch.start, { productId, language: "Danish", tone: "friendly", publish: "DRAFT" });
+    await t.finishAllScheduledFunctions(() => {});
+    expect(await user.query(api.launch.get, { launchId: first.launchId })).toMatchObject({ status: "published", shopifyProductId: "gid://shopify/Product/2" });
+    expect(inputs.map((i) => i.handle)).toEqual(["rank-ryg-holdningskorrektor", expect.stringMatching(/^rank-ryg-holdningskorrektor-[a-z0-9]{4}$/)]);
+
+    // Launching it again updates that product instead of creating another.
+    await t.run((ctx) => ctx.db.patch("launches", first.launchId, { shopifyProductId: "gid://shopify/Product/1" }));
+    inputs.length = 0;
+    taken = false;
+    const again = await user.mutation(api.launch.start, { productId, language: "Danish", tone: "friendly", publish: "DRAFT" });
+    await t.finishAllScheduledFunctions(() => {});
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toMatchObject({ id: "gid://shopify/Product/1" });
+    expect(await user.query(api.launch.get, { launchId: again.launchId })).toMatchObject({ status: "published", shopifyProductId: "gid://shopify/Product/1" });
+  });
+
   it("asks app installs from before Full store to reconnect", async () => {
     const { user, productId } = await setup({ via: "oauth", scopes: "write_products,write_publications" });
     expect((await user.query(api.launch.prepare, { productId }))?.store?.missingStoreScopes).toHaveLength(3);

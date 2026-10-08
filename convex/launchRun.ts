@@ -154,7 +154,7 @@ export const run = internalAction({
     const c = await ctx.runQuery(internal.launch.context, { launchId: args.launchId });
     if (!c) return;
     if (!c.product || !c.store) return fail("The product or the connected store is gone.");
-    const { launch, product, store, ads, rate } = c;
+    const { launch, product, store, ads, rate, previousShopifyProductId } = c;
     const fullStore = launch.mode === "store" && isStoreStyle(launch.style);
     const facts = launch.facts as StoreFacts | undefined;
 
@@ -241,11 +241,8 @@ export const run = internalAction({
         language: launch.language,
         forStoreTheme: fullStore,
       });
-      const data = (await shopify(store.shopDomain, token, PRODUCT_SET, { input })) as {
-        productSet?: { product: { id: string; handle: string; onlineStorePreviewUrl?: string } | null; userErrors: UserError[] };
-      };
-      const created = data.productSet?.product;
-      if (!created) return fail(`Shopify: ${userErrors(data.productSet?.userErrors) || "the product wasn't created"}`);
+      const created = await upsertProduct(store.shopDomain, token, input, previousShopifyProductId);
+      if ("error" in created) return fail(created.error);
       let storeUrl = created.onlineStorePreviewUrl;
       if (launch.publish === "ACTIVE") {
         // Put it on the Online Store sales channel (needs the app's publications scope).
@@ -317,6 +314,30 @@ export const run = internalAction({
     }
   },
 });
+
+type ProductSetResult = { productSet?: { product: { id: string; handle: string; onlineStorePreviewUrl?: string } | null; userErrors: UserError[] } };
+
+/**
+ * Creates the product, or updates the one an earlier launch of it made (so
+ * launching again doesn't fail on "handle already in use" or duplicate it).
+ * A handle taken by another product gets a short suffix.
+ */
+async function upsertProduct(
+  shop: string,
+  token: string,
+  input: ReturnType<typeof launchProductInput>,
+  previousId: string | undefined,
+): Promise<{ id: string; handle: string; onlineStorePreviewUrl?: string } | { error: string }> {
+  const attempt = async (i: Record<string, unknown>) => ((await shopify(shop, token, PRODUCT_SET, { input: i })) as ProductSetResult).productSet;
+  let r = previousId ? await attempt({ ...input, id: previousId }) : undefined;
+  if (r?.product) return r.product;
+  // No earlier product, or it was deleted in Shopify since.
+  r = await attempt(input);
+  if (!r?.product && /handle/i.test(userErrors(r?.userErrors)) && /in use|taken|already/i.test(userErrors(r?.userErrors))) {
+    r = await attempt({ ...input, handle: `${input.handle}-${Math.random().toString(36).slice(2, 6)}` });
+  }
+  return r?.product ?? { error: `Shopify: ${userErrors(r?.userErrors) || "the product wasn't created"}` };
+}
 
 /** Creates the store's pages, or updates the ones an earlier Full store launch made. */
 async function upsertPages(
