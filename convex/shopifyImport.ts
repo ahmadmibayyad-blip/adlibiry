@@ -4,6 +4,8 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { normalizeShopDomain, productSetInput, SHOPIFY_API_VERSION } from "./lib/shopifyExport";
+import { decryptToken } from "./lib/shopifyOAuth";
+import { fetchStoreInfo } from "./lib/shopifyStoreInfo";
 
 // ── One-click Shopify import ────────────────────────────────────────────────
 // The user connects their store with a custom-app Admin API token (scope
@@ -70,7 +72,7 @@ export const connect = action({
     };
     if (!data.shop) throw new ConvexError({ code: "SHOPIFY", message: "Shopify didn't return the store details." });
     const saved = { shopDomain: data.shop.myshopifyDomain || shopDomain, shopName: data.shop.name };
-    const locale = await primaryLocale(saved.shopDomain, accessToken);
+    const { locale } = await fetchStoreInfo(saved.shopDomain, accessToken);
     await ctx.runMutation(internal.shopifyImport.saveConnection, {
       userId: user._id,
       ...saved,
@@ -82,21 +84,10 @@ export const connect = action({
   },
 });
 
-/** The store's main language ("da"); needs read_locales, which older tokens may not have. */
-async function primaryLocale(shopDomain: string, accessToken: string): Promise<string | undefined> {
-  try {
-    const d = (await shopifyGraphql(shopDomain, accessToken, "{ shopLocales(published: true) { locale primary } }")) as {
-      shopLocales?: { locale: string; primary: boolean }[];
-    };
-    return d.shopLocales?.find((l) => l.primary)?.locale;
-  } catch {
-    return undefined;
-  }
-}
-
 /**
- * Stores connected with a token before we saved the currency: reads it (and the
- * language) once, so Launch prices in the store's currency instead of USD.
+ * Connections missing the store's currency, language or real name (token
+ * connections from before we saved them, and app installs whose first read
+ * failed): reads them once, so Launch prices in the store's currency.
  */
 export const refreshStoreInfo = action({
   args: {},
@@ -104,18 +95,16 @@ export const refreshStoreInfo = action({
     const user = await ctx.runQuery(internal.users.getCurrentUserInternal, {});
     if (!user) return;
     const c = await ctx.runQuery(internal.shopifyImport.connectionFor, { userId: user._id });
-    // App installs store an encrypted token and already have the currency.
-    if (!c || c.currency || c.accessToken.startsWith("enc:")) return;
+    if (!c || (c.currency && c.locale && c.shopName !== c.shopDomain)) return;
     try {
-      const data = (await shopifyGraphql(c.shopDomain, c.accessToken, "{ shop { currencyCode } }")) as { shop?: { currencyCode?: string } };
-      const locale = c.locale ? undefined : await primaryLocale(c.shopDomain, c.accessToken);
-      if (data.shop?.currencyCode || locale) {
-        await ctx.runMutation(internal.shopifyImport.patchStoreInfo, {
-          id: c._id,
-          ...(data.shop?.currencyCode ? { currency: data.shop.currencyCode } : {}),
-          ...(locale ? { locale } : {}),
-        });
-      }
+      const token = await decryptToken(c.accessToken, process.env.SHOPIFY_TOKEN_KEY?.trim());
+      const info = await fetchStoreInfo(c.shopDomain, token);
+      const patch = {
+        ...(!c.currency && info.currency ? { currency: info.currency } : {}),
+        ...(!c.locale && info.locale ? { locale: info.locale } : {}),
+        ...(c.shopName === c.shopDomain && info.name ? { shopName: info.name } : {}),
+      };
+      if (Object.keys(patch).length) await ctx.runMutation(internal.shopifyImport.patchStoreInfo, { id: c._id, ...patch });
     } catch (e) {
       console.warn("refreshStoreInfo failed", e);
     }
@@ -128,7 +117,7 @@ export const connectionFor = internalQuery({
 });
 
 export const patchStoreInfo = internalMutation({
-  args: { id: v.id("shopifyConnections"), currency: v.optional(v.string()), locale: v.optional(v.string()) },
+  args: { id: v.id("shopifyConnections"), currency: v.optional(v.string()), locale: v.optional(v.string()), shopName: v.optional(v.string()) },
   handler: async (ctx, { id, ...patch }) => {
     await ctx.db.patch("shopifyConnections", id, patch);
   },

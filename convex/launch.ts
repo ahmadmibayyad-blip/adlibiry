@@ -77,6 +77,7 @@ export const prepare = query({
             viaApp: store.via === "oauth",
             // false: connected with a token before we saved the currency (shopifyImport.refreshStoreInfo reads it).
             currencyKnown: !!store.currency,
+            infoComplete: !!store.currency && !!store.locale && store.shopName !== store.shopDomain,
             // Full store needs theme, page and menu access; app installs from before it need a reconnect.
             missingStoreScopes: store.via === "oauth" ? missingStoreScopes(store.scopes ?? "") : [],
           }

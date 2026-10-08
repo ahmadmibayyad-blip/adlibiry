@@ -200,6 +200,34 @@ describe("Launch → Full store", () => {
     expect(conn).toMatchObject({ currency: "DKK", accessToken: `shpat_${"a".repeat(32)}`, storePages: { about: "gid://shopify/Page/1" } });
   });
 
+  it("still writes the store when the API won't compile its schema", async () => {
+    let storeCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("anthropic.com")) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        const msg = (text: string) => json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text }], usage: { input_tokens: 1, output_tokens: 1 } });
+        if (!String(body.system).includes("rest of a one-product dropshipping store")) return msg(JSON.stringify(productCopy));
+        storeCalls++;
+        if (body.output_config?.format) {
+          return json({ type: "error", error: { type: "invalid_request_error", message: "The compiled grammar is too large, which would cause performance issues." } }, 400);
+        }
+        return msg(`Here you go:\n${JSON.stringify({ ...storeCopy, trust: [storeCopy.trust[0]] })}`);
+      }
+      return json({ errors: [{ message: "stop here" }] }); // Shopify: not needed for this test
+    }));
+    const { t, productId, user } = await setup();
+    const { launchId } = await user.mutation(api.launch.start, {
+      productId, language: "Danish", tone: "friendly", publish: "DRAFT", mode: "store", style: "playful", facts: { shippingTime: "5–8 dage", returnDays: 30 },
+    });
+    await t.finishAllScheduledFunctions(() => {});
+    const l = await user.query(api.launch.get, { launchId });
+    expect(storeCalls).toBe(2);
+    expect(l?.store).toMatchObject({ hero: { heading: "Sit straighter, all day" }, trust: [{ icon: "truck" }] });
+    expect(l?.error).toContain("stop here"); // got past the AI step
+  });
+
   it("asks app installs from before Full store to reconnect", async () => {
     const { user, productId } = await setup({ via: "oauth", scopes: "write_products,write_publications" });
     expect((await user.query(api.launch.prepare, { productId }))?.store?.missingStoreScopes).toHaveLength(3);
@@ -213,12 +241,16 @@ describe("Launch → Full store", () => {
     const validStore = { ...storeCopy, trust: [storeCopy.trust[0]], benefits: { ...storeCopy.benefits, items: [storeCopy.benefits.items[0]] } };
     const calls: { query: string; variables: Record<string, unknown> }[] = [];
     let prompt = "";
+    const aiBodies: { system: string; output_config: { format: { schema: unknown } } }[] = [];
     vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
       const url = String(u instanceof Request ? u.url : u);
       if (url.includes("anthropic.com")) {
-        prompt = String(init?.body ?? "");
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        aiBodies.push(body);
+        const isStore = String(body.system).includes("rest of a one-product dropshipping store");
+        if (isStore) prompt = String(init?.body ?? "");
         return json({ id: "msg_1", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
-          content: [{ type: "text", text: JSON.stringify({ product: productCopy, store: validStore }) }], usage: { input_tokens: 10, output_tokens: 10 } });
+          content: [{ type: "text", text: JSON.stringify(isStore ? validStore : productCopy) }], usage: { input_tokens: 10, output_tokens: 10 } });
       }
       if (!url.includes("/graphql.json")) return new Response("", { status: 404 });
       const body = JSON.parse(String(init?.body));
@@ -253,6 +285,9 @@ describe("Launch → Full store", () => {
       themeEditorUrl: "https://rank.myshopify.com/admin/themes/77/editor", pageHandles: { about: "about", contact: "contact-1" },
     });
     expect(prompt).toContain("Returns: within 30 days of delivery");
+    // Two small strict schemas without enums: one big one was rejected ("compiled grammar is too large").
+    expect(aiBodies).toHaveLength(2);
+    for (const b of aiBodies) expect(JSON.stringify(b.output_config.format.schema)).not.toContain('"enum"');
     expect(prompt).toContain("Free shipping on orders from 299 DKK");
 
     const productSet = calls.find((c) => c.query.includes("productSet"))!.variables.input as { descriptionHtml: string; variants: { price: string; inventoryItem: { cost: string } }[] };

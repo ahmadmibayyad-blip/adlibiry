@@ -247,9 +247,9 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
   const start = useMutation(api.launch.start);
   const refreshStoreInfo = useAction(api.shopifyImport.refreshStoreInfo);
   const refreshed = useRef(false);
-  // Token-connected stores from before we saved the currency: read it once, so the price is in the store's currency.
+  // Stores whose currency, language or name we don't have yet: read them once, so the price is in the store's currency.
   useEffect(() => {
-    if (prep?.store && !prep.store.currencyKnown && !refreshed.current) {
+    if (prep?.store && !prep.store.infoComplete && !refreshed.current) {
       refreshed.current = true;
       refreshStoreInfo({}).catch(() => {});
     }
