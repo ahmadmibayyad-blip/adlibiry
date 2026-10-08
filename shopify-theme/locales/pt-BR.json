@@ -31,6 +31,7 @@
     "rating": "{{ rating }} de 5 estrelas",
     "guarantee_title": "Garantia de {{ days }} dias ou seu dinheiro de volta",
     "guarantee_text": "Não gostou? Devolva em até {{ days }} dias e receba seu dinheiro de volta.",
+    "view_product": "Ver o produto",
     "choose_product": "Escolha um produto para esta seção no editor de temas."
   },
   "cart": {

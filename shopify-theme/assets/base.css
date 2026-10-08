@@ -244,6 +244,7 @@ textarea.input { min-height: 120px; }
 .review__photos { display: flex; gap: 8px; flex-wrap: wrap; }
 .review__photos img { width: 72px; height: 72px; object-fit: cover; border-radius: calc(var(--radius) / 2); }
 .review__by { font-size: .85rem; color: var(--c-muted); }
+.reviews__grid + .link-center { margin-top: 28px; }
 .guarantee { display: flex; gap: 16px; align-items: flex-start; padding: 22px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); }
 .guarantee > .icon { width: 36px; height: 36px; flex-shrink: 0; color: var(--c-accent); }
 .guarantee .h4 { margin: 0 0 4px; }

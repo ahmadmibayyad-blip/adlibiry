@@ -31,6 +31,7 @@
     "rating": "{{ rating }} av 5 stjärnor",
     "guarantee_title": "{{ days }} dagars pengarna-tillbaka-garanti",
     "guarantee_text": "Inte nöjd? Skicka tillbaka den inom {{ days }} dagar och få pengarna tillbaka.",
+    "view_product": "Se produkten",
     "choose_product": "Välj en produkt för det här avsnittet i temaredigeraren."
   },
   "cart": {

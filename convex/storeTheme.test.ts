@@ -116,6 +116,10 @@ describe("storefront theme", () => {
       const index = JSON.parse(files["templates/index.json"]);
       expect(index.sections.hero.settings).toMatchObject({ product: "posture-corrector", heading: "Sit straighter, all day", layout: STORE_STYLES[style].heroLayout });
       expect(index.sections.story.settings.button_link).toBe("/pages/about-1");
+      // The supplier reviews sit between the story and the FAQ, on another background than the story.
+      expect(index.sections.reviews.settings.product).toBe("posture-corrector");
+      expect(index.sections.reviews.settings.scheme).not.toBe(index.sections.story.settings.scheme);
+      expect(index.order.slice(index.order.indexOf("story"), index.order.indexOf("story") + 3)).toEqual(["story", "reviews", "faq"]);
       expect(themeFiles(input)["layout/theme.liquid"]).toContain("content_for_header");
     }
   });
