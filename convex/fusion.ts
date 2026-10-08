@@ -147,8 +147,9 @@ export const runTriggers = internalAction({
             // AdLibrary allows 10 requests a minute.
             if (searched++ > 0) await new Promise((resolve) => setTimeout(resolve, ADLIBRARY_GAP_MS));
             const r = await ctx.runAction(internal.adlibrary.sync.searchKeyword, { keyword: term, niche: p.category });
-            if (r?.error?.includes("402")) {
-              out.backfill.errors.push(`AdLibrary is out of credits${meta ? "; switched to Meta's API" : ""}`);
+            if (r?.unavailable) {
+              const why = r.error?.includes("402") ? "AdLibrary is out of credits" : "AdLibrary refused the API key (its plan has no API access)";
+              out.backfill.errors.push(`${why}${meta ? "; switched to Meta's API" : ""}`);
               adLibrary = false;
               if (!meta) break;
             } else {

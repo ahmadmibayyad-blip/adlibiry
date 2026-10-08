@@ -147,6 +147,13 @@ export const runSync = internalAction({
           }
           if (!response.ok) {
             const text = await response.text();
+            if (response.status === 401 || response.status === 403) {
+              // The key itself is refused (e.g. "API access requires Business subscription"):
+              // every niche would fail the same way, so say it once and stop.
+              result.errors.push(`AdLibrary refused the API key (HTTP ${response.status}): ${text.slice(0, 120)}. API access needs an AdLibrary Business plan; upgrade it, or set ADLIBRARY_PAUSED=true to stop these runs.`);
+              outOfCredits = true;
+              break;
+            }
             result.errors.push(`${niche}: AdLibrary API error ${response.status} — ${text.slice(0, 200)}`);
             break;
           }
@@ -272,7 +279,8 @@ function itemToAd(item: AdLibraryResult, country: string, niche: string) {
 // Costs one AdLibrary search credit; null when ADLIBRARY_API_KEY isn't set.
 export const searchKeyword = internalAction({
   args: { keyword: v.string(), niche: v.string() },
-  handler: async (ctx, args): Promise<{ found: number; created: number; error?: string } | null> => {
+  // `unavailable`: no credits or the key is refused; no point trying more searches today.
+  handler: async (ctx, args): Promise<{ found: number; created: number; error?: string; unavailable?: boolean } | null> => {
     const apiKey = process.env.ADLIBRARY_API_KEY;
     if (!apiKey) return null;
     try {
@@ -292,7 +300,11 @@ export const searchKeyword = internalAction({
           pageSize: 20,
         }),
       });
-      if (response.status === 402) return { found: 0, created: 0, error: "AdLibrary: out of credits (HTTP 402)" };
+      if (response.status === 402) return { found: 0, created: 0, error: "AdLibrary: out of credits (HTTP 402)", unavailable: true };
+      if (response.status === 401 || response.status === 403) {
+        const text = await response.text();
+        return { found: 0, created: 0, error: `AdLibrary refused the API key (HTTP ${response.status}): ${text.slice(0, 120)}`, unavailable: true };
+      }
       if (!response.ok) return { found: 0, created: 0, error: `AdLibrary ${response.status}: ${(await response.text()).slice(0, 120)}` };
       const results = ((await response.json()) as AdLibrarySearchResponse).results ?? [];
       let created = 0;

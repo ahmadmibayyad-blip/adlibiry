@@ -48,6 +48,35 @@ describe("AdLibrary", () => {
     expect(row).toMatchObject({ status: "skipped", summary: "Paused (ADLIBRARY_PAUSED is set)" });
   });
 
+  it("stops the sync at once with one clear message when the plan has no API access", async () => {
+    vi.stubEnv("ADLIBRARY_API_KEY", "al_test");
+    const calls = vi.fn(async () => json({ error: "API access requires Business subscription" }, 401));
+    vi.stubGlobal("fetch", calls);
+    const t = convexTest(schema, modules);
+    const r = await t.action(internal.adlibrary.sync.runSync, {});
+    expect(calls).toHaveBeenCalledTimes(1);
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0]).toMatch(/^AdLibrary refused the API key \(HTTP 401\).*Business subscription.*ADLIBRARY_PAUSED=true/);
+  });
+
+  it("hands the missing-ads lookup to Meta's API when AdLibrary refuses the key", async () => {
+    vi.stubEnv("ADLIBRARY_API_KEY", "al_test");
+    vi.stubEnv("META_ACCESS_TOKEN", "meta_test");
+    vi.stubGlobal("fetch", vi.fn(async (u: URL | string) => {
+      const host = new URL(String(u)).hostname;
+      if (host === "adlibrary.com") return json({ error: "API access requires Business subscription" }, 401);
+      if (host === "graph.facebook.com") return json({ data: [{ id: "9", page_name: "Corecare", ad_delivery_start_time: "2026-09-01" }] });
+      return new Response("", { status: 404 });
+    }));
+    const t = convexTest(schema, modules);
+    await t.run((ctx) =>
+      ctx.db.insert("products", { ...product, title: "Instant Posture Corrector", imageUrl: "", category: "Health & Wellness", aiScore: 60, source: "shopify", unitsPerMonth: 800, storeHost: "corecareshop.com" }),
+    );
+    const r = await t.action(internal.fusion.runTriggers, { day: DAY });
+    expect(r.backfill.done).toBe(1);
+    expect(r.backfill.errors[0]).toBe("AdLibrary refused the API key (its plan has no API access); switched to Meta's API");
+  });
+
   it("hands the missing-ads lookup to Meta's API when AdLibrary is out of credits", async () => {
     vi.stubEnv("ADLIBRARY_API_KEY", "al_test");
     vi.stubEnv("META_ACCESS_TOKEN", "meta_test");
