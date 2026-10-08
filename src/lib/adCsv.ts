@@ -65,7 +65,7 @@ const ALIASES: Record<AdField, string[]> = {
   comments: ["comments", "commentcount"],
   shares: ["shares", "sharecount"],
   daysRunning: ["daysrunning", "days", "runningdays", "activedays", "duration", "adduration"],
-  firstSeen: ["firstseen", "firstseenat", "startdate", "adstartdate", "created", "createdat", "launchdate", "publishedat", "estimatedlisteddate", "listeddate", "listingdate", "date"],
+  firstSeen: ["firstseen", "firstseenat", "startdate", "adstartdate", "started", "startedrunning", "startedrunningon", "created", "createdat", "launchdate", "publishedat", "estimatedlisteddate", "listeddate", "listingdate", "date"],
   lastSeen: ["lastseen", "lastseenat", "enddate", "adenddate", "updatedat"],
   ctaText: ["cta", "ctatext", "calltoaction", "button", "buttontext"],
   copies: ["advariations", "variations", "adcopies", "copies", "collationcount", "relatedadscount", "numberofcopies"],
@@ -280,7 +280,9 @@ export function buildAdRows(
       }
     }
     advertiser = (advertiser || "Unknown advertiser").slice(0, 120);
-    const headline = (headlineRaw || body.split(/\n/)[0] || advertiser).slice(0, 200);
+    // Ad-library scrapes (ScrapeKit) often have the advertiser as the "title": use the ad's first line then.
+    const titleIsAdvertiser = !!headlineRaw && !!body && headlineRaw.trim().toLowerCase() === advertiser.trim().toLowerCase();
+    const headline = ((titleIsAdvertiser ? "" : headlineRaw) || body.split(/\n/)[0] || advertiser).slice(0, 200);
 
     const key = adKey(get(r, "adId"), isUrl(libraryUrl) ? libraryUrl : undefined, platform, advertiser, (isUrl(video) ? video : image) ?? "");
     if (seen.has(key)) {
