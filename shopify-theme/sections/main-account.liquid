@@ -1,0 +1,38 @@
+<section class="section section--tight">
+  <div class="page-width stack">
+    <div class="section__head section__head--row">
+      <h1 class="h2">{{ 'customer.account' | t }}</h1>
+      <a href="{{ routes.account_logout_url }}" class="link-arrow">{{ 'customer.log_out' | t }}</a>
+    </div>
+    <div class="cart-page">
+      <div>
+        <h2 class="h4">{{ 'customer.orders' | t }}</h2>
+        {%- paginate customer.orders by 20 -%}
+          {%- if customer.orders.size > 0 -%}
+            <table class="table">
+              <thead><tr><th>{{ 'customer.order' | t }}</th><th>{{ 'customer.date' | t }}</th><th>{{ 'customer.status' | t }}</th><th>{{ 'customer.total' | t }}</th></tr></thead>
+              <tbody>
+                {%- for order in customer.orders -%}
+                  <tr><td><a href="{{ order.customer_url }}">{{ order.name }}</a></td><td>{{ order.created_at | time_tag: format: 'date' }}</td><td>{{ order.fulfillment_status_label }}</td><td>{{ order.total_price | money }}</td></tr>
+                {%- endfor -%}
+              </tbody>
+            </table>
+          {%- else -%}
+            <p class="muted">{{ 'customer.no_orders' | t }}</p>
+          {%- endif -%}
+          {% render 'pagination', paginate: paginate %}
+        {%- endpaginate -%}
+      </div>
+      <div class="cart-summary">
+        <h2 class="h4">{{ 'customer.details' | t }}</h2>
+        <p>{{ customer.name | escape }}<br>{{ customer.email | escape }}</p>
+        {{ customer.default_address | format_address }}
+        <a href="{{ routes.account_addresses_url }}" class="btn btn--outline btn--small">{{ 'customer.addresses' | t }} ({{ customer.addresses_count }})</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{ "name": "Account", "settings": [] }
+{% endschema %}

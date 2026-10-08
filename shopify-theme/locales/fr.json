@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Page {{ page }}",
+    "error": "Une erreur s'est produite. Veuillez réessayer.",
+    "close": "Fermer",
+    "menu": "Menu",
+    "search": "Rechercher",
+    "search_placeholder": "Rechercher des produits",
+    "help": "Aide",
+    "policies": "Politiques",
+    "pagination": "Pages",
+    "results": "{{ count }} résultats pour « {{ terms }} »",
+    "not_found": "Cette page n'existe pas"
+  },
+  "accessibility": {
+    "skip_to_content": "Aller au contenu"
+  },
+  "products": {
+    "added": "Ajouté à votre panier",
+    "sold_out": "Épuisé",
+    "add_to_cart": "Ajouter au panier",
+    "unavailable": "Indisponible",
+    "save": "Économisez",
+    "sale": "Promo",
+    "view_image": "Afficher l'image {{ number }}",
+    "description": "Description",
+    "faq": "Questions et réponses",
+    "choose_product": "Choisissez un produit pour cette section dans l'éditeur de thème."
+  },
+  "cart": {
+    "title": "Votre panier",
+    "decrease": "Diminuer la quantité",
+    "increase": "Augmenter la quantité",
+    "quantity": "Quantité",
+    "remove": "Supprimer",
+    "subtotal": "Sous-total",
+    "taxes_shipping": "Taxes et frais de livraison calculés à l'étape de paiement.",
+    "checkout": "Passer la commande",
+    "view_cart": "Voir le panier",
+    "empty": "Votre panier est vide.",
+    "continue": "Continuer vos achats",
+    "note": "Note de commande",
+    "free_shipping_remaining": "Plus que {{ amount }} pour bénéficier de la livraison gratuite",
+    "free_shipping_unlocked": "Vous bénéficiez de la livraison gratuite"
+  },
+  "collections": {
+    "view_all": "Voir tout",
+    "empty": "Aucun produit pour le moment.",
+    "sort_by": "Trier par",
+    "all_collections": "Collections"
+  },
+  "newsletter": {
+    "success": "Merci de votre inscription !",
+    "email": "Votre e-mail",
+    "subscribe": "S'inscrire"
+  },
+  "contact": {
+    "success": "Merci ! Nous vous répondrons dès que possible.",
+    "name": "Nom",
+    "email": "E-mail",
+    "order": "Numéro de commande (facultatif)",
+    "message": "Message",
+    "send": "Envoyer"
+  },
+  "password": {
+    "opening_soon": "Ouverture prochaine",
+    "notify": "Me prévenir",
+    "owner": "Propriétaire de la boutique ? Saisissez le mot de passe",
+    "password": "Mot de passe",
+    "enter": "Entrer"
+  },
+  "customer": {
+    "account": "Compte",
+    "login": "Connexion",
+    "forgot": "Mot de passe oublié ?",
+    "sign_in": "Se connecter",
+    "create": "Créer un compte",
+    "reset": "Réinitialiser votre mot de passe",
+    "reset_sent": "Nous vous avons envoyé un e-mail contenant un lien pour réinitialiser votre mot de passe.",
+    "send": "Envoyer",
+    "guest": "Continuer en tant qu'invité",
+    "first_name": "Prénom",
+    "last_name": "Nom",
+    "log_out": "Se déconnecter",
+    "orders": "Commandes",
+    "order": "Commande",
+    "date": "Date",
+    "status": "Statut",
+    "total": "Total",
+    "no_orders": "Vous n'avez pas encore passé de commande.",
+    "details": "Vos informations",
+    "addresses": "Adresses",
+    "product": "Produit",
+    "billing": "Adresse de facturation",
+    "shipping": "Adresse de livraison",
+    "default": "Par défaut",
+    "add_address": "Ajouter une adresse",
+    "address1": "Adresse",
+    "address2": "Appartement, étage, etc.",
+    "zip": "Code postal",
+    "city": "Ville",
+    "country": "Pays",
+    "phone": "Téléphone",
+    "set_default": "Utiliser comme adresse par défaut",
+    "save": "Enregistrer",
+    "activate": "Activer votre compte",
+    "confirm_password": "Confirmer le mot de passe"
+  },
+  "gift_card": {
+    "title": "Votre carte cadeau",
+    "code": "Code",
+    "balance": "Solde",
+    "expired": "Cette carte cadeau a expiré",
+    "copy": "Copier le code",
+    "shop": "Commencer vos achats"
+  }
+}

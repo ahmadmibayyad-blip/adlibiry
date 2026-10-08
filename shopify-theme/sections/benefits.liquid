@@ -1,0 +1,49 @@
+<section class="section scheme-{{ section.settings.scheme }}">
+  <div class="page-width">
+    {%- if section.settings.heading != blank -%}
+      <div class="section__head">
+        <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+        {%- if section.settings.text != blank -%}<p class="lead muted">{{ section.settings.text | escape }}</p>{%- endif -%}
+      </div>
+    {%- endif -%}
+    <div class="grid grid--{{ section.blocks.size | at_most: 4 }} benefits benefits--{{ section.settings.layout }}">
+      {%- for block in section.blocks -%}
+        <div class="benefit" {{ block.shopify_attributes }}>
+          <span class="benefit__icon">{% render 'icon', name: block.settings.icon %}</span>
+          <h3 class="h4">{{ block.settings.title | escape }}</h3>
+          <p class="muted">{{ block.settings.text | escape }}</p>
+        </div>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Benefits",
+  "max_blocks": 6,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Why you'll love it" },
+    { "type": "text", "id": "text", "label": "Text" },
+    { "type": "select", "id": "layout", "label": "Layout", "default": "cards", "options": [{ "value": "cards", "label": "Cards" }, { "value": "row", "label": "Icon beside text" }] },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "blocks": [
+    {
+      "type": "benefit",
+      "name": "Benefit",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "sparkle", "options": [
+          { "value": "sparkle", "label": "Sparkle" }, { "value": "heart", "label": "Heart" }, { "value": "leaf", "label": "Leaf" }, { "value": "bolt", "label": "Bolt" },
+          { "value": "shield", "label": "Shield" }, { "value": "clock", "label": "Clock" }, { "value": "smile", "label": "Smile" }, { "value": "star", "label": "Star" },
+          { "value": "drop", "label": "Drop" }, { "value": "sun", "label": "Sun" }, { "value": "home", "label": "Home" }, { "value": "paw", "label": "Paw" },
+          { "value": "gift", "label": "Gift" }, { "value": "check", "label": "Check" }
+        ] },
+        { "type": "text", "id": "title", "label": "Title", "default": "Easy to use" },
+        { "type": "textarea", "id": "text", "label": "Text" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Benefits", "blocks": [{ "type": "benefit" }, { "type": "benefit" }, { "type": "benefit" }] }]
+}
+{% endschema %}

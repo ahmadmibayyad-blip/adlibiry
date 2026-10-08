@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanCopy, launchFacts, launchProductInput, pageHtml, proofLine, scrubClaims, suggestPrice, type LaunchCopy } from "./launchCopy";
+import { charmFor, cleanCopy, launchFacts, launchProductInput, pageHtml, proofLine, scrubClaims, suggestPrice, type LaunchCopy } from "./launchCopy";
 import { authorizeUrl, decryptToken, encryptToken, verifyQueryHmac, verifyWebhookHmac } from "./shopifyOAuth";
 
 const copy: LaunchCopy = {
@@ -22,6 +22,17 @@ describe("Launch price", () => {
     expect(suggestPrice({ cost: 4.2 }).price! / 4.2).toBeGreaterThanOrEqual(2.5);
     expect(suggestPrice({ price: 39.5 })).toEqual({ price: 39.5 });
     expect(suggestPrice({})).toEqual({});
+  });
+
+  it("prices in the store's currency, with that currency's price endings", () => {
+    // $4.20 cost in a Danish store at 6.4 DKK/USD: cost 26.88 DKK, about 2.8× → 79 kr, not "13.48 DKK".
+    expect(suggestPrice({ cost: 4.2 }, { currency: "DKK", rate: 6.4 })).toEqual({ price: 79, cost: 26.88, marginPercent: 66 });
+    expect(suggestPrice({ cost: 10 }, { currency: "EUR", rate: 0.86 })).toMatchObject({ price: 23.99, cost: 8.6 });
+    expect(suggestPrice({ price: 20 }, { currency: "SEK", rate: 9.5 })).toEqual({ price: 199 });
+    expect(charmFor(87.3, "DKK")).toBe(89);
+    expect(charmFor(143, "DKK")).toBe(149);
+    expect(charmFor(150, "DKK")).toBe(159);
+    expect(charmFor(27.4, "EUR")).toBe(26.99);
   });
 });
 
@@ -119,7 +130,10 @@ describe("Shopify app security", () => {
   it("asks only for the scopes Launch needs", () => {
     const url = new URL(authorizeUrl("my-store.myshopify.com", "client123", "https://x.convex.site/shopify/callback", "st"));
     expect(url.origin).toBe("https://my-store.myshopify.com");
-    expect(url.searchParams.get("scope")).toBe("write_products,read_products,write_publications,read_publications");
+    expect(url.searchParams.get("scope")).toBe(
+      "write_products,read_products,write_publications,read_publications," +
+        "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation",
+    );
     expect(url.searchParams.get("state")).toBe("st");
   });
 });

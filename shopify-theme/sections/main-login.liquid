@@ -1,0 +1,31 @@
+<section class="section section--tight">
+  <div class="page-width page-width--xs stack">
+    <h1 class="h2">{{ 'customer.login' | t }}</h1>
+    {%- form 'customer_login', class: 'stack' -%}
+      {{ form.errors | default_errors }}
+      <label class="field"><span class="field__label">{{ 'contact.email' | t }}</span><input class="input" type="email" name="customer[email]" autocomplete="email" required></label>
+      {%- if form.password_needed -%}
+        <label class="field"><span class="field__label">{{ 'password.password' | t }}</span><input class="input" type="password" name="customer[password]" autocomplete="current-password" required></label>
+        <a href="#recover" class="small">{{ 'customer.forgot' | t }}</a>
+      {%- endif -%}
+      <button type="submit" class="btn btn--block">{{ 'customer.sign_in' | t }}</button>
+      <a href="{{ routes.account_register_url }}" class="link-center small">{{ 'customer.create' | t }}</a>
+    {%- endform -%}
+    <div id="recover" class="stack">
+      <h2 class="h4">{{ 'customer.reset' | t }}</h2>
+      {%- form 'recover_customer_password', class: 'stack' -%}
+        {%- if form.posted_successfully? -%}<p class="note note--ok">{{ 'customer.reset_sent' | t }}</p>{%- endif -%}
+        {{ form.errors | default_errors }}
+        <label class="field"><span class="field__label">{{ 'contact.email' | t }}</span><input class="input" type="email" name="email" autocomplete="email" required></label>
+        <button type="submit" class="btn btn--outline">{{ 'customer.send' | t }}</button>
+      {%- endform -%}
+    </div>
+    {%- if shop.checkout.guest_login -%}
+      {%- form 'guest_login' -%}<button type="submit" class="btn btn--outline btn--block">{{ 'customer.guest' | t }}</button>{%- endform -%}
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{ "name": "Login", "settings": [] }
+{% endschema %}

@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Side {{ page }}",
+    "error": "Noget gik galt. Prøv igen.",
+    "close": "Luk",
+    "menu": "Menu",
+    "search": "Søg",
+    "search_placeholder": "Søg efter produkter",
+    "help": "Hjælp",
+    "policies": "Politikker",
+    "pagination": "Sider",
+    "results": "{{ count }} resultater for “{{ terms }}”",
+    "not_found": "Denne side findes ikke"
+  },
+  "accessibility": {
+    "skip_to_content": "Gå til indhold"
+  },
+  "products": {
+    "added": "Lagt i kurven",
+    "sold_out": "Udsolgt",
+    "add_to_cart": "Læg i kurv",
+    "unavailable": "Ikke tilgængelig",
+    "save": "Spar",
+    "sale": "Tilbud",
+    "view_image": "Vis billede {{ number }}",
+    "description": "Beskrivelse",
+    "faq": "Spørgsmål og svar",
+    "choose_product": "Vælg et produkt til denne sektion i theme-editoren."
+  },
+  "cart": {
+    "title": "Din kurv",
+    "decrease": "Færre",
+    "increase": "Flere",
+    "quantity": "Antal",
+    "remove": "Fjern",
+    "subtotal": "Subtotal",
+    "taxes_shipping": "Moms og forsendelse beregnes i kassen.",
+    "checkout": "Gå til kassen",
+    "view_cart": "Se kurv",
+    "empty": "Din kurv er tom.",
+    "continue": "Fortsæt med at handle",
+    "note": "Ordrenote",
+    "free_shipping_remaining": "Du er {{ amount }} fra gratis fragt",
+    "free_shipping_unlocked": "Du har optjent gratis fragt"
+  },
+  "collections": {
+    "view_all": "Se alle",
+    "empty": "Ingen produkter her endnu.",
+    "sort_by": "Sortér efter",
+    "all_collections": "Kollektioner"
+  },
+  "newsletter": {
+    "success": "Tak for din tilmelding!",
+    "email": "Din e-mail",
+    "subscribe": "Tilmeld"
+  },
+  "contact": {
+    "success": "Tak! Vi vender tilbage hurtigst muligt.",
+    "name": "Navn",
+    "email": "E-mail",
+    "order": "Ordrenummer (valgfrit)",
+    "message": "Besked",
+    "send": "Send"
+  },
+  "password": {
+    "opening_soon": "Åbner snart",
+    "notify": "Giv mig besked",
+    "owner": "Butiksejer? Indtast adgangskoden",
+    "password": "Adgangskode",
+    "enter": "Fortsæt"
+  },
+  "customer": {
+    "account": "Konto",
+    "login": "Log ind",
+    "forgot": "Glemt din adgangskode?",
+    "sign_in": "Log ind",
+    "create": "Opret konto",
+    "reset": "Nulstil din adgangskode",
+    "reset_sent": "Vi har sendt dig en e-mail med et link til at nulstille din adgangskode.",
+    "send": "Send",
+    "guest": "Fortsæt som gæst",
+    "first_name": "Fornavn",
+    "last_name": "Efternavn",
+    "log_out": "Log ud",
+    "orders": "Ordrer",
+    "order": "Ordre",
+    "date": "Dato",
+    "status": "Status",
+    "total": "Total",
+    "no_orders": "Du har ikke afgivet nogen ordrer endnu.",
+    "details": "Dine oplysninger",
+    "addresses": "Adresser",
+    "product": "Produkt",
+    "billing": "Faktureringsadresse",
+    "shipping": "Leveringsadresse",
+    "default": "Standard",
+    "add_address": "Tilføj en adresse",
+    "address1": "Adresse",
+    "address2": "Lejlighed, etage osv.",
+    "zip": "Postnummer",
+    "city": "By",
+    "country": "Land",
+    "phone": "Telefon",
+    "set_default": "Brug som min standardadresse",
+    "save": "Gem",
+    "activate": "Aktivér din konto",
+    "confirm_password": "Bekræft adgangskode"
+  },
+  "gift_card": {
+    "title": "Dit gavekort",
+    "code": "Kode",
+    "balance": "Saldo",
+    "expired": "Dette gavekort er udløbet",
+    "copy": "Kopiér kode",
+    "shop": "Begynd at handle"
+  }
+}

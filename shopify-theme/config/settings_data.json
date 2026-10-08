@@ -1,0 +1,77 @@
+{
+  "current": "Fresh",
+  "presets": {
+    "Fresh": {
+      "color_bg": "#ffffff",
+      "color_surface": "#eef6f3",
+      "color_text": "#11211b",
+      "color_accent": "#0f766e",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#c2410c",
+      "font_pair": "fresh",
+      "heading_uppercase": false,
+      "radius": 14,
+      "button_pill": true
+    },
+    "Bold": {
+      "color_bg": "#fffdf5",
+      "color_surface": "#f4f0e1",
+      "color_text": "#0b0b0b",
+      "color_accent": "#ffd400",
+      "color_accent_text": "#0b0b0b",
+      "color_sale": "#e11d48",
+      "font_pair": "bold",
+      "heading_uppercase": true,
+      "radius": 4,
+      "button_pill": false
+    },
+    "Luxe": {
+      "color_bg": "#100f0d",
+      "color_surface": "#1c1a17",
+      "color_text": "#f4efe7",
+      "color_accent": "#c9a96b",
+      "color_accent_text": "#100f0d",
+      "color_sale": "#e7a17a",
+      "font_pair": "luxe",
+      "heading_uppercase": false,
+      "radius": 2,
+      "button_pill": false
+    },
+    "Playful": {
+      "color_bg": "#fff8f3",
+      "color_surface": "#ffe8ef",
+      "color_text": "#2b2140",
+      "color_accent": "#d12a60",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#7c3aed",
+      "font_pair": "playful",
+      "heading_uppercase": false,
+      "radius": 24,
+      "button_pill": true
+    },
+    "Nordic": {
+      "color_bg": "#f7f2eb",
+      "color_surface": "#ece3d6",
+      "color_text": "#29251f",
+      "color_accent": "#3d5a45",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#a4472b",
+      "font_pair": "nordic",
+      "heading_uppercase": false,
+      "radius": 8,
+      "button_pill": false
+    },
+    "Tech": {
+      "color_bg": "#0a0f1f",
+      "color_surface": "#121a33",
+      "color_text": "#e7ecff",
+      "color_accent": "#3b63e6",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#22d3ee",
+      "font_pair": "tech",
+      "heading_uppercase": false,
+      "radius": 12,
+      "button_pill": false
+    }
+  }
+}

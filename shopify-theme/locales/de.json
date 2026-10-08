@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Seite {{ page }}",
+    "error": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    "close": "Schließen",
+    "menu": "Menü",
+    "search": "Suche",
+    "search_placeholder": "Produkte suchen",
+    "help": "Hilfe",
+    "policies": "Richtlinien",
+    "pagination": "Seiten",
+    "results": "{{ count }} Ergebnisse für „{{ terms }}“",
+    "not_found": "Diese Seite existiert nicht"
+  },
+  "accessibility": {
+    "skip_to_content": "Zum Inhalt springen"
+  },
+  "products": {
+    "added": "Zum Warenkorb hinzugefügt",
+    "sold_out": "Ausverkauft",
+    "add_to_cart": "In den Warenkorb",
+    "unavailable": "Nicht verfügbar",
+    "save": "Sparen",
+    "sale": "Sale",
+    "view_image": "Bild {{ number }} anzeigen",
+    "description": "Beschreibung",
+    "faq": "Fragen & Antworten",
+    "choose_product": "Wähle im Theme-Editor ein Produkt für diesen Bereich aus."
+  },
+  "cart": {
+    "title": "Dein Warenkorb",
+    "decrease": "Menge verringern",
+    "increase": "Menge erhöhen",
+    "quantity": "Menge",
+    "remove": "Entfernen",
+    "subtotal": "Zwischensumme",
+    "taxes_shipping": "Steuern und Versand werden an der Kasse berechnet.",
+    "checkout": "Zur Kasse",
+    "view_cart": "Warenkorb ansehen",
+    "empty": "Dein Warenkorb ist leer.",
+    "continue": "Weiter einkaufen",
+    "note": "Bestellnotiz",
+    "free_shipping_remaining": "Dir fehlen noch {{ amount }} bis zum kostenlosen Versand",
+    "free_shipping_unlocked": "Du bekommst kostenlosen Versand"
+  },
+  "collections": {
+    "view_all": "Alle ansehen",
+    "empty": "Hier gibt es noch keine Produkte.",
+    "sort_by": "Sortieren nach",
+    "all_collections": "Kollektionen"
+  },
+  "newsletter": {
+    "success": "Danke für deine Anmeldung!",
+    "email": "Deine E-Mail-Adresse",
+    "subscribe": "Anmelden"
+  },
+  "contact": {
+    "success": "Danke! Wir melden uns so schnell wie möglich bei dir.",
+    "name": "Name",
+    "email": "E-Mail",
+    "order": "Bestellnummer (optional)",
+    "message": "Nachricht",
+    "send": "Senden"
+  },
+  "password": {
+    "opening_soon": "Bald geöffnet",
+    "notify": "Benachrichtige mich",
+    "owner": "Shop-Inhaber? Passwort eingeben",
+    "password": "Passwort",
+    "enter": "Weiter"
+  },
+  "customer": {
+    "account": "Konto",
+    "login": "Anmelden",
+    "forgot": "Passwort vergessen?",
+    "sign_in": "Anmelden",
+    "create": "Konto erstellen",
+    "reset": "Passwort zurücksetzen",
+    "reset_sent": "Wir haben dir eine E-Mail mit einem Link zum Zurücksetzen deines Passworts geschickt.",
+    "send": "Senden",
+    "guest": "Als Gast fortfahren",
+    "first_name": "Vorname",
+    "last_name": "Nachname",
+    "log_out": "Abmelden",
+    "orders": "Bestellungen",
+    "order": "Bestellung",
+    "date": "Datum",
+    "status": "Status",
+    "total": "Gesamt",
+    "no_orders": "Du hast noch keine Bestellungen aufgegeben.",
+    "details": "Deine Daten",
+    "addresses": "Adressen",
+    "product": "Produkt",
+    "billing": "Rechnungsadresse",
+    "shipping": "Lieferadresse",
+    "default": "Standard",
+    "add_address": "Adresse hinzufügen",
+    "address1": "Adresse",
+    "address2": "Wohnung, Etage usw.",
+    "zip": "Postleitzahl",
+    "city": "Stadt",
+    "country": "Land",
+    "phone": "Telefon",
+    "set_default": "Als Standardadresse verwenden",
+    "save": "Speichern",
+    "activate": "Konto aktivieren",
+    "confirm_password": "Passwort bestätigen"
+  },
+  "gift_card": {
+    "title": "Dein Geschenkgutschein",
+    "code": "Code",
+    "balance": "Guthaben",
+    "expired": "Dieser Geschenkgutschein ist abgelaufen",
+    "copy": "Code kopieren",
+    "shop": "Jetzt einkaufen"
+  }
+}

@@ -33,18 +33,36 @@ export type LaunchAd = { headline: string; bodyText: string; spokenHook?: string
 /** Ends in .99, rounded to the nearest whole first: 27.4 → 26.99, 27.6 → 27.99. */
 const charmPrice = (n: number) => Math.max(0.99, Math.round(n) - 0.01);
 
+// Currencies whose shop prices are whole numbers ending in 9 (149 kr, not 148.99 kr).
+const WHOLE_CURRENCIES = new Set(["DKK", "SEK", "NOK", "ISK", "JPY", "HUF", "CZK", "KRW", "CLP", "COP", "INR", "PHP", "THB", "TWD"]);
+
+/** A shop price in `currency`: 87.3 DKK → 89, 143 DKK → 149, 27.4 EUR → 26.99. */
+export function charmFor(n: number, currency = "USD"): number {
+  if (!WHOLE_CURRENCIES.has(currency.toUpperCase())) return charmPrice(n);
+  return Math.max(9, n < 20 ? Math.round(n) : Math.ceil((n + 1) / 10) * 10 - 1);
+}
+
 /**
  * Retail price from the real supplier cost (best AliExpress match + shipping is
  * already in `cost`): about 2.8×, never below 2.5×. Without a cost, the
- * product's market price. Returns the margin so the user sees it.
+ * product's market price. Product prices and costs are USD; `fx` converts them
+ * to the store's currency (rate = units of that currency per USD), so a Danish
+ * store gets a DKK price. Returns the margin so the user sees it.
  */
-export function suggestPrice(p: Pick<LaunchProduct, "price" | "cost">): { price?: number; cost?: number; marginPercent?: number } {
+export function suggestPrice(
+  p: Pick<LaunchProduct, "price" | "cost">,
+  fx: { currency: string; rate: number } = { currency: "USD", rate: 1 },
+): { price?: number; cost?: number; marginPercent?: number } {
+  const rate = fx.rate > 0 ? fx.rate : 1;
   if (p.cost && p.cost > 0) {
-    let price = charmPrice(p.cost * 2.8);
-    if (price < p.cost * 2.5) price = charmPrice(p.cost * 2.5 + 1);
-    return { price, cost: p.cost, marginPercent: Math.round(((price - p.cost) / price) * 100) };
+    const cost = Math.round(p.cost * rate * 100) / 100;
+    let price = charmFor(cost * 2.8, fx.currency);
+    if (price < cost * 2.5) price = charmFor(cost * 2.5 + 1, fx.currency);
+    return { price, cost, marginPercent: Math.round(((price - cost) / price) * 100) };
   }
-  return p.price && p.price > 0 ? { price: Math.round(p.price * 100) / 100 } : {};
+  if (!(p.price && p.price > 0)) return {};
+  const market = p.price * rate;
+  return { price: WHOLE_CURRENCIES.has(fx.currency.toUpperCase()) ? charmFor(market, fx.currency) : Math.round(market * 100) / 100 };
 }
 
 // ── facts for the AI ───────────────────────────────────────────────────────
@@ -136,17 +154,39 @@ export function cleanCopy(raw: LaunchCopy): { copy: LaunchCopy; dropped: number 
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export function pageHtml(c: LaunchCopy, proof?: string): string {
+// Headings on the product page, in the page's language.
+const LABELS: Record<string, { how: string; included: string; faq: string; shipping: string }> = {
+  English: { how: "How it works", included: "What's included", faq: "FAQ", shipping: "Shipping & returns" },
+  Danish: { how: "Sådan virker det", included: "Det får du", faq: "Spørgsmål og svar", shipping: "Fragt og returnering" },
+  German: { how: "So funktioniert's", included: "Lieferumfang", faq: "Häufige Fragen", shipping: "Versand & Rückgabe" },
+  Swedish: { how: "Så fungerar det", included: "Det här ingår", faq: "Vanliga frågor", shipping: "Frakt och retur" },
+  Norwegian: { how: "Slik fungerer det", included: "Dette får du", faq: "Spørsmål og svar", shipping: "Frakt og retur" },
+  French: { how: "Comment ça marche", included: "Contenu", faq: "Questions fréquentes", shipping: "Livraison et retours" },
+  Spanish: { how: "Cómo funciona", included: "Qué incluye", faq: "Preguntas frecuentes", shipping: "Envío y devoluciones" },
+  Dutch: { how: "Zo werkt het", included: "Wat je krijgt", faq: "Veelgestelde vragen", shipping: "Verzending en retour" },
+  Italian: { how: "Come funziona", included: "Cosa include", faq: "Domande frequenti", shipping: "Spedizione e resi" },
+  Polish: { how: "Jak to działa", included: "W zestawie", faq: "Pytania i odpowiedzi", shipping: "Wysyłka i zwroty" },
+  Finnish: { how: "Näin se toimii", included: "Pakkauksen sisältö", faq: "Usein kysyttyä", shipping: "Toimitus ja palautukset" },
+  Portuguese: { how: "Como funciona", included: "O que está incluído", faq: "Perguntas frequentes", shipping: "Envio e devoluções" },
+};
+
+/**
+ * The product description. Works on every theme. With `forStoreTheme`, our
+ * storefront theme already shows the benefits and FAQ (from the adspy.page
+ * metafield), so they're left out here.
+ */
+export function pageHtml(c: LaunchCopy, proof?: string, opts: { language?: string; forStoreTheme?: boolean } = {}): string {
+  const l = LABELS[opts.language ?? "English"] ?? LABELS.English;
   const parts: string[] = [];
   if (c.hook) parts.push(`<p><strong>${esc(c.hook)}</strong></p>`);
-  if (c.benefits.length) parts.push(`<ul>${c.benefits.map((b) => `<li>✓ ${esc(b)}</li>`).join("")}</ul>`);
+  if (!opts.forStoreTheme && c.benefits.length) parts.push(`<ul>${c.benefits.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>`);
   if (proof) parts.push(`<p><em>${esc(proof)}</em></p>`);
-  if (c.howItWorks.length) parts.push(`<h3>How it works</h3><ol>${c.howItWorks.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>`);
-  if (c.whatsIncluded.length) parts.push(`<h3>What's included</h3><ul>${c.whatsIncluded.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`);
-  if (c.faq.length) {
-    parts.push(`<h3>FAQ</h3>${c.faq.map((f) => `<details><summary><strong>${esc(f.q)}</strong></summary><p>${esc(f.a)}</p></details>`).join("")}`);
+  if (c.howItWorks.length) parts.push(`<h3>${esc(l.how)}</h3><ol>${c.howItWorks.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>`);
+  if (c.whatsIncluded.length) parts.push(`<h3>${esc(l.included)}</h3><ul>${c.whatsIncluded.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`);
+  if (!opts.forStoreTheme && c.faq.length) {
+    parts.push(`<h3>${esc(l.faq)}</h3>${c.faq.map((f) => `<details><summary><strong>${esc(f.q)}</strong></summary><p>${esc(f.a)}</p></details>`).join("")}`);
   }
-  if (c.shippingReturns) parts.push(`<h3>Shipping &amp; returns</h3><p>${esc(c.shippingReturns)}</p>`);
+  if (c.shippingReturns) parts.push(`<h3>${esc(l.shipping)}</h3><p>${esc(c.shippingReturns)}</p>`);
   return parts.join("\n");
 }
 
@@ -160,13 +200,17 @@ export const handleFor = (title: string) =>
   title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "product";
 
 /** Shopify productSet input: the page, price and cost, images, SEO, and the copy as a metafield for our theme block. */
-export function launchProductInput(p: LaunchProduct, c: LaunchCopy, o: { price?: number; cost?: number; status: "DRAFT" | "ACTIVE" }) {
+export function launchProductInput(
+  p: LaunchProduct,
+  c: LaunchCopy,
+  o: { price?: number; cost?: number; status: "DRAFT" | "ACTIVE"; language?: string; forStoreTheme?: boolean },
+) {
   const images = [...new Set([p.imageUrl, ...(p.images ?? [])].filter((u) => /^https:\/\//.test(u)))].slice(0, 10);
   const title = c.title || p.title.slice(0, 255);
   return {
     title,
     handle: handleFor(title),
-    descriptionHtml: pageHtml(c, proofLine(p)),
+    descriptionHtml: pageHtml(c, proofLine(p), { language: o.language, forStoreTheme: o.forStoreTheme }),
     productType: p.category,
     tags: ["AdSpy Launch", p.category],
     status: o.status,

@@ -1,0 +1,50 @@
+{%- assign page_data = product.metafields.adspy.page.value -%}
+<section class="section section--tight" id="Product-{{ section.id }}">
+  <div class="page-width">
+    {% render 'product-main', product: product, section: section, heading_tag: 'h1' %}
+  </div>
+</section>
+
+{%- if page_data.faq.size > 0 -%}
+  <section class="section scheme-surface">
+    <div class="page-width page-width--narrow">
+      <div class="section__head"><h2 class="h2">{{ 'products.faq' | t }}</h2></div>
+      <div class="accordion">
+        {%- for f in page_data.faq -%}
+          <details class="accordion__item">
+            <summary>{{ f.q | escape }} {% render 'icon', name: 'plus' %}</summary>
+            <div class="accordion__body"><p>{{ f.a | escape }}</p></div>
+          </details>
+        {%- endfor -%}
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
+{%- if section.settings.sticky_bar -%}
+  <div class="sticky-buy" data-sticky-buy hidden>
+    <div class="page-width sticky-buy__inner">
+      <div class="sticky-buy__info">
+        <span class="sticky-buy__title">{{ product.title | escape }}</span>
+        <span class="sticky-buy__price">{{ product.selected_or_first_available_variant.price | money }}</span>
+      </div>
+      <button type="button" class="btn" data-sticky-add>{{ 'products.add_to_cart' | t }}</button>
+    </div>
+  </div>
+{%- endif -%}
+
+<script type="application/ld+json">
+  {{ product | structured_data }}
+</script>
+
+{% schema %}
+{
+  "name": "Product",
+  "settings": [
+    { "type": "checkbox", "id": "show_vendor", "label": "Show vendor", "default": false },
+    { "type": "checkbox", "id": "show_description", "label": "Show description", "default": true },
+    { "type": "checkbox", "id": "show_dynamic_checkout", "label": "Show express checkout buttons", "default": true },
+    { "type": "checkbox", "id": "sticky_bar", "label": "Show an add-to-cart bar when scrolling", "default": true }
+  ]
+}
+{% endschema %}

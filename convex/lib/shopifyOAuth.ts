@@ -3,8 +3,20 @@
 // Docs: shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant
 
 // What Launch needs: create products (and their metafields), and put them on
-// the Online Store when the user publishes them as active.
-export const SHOPIFY_SCOPES = "write_products,read_products,write_publications,read_publications";
+// the Online Store when the user publishes them as active. Full store also
+// installs our storefront theme (unpublished until the user makes it live)
+// and creates its pages and menus.
+export const STORE_SCOPES = ["write_themes", "write_online_store_pages", "write_online_store_navigation"] as const;
+export const SHOPIFY_SCOPES =
+  "write_products,read_products,write_publications,read_publications," +
+  "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation";
+
+/** Store scopes an app install is missing (a write scope implies its read scope). Unknown scopes (pasted tokens): none. */
+export function missingStoreScopes(granted: string | undefined): string[] {
+  if (granted === undefined) return [];
+  const have = new Set(granted.split(",").map((s) => s.trim()));
+  return STORE_SCOPES.filter((s) => !have.has(s));
+}
 
 const enc = new TextEncoder();
 

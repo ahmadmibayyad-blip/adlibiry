@@ -1,0 +1,34 @@
+<section class="trust scheme-{{ section.settings.scheme }}">
+  <ul class="page-width trust__list" role="list">
+    {%- for block in section.blocks -%}
+      <li class="trust__item" {{ block.shopify_attributes }}>
+        {% render 'icon', name: block.settings.icon %}
+        <span>{{ block.settings.text | escape }}</span>
+      </li>
+    {%- endfor -%}
+  </ul>
+</section>
+
+{% schema %}
+{
+  "name": "Trust bar",
+  "max_blocks": 4,
+  "settings": [
+    { "type": "select", "id": "scheme", "label": "Background", "default": "inverse", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Item",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "truck", "options": [
+          { "value": "truck", "label": "Truck" }, { "value": "shield", "label": "Shield" }, { "value": "return", "label": "Return" }, { "value": "chat", "label": "Chat" },
+          { "value": "lock", "label": "Lock" }, { "value": "clock", "label": "Clock" }, { "value": "gift", "label": "Gift" }, { "value": "star", "label": "Star" }
+        ] },
+        { "type": "text", "id": "text", "label": "Text", "default": "Secure checkout" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Trust bar", "blocks": [{ "type": "item", "settings": { "icon": "truck" } }, { "type": "item", "settings": { "icon": "lock" } }, { "type": "item", "settings": { "icon": "return" } }] }]
+}
+{% endschema %}

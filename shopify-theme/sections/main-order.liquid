@@ -1,0 +1,29 @@
+<section class="section section--tight">
+  <div class="page-width stack">
+    <a href="{{ routes.account_url }}" class="link-arrow">&larr; {{ 'customer.account' | t }}</a>
+    <h1 class="h2">{{ 'customer.order' | t }} {{ order.name }}</h1>
+    <p class="muted">{{ order.created_at | time_tag: format: 'date' }}{% if order.cancelled %} · {{ order.cancel_reason_label }}{% endif %}</p>
+    <table class="table">
+      <thead><tr><th>{{ 'customer.product' | t }}</th><th>{{ 'cart.quantity' | t }}</th><th>{{ 'customer.total' | t }}</th></tr></thead>
+      <tbody>
+        {%- for item in order.line_items -%}
+          <tr><td>{{ item.title | escape }}{% if item.fulfillment %}<br><span class="small muted">{{ item.fulfillment.tracking_company }} {{ item.fulfillment.tracking_number }}</span>{% endif %}</td><td>{{ item.quantity }}</td><td>{{ item.final_line_price | money }}</td></tr>
+        {%- endfor -%}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="2">{{ 'cart.subtotal' | t }}</td><td>{{ order.line_items_subtotal_price | money }}</td></tr>
+        {%- for line in order.shipping_methods -%}<tr><td colspan="2">{{ line.title | escape }}</td><td>{{ line.price | money }}</td></tr>{%- endfor -%}
+        {%- for line in order.tax_lines -%}<tr><td colspan="2">{{ line.title }} ({{ line.rate_percentage }}%)</td><td>{{ line.price | money }}</td></tr>{%- endfor -%}
+        <tr><td colspan="2"><strong>{{ 'customer.total' | t }}</strong></td><td><strong>{{ order.total_price | money_with_currency }}</strong></td></tr>
+      </tfoot>
+    </table>
+    <div class="grid grid--2">
+      <div><h2 class="h4">{{ 'customer.billing' | t }}</h2>{{ order.billing_address | format_address }}</div>
+      <div><h2 class="h4">{{ 'customer.shipping' | t }}</h2>{{ order.shipping_address | format_address }}</div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{ "name": "Order", "settings": [] }
+{% endschema %}

@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Pagina {{ page }}",
+    "error": "Er is iets misgegaan. Probeer het opnieuw.",
+    "close": "Sluiten",
+    "menu": "Menu",
+    "search": "Zoeken",
+    "search_placeholder": "Zoek producten",
+    "help": "Help",
+    "policies": "Beleid",
+    "pagination": "Pagina's",
+    "results": "{{ count }} resultaten voor ‘{{ terms }}’",
+    "not_found": "Deze pagina bestaat niet"
+  },
+  "accessibility": {
+    "skip_to_content": "Ga naar inhoud"
+  },
+  "products": {
+    "added": "Toegevoegd aan je winkelwagen",
+    "sold_out": "Uitverkocht",
+    "add_to_cart": "In winkelwagen",
+    "unavailable": "Niet beschikbaar",
+    "save": "Bespaar",
+    "sale": "Sale",
+    "view_image": "Afbeelding {{ number }} tonen",
+    "description": "Beschrijving",
+    "faq": "Vragen en antwoorden",
+    "choose_product": "Kies een product voor deze sectie in de thema-editor."
+  },
+  "cart": {
+    "title": "Je winkelwagen",
+    "decrease": "Aantal verlagen",
+    "increase": "Aantal verhogen",
+    "quantity": "Aantal",
+    "remove": "Verwijderen",
+    "subtotal": "Subtotaal",
+    "taxes_shipping": "Belasting en verzendkosten worden berekend bij het afrekenen.",
+    "checkout": "Afrekenen",
+    "view_cart": "Winkelwagen bekijken",
+    "empty": "Je winkelwagen is leeg.",
+    "continue": "Verder winkelen",
+    "note": "Opmerking bij bestelling",
+    "free_shipping_remaining": "Nog {{ amount }} tot gratis verzending",
+    "free_shipping_unlocked": "Je krijgt gratis verzending"
+  },
+  "collections": {
+    "view_all": "Alles bekijken",
+    "empty": "Hier staan nog geen producten.",
+    "sort_by": "Sorteren op",
+    "all_collections": "Collecties"
+  },
+  "newsletter": {
+    "success": "Bedankt voor je aanmelding!",
+    "email": "Je e-mailadres",
+    "subscribe": "Aanmelden"
+  },
+  "contact": {
+    "success": "Bedankt! We nemen zo snel mogelijk contact met je op.",
+    "name": "Naam",
+    "email": "E-mail",
+    "order": "Bestelnummer (optioneel)",
+    "message": "Bericht",
+    "send": "Verzenden"
+  },
+  "password": {
+    "opening_soon": "Binnenkort open",
+    "notify": "Houd me op de hoogte",
+    "owner": "Winkeleigenaar? Voer het wachtwoord in",
+    "password": "Wachtwoord",
+    "enter": "Openen"
+  },
+  "customer": {
+    "account": "Account",
+    "login": "Inloggen",
+    "forgot": "Wachtwoord vergeten?",
+    "sign_in": "Inloggen",
+    "create": "Account aanmaken",
+    "reset": "Wachtwoord opnieuw instellen",
+    "reset_sent": "We hebben je een e-mail gestuurd met een link om je wachtwoord opnieuw in te stellen.",
+    "send": "Verzenden",
+    "guest": "Doorgaan als gast",
+    "first_name": "Voornaam",
+    "last_name": "Achternaam",
+    "log_out": "Uitloggen",
+    "orders": "Bestellingen",
+    "order": "Bestelling",
+    "date": "Datum",
+    "status": "Status",
+    "total": "Totaal",
+    "no_orders": "Je hebt nog geen bestellingen geplaatst.",
+    "details": "Je gegevens",
+    "addresses": "Adressen",
+    "product": "Product",
+    "billing": "Factuuradres",
+    "shipping": "Verzendadres",
+    "default": "Standaard",
+    "add_address": "Adres toevoegen",
+    "address1": "Adres",
+    "address2": "Appartement, suite, enz.",
+    "zip": "Postcode",
+    "city": "Plaats",
+    "country": "Land",
+    "phone": "Telefoon",
+    "set_default": "Gebruik als mijn standaardadres",
+    "save": "Opslaan",
+    "activate": "Activeer je account",
+    "confirm_password": "Bevestig wachtwoord"
+  },
+  "gift_card": {
+    "title": "Je cadeaubon",
+    "code": "Code",
+    "balance": "Saldo",
+    "expired": "Deze cadeaubon is verlopen",
+    "copy": "Code kopiëren",
+    "shop": "Begin met winkelen"
+  }
+}

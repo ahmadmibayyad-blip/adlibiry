@@ -593,6 +593,8 @@ export default defineSchema({
     scopes: v.optional(v.string()),
     currency: v.optional(v.string()),
     locale: v.optional(v.string()),   // the store's primary language, e.g. "en", "da"
+    // Pages Launch → Full store created here ({ about: "gid://shopify/Page/1", … }), updated on the next store launch.
+    storePages: v.optional(v.record(v.string(), v.string())),
   })
     .index("by_user", ["userId"])
     .index("by_shop", ["shopDomain"]),
@@ -624,6 +626,20 @@ export default defineSchema({
     error: v.optional(v.string()),
     createdAt: v.string(),
     finishedAt: v.optional(v.string()),
+    // Full store (mode "store"): the look, the owner's shipping/returns facts, the
+    // store copy (lib/storeKit.ts StoreCopy), and the unpublished theme it built.
+    mode: v.optional(v.string()),     // "page" (default) | "store"
+    style: v.optional(v.string()),    // lib/storeStyles.ts StoreStyleId
+    brandName: v.optional(v.string()),
+    facts: v.optional(v.any()),       // lib/storeKit.ts StoreFacts
+    store: v.optional(v.any()),       // lib/storeKit.ts StoreCopy
+    productHandle: v.optional(v.string()),
+    pageHandles: v.optional(v.record(v.string(), v.string())), // { about: "about", … } as created
+    step: v.optional(v.string()),     // progress while publishing: "product" | "pages" | "theme"
+    themeId: v.optional(v.string()),
+    themePreviewUrl: v.optional(v.string()),
+    themeEditorUrl: v.optional(v.string()),
+    themeLive: v.optional(v.boolean()),
   })
     .index("by_user", ["userId"])
     .index("by_user_product", ["userId", "productId"]),

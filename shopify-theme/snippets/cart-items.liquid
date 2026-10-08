@@ -1,0 +1,35 @@
+{%- comment -%} The cart's lines, used by the cart page and the cart drawer. {%- endcomment -%}
+<ul class="cart-lines" role="list">
+  {%- for item in cart.items -%}
+    <li class="cart-line" data-line="{{ forloop.index }}">
+      <a href="{{ item.url }}" class="cart-line__media">
+        {%- if item.image -%}
+          {{ item.image | image_url: width: 200 | image_tag: loading: 'lazy', alt: item.title }}
+        {%- endif -%}
+      </a>
+      <div class="cart-line__info">
+        <a href="{{ item.url }}" class="cart-line__title">{{ item.product.title | escape }}</a>
+        {%- unless item.product.has_only_default_variant -%}
+          <p class="cart-line__variant">{{ item.variant.title | escape }}</p>
+        {%- endunless -%}
+        {%- for discount in item.line_level_discount_allocations -%}
+          <p class="cart-line__discount">{{ discount.discount_application.title | escape }} (-{{ discount.amount | money }})</p>
+        {%- endfor -%}
+        <div class="cart-line__row">
+          <div class="qty" data-qty>
+            <button type="button" class="qty__btn" data-qty-change="-1" aria-label="{{ 'cart.decrease' | t }}">{% render 'icon', name: 'minus' %}</button>
+            <input class="qty__input" type="number" min="0" value="{{ item.quantity }}" data-line-qty="{{ forloop.index }}" aria-label="{{ 'cart.quantity' | t }}">
+            <button type="button" class="qty__btn" data-qty-change="1" aria-label="{{ 'cart.increase' | t }}">{% render 'icon', name: 'plus' %}</button>
+          </div>
+          <button type="button" class="link-btn" data-line-remove="{{ forloop.index }}">{{ 'cart.remove' | t }}</button>
+        </div>
+      </div>
+      <div class="cart-line__price">
+        {%- if item.original_line_price != item.final_line_price -%}
+          <s>{{ item.original_line_price | money }}</s>
+        {%- endif -%}
+        <span>{{ item.final_line_price | money }}</span>
+      </div>
+    </li>
+  {%- endfor -%}
+</ul>

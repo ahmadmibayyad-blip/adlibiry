@@ -1,0 +1,73 @@
+{%- comment -%} Colors, fonts and shapes from Theme settings → the CSS variables base.css uses. {%- endcomment -%}
+{%- liquid
+  assign accent_contrast = settings.color_accent | color_contrast: settings.color_bg
+  assign accent_ink = settings.color_accent
+  if accent_contrast < 3
+    assign accent_ink = settings.color_text
+  endif
+  assign inverse_bg = settings.color_text
+  assign inverse_text = settings.color_bg
+  assign bg_brightness = settings.color_bg | color_brightness
+  if bg_brightness < 100
+    assign inverse_bg = settings.color_surface
+    assign inverse_text = settings.color_text
+  endif
+  case settings.font_pair
+    when 'bold'
+      assign head_font = 'Archivo Black'
+      assign body_font = 'Archivo'
+      assign font_query = 'family=Archivo+Black&family=Archivo:wght@400;500;600;700'
+      assign head_weight = 400
+    when 'luxe'
+      assign head_font = 'Cormorant Garamond'
+      assign body_font = 'Inter'
+      assign font_query = 'family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600'
+      assign head_weight = 600
+    when 'playful'
+      assign head_font = 'Fredoka'
+      assign body_font = 'Nunito'
+      assign font_query = 'family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700'
+      assign head_weight = 600
+    when 'nordic'
+      assign head_font = 'Fraunces'
+      assign body_font = 'Inter'
+      assign font_query = 'family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600'
+      assign head_weight = 500
+    when 'tech'
+      assign head_font = 'Space Grotesk'
+      assign body_font = 'Inter'
+      assign font_query = 'family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600'
+      assign head_weight = 600
+    else
+      assign head_font = 'Plus Jakarta Sans'
+      assign body_font = 'Plus Jakarta Sans'
+      assign font_query = 'family=Plus+Jakarta+Sans:wght@400;500;600;700;800'
+      assign head_weight = 700
+  endcase
+-%}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?{{ font_query }}&display=swap">
+<style>
+  :root {
+    --c-bg: {{ settings.color_bg }};
+    --c-surface: {{ settings.color_surface }};
+    --c-text: {{ settings.color_text }};
+    --c-muted: {{ settings.color_text | color_mix: settings.color_bg, 72 }};
+    --c-border: {{ settings.color_text | color_mix: settings.color_bg, 14 }};
+    --c-accent: {{ settings.color_accent }};
+    --c-accent-text: {{ settings.color_accent_text }};
+    --c-accent-ink: {{ accent_ink }};
+    --c-sale: {{ settings.color_sale }};
+    --c-inverse-bg: {{ inverse_bg }};
+    --c-inverse-text: {{ inverse_text }};
+    --font-head: '{{ head_font }}', ui-sans-serif, system-ui, sans-serif;
+    --font-body: '{{ body_font }}', ui-sans-serif, system-ui, sans-serif;
+    --head-weight: {{ head_weight }};
+    --head-case: {% if settings.heading_uppercase %}uppercase{% else %}none{% endif %};
+    --head-tracking: {% if settings.heading_uppercase %}0.01em{% else %}-0.02em{% endif %};
+    --radius: {{ settings.radius }}px;
+    --btn-radius: {% if settings.button_pill %}999px{% else %}{{ settings.radius }}px{% endif %};
+    --page-width: {{ settings.page_width }}px;
+  }
+</style>

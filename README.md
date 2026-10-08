@@ -141,3 +141,20 @@ work for stores that already have one. Setup:
 2. Convex (Production) env: `SHOPIFY_API_KEY` (client ID), `SHOPIFY_API_SECRET` (client secret), `SHOPIFY_TOKEN_KEY`
    (32 random bytes, base64: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
 3. Until the app passes Shopify's review, it can be installed on development stores and with custom distribution links.
+
+### Full store
+
+Launch → **Full store** builds a whole store around the product in one of six styles (`convex/lib/storeStyles.ts`):
+Claude writes the home page, About, FAQ, Shipping & returns and Contact pages and menu labels from the product, its ads
+and the shipping/returns facts the user enters (`convex/lib/storeKit.ts`). The job creates the product, the pages, two
+menus with our own handles (`adspy-main`, `adspy-footer`, so the live theme's menus aren't touched) and installs our
+storefront theme (`shopify-theme/`) as an **unpublished** theme. Shopify downloads the theme zip from
+`/shopify/theme.zip` (signed with `SHOPIFY_TOKEN_KEY`, `convex/storeThemeHttp.ts`). The user previews it and clicks
+"Make it my live store" to publish it. Prices are converted from USD to the store's currency with the daily ECB rates.
+
+- Needs the scopes `write_themes`, `write_online_store_pages` and `write_online_store_navigation` (in `SHOPIFY_SCOPES`
+  and `shopify-app/shopify.app.toml`). App installs from before them get a "Reconnect" prompt. Pasted custom-app tokens
+  need those scopes added to the custom app in Shopify admin. A public Shopify app also needs Shopify's `write_themes`
+  exemption before listing.
+- After editing `shopify-theme/`, run `node scripts/build-theme.mjs` (bundles it into
+  `convex/lib/themeFiles.generated.ts`; `convex/storeTheme.test.ts` fails while it's out of date).

@@ -1,0 +1,24 @@
+{%- assign product = section.settings.product -%}
+<section class="section scheme-{{ section.settings.scheme }}" id="Featured-{{ section.id }}">
+  <div class="page-width">
+    {%- if product != blank -%}
+      {% render 'product-main', product: product, section: section, heading_tag: 'h2' %}
+    {%- else -%}
+      <p class="muted center">{{ 'products.choose_product' | t }}</p>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured product",
+  "settings": [
+    { "type": "product", "id": "product", "label": "Product" },
+    { "type": "checkbox", "id": "show_vendor", "label": "Show vendor", "default": false },
+    { "type": "checkbox", "id": "show_description", "label": "Show description", "default": false },
+    { "type": "checkbox", "id": "show_dynamic_checkout", "label": "Show express checkout buttons", "default": true },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "presets": [{ "name": "Featured product" }]
+}
+{% endschema %}

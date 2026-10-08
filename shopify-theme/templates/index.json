@@ -1,0 +1,60 @@
+{
+  "sections": {
+    "hero": {
+      "type": "hero",
+      "settings": {
+        "heading": "Made for everyday life",
+        "text": "Thoughtful products, shipped to your door.",
+        "button_label": "Shop now"
+      }
+    },
+    "trust": {
+      "type": "trust-bar",
+      "blocks": {
+        "t1": {
+          "type": "item",
+          "settings": {
+            "icon": "truck",
+            "text": "Tracked shipping"
+          }
+        },
+        "t2": {
+          "type": "item",
+          "settings": {
+            "icon": "lock",
+            "text": "Secure checkout"
+          }
+        },
+        "t3": {
+          "type": "item",
+          "settings": {
+            "icon": "chat",
+            "text": "Friendly support"
+          }
+        }
+      },
+      "block_order": [
+        "t1",
+        "t2",
+        "t3"
+      ],
+      "settings": {}
+    },
+    "products": {
+      "type": "featured-collection",
+      "settings": {
+        "heading": "Shop the collection"
+      }
+    },
+    "news": {
+      "type": "newsletter",
+      "settings": {}
+    }
+  },
+  "order": [
+    "hero",
+    "trust",
+    "products",
+    "news"
+  ]
+}

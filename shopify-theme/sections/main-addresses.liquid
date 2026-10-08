@@ -1,0 +1,42 @@
+<section class="section section--tight">
+  <div class="page-width page-width--narrow stack">
+    <a href="{{ routes.account_url }}" class="link-arrow">&larr; {{ 'customer.account' | t }}</a>
+    <h1 class="h2">{{ 'customer.addresses' | t }}</h1>
+    {%- paginate customer.addresses by 10 -%}
+      {%- for address in customer.addresses -%}
+        <div class="cart-summary">
+          {%- if address == customer.default_address -%}<span class="badge">{{ 'customer.default' | t }}</span>{%- endif -%}
+          {{ address | format_address }}
+          {%- form 'customer_address', address -%}
+            <input type="hidden" name="_method" value="delete">
+            <button type="submit" class="link-btn">{{ 'cart.remove' | t }}</button>
+          {%- endform -%}
+        </div>
+      {%- endfor -%}
+    {%- endpaginate -%}
+    <details class="accordion__item">
+      <summary>{{ 'customer.add_address' | t }} {% render 'icon', name: 'plus' %}</summary>
+      {%- form 'customer_address', customer.new_address, class: 'stack accordion__body' -%}
+        {{ form.errors | default_errors }}
+        <div class="grid grid--2">
+          <label class="field"><span class="field__label">{{ 'customer.first_name' | t }}</span><input class="input" type="text" name="address[first_name]" value="{{ form.first_name }}" autocomplete="given-name"></label>
+          <label class="field"><span class="field__label">{{ 'customer.last_name' | t }}</span><input class="input" type="text" name="address[last_name]" value="{{ form.last_name }}" autocomplete="family-name"></label>
+        </div>
+        <label class="field"><span class="field__label">{{ 'customer.address1' | t }}</span><input class="input" type="text" name="address[address1]" value="{{ form.address1 }}" autocomplete="address-line1"></label>
+        <label class="field"><span class="field__label">{{ 'customer.address2' | t }}</span><input class="input" type="text" name="address[address2]" value="{{ form.address2 }}" autocomplete="address-line2"></label>
+        <div class="grid grid--2">
+          <label class="field"><span class="field__label">{{ 'customer.zip' | t }}</span><input class="input" type="text" name="address[zip]" value="{{ form.zip }}" autocomplete="postal-code"></label>
+          <label class="field"><span class="field__label">{{ 'customer.city' | t }}</span><input class="input" type="text" name="address[city]" value="{{ form.city }}" autocomplete="address-level2"></label>
+        </div>
+        <label class="field"><span class="field__label">{{ 'customer.country' | t }}</span><select class="select" name="address[country]" autocomplete="country">{{ all_country_option_tags }}</select></label>
+        <label class="field"><span class="field__label">{{ 'customer.phone' | t }}</span><input class="input" type="tel" name="address[phone]" value="{{ form.phone }}" autocomplete="tel"></label>
+        <label class="check">{{ form.set_as_default_checkbox }} {{ 'customer.set_default' | t }}</label>
+        <button type="submit" class="btn">{{ 'customer.save' | t }}</button>
+      {%- endform -%}
+    </details>
+  </div>
+</section>
+
+{% schema %}
+{ "name": "Addresses", "settings": [] }
+{% endschema %}

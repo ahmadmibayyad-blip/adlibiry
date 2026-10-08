@@ -1,0 +1,29 @@
+{%- assign source = section.settings.collection | default: collections.all -%}
+<section class="section scheme-{{ section.settings.scheme }}">
+  <div class="page-width">
+    <div class="section__head section__head--row">
+      <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+      <a href="{{ source.url | default: routes.all_products_collection_url }}" class="link-arrow">{{ 'collections.view_all' | t }} {% render 'icon', name: 'arrow' %}</a>
+    </div>
+    <div class="grid grid--products">
+      {%- for product in source.products limit: section.settings.count -%}
+        {% render 'product-card', product: product %}
+      {%- else -%}
+        <p class="muted">{{ 'collections.empty' | t }}</p>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured collection",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Shop the collection" },
+    { "type": "collection", "id": "collection", "label": "Collection (empty: all products)" },
+    { "type": "range", "id": "count", "label": "Products", "min": 2, "max": 12, "step": 1, "default": 4 },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "presets": [{ "name": "Featured collection" }]
+}
+{% endschema %}

@@ -1,0 +1,31 @@
+<section class="section scheme-{{ section.settings.scheme }}">
+  <div class="page-width page-width--narrow center">
+    <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+    {%- if section.settings.text != blank -%}<p class="lead muted">{{ section.settings.text | escape }}</p>{%- endif -%}
+    {%- assign form_id = 'Newsletter-' | append: section.id -%}
+    {%- form 'customer', class: 'news-form', id: form_id -%}
+      <input type="hidden" name="contact[tags]" value="newsletter">
+      {%- if form.posted_successfully? -%}
+        <p class="note note--ok">{{ 'newsletter.success' | t }}</p>
+      {%- else -%}
+        <div class="news-form__row">
+          <input type="email" name="contact[email]" required placeholder="{{ 'newsletter.email' | t }}" aria-label="{{ 'newsletter.email' | t }}" autocomplete="email">
+          <button type="submit" class="btn">{{ 'newsletter.subscribe' | t }}</button>
+        </div>
+        {{ form.errors | default_errors }}
+      {%- endif -%}
+    {%- endform -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Newsletter",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Stay in the loop" },
+    { "type": "text", "id": "text", "label": "Text" },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "accent", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "presets": [{ "name": "Newsletter" }]
+}
+{% endschema %}

@@ -1,0 +1,71 @@
+{%- assign menu = linklists[section.settings.menu] -%}
+<footer class="footer">
+  <div class="page-width footer__grid">
+    <div class="footer__brand">
+      <p class="logo__text">{{ settings.brand_name | default: shop.name | escape }}</p>
+      {%- if section.settings.text != blank -%}<div class="muted rte">{{ section.settings.text }}</div>{%- endif -%}
+      <div class="socials">
+        {%- if settings.social_instagram != blank -%}<a href="{{ settings.social_instagram }}" class="icon-btn" aria-label="Instagram">{% render 'icon', name: 'instagram' %}</a>{%- endif -%}
+        {%- if settings.social_tiktok != blank -%}<a href="{{ settings.social_tiktok }}" class="icon-btn" aria-label="TikTok">{% render 'icon', name: 'tiktok' %}</a>{%- endif -%}
+        {%- if settings.social_facebook != blank -%}<a href="{{ settings.social_facebook }}" class="icon-btn" aria-label="Facebook">{% render 'icon', name: 'facebook' %}</a>{%- endif -%}
+      </div>
+    </div>
+
+    <nav class="footer__col" aria-label="{{ 'general.help' | t }}">
+      <p class="footer__heading">{{ 'general.help' | t }}</p>
+      <ul role="list">
+        {%- for link in menu.links -%}<li><a href="{{ link.url }}">{{ link.title | escape }}</a></li>{%- endfor -%}
+      </ul>
+    </nav>
+
+    <nav class="footer__col" aria-label="{{ 'general.policies' | t }}">
+      <p class="footer__heading">{{ 'general.policies' | t }}</p>
+      <ul role="list">
+        {%- for policy in shop.policies -%}
+          {%- if policy != blank -%}<li><a href="{{ policy.url }}">{{ policy.title | escape }}</a></li>{%- endif -%}
+        {%- endfor -%}
+      </ul>
+    </nav>
+
+    {%- comment -%} The home page has its own newsletter section. {%- endcomment -%}
+    {%- if section.settings.newsletter and template.name != 'index' -%}
+      <div class="footer__col footer__news">
+        <p class="footer__heading">{{ section.settings.newsletter_heading | escape }}</p>
+        {%- form 'customer', class: 'news-form', id: 'FooterNewsletter' -%}
+          <input type="hidden" name="contact[tags]" value="newsletter">
+          {%- if form.posted_successfully? -%}
+            <p class="note note--ok">{{ 'newsletter.success' | t }}</p>
+          {%- else -%}
+            <div class="news-form__row">
+              <input type="email" name="contact[email]" required placeholder="{{ 'newsletter.email' | t }}" aria-label="{{ 'newsletter.email' | t }}" autocomplete="email">
+              <button type="submit" class="btn">{{ 'newsletter.subscribe' | t }}</button>
+            </div>
+            {{ form.errors | default_errors }}
+          {%- endif -%}
+        {%- endform -%}
+      </div>
+    {%- endif -%}
+  </div>
+
+  <div class="page-width footer__bottom">
+    <p class="small muted">&copy; {{ 'now' | date: '%Y' }} {{ settings.brand_name | default: shop.name | escape }}{% if powered_by_link != blank %} · {{ powered_by_link }}{% endif %}</p>
+    {%- if shop.enabled_payment_types.size > 0 -%}
+      <ul class="payments" role="list">
+        {%- for type in shop.enabled_payment_types -%}<li>{{ type | payment_type_svg_tag: class: 'payment-icon' }}</li>{%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "settings": [
+    { "type": "richtext", "id": "text", "label": "About text" },
+    { "type": "link_list", "id": "menu", "label": "Help menu", "default": "footer" },
+    { "type": "checkbox", "id": "newsletter", "label": "Show newsletter sign-up", "default": true },
+    { "type": "text", "id": "newsletter_heading", "label": "Newsletter heading", "default": "Stay in the loop" }
+  ],
+  "enabled_on": { "groups": ["footer"] }
+}
+{% endschema %}
