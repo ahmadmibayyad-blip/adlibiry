@@ -28,6 +28,35 @@ describe("ad CSV import", () => {
     expect(ad.aiScore).toBeLessThanOrEqual(100);
   });
 
+  it("reads ScrapeKit ad exports: numbers, media, advertiser and the ad's first line as headline", () => {
+    const csv =
+      "file_number,title,advertiser,ad_text,link,image,video,logo,platform,impressions,likes,comments,shares,days_running,spend,library_id,started,status,card_text\n" +
+      '0001,Axel 123 limited,Axel 123 limited,"15% Off Your First order",https://axel123.com/,https://cdn.x.com/1.jpg,https://cdn.x.com/1.mp4,https://cdn.x.com/a.jpg,TikTok,1.0K,230,12,4,1,,,,Active,"Axel 123 limited 1 days TikTok 1d 30% 1.0K impressions"\n' +
+      '0002,Axzenia,Axzenia,"Suffering from scoliosis? Our Instant Posture Corrector has you covered!",https://www.facebook.com/61551740572920/,https://cdn.x.com/2.jpg,,,,,,,,,,2275498076149743,"Oct 31, 2024",Active,"Active Library ID: 2275498076149743"\n';
+    const table = parseCsv(csv);
+    const map = autoMapAds(table[0]);
+    expect(lacksNumbers(map)).toBe(false);
+    const { rows, invalid } = buildAdRows(table, map, opts);
+    expect(invalid).toBe(0);
+    expect(rows[0]).toMatchObject({
+      advertiserName: "Axel 123 limited",
+      headline: "15% Off Your First order",
+      bodyText: "15% Off Your First order",
+      platform: "TikTok",
+      views: "1.0K",
+      impressions: 1000,
+      likes: 230,
+      comments: 12,
+      shares: 4,
+      daysRunning: 1,
+      creativeUrl: "https://cdn.x.com/1.jpg",
+      videoUrl: "https://cdn.x.com/1.mp4",
+      mediaType: "video",
+    });
+    expect(rows[1]).toMatchObject({ advertiserName: "Axzenia", headline: "Suffering from scoliosis? Our Instant Posture Corrector has you covered!", externalId: "csv:facebook:2275498076149743" });
+    expect(rows[1].daysRunning).toBeGreaterThan(300); // from "Started running on Oct 31, 2024"
+  });
+
   it("skips rows without media, dedupes, and applies defaults", () => {
     const csv =
       "Page Name;Ad Text;Thumbnail;Platform;Country\n" +
