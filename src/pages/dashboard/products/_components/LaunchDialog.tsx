@@ -32,8 +32,11 @@ const TONES = [
 ] as const;
 const SELECT = "mt-1 w-full h-9 rounded-md border border-input bg-background px-2 text-sm";
 
+const AI_PHOTO_COUNTS = [0, 2, 4, 6] as const;
+
 const STORE_STEPS = [
   ["generating", "Writing your store from the ads that are winning"],
+  ["photos", "Making AI product photos"],
   ["product", "Creating the product"],
   ["pages", "Adding pages and menus"],
   ["theme", "Installing your theme"],
@@ -58,17 +61,41 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function StoreSteps({ l }: { l: Doc<"launches"> }) {
-  const at = l.status === "generating" ? 0 : Math.max(1, STORE_STEPS.findIndex(([k]) => k === l.step));
+  const steps = STORE_STEPS.filter(([k]) => k !== "photos" || (l.aiPhotos ?? 0) > 0);
+  const at = l.status === "generating" ? 0 : Math.max(1, steps.findIndex(([k]) => k === l.step));
   return (
     <ol className="space-y-2.5 py-4 text-sm">
-      {STORE_STEPS.map(([key, label], i) => (
+      {steps.map(([key, label], i) => (
         <li key={key} className={cn("flex items-center gap-2.5", i > at && "text-muted-foreground")}>
           {i < at ? <Check className="w-4 h-4 text-primary" /> : i === at ? <Spinner className="w-4 h-4" /> : <span className="w-4 h-4 rounded-full border border-border" />}
           {label}
-          {i === at && key === "theme" ? <span className="text-xs text-muted-foreground">(up to a minute)</span> : null}
+          {i === at && (key === "theme" || key === "photos") ? <span className="text-xs text-muted-foreground">(up to a minute)</span> : null}
         </li>
       ))}
     </ol>
+  );
+}
+
+/** The AI photos a launch made: also in the Shopify product, and handy for ads. */
+function AiPhotos({ l }: { l: Doc<"launches"> }) {
+  if (!l.aiPhotos) return null;
+  const urls = l.aiPhotoUrls ?? [];
+  return (
+    <div>
+      <h4 className="text-sm font-semibold mb-2">AI product photos</h4>
+      {urls.length ? (
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {urls.map((u, i) => (
+            <a key={u} href={u} target="_blank" rel="noopener noreferrer" title="Open full size">
+              <img src={u} alt={`AI photo ${i + 1}`} className="aspect-square w-full rounded-md border border-border object-cover" />
+            </a>
+          ))}
+        </div>
+      ) : null}
+      <p className="text-xs text-muted-foreground mt-1.5">
+        {l.aiPhotoNote ?? "Added to the product in Shopify. Open one to save it for your ads."}
+      </p>
+    </div>
   );
 }
 
@@ -127,7 +154,7 @@ function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: ()
     ) : (
       <div className="flex flex-col items-center gap-3 py-8 text-sm">
         <Spinner className="w-6 h-6" />
-        {l.status === "generating" ? "Writing your page from the ads that are winning…" : "Creating it in your Shopify store…"}
+        {l.status === "generating" ? "Writing your page from the ads that are winning…" : l.step === "photos" ? "Making AI product photos…" : "Creating it in your Shopify store…"}
       </div>
     );
   }
@@ -190,6 +217,7 @@ function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: ()
           </div>
         </>
       )}
+      <AiPhotos l={l} />
       {copy?.adKit?.length ? (
         <div>
           <h4 className="text-sm font-semibold mb-2">Your ad kit</h4>
@@ -268,10 +296,12 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
   const [returnDays, setReturnDays] = useState("30");
   const [freeShipping, setFreeShipping] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
+  const [aiPhotosInput, setAiPhotos] = useState<number | null>(null);
   const [launchId, setLaunchId] = useState<Id<"launches"> | null>(null);
   const [busy, setBusy] = useState(false);
 
   const price = priceInput ?? (prep?.suggested.price ? String(prep.suggested.price) : "");
+  const aiPhotos = prep?.aiPhotosReady ? (aiPhotosInput ?? 4) : 0;
   const storeLocale = prep?.store?.locale && prep.store.locale !== "en" ? prep.store.locale.slice(0, 2) : undefined;
   const language = languageInput ?? (storeLocale && LANGUAGES[storeLocale]) ?? CURRENCY_LANGUAGE[prep?.store?.currency ?? ""] ?? "English";
   const brand = brandInput ?? prep?.store?.shopName ?? "";
@@ -334,6 +364,7 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
                     tone,
                     publish,
                     ...(priceNum > 0 ? { price: priceNum } : {}),
+                    ...(aiPhotos > 0 ? { aiPhotos } : {}),
                     ...(mode === "store"
                       ? {
                           mode,
@@ -438,6 +469,32 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
                       {TONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </label>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium">AI product photos</span>
+                  <div className="mt-1 flex gap-1.5" role="radiogroup" aria-label="AI product photos">
+                    {AI_PHOTO_COUNTS.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="radio"
+                        aria-checked={aiPhotos === n}
+                        disabled={!prep.aiPhotosReady}
+                        onClick={() => setAiPhotos(n)}
+                        className={cn(
+                          "h-8 min-w-12 rounded-md border px-3 text-sm disabled:opacity-50",
+                          aiPhotos === n ? "border-primary bg-primary/10 font-medium text-foreground" : "border-input text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {n === 0 ? "None" : n}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {prep.aiPhotosReady
+                      ? "New photos made from the product photo: in use, close-ups and lifestyle scenes. They go on the product page and you can use them in ads."
+                      : "AI photos aren't switched on yet."}
+                  </span>
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={publish === "ACTIVE"} onChange={(e) => setPublish(e.target.checked ? "ACTIVE" : "DRAFT")} />

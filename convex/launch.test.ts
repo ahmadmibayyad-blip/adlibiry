@@ -130,6 +130,54 @@ describe("Launch", () => {
     expect((await user.query(api.launch.prepare, { productId }))?.allowed).toMatchObject({ left: 9 });
   });
 
+  it("makes AI product photos from the real one and adds them to the Shopify product", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    let productSetInput: { files: { originalSource: string }[] } | undefined;
+    const geminiBodies: { contents: { parts: { text?: string; inlineData?: { mimeType: string; data: string } }[] }[] }[] = [];
+    let geminiCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("anthropic.com")) {
+        return json({ id: "msg_1", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text: JSON.stringify(aiCopy) }], usage: { input_tokens: 10, output_tokens: 10 } });
+      }
+      if (url === "https://cdn.x/p.jpg") return new Response(new Uint8Array([0xff, 0xd8, 0xff, 1, 2, 3]), { headers: { "Content-Type": "image/jpeg" } });
+      if (url.includes("generativelanguage.googleapis.com")) {
+        geminiBodies.push(JSON.parse(String(init?.body)));
+        // The third photo fails; the launch still goes on with the other two.
+        if (++geminiCalls === 3) return json({ candidates: [{ finishReason: "IMAGE_SAFETY", content: { parts: [] } }] });
+        return json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: btoa(`png-${geminiCalls}`) } }] } }] });
+      }
+      if (url.includes("/graphql.json")) {
+        productSetInput = JSON.parse(String(init?.body)).variables.input;
+        return json({ data: { productSet: { product: { id: "gid://shopify/Product/987", handle: "x", onlineStorePreviewUrl: "https://my-store.myshopify.com/products/x" }, userErrors: [] } } });
+      }
+      return new Response("", { status: 404 });
+    }));
+    const { t, productId, user } = await setup({ plan: "pro", subscriptionStatus: "active" });
+
+    // Without a Google key it's off, and a request for photos is ignored.
+    expect(await user.query(api.launch.prepare, { productId })).toMatchObject({ aiPhotosReady: false });
+    const off = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT", aiPhotos: 4 });
+    await t.finishAllScheduledFunctions(() => {});
+    expect(await user.query(api.launch.get, { launchId: off.launchId })).not.toHaveProperty("aiPhotos");
+    expect(geminiBodies).toHaveLength(0);
+
+    vi.stubEnv("GEMINI_API_KEY", "g-test");
+    expect(await user.query(api.launch.prepare, { productId })).toMatchObject({ aiPhotosReady: true });
+    const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT", aiPhotos: 4 });
+    await t.finishAllScheduledFunctions(() => {});
+    const launch = await user.query(api.launch.get, { launchId });
+    expect(launch).toMatchObject({ status: "published", aiPhotos: 4, aiPhotoNote: "1 of 4 AI photos couldn't be made." });
+    expect(launch?.aiPhotoUrls).toHaveLength(3);
+    expect(geminiBodies).toHaveLength(4);
+    expect(geminiBodies[0].contents[0].parts[1].inlineData).toEqual({ mimeType: "image/jpeg", data: btoa(String.fromCharCode(0xff, 0xd8, 0xff, 1, 2, 3)) });
+    // The real photo first, then the AI photos, then the other real photos.
+    expect(productSetInput?.files.map((f) => f.originalSource)).toEqual(["https://cdn.x/p.jpg", ...launch!.aiPhotoUrls!, "https://cdn.x/p2.jpg"]);
+    const stored = await t.run(async (ctx) => Promise.all(launch!.aiPhotoIds!.map((id) => ctx.storage.get(id).then((b) => b?.text()))));
+    expect(stored?.sort()).toEqual(["png-1", "png-2", "png-4"]);
+  });
+
   it("keeps Launch to paying plans, blocks big brands, and caps the trial at 2", async () => {
     const free = await setup({});
     await expect(free.user.mutation(api.launch.start, { productId: free.productId, language: "English", tone: "bold", publish: "DRAFT" })).rejects.toThrow(/part of Pro/);
