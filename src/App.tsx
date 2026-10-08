@@ -101,6 +101,8 @@ export default function App() {
             <Route path="agents" element={<AgentsPage />} />
             <Route path="hooks" element={<HooksPage />} />
             <Route path="tiktok-shop" element={<TikTokShopPage />} />
+            <Route path="launch" element={<LaunchesPage />} />
+            <Route path="launch/shopify-callback" element={<LaunchesPage />} />
             <Route path="launches" element={<LaunchesPage />} />
             <Route path="extension" element={<ExtensionPage />} />
             <Route path="settings" element={<SettingsPage />} />

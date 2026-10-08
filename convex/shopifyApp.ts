@@ -94,7 +94,7 @@ export const saveInstall = internalMutation({
 });
 
 const back = (outcome: string, detail?: string) => {
-  const url = new URL(`${appUrl()}/dashboard/settings`);
+  const url = new URL(`${appUrl()}/dashboard/launch/shopify-callback`);
   url.searchParams.set("shopify", outcome);
   if (detail) url.searchParams.set("reason", detail.slice(0, 120));
   return new Response(null, { status: 302, headers: { Location: url.toString() } });

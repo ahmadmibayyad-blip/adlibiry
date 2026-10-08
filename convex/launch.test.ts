@@ -51,7 +51,7 @@ describe("Shopify app install", () => {
     params.set("hmac", await sign([...params.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => `${k}=${v}`).join("&"), "hex"));
     const res = await t.fetch(`/shopify/callback?${params}`, { redirect: "manual" });
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toBe("https://app.example/dashboard/settings?shopify=connected");
+    expect(res.headers.get("Location")).toBe("https://app.example/dashboard/launch/shopify-callback?shopify=connected");
     const [conn] = await t.run((ctx) => ctx.db.query("shopifyConnections").collect());
     expect(conn).toMatchObject({ shopDomain: "my-store.myshopify.com", shopName: "My Store", via: "oauth", currency: "DKK", locale: "da" });
     expect(conn.accessToken.startsWith("enc:v1:")).toBe(true);

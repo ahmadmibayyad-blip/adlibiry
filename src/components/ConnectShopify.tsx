@@ -8,7 +8,8 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 
 // Connect a store through the AdSpy Pro Shopify app (convex/shopifyApp.ts):
-// Shopify asks the merchant to approve, then sends them back to Settings.
+// Shopify asks the merchant to approve, then sends them back to the Launch
+// dashboard (/dashboard/launch/shopify-callback).
 export default function ConnectShopify() {
   const start = useMutation(api.shopifyApp.startInstall);
   const [shop, setShop] = useState("");

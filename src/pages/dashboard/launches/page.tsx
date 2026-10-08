@@ -1,11 +1,16 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ExternalLink, Rocket } from "lucide-react";
+import { ExternalLink, Rocket, ShoppingBag } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
+import ConnectShopify from "@/components/ConnectShopify.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 
 // Every product page launched to Shopify (convex/launch.ts), newest first.
+// The header shows the quota (api.launch.myQuota) and the connected store;
+// Shopify's OAuth answer lands here via /dashboard/launch/shopify-callback.
 const STATUS: Record<string, string> = {
   generating: "Writing…",
   publishing: "Publishing…",
@@ -15,13 +20,55 @@ const STATUS: Record<string, string> = {
 
 export default function LaunchesPage() {
   const rows = useQuery(api.launch.mine, {});
+  const quota = useQuery(api.launch.myQuota, {});
+  const [params, setParams] = useSearchParams();
+
+  useEffect(() => {
+    const outcome = params.get("shopify");
+    if (!outcome) return;
+    if (outcome === "connected") toast.success("Your Shopify store is connected");
+    else toast.error(params.get("reason") || "Couldn't connect the store");
+    params.delete("shopify");
+    params.delete("reason");
+    setParams(params, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- read the OAuth return message once
+
   return (
     <div className="p-5 lg:p-8 max-w-4xl mx-auto">
-      <div className="flex items-center gap-2.5 mb-1">
-        <Rocket className="w-5 h-5 text-primary" />
-        <h1 className="text-2xl font-bold">Launches</h1>
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+        <div className="flex items-center gap-2.5">
+          <Rocket className="w-5 h-5 text-primary" />
+          <h1 className="text-2xl font-bold">Launch</h1>
+        </div>
+        {quota && (
+          <div className="flex items-center gap-2 text-xs">
+            {quota.allowed ? (
+              <span className="border border-border rounded-md px-2.5 h-8 inline-flex items-center gap-1.5">
+                <Rocket className="w-3.5 h-3.5 text-primary" />
+                {quota.allowed.left === null ? "Unlimited launches" : `${quota.allowed.left} of ${quota.allowed.limit} launches left`}
+              </span>
+            ) : (
+              <Link to="/#pricing" className="border border-primary/20 bg-primary/10 rounded-md px-2.5 h-8 inline-flex items-center text-primary">
+                Launch is part of Pro — see plans
+              </Link>
+            )}
+            {quota.store && (
+              <span className="border border-border rounded-md px-2.5 h-8 inline-flex items-center gap-1.5 text-muted-foreground">
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span className="text-foreground">{quota.store.shopName}</span>
+                {quota.store.currency}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <p className="text-sm text-muted-foreground mb-6">Products you launched to your Shopify store, with their ad kits. Launch more from any product page.</p>
+      {quota && !quota.store && (
+        <div className="mb-6 rounded-xl border border-dashed border-primary/20 bg-primary/10 p-4 max-w-sm space-y-3">
+          <p className="text-sm">Connect your Shopify store to launch winning products as ready-made product pages.</p>
+          <ConnectShopify />
+        </div>
+      )}
       {rows === undefined ? (
         <Spinner />
       ) : rows.length === 0 ? (

@@ -39,7 +39,7 @@ const navItems: { icon: typeof Search; label: string; href: string; short?: stri
   { icon: ShoppingBag, label: "TikTok Shop", href: "/dashboard/tiktok-shop" },
   { icon: LineChart, label: "Research", href: "/dashboard/research" },
   { icon: Store, label: "Store Tracker", href: "/dashboard/stores" },
-  { icon: Rocket, label: "Launches", href: "/dashboard/launches" },
+  { icon: Rocket, label: "Launch", href: "/dashboard/launch" },
   { icon: BookmarkCheck, label: "Saved", href: "/dashboard/saved" },
   { icon: Bot, label: "AI Agents", href: "/dashboard/agents" },
   { icon: Bell, label: "Alerts", href: "/dashboard/alerts" },

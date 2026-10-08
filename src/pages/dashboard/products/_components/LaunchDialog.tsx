@@ -99,7 +99,7 @@ function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: ()
           </ul>
         </div>
       ) : null}
-      <Link to="/dashboard/launches" className="text-xs text-primary hover:underline">All your launches →</Link>
+      <Link to="/dashboard/launch" className="text-xs text-primary hover:underline">All your launches →</Link>
     </div>
   );
 }

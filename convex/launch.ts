@@ -122,6 +122,33 @@ export const mine = query({
   },
 });
 
+/** The Launch dashboard header: plan, quota used/left, the connected store, totals. */
+export const myQuota = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await currentUser(ctx);
+    if (!user) return null;
+    const allowed = await allowance(ctx, user);
+    const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
+    const rows = await ctx.db.query("launches").withIndex("by_user", (q) => q.eq("userId", user._id)).collect();
+    const now = month();
+    return {
+      plan: effectivePlan(user),
+      // null when Launch isn't in the plan; left/limit null = unlimited.
+      allowed: allowed ?? null,
+      used: allowed && allowed.limit !== null && allowed.left !== null ? allowed.limit - allowed.left : null,
+      store: store
+        ? { shopDomain: store.shopDomain, shopName: store.shopName, viaApp: store.via === "oauth", locale: store.locale ?? "en", currency: store.currency ?? "USD" }
+        : null,
+      totals: {
+        launches: rows.length,
+        published: rows.filter((l) => l.status === "published").length,
+        publishedThisMonth: rows.filter((l) => l.status === "published" && (l.finishedAt ?? l.createdAt).slice(0, 7) === now).length,
+      },
+    };
+  },
+});
+
 // ── internal steps (launchRun.ts) ────────────────────────────────────────────
 
 export const context = internalQuery({
