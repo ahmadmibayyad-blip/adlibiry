@@ -4,12 +4,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { v } from "convex/values";
 import * as z from "zod";
-import { internalAction } from "./_generated/server";
+import { internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { claudeClient } from "./lib/claudeClient";
 import { claudeErrorMessage } from "./lib/claudeErrors";
-import { LAUNCH_SYSTEM, cleanCopy, launchFacts, launchProductInput, type LaunchCopy } from "./lib/launchCopy";
+import { geminiImageRequest, imageFromGemini, imageModel, photoPrompts, withAiPhotos, type InlineImage } from "./lib/aiPhotos";
+import { LAUNCH_SYSTEM, cleanCopy, launchFacts, launchImages, launchProductInput, type LaunchCopy } from "./lib/launchCopy";
 import { decryptToken } from "./lib/shopifyOAuth";
 import { SHOPIFY_API_VERSION } from "./lib/shopifyExport";
 import {
@@ -35,6 +36,7 @@ import { STORE_STYLES, isStoreStyle } from "./lib/storeStyles";
 // Store when published as active). A Full store launch also gets the store's
 // copy, its pages and menus, and our storefront theme (served as a zip by
 // storeThemeHttp.ts) installed unpublished. Progress and errors land on the launch row.
+// With aiPhotos > 0, new product photos are made from the real one first (lib/aiPhotos.ts).
 
 const MODEL = "claude-opus-5-5";
 
@@ -222,19 +224,37 @@ export const run = internalAction({
       console.error("Launch: AI failed", e);
       return fail(e instanceof Anthropic.APIError ? claudeErrorMessage(e, false) : "The AI had a problem. Please try again.");
     }
+    const wantsPhotos = (launch.aiPhotos ?? 0) > 0;
     await ctx.runMutation(internal.launch.setStatus, {
       launchId: args.launchId,
       status: "publishing",
       copy,
-      ...(storeCopy ? { store: storeCopy, step: "product" } : {}),
+      ...(storeCopy ? { store: storeCopy } : {}),
+      ...(wantsPhotos ? { step: "photos" } : storeCopy ? { step: "product" } : {}),
     });
 
-    // 2. Create it in the store.
+    // 2. AI product photos, made from the first real photo that downloads. A failure here never stops the launch.
+    const realPhotos = launchImages([product.imageUrl, ...(product.images ?? [])]);
+    let photos = realPhotos;
+    if (wantsPhotos) {
+      const made = await makeAiPhotos(ctx, product, realPhotos, launch.aiPhotos ?? 0);
+      photos = withAiPhotos(realPhotos, made.urls);
+      await ctx.runMutation(internal.launch.setStatus, {
+        launchId: args.launchId,
+        status: "publishing",
+        aiPhotoUrls: made.urls,
+        aiPhotoIds: made.ids,
+        ...(made.note ? { aiPhotoNote: made.note } : {}),
+        ...(storeCopy ? { step: "product" } : {}),
+      });
+    }
+
+    // 3. Create it in the store.
     try {
       const token = await decryptToken(store.accessToken, process.env.SHOPIFY_TOKEN_KEY?.trim());
       // The supplier cost is USD; Shopify wants it in the store's currency.
       const cost = product.cost ? Math.round(product.cost * rate * 100) / 100 : undefined;
-      const input = launchProductInput(product, copy, {
+      const input = launchProductInput({ ...product, imageUrl: photos[0] ?? "", images: photos.slice(1) }, copy, {
         price: launch.price,
         cost,
         status: launch.publish === "ACTIVE" ? "ACTIVE" : "DRAFT",
@@ -322,6 +342,66 @@ type ProductSetResult = { productSet?: { product: { id: string; handle: string; 
  * launching again doesn't fail on "handle already in use" or duplicate it).
  * A handle taken by another product gets a short suffix.
  */
+/** Downloads a photo for the image model: jpeg, png or webp, at most 7 MB. */
+async function downloadPhoto(url: string): Promise<InlineImage | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000), headers: { Accept: "image/jpeg,image/png,image/webp,image/*" } });
+    const mimeType = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+    if (!res.ok || !/^image\/(jpeg|png|webp)$/.test(mimeType)) return null;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (!bytes.length || bytes.length > 7_000_000) return null;
+    return { mimeType, data: bytes.toString("base64") };
+  } catch {
+    return null;
+  }
+}
+
+/** Makes `count` AI photos of the product and keeps them in Convex storage, so Shopify can download them. */
+async function makeAiPhotos(
+  ctx: ActionCtx,
+  product: Doc<"products">,
+  realPhotos: string[],
+  count: number,
+): Promise<{ urls: string[]; ids: Id<"_storage">[]; note?: string }> {
+  const key = process.env.GEMINI_API_KEY?.trim();
+  if (!key) return { urls: [], ids: [], note: "AI photos aren't switched on yet." };
+  let source: InlineImage | null = null;
+  for (const url of realPhotos.slice(0, 4)) {
+    source = await downloadPhoto(url);
+    if (source) break;
+  }
+  if (!source) return { urls: [], ids: [], note: "No AI photos: the product has no photo we could download to work from." };
+  const photo = source;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(imageModel())}:generateContent`;
+  const results = await Promise.all(
+    photoPrompts(product, count).map(async (prompt) => {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify(geminiImageRequest(prompt, photo)),
+          signal: AbortSignal.timeout(120_000),
+        });
+        const image = imageFromGemini(await res.json().catch(() => null));
+        if ("error" in image) return { error: `${res.status}: ${image.error}` };
+        const id = await ctx.storage.store(new Blob([Buffer.from(image.data, "base64")], { type: image.mimeType }));
+        const url = await ctx.storage.getUrl(id);
+        return url ? { id, url } : { error: "storage" };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    }),
+  );
+  const ok = results.filter((r): r is { id: Id<"_storage">; url: string } => "url" in r);
+  const failed = results.filter((r): r is { error: string } => "error" in r);
+  if (failed.length) console.warn("Launch: AI photos failed", failed.map((f) => f.error.slice(0, 200)));
+  return {
+    urls: ok.map((r) => r.url),
+    ids: ok.map((r) => r.id),
+    ...(failed.length ? { note: ok.length ? `${failed.length} of ${results.length} AI photos couldn't be made.` : "The AI photos couldn't be made this time." } : {}),
+  };
+}
+
 async function upsertProduct(
   shop: string,
   token: string,

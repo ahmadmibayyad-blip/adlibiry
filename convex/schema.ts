@@ -640,6 +640,11 @@ export default defineSchema({
     themePreviewUrl: v.optional(v.string()),
     themeEditorUrl: v.optional(v.string()),
     themeLive: v.optional(v.boolean()),
+    // AI product photos (lib/aiPhotos.ts): how many were asked for, and the ones made (Convex storage).
+    aiPhotos: v.optional(v.number()),
+    aiPhotoUrls: v.optional(v.array(v.string())),
+    aiPhotoIds: v.optional(v.array(v.id("_storage"))),
+    aiPhotoNote: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_product", ["userId", "productId"]),

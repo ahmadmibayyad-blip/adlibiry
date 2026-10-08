@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { effectivePlan, onProTrial } from "./lib/billing";
+import { MAX_AI_PHOTOS, aiPhotosReady } from "./lib/aiPhotos";
 import { suggestPrice } from "./lib/launchCopy";
 import { missingStoreScopes } from "./lib/shopifyOAuth";
 import { isStoreStyle } from "./lib/storeStyles";
@@ -86,6 +87,7 @@ export const prepare = query({
       // In the store's currency (product prices and costs are USD).
       suggested: suggestPrice({ price: product.price, cost: product.cost }, { currency, rate: await usdRate(ctx, currency) }),
       last: last ?? null,
+      aiPhotosReady: aiPhotosReady(),
     };
   },
 });
@@ -100,6 +102,7 @@ export const start = mutation({
     mode: v.optional(v.union(v.literal("page"), v.literal("store"))),
     style: v.optional(v.string()),
     brandName: v.optional(v.string()),
+    aiPhotos: v.optional(v.number()),
     facts: v.optional(
       v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
     ),
@@ -154,6 +157,7 @@ export const start = mutation({
       tone: args.tone,
       publish: args.publish,
       ...(price ? { price } : {}),
+      ...(args.aiPhotos && args.aiPhotos > 0 && aiPhotosReady() ? { aiPhotos: Math.min(MAX_AI_PHOTOS, Math.round(args.aiPhotos)) } : {}),
       ...storeFields,
       createdAt: new Date().toISOString(),
     });
@@ -252,6 +256,9 @@ export const setStatus = internalMutation({
     themeId: v.optional(v.string()),
     themePreviewUrl: v.optional(v.string()),
     themeEditorUrl: v.optional(v.string()),
+    aiPhotoUrls: v.optional(v.array(v.string())),
+    aiPhotoIds: v.optional(v.array(v.id("_storage"))),
+    aiPhotoNote: v.optional(v.string()),
   },
   handler: async (ctx, { launchId, ...patch }) => {
     const launch = await ctx.db.get("launches", launchId);
