@@ -20,6 +20,7 @@ import AICompetitorFinderCard from "../_components/ai/AICompetitorFinderCard.tsx
 import CountrySaturationCard from "../_components/ai/CountrySaturationCard.tsx";
 import ProductPerformance, { ProductHeadline } from "./_components/ProductPerformance.tsx";
 import AddToShopify from "./_components/AddToShopify.tsx";
+import LaunchDialog from "./_components/LaunchDialog.tsx";
 import ProductGallery from "./_components/ProductGallery.tsx";
 import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
 import { price } from "@/lib/money.ts";
@@ -353,6 +354,7 @@ export default function ProductDetail() {
                 </a>
               </Button>
             )}
+            <LaunchDialog product={product} />
             <AddToShopify product={product} />
             <Authenticated>
               <SaveButtonDetail productId={product._id} />

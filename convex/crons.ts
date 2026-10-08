@@ -122,4 +122,7 @@ crons.daily("transcribe video ads", { hourUTC: 10, minuteUTC: 40 }, internal.imp
 // Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
 crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});
 
+// Expired Shopify app install attempts (convex/shopifyApp.ts).
+crons.daily("prune Shopify install attempts", { hourUTC: 3, minuteUTC: 50 }, internal.shopifyApp.pruneStates, {});
+
 export default crons;
