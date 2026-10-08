@@ -1,7 +1,7 @@
-import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { ConvexError, v, type ObjectType } from "convex/values";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { effectivePlan, onProTrial } from "./lib/billing";
 import { MAX_AI_PHOTOS, aiPhotosReady } from "./lib/aiPhotos";
@@ -102,82 +102,134 @@ export const prepare = query({
   },
 });
 
+const startArgs = {
+  productId: v.id("products"),
+  language: v.string(),
+  tone: v.union(v.literal("friendly"), v.literal("premium"), v.literal("bold")),
+  price: v.optional(v.number()),
+  publish: v.union(v.literal("DRAFT"), v.literal("ACTIVE")),
+  mode: v.optional(v.union(v.literal("page"), v.literal("store"))),
+  style: v.optional(v.string()),
+  brandName: v.optional(v.string()),
+  aiPhotos: v.optional(v.number()),
+  reviewsUrl: v.optional(v.string()),
+  facts: v.optional(
+    v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
+  ),
+};
+type StartArgs = ObjectType<typeof startArgs>;
+
 export const start = mutation({
-  args: {
-    productId: v.id("products"),
-    language: v.string(),
-    tone: v.union(v.literal("friendly"), v.literal("premium"), v.literal("bold")),
-    price: v.optional(v.number()),
-    publish: v.union(v.literal("DRAFT"), v.literal("ACTIVE")),
-    mode: v.optional(v.union(v.literal("page"), v.literal("store"))),
-    style: v.optional(v.string()),
-    brandName: v.optional(v.string()),
-    aiPhotos: v.optional(v.number()),
-    reviewsUrl: v.optional(v.string()),
-    facts: v.optional(
-      v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
-    ),
-  },
+  args: startArgs,
   handler: async (ctx, args) => {
     const user = await currentUser(ctx);
     if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
-    const allowed = await allowance(ctx, user);
-    if (!allowed) throw new ConvexError({ code: "PLAN_REQUIRED", message: "Launch is part of Pro. Start the 7-day trial or upgrade to use it." });
-    if (allowed.left === 0) throw new ConvexError({ code: "LIMIT", message: `You've used your ${allowed.limit} launches${allowed.limit === TRIAL_TOTAL ? " on the trial" : " this month"}.` });
-    const product = await ctx.db.get("products", args.productId);
-    if (!product) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found." });
-    const blocked = bigBrandBlock(product);
-    if (blocked) throw new ConvexError({ code: "BLOCKED", message: blocked });
-    const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
-    if (!store) throw new ConvexError({ code: "NO_STORE", message: "Connect your Shopify store first (Settings → Shopify)." });
-    const running = await ctx.db
-      .query("launches")
-      .withIndex("by_user_product", (q) => q.eq("userId", user._id).eq("productId", args.productId))
-      .order("desc")
-      .first();
-    if (running && (running.status === "generating" || running.status === "publishing")) return { launchId: running._id };
-    const currency = store.currency ?? "USD";
-    const price =
-      args.price && args.price > 0 ? Math.round(args.price * 100) / 100 : suggestPrice(product, { currency, rate: await usdRate(ctx, currency) }).price;
-    let storeFields = {};
-    if (args.mode === "store") {
-      if (!isStoreStyle(args.style)) throw new ConvexError({ code: "BAD_STYLE", message: "Pick a style for your store." });
-      if (store.via === "oauth" && missingStoreScopes(store.scopes ?? "").length) {
-        throw new ConvexError({ code: "RECONNECT", message: "Building a full store needs new permissions. Reconnect your Shopify store (Settings → Shopify), then try again." });
-      }
-      const f = args.facts;
-      const email = f?.supportEmail?.trim().slice(0, 120);
-      storeFields = {
-        mode: "store",
-        style: args.style,
-        brandName: (args.brandName?.trim() || store.shopName).slice(0, 60),
-        facts: {
-          shippingTime: (f?.shippingTime.trim() || "5–10 business days").slice(0, 60),
-          returnDays: Math.min(365, Math.max(0, Math.round(f?.returnDays ?? 30))),
-          ...(f?.freeShippingFrom && f.freeShippingFrom > 0 ? { freeShippingFrom: Math.round(f.freeShippingFrom * 100) / 100 } : {}),
-          ...(email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? { supportEmail: email } : {}),
-          currency,
-        },
-      };
-    }
-    const launchId = await ctx.db.insert("launches", {
-      userId: user._id,
-      productId: args.productId,
-      shopDomain: store.shopDomain,
-      status: "generating",
-      language: args.language.slice(0, 40) || "English",
-      tone: args.tone,
-      publish: args.publish,
-      ...(price ? { price } : {}),
-      ...(args.aiPhotos && args.aiPhotos > 0 && aiPhotosReady() ? { aiPhotos: Math.min(MAX_AI_PHOTOS, Math.round(args.aiPhotos)) } : {}),
-      ...(args.reviewsUrl?.trim() ? { reviewsUrl: args.reviewsUrl.trim().slice(0, 2000) } : {}),
-      ...storeFields,
-      createdAt: new Date().toISOString(),
-    });
-    await ctx.scheduler.runAfter(0, internal.launchRun.run, { launchId });
-    return { launchId };
+    return startLaunch(ctx, user, args);
   },
 });
+
+/**
+ * Relaunch: the same product with a launch's settings (style, language, price, store facts), and new
+ * AI photos or supplier reviews. With `replaceOld`, the old launch and its unused theme go once the new one is ready.
+ */
+export const relaunch = mutation({
+  args: { launchId: v.id("launches"), aiPhotos: v.optional(v.number()), reviewsUrl: v.optional(v.string()), replaceOld: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+    if (!user) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
+    const old = await ctx.db.get("launches", args.launchId);
+    if (!old || old.userId !== user._id) throw new ConvexError({ code: "NOT_FOUND", message: "Launch not found." });
+    const facts = old.facts as (StartArgs["facts"] & { currency?: string }) | undefined;
+    const r = await startLaunch(ctx, user, {
+      productId: old.productId,
+      language: old.language,
+      tone: old.tone as StartArgs["tone"],
+      publish: old.publish === "ACTIVE" ? "ACTIVE" : "DRAFT",
+      ...(old.price ? { price: old.price } : {}),
+      ...(old.mode === "store"
+        ? {
+            mode: "store" as const,
+            style: old.style,
+            brandName: old.brandName,
+            ...(facts
+              ? {
+                  facts: {
+                    shippingTime: facts.shippingTime,
+                    returnDays: facts.returnDays,
+                    ...(facts.freeShippingFrom ? { freeShippingFrom: facts.freeShippingFrom } : {}),
+                    ...(facts.supportEmail ? { supportEmail: facts.supportEmail } : {}),
+                  },
+                }
+              : {}),
+          }
+        : {}),
+      aiPhotos: args.aiPhotos ?? old.aiPhotos ?? 0,
+      ...((args.reviewsUrl ?? old.reviewsUrl) ? { reviewsUrl: args.reviewsUrl ?? old.reviewsUrl } : {}),
+    });
+    // A store you made live is never replaced; a running launch can't be either.
+    const replaceable = old.status !== "generating" && old.status !== "publishing" && !old.themeLive && r.launchId !== old._id;
+    if (args.replaceOld && replaceable) await ctx.db.patch("launches", r.launchId, { replacesLaunchId: old._id });
+    return r;
+  },
+});
+
+async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs): Promise<{ launchId: Id<"launches"> }> {
+  const allowed = await allowance(ctx, user);
+  if (!allowed) throw new ConvexError({ code: "PLAN_REQUIRED", message: "Launch is part of Pro. Start the 7-day trial or upgrade to use it." });
+  if (allowed.left === 0) throw new ConvexError({ code: "LIMIT", message: `You've used your ${allowed.limit} launches${allowed.limit === TRIAL_TOTAL ? " on the trial" : " this month"}.` });
+  const product = await ctx.db.get("products", args.productId);
+  if (!product) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found." });
+  const blocked = bigBrandBlock(product);
+  if (blocked) throw new ConvexError({ code: "BLOCKED", message: blocked });
+  const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
+  if (!store) throw new ConvexError({ code: "NO_STORE", message: "Connect your Shopify store first (Settings → Shopify)." });
+  const running = await ctx.db
+    .query("launches")
+    .withIndex("by_user_product", (q) => q.eq("userId", user._id).eq("productId", args.productId))
+    .order("desc")
+    .first();
+  if (running && (running.status === "generating" || running.status === "publishing")) return { launchId: running._id };
+  const currency = store.currency ?? "USD";
+  const price =
+    args.price && args.price > 0 ? Math.round(args.price * 100) / 100 : suggestPrice(product, { currency, rate: await usdRate(ctx, currency) }).price;
+  let storeFields = {};
+  if (args.mode === "store") {
+    if (!isStoreStyle(args.style)) throw new ConvexError({ code: "BAD_STYLE", message: "Pick a style for your store." });
+    if (store.via === "oauth" && missingStoreScopes(store.scopes ?? "").length) {
+      throw new ConvexError({ code: "RECONNECT", message: "Building a full store needs new permissions. Reconnect your Shopify store (Settings → Shopify), then try again." });
+    }
+    const f = args.facts;
+    const email = f?.supportEmail?.trim().slice(0, 120);
+    storeFields = {
+      mode: "store",
+      style: args.style,
+      brandName: (args.brandName?.trim() || store.shopName).slice(0, 60),
+      facts: {
+        shippingTime: (f?.shippingTime.trim() || "5–10 business days").slice(0, 60),
+        returnDays: Math.min(365, Math.max(0, Math.round(f?.returnDays ?? 30))),
+        ...(f?.freeShippingFrom && f.freeShippingFrom > 0 ? { freeShippingFrom: Math.round(f.freeShippingFrom * 100) / 100 } : {}),
+        ...(email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? { supportEmail: email } : {}),
+        currency,
+      },
+    };
+  }
+  const launchId = await ctx.db.insert("launches", {
+    userId: user._id,
+    productId: args.productId,
+    shopDomain: store.shopDomain,
+    status: "generating",
+    language: args.language.slice(0, 40) || "English",
+    tone: args.tone,
+    publish: args.publish,
+    ...(price ? { price } : {}),
+    ...(args.aiPhotos && args.aiPhotos > 0 && aiPhotosReady() ? { aiPhotos: Math.min(MAX_AI_PHOTOS, Math.round(args.aiPhotos)) } : {}),
+    ...(args.reviewsUrl?.trim() ? { reviewsUrl: args.reviewsUrl.trim().slice(0, 2000) } : {}),
+    ...storeFields,
+    createdAt: new Date().toISOString(),
+  });
+  await ctx.scheduler.runAfter(0, internal.launchRun.run, { launchId });
+  return { launchId };
+}
 
 export const get = query({
   args: { launchId: v.id("launches") },
@@ -312,6 +364,21 @@ export const startAdImages = internalMutation({
   },
 });
 
+/** The owner's launch with AI photos to use as ad pictures, or why not. */
+export const aiPhotosForAds = internalQuery({
+  args: { launchId: v.id("launches"), token: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
+    const l = await ctx.db.get("launches", args.launchId);
+    if (!user || !l || l.userId !== user._id) return { error: "Launch not found." };
+    const adKit = (l.copy as { adKit?: { angle: string }[] } | undefined)?.adKit ?? [];
+    if (!adKit.length) return { error: "This launch has no ad kit yet." };
+    if (!l.aiPhotoIds?.length) return { error: "This launch has no AI photos. Launch it again with AI photos to use them here." };
+    if (l.adImagesStatus === "making") return { error: "The ad images are already being made." };
+    return { photoIds: l.aiPhotoIds, angles: adKit.map((a) => a.angle) };
+  },
+});
+
 export const saveAdImages = internalMutation({
   args: {
     launchId: v.id("launches"),
@@ -321,8 +388,9 @@ export const saveAdImages = internalMutation({
   handler: async (ctx, args) => {
     const l = await ctx.db.get("launches", args.launchId);
     if (!l) return;
-    // A new set replaces the old one; keep the old set if nothing new came out.
-    const replaced = args.images.length ? l.adImages ?? [] : [];
+    // A new set replaces the old one; keep the old set if nothing new came out. AI photos used as ad pictures stay.
+    const aiPhotos = new Set<string>(l.aiPhotoIds ?? []);
+    const replaced = args.images.length ? (l.adImages ?? []).filter((a) => !aiPhotos.has(a.id)) : [];
     for (const old of replaced) await ctx.storage.delete(old.id).catch(() => {});
     await ctx.db.patch("launches", args.launchId, {
       adImagesStatus: "done",

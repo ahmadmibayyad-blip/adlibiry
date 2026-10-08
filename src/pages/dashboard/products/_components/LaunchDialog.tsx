@@ -139,7 +139,7 @@ function GoLive({ l }: { l: Doc<"launches"> }) {
   );
 }
 
-function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: () => void }) {
+export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: () => void }) {
   const l = useQuery(api.launch.get, { launchId });
   const quota = useQuery(api.launch.myQuota, {});
   if (!l) return <Spinner />;

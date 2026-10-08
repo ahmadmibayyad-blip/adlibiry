@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
-import { Check, Copy, Download, ImagePlus } from "lucide-react";
+import { Check, Copy, Download, ImagePlus, Images } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
@@ -108,7 +108,10 @@ function AdCard({ ad, index, src }: { ad: Ad; index: number; src?: string }) {
 /** The ad kit with its ad images, and the button that makes them. `ready`: the image model is set up. */
 export default function AdKit({ l, ready }: { l: Doc<"launches">; ready: boolean }) {
   const make = useAction(api.launchAds.make);
+  const fromAiPhotos = useAction(api.launchAds.fromAiPhotos);
   const [busy, setBusy] = useState(false);
+  const [photoOffset, setPhotoOffset] = useState(0);
+  const [usedAiPhotos, setUsedAiPhotos] = useState(false);
   const ads = (l.copy as { adKit?: Ad[] } | undefined)?.adKit ?? [];
   if (!ads.length) return null;
   const images = l.adImages ?? [];
@@ -118,27 +121,52 @@ export default function AdKit({ l, ready }: { l: Doc<"launches">; ready: boolean
     <div>
       <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
         <h4 className="text-sm font-semibold">Your ad kit</h4>
-        {ready && l.status === "published" && runsLeft > 0 ? (
-          <Button
-            size="sm"
-            variant={images.length ? "outline" : "default"}
-            disabled={making}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                const r = await make({ launchId: l._id });
-                if (r.note) toast.message(r.note);
-              } catch (err) {
-                toast.error(errorMessage(err, "Couldn't make the ad images"));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {making ? <Spinner className="w-4 h-4 mr-1.5" /> : <ImagePlus className="w-4 h-4 mr-1.5" />}
-            {making ? "Making ad images… (up to a minute)" : images.length ? "Make new ad images" : "Make ad images"}
-          </Button>
-        ) : null}
+        <div className="flex gap-2 flex-wrap">
+          {l.status === "published" && (l.aiPhotoIds?.length ?? 0) > 0 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={making}
+              title="Put your launch's AI photos behind the ad text: instant and free"
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const r = await fromAiPhotos({ launchId: l._id, offset: photoOffset });
+                  setPhotoOffset(r.next);
+                  setUsedAiPhotos(true);
+                } catch (err) {
+                  toast.error(errorMessage(err, "Couldn't use the AI photos"));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Images className="w-4 h-4 mr-1.5" />
+              {usedAiPhotos ? "Other AI photos" : "Use AI photos"}
+            </Button>
+          ) : null}
+          {ready && l.status === "published" && runsLeft > 0 ? (
+            <Button
+              size="sm"
+              variant={images.length ? "outline" : "default"}
+              disabled={making}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const r = await make({ launchId: l._id });
+                  if (r.note) toast.message(r.note);
+                } catch (err) {
+                  toast.error(errorMessage(err, "Couldn't make the ad images"));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {making ? <Spinner className="w-4 h-4 mr-1.5" /> : <ImagePlus className="w-4 h-4 mr-1.5" />}
+              {making ? "Making ad images… (up to a minute)" : images.length ? "Make new ad images" : "Make ad images"}
+            </Button>
+          ) : null}
+        </div>
       </div>
       {l.adImagesNote && !making ? <p className="text-xs text-muted-foreground mb-2">{l.adImagesNote}</p> : null}
       <ul className="space-y-2">

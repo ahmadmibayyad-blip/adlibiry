@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ExternalLink, Megaphone, Rocket, ShoppingBag, Trash2 } from "lucide-react";
+import { ExternalLink, Megaphone, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
@@ -11,7 +11,8 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import AdKit from "@/pages/dashboard/products/_components/AdKit.tsx";
 import DeleteLaunches from "./_components/DeleteLaunches.tsx";
-import type { Id } from "@/convex/_generated/dataModel.d.ts";
+import RelaunchDialog from "./_components/RelaunchDialog.tsx";
+import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 
 // Every product page launched to Shopify (convex/launch.ts), newest first.
 // The header shows the quota (api.launch.myQuota) and the connected store;
@@ -30,6 +31,8 @@ export default function LaunchesPage() {
   const [adsFor, setAdsFor] = useState<Id<"launches"> | null>(null);
   const adsLaunch = rows?.find((l) => l._id === adsFor);
   const [toDelete, setToDelete] = useState<Id<"launches">[] | null>(null);
+  // A copy, not a lookup: a relaunch that replaces this launch removes its row while the dialog shows progress.
+  const [relaunching, setRelaunching] = useState<Doc<"launches"> | null>(null);
   const failed = rows?.filter((l) => l.status === "failed") ?? [];
   const deleting = rows?.filter((l) => toDelete?.includes(l._id)) ?? [];
 
@@ -129,6 +132,12 @@ export default function LaunchesPage() {
                   Shopify
                 </a>
               )}
+              {(l.status === "published" || l.status === "failed") && (
+                <button type="button" onClick={() => setRelaunching(l)} title={l.status === "failed" ? "Try again with the same settings" : "Relaunch with the same settings"} className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
+                  <RotateCw className="w-3.5 h-3.5" />
+                  {l.status === "failed" ? "Try again" : "Relaunch"}
+                </button>
+              )}
               {l.status !== "generating" && l.status !== "publishing" && (
                 <button type="button" onClick={() => setToDelete([l._id])} aria-label="Delete launch" title="Delete launch" className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-bad hover:bg-muted shrink-0">
                   <Trash2 className="w-4 h-4" />
@@ -138,6 +147,7 @@ export default function LaunchesPage() {
           ))}
         </ul>
       )}
+      {relaunching ? <RelaunchDialog key={relaunching._id} launch={relaunching} aiPhotosReady={!!quota?.aiPhotosReady} onClose={() => setRelaunching(null)} /> : null}
       {deleting.length ? <DeleteLaunches key={deleting.map((l) => l._id).join()} launches={deleting} open onOpenChange={(o) => !o && setToDelete(null)} /> : null}
       <Dialog open={!!adsLaunch} onOpenChange={(o) => !o && setAdsFor(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
