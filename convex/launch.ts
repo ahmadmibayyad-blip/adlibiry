@@ -170,7 +170,7 @@ export const start = mutation({
       publish: args.publish,
       ...(price ? { price } : {}),
       ...(args.aiPhotos && args.aiPhotos > 0 && aiPhotosReady() ? { aiPhotos: Math.min(MAX_AI_PHOTOS, Math.round(args.aiPhotos)) } : {}),
-      ...(args.reviewsUrl?.trim() ? { reviewsUrl: args.reviewsUrl.trim().slice(0, 500) } : {}),
+      ...(args.reviewsUrl?.trim() ? { reviewsUrl: args.reviewsUrl.trim().slice(0, 2000) } : {}),
       ...storeFields,
       createdAt: new Date().toISOString(),
     });

@@ -27,6 +27,7 @@
     "faq": "Fragen & Antworten",
     "reviews_heading": "Das sagen Käufer",
     "reviews_source": "{{ count }} Bewertungen von Käufern dieses Produkts bei unserem Lieferanten",
+    "reviews_source_many": "{{ count }} Bewertungen von Käufern dieses Produkts bei unseren Lieferanten",
     "reviews_buyer": "Verifizierter Käufer",
     "rating": "{{ rating }} von 5 Sternen",
     "guarantee_title": "{{ days }} Tage Geld-zurück-Garantie",

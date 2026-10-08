@@ -27,6 +27,7 @@
     "faq": "Spørgsmål og svar",
     "reviews_heading": "Det siger købere",
     "reviews_source": "{{ count }} anmeldelser fra købere af produktet hos vores leverandør",
+    "reviews_source_many": "{{ count }} anmeldelser fra købere af produktet hos vores leverandører",
     "reviews_buyer": "Verificeret køber",
     "rating": "{{ rating }} ud af 5 stjerner",
     "guarantee_title": "{{ days }} dages pengene-tilbage-garanti",

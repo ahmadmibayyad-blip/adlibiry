@@ -236,7 +236,7 @@ describe("Launch → Full store", () => {
       }
       if (url.includes("feedback.aliexpress.com")) {
         feedbackUrl = url;
-        return json({ data: { productEvaluationStatistic: { evarageStar: 4.7, totalNum: 42 }, evaViewList: [
+        return json({ data: { productEvaluationStatistic: { evarageStar: 4.7, totalNum: 42, fiveStarNum: 40, fourStarNum: 2 }, evaViewList: [
           { anonymous: true, buyerName: "AliExpress Shopper", buyerCountry: "BR", buyerEval: 100, buyerTranslationFeedback: "My dogs love it, and so do the dogs I train.", evalDate: "28 Jul 2026", images: [] },
           { anonymous: false, buyerName: "k***a", buyerCountry: "PL", buyerEval: 100, buyerTranslationFeedback: "Fast shipping, arrived in 10 days", evalDate: "1 Aug 2026", images: [] },
         ] } });
@@ -254,10 +254,13 @@ describe("Launch → Full store", () => {
     expect(feedbackUrl).toContain("productId=1005012299631792");
     const reviews = JSON.parse(productSet!.metafields.find((m) => m.key === "reviews")!.value);
     expect(reviews).toEqual({
-      source: "aliexpress", average: 4.7, total: 42,
+      source: "aliexpress", average: 4.7, total: 42, stars: [40, 2, 0, 0, 0], listings: 1,
       items: [{ name: "", country: "BR", rating: 5, text: "Min hund elsker den, og det gør hundene jeg træner også.", date: "28 Jul 2026", images: [] }],
     });
-    expect(await user.query(api.launch.get, { launchId })).toMatchObject({ reviews: { total: 42 } });
+    expect(await user.query(api.launch.get, { launchId })).toMatchObject({
+      reviews: { total: 42 },
+      reviewsNote: "Only 1 written review worth showing on that AliExpress listing. Add another AliExpress link for the same product to show more.",
+    });
   });
 
   it("still writes the store when the API won't compile its schema", async () => {

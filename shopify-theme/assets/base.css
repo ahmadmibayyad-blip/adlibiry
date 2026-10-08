@@ -245,6 +245,13 @@ textarea.input { min-height: 120px; }
 .review__photos img { width: 72px; height: 72px; object-fit: cover; border-radius: calc(var(--radius) / 2); }
 .review__by { font-size: .85rem; color: var(--c-muted); }
 .reviews__grid + .link-center { margin-top: 28px; }
+.reviews__bars { list-style: none; margin: 18px auto 0; padding: 0; max-width: 340px; display: grid; gap: 6px; font-size: .85rem; }
+.reviews__bars li { display: grid; grid-template-columns: 34px 1fr 32px; align-items: center; gap: 10px; }
+.reviews__bars-star { display: inline-flex; align-items: center; gap: 3px; justify-content: flex-end; }
+.reviews__bars-star .icon { width: 12px; height: 12px; fill: currentColor; color: var(--c-accent); }
+.reviews__bar { height: 6px; border-radius: 99px; background: var(--c-border); overflow: hidden; }
+.reviews__bar span { display: block; height: 100%; background: var(--c-accent); border-radius: inherit; }
+.reviews__bars-count { text-align: left; color: var(--c-muted); }
 .guarantee { display: flex; gap: 16px; align-items: flex-start; padding: 22px; border: 1px solid var(--c-border); border-radius: var(--radius); background: var(--c-surface); }
 .guarantee > .icon { width: 36px; height: 36px; flex-shrink: 0; color: var(--c-accent); }
 .guarantee .h4 { margin: 0 0 4px; }
