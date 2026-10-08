@@ -27,6 +27,7 @@
     "faq": "Kysymykset ja vastaukset",
     "reviews_heading": "Ostajat kertovat",
     "reviews_source": "{{ count }} arviota tämän tuotteen ostajilta toimittajaltamme",
+    "reviews_source_many": "{{ count }} arviota tämän tuotteen ostajilta toimittajiltamme",
     "reviews_buyer": "Varmistettu ostaja",
     "rating": "{{ rating }}/5 tähteä",
     "guarantee_title": "{{ days }} päivän rahat takaisin -takuu",

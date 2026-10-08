@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { STORE_STYLES, type StoreStyleId } from "@/convex/lib/storeStyles.ts";
+import type { SupplierReviews } from "@/convex/lib/supplierReviews.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
@@ -80,6 +81,16 @@ function AiPhotos({ l }: { l: Doc<"launches"> }) {
         {l.aiPhotoNote ?? "Added to the product in Shopify. Open one to save it for your ads."}
       </p>
     </div>
+  );
+}
+
+/** What the supplier reviews added to the store, and why there are few or none. */
+function ReviewsResult({ reviews, note }: { reviews?: SupplierReviews; note?: string }) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      {reviews ? `Supplier reviews added: ${reviews.items.length} written, ${reviews.average}★ from ${reviews.total} buyers. ` : ""}
+      {note ?? ""}
+    </p>
   );
 }
 
@@ -179,6 +190,7 @@ function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: ()
           </div>
           <GoLive l={l} />
           {l.error ? <p className="text-sm text-bad">{l.error}</p> : null}
+          {l.reviewsUrl ? <ReviewsResult reviews={l.reviews as SupplierReviews | undefined} note={l.reviewsNote} /> : null}
           <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm">Before you run ads, check that the store can take real orders.</p>
             <StoreCheck variant="default" label="Is my store ready to sell?" />
@@ -473,15 +485,16 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
                 {mode === "store" && (
                   <label className="block text-sm">
                     <span className="font-medium">Supplier reviews</span>
-                    <Input
-                      type="url"
+                    <textarea
                       value={reviewsUrl}
                       onChange={(e) => setReviewsUrl(e.target.value)}
-                      placeholder="AliExpress product link, optional"
-                      className="mt-1"
+                      placeholder="AliExpress product links, one per line (up to 3), optional"
+                      rows={2}
+                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     />
                     <span className="text-xs text-muted-foreground">
-                      Real reviews from buyers of this product on AliExpress, translated and shown on your product page as reviews from your supplier's buyers.
+                      Real reviews from buyers of this product on AliExpress, translated and shown on your home and product pages as reviews from your
+                      supplier's buyers. Pick listings with many written reviews, or add up to 3 sellers of the same product for more.
                     </span>
                   </label>
                 )}

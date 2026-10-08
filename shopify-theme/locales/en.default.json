@@ -27,6 +27,7 @@
     "faq": "Questions & answers",
     "reviews_heading": "What buyers say",
     "reviews_source": "{{ count }} reviews from buyers of this product at our supplier",
+    "reviews_source_many": "{{ count }} reviews from buyers of this product at our suppliers",
     "reviews_buyer": "Verified buyer",
     "rating": "{{ rating }} out of 5 stars",
     "guarantee_title": "{{ days }}-day money-back guarantee",

@@ -11,7 +11,7 @@ import { claudeClient } from "./lib/claudeClient";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { photoPrompts, withAiPhotos } from "./lib/aiPhotos";
 import { firstPhoto, generateImage } from "./lib/aiPhotoRun";
-import { aliexpressId, parseReviews, reviewsEndpoint, type SupplierReviews } from "./lib/supplierReviews";
+import { aliexpressIds, combineListings, parseListing, reviewsEndpoint, type SupplierReviews } from "./lib/supplierReviews";
 import { LAUNCH_SYSTEM, cleanCopy, launchFacts, launchImages, launchProductInput, type LaunchCopy } from "./lib/launchCopy";
 import { decryptToken } from "./lib/shopifyOAuth";
 import { SHOPIFY_API_VERSION } from "./lib/shopifyExport";
@@ -358,21 +358,37 @@ type ProductSetResult = { productSet?: { product: { id: string; handle: string; 
  * launching again doesn't fail on "handle already in use" or duplicate it).
  * A handle taken by another product gets a short suffix.
  */
-/** The listing's reviews worth showing, translated into `language` (English when the translation fails). */
-async function supplierReviews(url: string, language: string): Promise<{ reviews?: SupplierReviews; note?: string }> {
-  const id = aliexpressId(url);
-  if (!id) return { note: "The reviews link isn't an AliExpress product link, so no reviews were added." };
-  let reviews: SupplierReviews | null = null;
-  try {
-    const res = await fetch(reviewsEndpoint(id), {
-      signal: AbortSignal.timeout(15_000),
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36", Accept: "application/json" },
-    });
-    reviews = res.ok ? parseReviews(await res.json().catch(() => null)) : null;
-  } catch (e) {
-    console.warn("Launch: supplier reviews failed", e);
-  }
-  if (!reviews) return { note: "No reviews were added: we couldn't read reviews with real text from that AliExpress listing." };
+/** The listings' reviews worth showing, translated into `language` (English when the translation fails). */
+async function supplierReviews(links: string, language: string): Promise<{ reviews?: SupplierReviews; note?: string }> {
+  const ids = aliexpressIds(links);
+  if (!ids.length) return { note: "The reviews link isn't an AliExpress product link, so no reviews were added." };
+  const listings = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const res = await fetch(reviewsEndpoint(id), {
+          signal: AbortSignal.timeout(15_000),
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36", Accept: "application/json" },
+        });
+        return res.ok ? parseListing(await res.json().catch(() => null)) : null;
+      } catch (e) {
+        console.warn("Launch: supplier reviews failed", e);
+        return null;
+      }
+    }),
+  );
+  const reviews = combineListings(listings);
+  const those = ids.length === 1 ? "that AliExpress listing" : "those AliExpress listings";
+  if (!reviews) return { note: `No reviews were added: we couldn't find written 4–5 star reviews on ${those}. Try a listing with more reviews.` };
+  const few =
+    reviews.items.length < 3
+      ? `Only ${reviews.items.length} written review${reviews.items.length === 1 ? "" : "s"} worth showing on ${those}. Add another AliExpress link for the same product to show more.`
+      : undefined;
+  const translated = await translateReviews(reviews, language);
+  const note = [few, translated.note].filter(Boolean).join(" ");
+  return { reviews: translated.reviews, ...(note ? { note } : {}) };
+}
+
+async function translateReviews(reviews: SupplierReviews, language: string): Promise<{ reviews: SupplierReviews; note?: string }> {
   if (/^english$/i.test(language.trim())) return { reviews };
   try {
     const texts = reviews.items.map((r) => r.text);

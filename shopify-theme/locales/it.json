@@ -27,6 +27,7 @@
     "faq": "Domande e risposte",
     "reviews_heading": "Cosa dicono gli acquirenti",
     "reviews_source": "{{ count }} recensioni di acquirenti di questo prodotto presso il nostro fornitore",
+    "reviews_source_many": "{{ count }} recensioni di acquirenti di questo prodotto presso i nostri fornitori",
     "reviews_buyer": "Acquirente verificato",
     "rating": "{{ rating }} su 5 stelle",
     "guarantee_title": "Garanzia soddisfatti o rimborsati di {{ days }} giorni",

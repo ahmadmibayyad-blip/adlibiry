@@ -8,8 +8,23 @@
   <p class="reviews__summary">
     {% render 'stars', rating: reviews.average %}
     <strong>{{ reviews.average }}</strong>
-    <span class="muted">{{ 'products.reviews_source' | t: count: reviews.total }}</span>
+    <span class="muted">
+      {%- if reviews.listings > 1 -%}{{ 'products.reviews_source_many' | t: count: reviews.total }}{%- else -%}{{ 'products.reviews_source' | t: count: reviews.total }}{%- endif -%}
+    </span>
   </p>
+  {%- if reviews.stars.size == 5 and reviews.total > 0 -%}
+    <ul class="reviews__bars" role="list">
+      {%- for n in reviews.stars -%}
+        {%- assign star = 6 | minus: forloop.index -%}
+        {%- assign pct = n | times: 100 | divided_by: reviews.total -%}
+        <li>
+          <span class="reviews__bars-star">{{ star }} {% render 'icon', name: 'star' %}</span>
+          <span class="reviews__bar" aria-hidden="true"><span style="width: {{ pct }}%"></span></span>
+          <span class="reviews__bars-count">{{ n }}</span>
+        </li>
+      {%- endfor -%}
+    </ul>
+  {%- endif -%}
 </div>
 <div class="reviews__grid">
   {%- for r in reviews.items -%}

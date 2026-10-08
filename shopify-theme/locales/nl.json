@@ -27,6 +27,7 @@
     "faq": "Vragen en antwoorden",
     "reviews_heading": "Wat kopers zeggen",
     "reviews_source": "{{ count }} reviews van kopers van dit product bij onze leverancier",
+    "reviews_source_many": "{{ count }} reviews van kopers van dit product bij onze leveranciers",
     "reviews_buyer": "Geverifieerde koper",
     "rating": "{{ rating }} van 5 sterren",
     "guarantee_title": "{{ days }} dagen geld-terug-garantie",
