@@ -96,6 +96,8 @@ export const prepare = query({
       suggested: suggestPrice({ price: product.price, cost: product.cost }, { currency, rate: await usdRate(ctx, currency) }),
       last: last ?? null,
       aiPhotosReady: aiPhotosReady(),
+      // An AliExpress listing we matched, to fill the reviews link in.
+      supplierUrl: product.supplierMatches?.find((m) => /aliexpress\./i.test(m.url) && /\/item\//.test(m.url))?.url ?? null,
     };
   },
 });
@@ -111,6 +113,7 @@ export const start = mutation({
     style: v.optional(v.string()),
     brandName: v.optional(v.string()),
     aiPhotos: v.optional(v.number()),
+    reviewsUrl: v.optional(v.string()),
     facts: v.optional(
       v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
     ),
@@ -167,6 +170,7 @@ export const start = mutation({
       publish: args.publish,
       ...(price ? { price } : {}),
       ...(args.aiPhotos && args.aiPhotos > 0 && aiPhotosReady() ? { aiPhotos: Math.min(MAX_AI_PHOTOS, Math.round(args.aiPhotos)) } : {}),
+      ...(args.reviewsUrl?.trim() ? { reviewsUrl: args.reviewsUrl.trim().slice(0, 500) } : {}),
       ...storeFields,
       createdAt: new Date().toISOString(),
     });
@@ -269,6 +273,8 @@ export const setStatus = internalMutation({
     aiPhotoUrls: v.optional(v.array(v.string())),
     aiPhotoIds: v.optional(v.array(v.id("_storage"))),
     aiPhotoNote: v.optional(v.string()),
+    reviews: v.optional(v.any()),
+    reviewsNote: v.optional(v.string()),
   },
   handler: async (ctx, { launchId, ...patch }) => {
     const launch = await ctx.db.get("launches", launchId);

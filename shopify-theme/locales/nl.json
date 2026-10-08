@@ -25,6 +25,12 @@
     "view_image": "Afbeelding {{ number }} tonen",
     "description": "Beschrijving",
     "faq": "Vragen en antwoorden",
+    "reviews_heading": "Wat kopers zeggen",
+    "reviews_source": "{{ count }} reviews van kopers van dit product bij onze leverancier",
+    "reviews_buyer": "Geverifieerde koper",
+    "rating": "{{ rating }} van 5 sterren",
+    "guarantee_title": "{{ days }} dagen geld-terug-garantie",
+    "guarantee_text": "Niet tevreden? Stuur het binnen {{ days }} dagen terug en krijg je geld terug.",
     "choose_product": "Kies een product voor deze sectie in de thema-editor."
   },
   "cart": {

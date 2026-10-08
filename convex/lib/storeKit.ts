@@ -236,6 +236,7 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
       delivery_max_days: days?.max ?? 0,
       show_add_another: true,
       show_payment_icons: true,
+      guarantee_days: t.facts.returnDays > 0 ? t.facts.returnDays : 0,
     },
     presets,
   };

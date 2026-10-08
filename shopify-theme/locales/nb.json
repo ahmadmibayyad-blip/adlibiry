@@ -25,6 +25,12 @@
     "view_image": "Vis bilde {{ number }}",
     "description": "Beskrivelse",
     "faq": "Spørsmål og svar",
+    "reviews_heading": "Dette sier kjøperne",
+    "reviews_source": "{{ count }} anmeldelser fra kjøpere av produktet hos leverandøren vår",
+    "reviews_buyer": "Verifisert kjøper",
+    "rating": "{{ rating }} av 5 stjerner",
+    "guarantee_title": "{{ days }} dagers pengene-tilbake-garanti",
+    "guarantee_text": "Ikke fornøyd? Send den tilbake innen {{ days }} dager og få pengene tilbake.",
     "choose_product": "Velg et produkt for denne seksjonen i temaredigeringen."
   },
   "cart": {

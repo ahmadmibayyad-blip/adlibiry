@@ -25,6 +25,12 @@
     "view_image": "Pokaż zdjęcie {{ number }}",
     "description": "Opis",
     "faq": "Pytania i odpowiedzi",
+    "reviews_heading": "Co mówią kupujący",
+    "reviews_source": "{{ count }} opinii kupujących ten produkt u naszego dostawcy",
+    "reviews_buyer": "Zweryfikowany kupujący",
+    "rating": "{{ rating }} na 5 gwiazdek",
+    "guarantee_title": "{{ days }} dni gwarancji zwrotu pieniędzy",
+    "guarantee_text": "Nie jesteś zadowolony? Odeślij produkt w ciągu {{ days }} dni, a zwrócimy pieniądze.",
     "choose_product": "Wybierz produkt dla tej sekcji w edytorze motywu."
   },
   "cart": {

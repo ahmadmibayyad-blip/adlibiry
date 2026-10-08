@@ -11,6 +11,7 @@ import { claudeClient } from "./lib/claudeClient";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { photoPrompts, withAiPhotos } from "./lib/aiPhotos";
 import { firstPhoto, generateImage } from "./lib/aiPhotoRun";
+import { aliexpressId, parseReviews, reviewsEndpoint, type SupplierReviews } from "./lib/supplierReviews";
 import { LAUNCH_SYSTEM, cleanCopy, launchFacts, launchImages, launchProductInput, type LaunchCopy } from "./lib/launchCopy";
 import { decryptToken } from "./lib/shopifyOAuth";
 import { SHOPIFY_API_VERSION } from "./lib/shopifyExport";
@@ -250,6 +251,19 @@ export const run = internalAction({
       });
     }
 
+    // 2b. Supplier reviews (lib/supplierReviews.ts), in the store's language. Never stops the launch.
+    let reviews: SupplierReviews | undefined;
+    if (launch.reviewsUrl) {
+      const r = await supplierReviews(launch.reviewsUrl, launch.language);
+      reviews = r.reviews;
+      await ctx.runMutation(internal.launch.setStatus, {
+        launchId: args.launchId,
+        status: "publishing",
+        ...(r.reviews ? { reviews: r.reviews } : {}),
+        ...(r.note ? { reviewsNote: r.note } : {}),
+      });
+    }
+
     // 3. Create it in the store.
     try {
       const token = await decryptToken(store.accessToken, process.env.SHOPIFY_TOKEN_KEY?.trim());
@@ -261,6 +275,7 @@ export const run = internalAction({
         status: launch.publish === "ACTIVE" ? "ACTIVE" : "DRAFT",
         language: launch.language,
         forStoreTheme: fullStore,
+        ...(reviews ? { reviews } : {}),
       });
       const created = await upsertProduct(store.shopDomain, token, input, previousShopifyProductId);
       if ("error" in created) return fail(created.error);
@@ -343,6 +358,44 @@ type ProductSetResult = { productSet?: { product: { id: string; handle: string; 
  * launching again doesn't fail on "handle already in use" or duplicate it).
  * A handle taken by another product gets a short suffix.
  */
+/** The listing's reviews worth showing, translated into `language` (English when the translation fails). */
+async function supplierReviews(url: string, language: string): Promise<{ reviews?: SupplierReviews; note?: string }> {
+  const id = aliexpressId(url);
+  if (!id) return { note: "The reviews link isn't an AliExpress product link, so no reviews were added." };
+  let reviews: SupplierReviews | null = null;
+  try {
+    const res = await fetch(reviewsEndpoint(id), {
+      signal: AbortSignal.timeout(15_000),
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36", Accept: "application/json" },
+    });
+    reviews = res.ok ? parseReviews(await res.json().catch(() => null)) : null;
+  } catch (e) {
+    console.warn("Launch: supplier reviews failed", e);
+  }
+  if (!reviews) return { note: "No reviews were added: we couldn't read reviews with real text from that AliExpress listing." };
+  if (/^english$/i.test(language.trim())) return { reviews };
+  try {
+    const texts = reviews.items.map((r) => r.text);
+    const message = await claudeClient().messages.create({
+      model: MODEL,
+      max_tokens: 4000,
+      messages: [{
+        role: "user",
+        content: `Translate these customer reviews into ${language}. Keep each one's meaning and tone, and don't add or remove anything. Return only a JSON array of ${texts.length} strings in the same order.\n${JSON.stringify(texts)}`,
+      }],
+      output_config: { effort: "low" },
+    });
+    const text = message.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+    const out = JSON.parse(text.slice(text.indexOf("["), text.lastIndexOf("]") + 1)) as unknown;
+    if (Array.isArray(out) && out.length === texts.length && out.every((t) => typeof t === "string" && t.trim())) {
+      return { reviews: { ...reviews, items: reviews.items.map((r, i) => ({ ...r, text: (out[i] as string).trim().slice(0, 500) })) } };
+    }
+  } catch (e) {
+    console.warn("Launch: review translation failed", e);
+  }
+  return { reviews, note: "The supplier reviews couldn't be translated, so they're in English." };
+}
+
 /** Makes `count` AI photos of the product and keeps them in Convex storage, so Shopify can download them. */
 async function makeAiPhotos(
   ctx: ActionCtx,
