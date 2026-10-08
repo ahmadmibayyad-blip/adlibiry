@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
 import ConnectShopify from "@/components/ConnectShopify.tsx";
+import StoreCheck from "@/components/StoreCheck.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import AdKit from "@/pages/dashboard/products/_components/AdKit.tsx";
@@ -57,6 +58,7 @@ export default function LaunchesPage() {
                 Launch is part of Pro — see plans
               </Link>
             )}
+            {quota.store && <StoreCheck />}
             {quota.store && (
               <span className="border border-border rounded-md px-2.5 h-8 inline-flex items-center gap-1.5 text-muted-foreground">
                 <ShoppingBag className="w-3.5 h-3.5" />
