@@ -15,10 +15,10 @@ import {
   ShieldCheck,
   Puzzle,
   Trophy,
-  ShoppingBag, Rocket } from "lucide-react";
+  ShoppingBag, Rocket, Menu } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -27,9 +27,11 @@ import AIAssistant from "./ai/AIAssistant.tsx";
 import { openAssistant } from "@/lib/assistant.ts";
 import { setDisplayCurrency } from "@/lib/money.ts";
 import Logo from "@/components/Logo.tsx";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet.tsx";
 import OnboardingDialog from "./OnboardingDialog.tsx";
 
-// `short` is the label in the mobile bottom bar (5 items at 360px wide).
+// `short` is the label in the bottom bar on phones and tablets: the first 4 items and "More" (5 at 360px wide),
+// which opens every page.
 const navItems: { icon: typeof Search; label: string; href: string; short?: string }[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", short: "Home" },
   { icon: Trophy, label: "Winning Products", href: "/dashboard/winners", short: "Winners" },
@@ -76,6 +78,8 @@ export default function DashboardLayout() {
     ? user.profile.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : "U";
 
+  const [moreOpen, setMoreOpen] = useState(false);
+  const isActive = (href: string) => (href === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(href));
   const items = isAdmin
     ? [...navItems, { icon: ShieldCheck, label: "Admin", href: "/dashboard/admin" }]
     : navItems;
@@ -83,7 +87,7 @@ export default function DashboardLayout() {
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar — desktop */}
-      <aside className="hidden md:flex flex-col w-60 border-r border-border bg-sidebar shrink-0">
+      <aside className="hidden lg:flex flex-col w-60 border-r border-border bg-sidebar shrink-0">
         {/* Logo */}
         <div className="flex items-center px-5 h-14 border-b border-border">
           <Logo />
@@ -163,7 +167,7 @@ export default function DashboardLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar — mobile */}
-        <header className="md:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-sidebar shrink-0">
+        <header className="lg:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-sidebar shrink-0">
           <Logo />
           <div className="flex items-center gap-2">
             <button
@@ -198,7 +202,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           {/* Remount pages when the currency changes so every amount updates. */}
           <Outlet key={currency?.code ?? "USD"} />
         </main>
@@ -206,11 +210,9 @@ export default function DashboardLayout() {
         <OnboardingDialog />
 
         {/* Bottom nav — mobile */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50 pb-[env(safe-area-inset-bottom)]">
-          {navItems.slice(0, 5).map((item) => {
-            const active = item.href === "/dashboard"
-              ? location.pathname === "/dashboard"
-              : location.pathname.startsWith(item.href);
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50 pb-[env(safe-area-inset-bottom)]">
+          {navItems.slice(0, 4).map((item) => {
+            const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
@@ -225,7 +227,57 @@ export default function DashboardLayout() {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            aria-label="All pages"
+            className={cn(
+              "relative flex-1 min-w-0 flex flex-col items-center gap-1 py-2.5 px-0.5 text-xs font-medium transition-colors cursor-pointer",
+              items.slice(4).some((i) => isActive(i.href)) ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            <Menu className="w-5 h-5" />
+            <span className="text-[10px] leading-tight text-center whitespace-nowrap">More</span>
+            {!!unreadCount && unreadCount > 0 && <span className="absolute top-2 right-[calc(50%-14px)] w-2 h-2 rounded-full bg-primary" aria-hidden />}
+          </button>
         </nav>
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetContent side="bottom" className="lg:hidden max-h-[85vh] overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <SheetHeader>
+              <SheetTitle>All pages</SheetTitle>
+            </SheetHeader>
+            <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1 px-4">
+              {items.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    to={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium",
+                      isActive(item.href) ? "bg-primary/10 text-primary" : "text-foreground hover:bg-secondary",
+                    )}
+                  >
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                    {item.href === "/dashboard/alerts" && !!unreadCount && unreadCount > 0 && (
+                      <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="px-4 pt-2">
+              <button
+                type="button"
+                onClick={() => signout()}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
