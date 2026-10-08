@@ -52,12 +52,15 @@ const CopySchema = z.object({
   adKit: z.array(z.object({ angle: z.string(), hook: z.string(), primaryText: z.string(), headline: z.string() })),
 });
 
+// Kept small: Anthropic compiles a strict schema into a grammar with a size
+// limit ("compiled grammar is too large"), so no enums (icons are checked in
+// cleanStore) and the store is its own request, next to the product page's.
 const titled = z.object({ title: z.string(), text: z.string() });
 const StoreSchema = z.object({
   announcement: z.string(),
   hero: z.object({ eyebrow: z.string(), heading: z.string(), text: z.string(), button: z.string(), points: z.array(z.string()) }),
-  trust: z.array(z.object({ icon: z.enum(TRUST_ICONS), text: z.string() })),
-  benefits: z.object({ heading: z.string(), text: z.string(), items: z.array(z.object({ icon: z.enum(STORE_ICONS), title: z.string(), text: z.string() })) }),
+  trust: z.array(z.object({ icon: z.string(), text: z.string() })),
+  benefits: z.object({ heading: z.string(), text: z.string(), items: z.array(z.object({ icon: z.string(), title: z.string(), text: z.string() })) }),
   steps: z.object({ heading: z.string(), items: z.array(titled) }),
   story: z.object({ eyebrow: z.string(), heading: z.string(), paragraphs: z.array(z.string()), button: z.string() }),
   faq: z.object({ heading: z.string(), items: z.array(z.object({ q: z.string(), a: z.string() })) }),
@@ -72,17 +75,17 @@ const StoreSchema = z.object({
   }),
   menu: z.object({ home: z.string(), shop: z.string(), about: z.string(), faq: z.string(), contact: z.string(), shipping: z.string(), search: z.string() }),
 });
-const FullSchema = z.object({ product: CopySchema, store: StoreSchema });
 
 const STORE_GUIDE =
-  "Also write `store`: announcement (one short line, e.g. the delivery time or free shipping if given), hero (eyebrow 2–4 words, " +
+  "Write the store: announcement (one short line, e.g. the delivery time or free shipping if given), hero (eyebrow 2–4 words, " +
   "heading max 8 words, text 1–2 sentences, button 2–3 words, 3 short points), trust (3–4 items: delivery, secure checkout, returns, " +
   "support), benefits (heading, one-sentence intro, 3–4 items with an icon each), steps (3 items: how to use it), story (why we " +
   "picked this product, 2 short paragraphs, button to the About page), faq (6–8 buyer questions incl. delivery and returns, answered " +
   "only from the facts), newsletter (heading + one line; no discount unless given), footerText (one sentence), productTrust (three " +
   "short lines under the buy button: delivery, returns, payment), pages (About: 3–4 paragraphs; Shipping & returns: 4–6 paragraphs " +
   "from the store facts only, telling customers to contact support to start a return; FAQ page title; Contact title + one-line intro), " +
-  "and menu labels.";
+  "and menu labels. " +
+  `Trust icons: one of ${TRUST_ICONS.join(", ")}. Benefit icons: one of ${STORE_ICONS.join(", ")}.`;
 
 type Gql = { data?: Record<string, unknown>; errors?: { message: string }[] | string };
 
@@ -161,24 +164,7 @@ export const run = internalAction({
     try {
       if (!process.env.ANTHROPIC_API_KEY) return fail("The AI isn't set up yet (missing ANTHROPIC_API_KEY).");
       const productFacts = launchFacts(product, ads, { language: launch.language, tone: launch.tone, price: launch.price });
-      if (fullStore && facts) {
-        const message = await claudeClient().messages.parse({
-          model: MODEL,
-          max_tokens: 16000,
-          system: `${LAUNCH_SYSTEM}\n\n${STORE_SYSTEM}`,
-          messages: [
-            {
-              role: "user",
-              content: `${productFacts}\nStore name: ${launch.brandName}\nStore style: ${STORE_STYLES[launch.style as keyof typeof STORE_STYLES].name} (${STORE_STYLES[launch.style as keyof typeof STORE_STYLES].description})\n${storeFacts(facts)}\n\nWrite \`product\` (the product page and ad kit) as usual. ${STORE_GUIDE}`,
-            },
-          ],
-          output_config: { effort: "low", format: zodOutputFormat(FullSchema) },
-        });
-        if (message.stop_reason === "refusal" || !message.parsed_output) return fail("The AI couldn't write this store. Try again or pick another product.");
-        const out = message.parsed_output as { product: LaunchCopy; store: StoreCopy };
-        copy = cleanCopy(out.product).copy;
-        storeCopy = cleanStore(out.store);
-      } else {
+      const writePage = async () => {
         const message = await claudeClient().messages.parse({
           model: MODEL,
           max_tokens: 6000,
@@ -186,8 +172,51 @@ export const run = internalAction({
           messages: [{ role: "user", content: productFacts }],
           output_config: { effort: "low", format: zodOutputFormat(CopySchema) },
         });
-        if (message.stop_reason === "refusal" || !message.parsed_output) return fail("The AI couldn't write this page. Try again or pick another product.");
-        copy = cleanCopy(message.parsed_output as LaunchCopy).copy;
+        return message.stop_reason === "refusal" ? null : (message.parsed_output as LaunchCopy | null);
+      };
+      if (fullStore && facts) {
+        const style = STORE_STYLES[launch.style as keyof typeof STORE_STYLES];
+        const system = `${LAUNCH_SYSTEM}\n\n${STORE_SYSTEM}`;
+        const content = `${productFacts}\nStore name: ${launch.brandName}\nStore style: ${style.name} (${style.description})\n${storeFacts(facts)}\n\n${STORE_GUIDE}`;
+        const writeStore = async (): Promise<StoreCopy | null> => {
+          try {
+            const message = await claudeClient().messages.parse({
+              model: MODEL,
+              max_tokens: 10000,
+              system,
+              messages: [{ role: "user", content }],
+              output_config: { effort: "low", format: zodOutputFormat(StoreSchema) },
+            });
+            return message.stop_reason === "refusal" ? null : (message.parsed_output as StoreCopy | null);
+          } catch (e) {
+            // A strict schema the API won't compile: ask for the same JSON as plain text (cleanStore checks every field).
+            if (!(e instanceof Anthropic.BadRequestError && /grammar|schema/i.test(e.message))) throw e;
+            console.warn("Launch: store schema rejected, retrying as plain JSON", e.message);
+            const message = await claudeClient().messages.create({
+              model: MODEL,
+              max_tokens: 10000,
+              system,
+              messages: [{ role: "user", content: `${content}\n\nReturn only one JSON object matching this JSON Schema, no other text:\n${JSON.stringify(z.toJSONSchema(StoreSchema))}` }],
+              output_config: { effort: "low" },
+            });
+            const text = message.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+            const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+            try {
+              return JSON.parse(json) as StoreCopy;
+            } catch {
+              return null;
+            }
+          }
+        };
+        // Two requests at once: the product page and the rest of the store.
+        const [page, storeOut] = await Promise.all([writePage(), writeStore()]);
+        if (!page || !storeOut) return fail("The AI couldn't write this store. Try again or pick another product.");
+        copy = cleanCopy(page).copy;
+        storeCopy = cleanStore(storeOut);
+      } else {
+        const page = await writePage();
+        if (!page) return fail("The AI couldn't write this page. Try again or pick another product.");
+        copy = cleanCopy(page).copy;
       }
     } catch (e) {
       console.error("Launch: AI failed", e);

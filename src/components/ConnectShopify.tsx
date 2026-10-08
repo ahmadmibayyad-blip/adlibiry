@@ -35,7 +35,7 @@ export default function ConnectShopify() {
         Connect with Shopify
       </Button>
       <p className="text-[11px] text-muted-foreground">
-        Shopify asks you to approve AdSpy Pro, then brings you back. We can only create and update products; we never see your
+        Shopify asks you to approve AdSpy Pro, then brings you back. We create products, and for a full store a theme, pages and menus; we never see your
         orders or customers. No store yet?{" "}
         <a className="underline" href="https://www.shopify.com/free-trial" target="_blank" rel="noopener noreferrer">
           Start one on Shopify

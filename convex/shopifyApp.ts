@@ -3,7 +3,8 @@ import { httpAction, internalMutation, internalQuery, mutation, query, type Quer
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { authorizeUrl, encryptToken, missingStoreScopes, verifyQueryHmac, verifyWebhookHmac } from "./lib/shopifyOAuth";
-import { normalizeShopDomain, SHOPIFY_API_VERSION } from "./lib/shopifyExport";
+import { normalizeShopDomain } from "./lib/shopifyExport";
+import { fetchStoreInfo } from "./lib/shopifyStoreInfo";
 import { appUrl } from "./lib/billing";
 import { stableToken } from "./lib/authIdentity";
 
@@ -98,7 +99,9 @@ export const saveInstall = internalMutation({
       if (old.userId !== args.userId) await ctx.db.delete("shopifyConnections", old._id);
     }
     const existing = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique();
-    const row = { ...args, via: "oauth", connectedAt: new Date().toISOString() };
+    // Reconnecting the same store keeps the pages Full store made there.
+    const keep = existing?.shopDomain === args.shopDomain && existing.storePages ? { storePages: existing.storePages } : {};
+    const row = { ...args, ...keep, via: "oauth", connectedAt: new Date().toISOString() };
     if (existing) await ctx.db.replace("shopifyConnections", existing._id, row);
     else await ctx.db.insert("shopifyConnections", row);
   },
@@ -131,22 +134,15 @@ export const callback = httpAction(async (ctx, request) => {
     });
     const token = (await res.json().catch(() => ({}))) as { access_token?: string; scope?: string };
     if (!res.ok || !token.access_token) return back("error", `Shopify didn't give access (HTTP ${res.status}).`);
-    const info = await fetch(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token.access_token },
-      body: JSON.stringify({ query: "{ shop { name currencyCode } shopLocales(published: true) { locale primary } }" }),
-    });
-    const data = ((await info.json().catch(() => ({}))) as {
-      data?: { shop?: { name?: string; currencyCode?: string }; shopLocales?: { locale: string; primary: boolean }[] };
-    }).data;
+    const info = await fetchStoreInfo(shop, token.access_token);
     await ctx.runMutation(internal.shopifyApp.saveInstall, {
       userId,
       shopDomain: shop,
-      shopName: data?.shop?.name ?? shop,
+      shopName: info.name ?? shop,
       accessToken: await encryptToken(token.access_token, cfg.tokenKey),
       scopes: token.scope ?? "",
-      ...(data?.shop?.currencyCode ? { currency: data.shop.currencyCode } : {}),
-      ...(data?.shopLocales?.find((l) => l.primary)?.locale ? { locale: data.shopLocales.find((l) => l.primary)!.locale } : {}),
+      ...(info.currency ? { currency: info.currency } : {}),
+      ...(info.locale ? { locale: info.locale } : {}),
     });
     return back("connected");
   } catch (e) {
