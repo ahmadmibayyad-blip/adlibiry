@@ -61,7 +61,11 @@
     "name": "Cart",
     "settings": [
       { "type": "select", "id": "cart_type", "label": "Cart", "default": "drawer", "options": [{ "value": "drawer", "label": "Slide-out drawer" }, { "value": "page", "label": "Cart page" }] },
-      { "type": "number", "id": "free_shipping_threshold", "label": "Free shipping from (store currency; 0 hides the progress bar)", "default": 0 }
+      { "type": "number", "id": "free_shipping_threshold", "label": "Free shipping from (store currency; 0 hides the progress bar)", "default": 0 },
+      { "type": "number", "id": "delivery_min_days", "label": "Delivery time from (business days)", "default": 0 },
+      { "type": "number", "id": "delivery_max_days", "label": "Delivery time to (business days; 0 hides the delivery estimate)", "default": 0 },
+      { "type": "checkbox", "id": "show_add_another", "label": "Offer to add one more of the same product", "default": true },
+      { "type": "checkbox", "id": "show_payment_icons", "label": "Show payment icons under the checkout button", "default": true }
     ]
   },
   {

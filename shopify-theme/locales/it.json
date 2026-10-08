@@ -41,7 +41,10 @@
     "continue": "Continua lo shopping",
     "note": "Note sull'ordine",
     "free_shipping_remaining": "Ti mancano {{ amount }} per la spedizione gratuita",
-    "free_shipping_unlocked": "Hai la spedizione gratuita"
+    "free_shipping_unlocked": "Hai la spedizione gratuita",
+    "delivery_eta_html": "Consegna stimata: {{ dates }}",
+    "add_another": "Aggiungine un altro – {{ price }}",
+    "payment_methods": "Metodi di pagamento"
   },
   "collections": {
     "view_all": "Vedi tutto",

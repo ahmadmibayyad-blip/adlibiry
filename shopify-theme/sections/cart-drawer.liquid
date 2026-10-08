@@ -6,29 +6,26 @@
       <button type="button" class="icon-btn" data-drawer-close aria-label="{{ 'general.close' | t }}">{% render 'icon', name: 'close' %}</button>
     </header>
     {%- if cart.item_count > 0 -%}
-      {%- liquid
-        assign threshold = settings.free_shipping_threshold | times: 100
-        assign remaining = threshold | minus: cart.total_price
-        assign remaining_money = remaining | money
-      -%}
-      {%- if settings.free_shipping_threshold > 0 -%}
-        <div class="ship-meter">
-          {%- if remaining > 0 -%}
-            <p>{{ 'cart.free_shipping_remaining' | t: amount: remaining_money }}</p>
-          {%- else -%}
-            <p>{% render 'icon', name: 'truck' %} {{ 'cart.free_shipping_unlocked' | t }}</p>
-          {%- endif -%}
-          {%- assign pct = cart.total_price | times: 100 | divided_by: threshold | at_most: 100 -%}
-          <div class="ship-meter__bar"><span style="width: {{ pct }}%"></span></div>
-        </div>
-      {%- endif -%}
-      <div class="drawer__body">{% render 'cart-items' %}</div>
+      {% render 'cart-meter' %}
+      <div class="drawer__body">
+        {% render 'cart-items' %}
+        {%- comment -%} One product in the cart, once: offer a second of the same. {%- endcomment -%}
+        {%- assign first = cart.items.first -%}
+        {%- if settings.show_add_another and cart.items.size == 1 and first.quantity == 1 and first.variant.available -%}
+          {%- assign one_more = first.final_price | money -%}
+          <button type="button" class="add-another" data-line-add="1" data-line-next="2">
+            {% render 'icon', name: 'plus' %}
+            <span>{{ 'cart.add_another' | t: price: one_more }}</span>
+          </button>
+        {%- endif -%}
+      </div>
       <footer class="drawer__foot">
         <div class="cart-total"><span>{{ 'cart.subtotal' | t }}</span><strong>{{ cart.total_price | money_with_currency }}</strong></div>
         <p class="small muted">{{ 'cart.taxes_shipping' | t }}</p>
         <form action="{{ routes.cart_url }}" method="post">
           <button type="submit" name="checkout" class="btn btn--block">{% render 'icon', name: 'lock' %} {{ 'cart.checkout' | t }}</button>
         </form>
+        {% render 'cart-extras' %}
         <a href="{{ routes.cart_url }}" class="link-center small">{{ 'cart.view_cart' | t }}</a>
       </footer>
     {%- else -%}

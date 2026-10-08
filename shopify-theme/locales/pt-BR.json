@@ -41,7 +41,10 @@
     "continue": "Continuar comprando",
     "note": "Observação do pedido",
     "free_shipping_remaining": "Faltam {{ amount }} para o frete grátis",
-    "free_shipping_unlocked": "Você ganhou frete grátis"
+    "free_shipping_unlocked": "Você ganhou frete grátis",
+    "delivery_eta_html": "Entrega estimada: {{ dates }}",
+    "add_another": "Adicionar mais um – {{ price }}",
+    "payment_methods": "Formas de pagamento"
   },
   "collections": {
     "view_all": "Ver tudo",

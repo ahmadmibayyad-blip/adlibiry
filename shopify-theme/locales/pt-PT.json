@@ -41,7 +41,10 @@
     "continue": "Continuar a comprar",
     "note": "Nota da encomenda",
     "free_shipping_remaining": "Faltam {{ amount }} para ter portes grátis",
-    "free_shipping_unlocked": "Tem portes grátis"
+    "free_shipping_unlocked": "Tem portes grátis",
+    "delivery_eta_html": "Entrega prevista: {{ dates }}",
+    "add_another": "Adicionar mais um – {{ price }}",
+    "payment_methods": "Métodos de pagamento"
   },
   "collections": {
     "view_all": "Ver tudo",

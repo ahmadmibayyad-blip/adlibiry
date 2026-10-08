@@ -41,7 +41,10 @@
     "continue": "Jatka ostoksia",
     "note": "Tilauksen lisätiedot",
     "free_shipping_remaining": "Sinulta puuttuu {{ amount }} ilmaiseen toimitukseen",
-    "free_shipping_unlocked": "Sait ilmaisen toimituksen"
+    "free_shipping_unlocked": "Sait ilmaisen toimituksen",
+    "delivery_eta_html": "Arvioitu toimitus: {{ dates }}",
+    "add_another": "Lisää vielä yksi – {{ price }}",
+    "payment_methods": "Maksutavat"
   },
   "collections": {
     "view_all": "Näytä kaikki",
