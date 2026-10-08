@@ -1,0 +1,28 @@
+<section class="section scheme-{{ section.settings.scheme }}">
+  <div class="page-width page-width--narrow">
+    {%- if section.settings.heading != blank -%}
+      <div class="section__head"><h2 class="h2">{{ section.settings.heading | escape }}</h2></div>
+    {%- endif -%}
+    <div class="accordion">
+      {%- for block in section.blocks -%}
+        <details class="accordion__item" {{ block.shopify_attributes }}>
+          <summary>{{ block.settings.question | escape }} {% render 'icon', name: 'plus' %}</summary>
+          <div class="accordion__body rte">{{ block.settings.answer }}</div>
+        </details>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "FAQ",
+  "max_blocks": 12,
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Questions & answers" },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "blocks": [{ "type": "question", "name": "Question", "settings": [{ "type": "text", "id": "question", "label": "Question", "default": "Question" }, { "type": "richtext", "id": "answer", "label": "Answer" }] }],
+  "presets": [{ "name": "FAQ", "blocks": [{ "type": "question" }, { "type": "question" }] }]
+}
+{% endschema %}

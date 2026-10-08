@@ -1,0 +1,37 @@
+<section class="section section--tight" data-cart-page>
+  <div class="page-width">
+    <h1 class="h1">{{ 'cart.title' | t }}</h1>
+    {%- if cart.item_count > 0 -%}
+      <div class="cart-page">
+        <div>{% render 'cart-items' %}</div>
+        <form action="{{ routes.cart_url }}" method="post" class="cart-summary">
+          {%- if section.settings.show_note -%}
+            <label class="field">
+              <span class="field__label">{{ 'cart.note' | t }}</span>
+              <textarea name="note" class="input" rows="3">{{ cart.note }}</textarea>
+            </label>
+          {%- endif -%}
+          {%- for discount in cart.cart_level_discount_applications -%}
+            <p class="small">{{ discount.title | escape }} (-{{ discount.total_allocated_amount | money }})</p>
+          {%- endfor -%}
+          <div class="cart-total"><span>{{ 'cart.subtotal' | t }}</span><strong>{{ cart.total_price | money_with_currency }}</strong></div>
+          <p class="small muted">{{ 'cart.taxes_shipping' | t }}</p>
+          <button type="submit" name="checkout" class="btn btn--block btn--large">{% render 'icon', name: 'lock' %} {{ 'cart.checkout' | t }}</button>
+          {%- if additional_checkout_buttons -%}<div class="cart-extra">{{ content_for_additional_checkout_buttons }}</div>{%- endif -%}
+        </form>
+      </div>
+    {%- else -%}
+      <div class="empty">
+        <p class="lead">{{ 'cart.empty' | t }}</p>
+        <a href="{{ routes.all_products_collection_url }}" class="btn">{{ 'cart.continue' | t }}</a>
+      </div>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Cart",
+  "settings": [{ "type": "checkbox", "id": "show_note", "label": "Show order note", "default": true }]
+}
+{% endschema %}

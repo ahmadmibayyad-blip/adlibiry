@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Sida {{ page }}",
+    "error": "Något gick fel. Försök igen.",
+    "close": "Stäng",
+    "menu": "Meny",
+    "search": "Sök",
+    "search_placeholder": "Sök produkter",
+    "help": "Hjälp",
+    "policies": "Villkor",
+    "pagination": "Sidor",
+    "results": "{{ count }} resultat för ”{{ terms }}”",
+    "not_found": "Den här sidan finns inte"
+  },
+  "accessibility": {
+    "skip_to_content": "Hoppa till innehåll"
+  },
+  "products": {
+    "added": "Tillagd i varukorgen",
+    "sold_out": "Slutsåld",
+    "add_to_cart": "Lägg i varukorg",
+    "unavailable": "Inte tillgänglig",
+    "save": "Spara",
+    "sale": "Rea",
+    "view_image": "Visa bild {{ number }}",
+    "description": "Beskrivning",
+    "faq": "Frågor och svar",
+    "choose_product": "Välj en produkt för det här avsnittet i temaredigeraren."
+  },
+  "cart": {
+    "title": "Din varukorg",
+    "decrease": "Minska antal",
+    "increase": "Öka antal",
+    "quantity": "Antal",
+    "remove": "Ta bort",
+    "subtotal": "Delsumma",
+    "taxes_shipping": "Skatter och frakt beräknas i kassan.",
+    "checkout": "Gå till kassan",
+    "view_cart": "Visa varukorg",
+    "empty": "Din varukorg är tom.",
+    "continue": "Fortsätt handla",
+    "note": "Ordermeddelande",
+    "free_shipping_remaining": "Du är {{ amount }} från fri frakt",
+    "free_shipping_unlocked": "Du har fått fri frakt"
+  },
+  "collections": {
+    "view_all": "Visa alla",
+    "empty": "Inga produkter här ännu.",
+    "sort_by": "Sortera efter",
+    "all_collections": "Kollektioner"
+  },
+  "newsletter": {
+    "success": "Tack för att du prenumererar!",
+    "email": "Din e-postadress",
+    "subscribe": "Prenumerera"
+  },
+  "contact": {
+    "success": "Tack! Vi återkommer så snart vi kan.",
+    "name": "Namn",
+    "email": "E-post",
+    "order": "Ordernummer (valfritt)",
+    "message": "Meddelande",
+    "send": "Skicka"
+  },
+  "password": {
+    "opening_soon": "Öppnar snart",
+    "notify": "Meddela mig",
+    "owner": "Butiksägare? Ange lösenordet",
+    "password": "Lösenord",
+    "enter": "Fortsätt"
+  },
+  "customer": {
+    "account": "Konto",
+    "login": "Logga in",
+    "forgot": "Glömt lösenordet?",
+    "sign_in": "Logga in",
+    "create": "Skapa konto",
+    "reset": "Återställ ditt lösenord",
+    "reset_sent": "Vi har skickat ett e-postmeddelande med en länk för att återställa ditt lösenord.",
+    "send": "Skicka",
+    "guest": "Fortsätt som gäst",
+    "first_name": "Förnamn",
+    "last_name": "Efternamn",
+    "log_out": "Logga ut",
+    "orders": "Ordrar",
+    "order": "Order",
+    "date": "Datum",
+    "status": "Status",
+    "total": "Totalt",
+    "no_orders": "Du har inte lagt några ordrar ännu.",
+    "details": "Dina uppgifter",
+    "addresses": "Adresser",
+    "product": "Produkt",
+    "billing": "Faktureringsadress",
+    "shipping": "Leveransadress",
+    "default": "Standard",
+    "add_address": "Lägg till adress",
+    "address1": "Adress",
+    "address2": "Lägenhet, våning osv.",
+    "zip": "Postnummer",
+    "city": "Ort",
+    "country": "Land",
+    "phone": "Telefon",
+    "set_default": "Använd som min standardadress",
+    "save": "Spara",
+    "activate": "Aktivera ditt konto",
+    "confirm_password": "Bekräfta lösenord"
+  },
+  "gift_card": {
+    "title": "Ditt presentkort",
+    "code": "Kod",
+    "balance": "Saldo",
+    "expired": "Det här presentkortet har gått ut",
+    "copy": "Kopiera kod",
+    "shop": "Börja handla"
+  }
+}

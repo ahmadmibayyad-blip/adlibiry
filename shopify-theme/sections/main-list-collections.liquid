@@ -1,0 +1,20 @@
+<section class="section section--tight">
+  <div class="page-width">
+    <h1 class="h1">{{ 'collections.all_collections' | t }}</h1>
+    <div class="grid grid--products">
+      {%- for collection in collections -%}
+        <a href="{{ collection.url }}" class="card card--collection">
+          <span class="card__media">
+            {%- assign img = collection.featured_image | default: collection.products.first.featured_media -%}
+            {%- if img -%}{{ img | image_url: width: 800 | image_tag: loading: 'lazy', alt: collection.title }}{%- else -%}{{ 'collection-1' | placeholder_svg_tag: 'placeholder' }}{%- endif -%}
+          </span>
+          <span class="card__body"><span class="card__title">{{ collection.title | escape }}</span></span>
+        </a>
+      {%- endfor -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{ "name": "Collections list", "settings": [] }
+{% endschema %}

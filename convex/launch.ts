@@ -5,17 +5,31 @@ import type { Doc } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { effectivePlan, onProTrial } from "./lib/billing";
 import { suggestPrice } from "./lib/launchCopy";
+import { missingStoreScopes } from "./lib/shopifyOAuth";
+import { isStoreStyle } from "./lib/storeStyles";
 
-// ── Launch: winning product → product page in the user's Shopify store ──────
+// ── Launch: winning product → product page (or a full store) in the user's Shopify store ──
 // start() checks the plan, the monthly quota and the product, then schedules
 // launchRun.run (Claude writes the page and ad kit; we publish it with the
-// Admin API). The page shows progress from the launches row.
+// Admin API). Mode "store" also writes the home page, About/FAQ/Shipping/Contact
+// pages and menus, and installs our storefront theme (shopify-theme/) in the
+// chosen style as an unpublished theme; publishTheme() makes it the live one.
+// The page shows progress from the launches row.
 // Quota: Pro 10 published pages a month (LAUNCH_MONTHLY_PRO), Pro trial 2 in
 // total, agency plan and admins unlimited.
 
 const PRO_MONTHLY = () => Math.max(0, Number(process.env.LAUNCH_MONTHLY_PRO ?? 10) || 10);
 const TRIAL_TOTAL = 2;
 const month = () => new Date().toISOString().slice(0, 7);
+
+/** Units of `currency` per USD from the daily ECB rates (currency.ts); 1 for USD or an unknown currency. */
+async function usdRate(ctx: QueryCtx, currency: string): Promise<number> {
+  if (currency === "USD") return 1;
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "fxRates")).unique();
+  const data = (doc?.data as { all?: Record<string, number>; rates?: Record<string, number> } | undefined) ?? {};
+  const rate = data.all?.[currency] ?? data.rates?.[currency];
+  return rate && rate > 0 ? rate : 1;
+}
 
 async function currentUser(ctx: QueryCtx) {
   const identity = await ctx.auth.getUserIdentity();
@@ -51,11 +65,22 @@ export const prepare = query({
       .withIndex("by_user_product", (q) => q.eq("userId", user._id).eq("productId", args.productId))
       .order("desc")
       .first();
+    const currency = store?.currency ?? "USD";
     return {
       allowed: (await allowance(ctx, user)) ?? null,
-      store: store ? { shopDomain: store.shopDomain, shopName: store.shopName, locale: store.locale ?? "en", currency: store.currency ?? "USD" } : null,
+      store: store
+        ? {
+            shopDomain: store.shopDomain,
+            shopName: store.shopName,
+            locale: store.locale ?? "en",
+            currency,
+            // Full store needs theme, page and menu access; app installs from before it need a reconnect.
+            missingStoreScopes: store.via === "oauth" ? missingStoreScopes(store.scopes ?? "") : [],
+          }
+        : null,
       blocked: product.isBigBrand ? "This is a big-brand product. Selling it risks trademark claims and Meta and Shopify bans, so Launch is off for it." : null,
-      suggested: suggestPrice({ price: product.price, cost: product.cost }),
+      // In the store's currency (product prices and costs are USD).
+      suggested: suggestPrice({ price: product.price, cost: product.cost }, { currency, rate: await usdRate(ctx, currency) }),
       last: last ?? null,
     };
   },
@@ -68,6 +93,12 @@ export const start = mutation({
     tone: v.union(v.literal("friendly"), v.literal("premium"), v.literal("bold")),
     price: v.optional(v.number()),
     publish: v.union(v.literal("DRAFT"), v.literal("ACTIVE")),
+    mode: v.optional(v.union(v.literal("page"), v.literal("store"))),
+    style: v.optional(v.string()),
+    brandName: v.optional(v.string()),
+    facts: v.optional(
+      v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await currentUser(ctx);
@@ -86,7 +117,30 @@ export const start = mutation({
       .order("desc")
       .first();
     if (running && (running.status === "generating" || running.status === "publishing")) return { launchId: running._id };
-    const price = args.price && args.price > 0 ? Math.round(args.price * 100) / 100 : suggestPrice(product).price;
+    const currency = store.currency ?? "USD";
+    const price =
+      args.price && args.price > 0 ? Math.round(args.price * 100) / 100 : suggestPrice(product, { currency, rate: await usdRate(ctx, currency) }).price;
+    let storeFields = {};
+    if (args.mode === "store") {
+      if (!isStoreStyle(args.style)) throw new ConvexError({ code: "BAD_STYLE", message: "Pick a style for your store." });
+      if (store.via === "oauth" && missingStoreScopes(store.scopes ?? "").length) {
+        throw new ConvexError({ code: "RECONNECT", message: "Building a full store needs new permissions. Reconnect your Shopify store (Settings → Shopify), then try again." });
+      }
+      const f = args.facts;
+      const email = f?.supportEmail?.trim().slice(0, 120);
+      storeFields = {
+        mode: "store",
+        style: args.style,
+        brandName: (args.brandName?.trim() || store.shopName).slice(0, 60),
+        facts: {
+          shippingTime: (f?.shippingTime.trim() || "5–10 business days").slice(0, 60),
+          returnDays: Math.min(365, Math.max(0, Math.round(f?.returnDays ?? 30))),
+          ...(f?.freeShippingFrom && f.freeShippingFrom > 0 ? { freeShippingFrom: Math.round(f.freeShippingFrom * 100) / 100 } : {}),
+          ...(email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? { supportEmail: email } : {}),
+          currency,
+        },
+      };
+    }
     const launchId = await ctx.db.insert("launches", {
       userId: user._id,
       productId: args.productId,
@@ -96,6 +150,7 @@ export const start = mutation({
       tone: args.tone,
       publish: args.publish,
       ...(price ? { price } : {}),
+      ...storeFields,
       createdAt: new Date().toISOString(),
     });
     await ctx.scheduler.runAfter(0, internal.launchRun.run, { launchId });
@@ -158,14 +213,15 @@ export const context = internalQuery({
     if (!launch) return null;
     const product = await ctx.db.get("products", launch.productId);
     const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", launch.userId)).unique();
-    if (!product || !store) return { launch, product: null, store: null, ads: [] };
+    if (!product || !store) return { launch, product: null, store: null, ads: [], rate: 1 };
     // The ads already selling it, best first: their angles shape the page and ad kit.
     const ads = (await Promise.all((product.adIds ?? []).slice(0, 30).map((id) => ctx.db.get("ads", id))))
       .filter((a): a is Doc<"ads"> => !!a)
       .sort((a, b) => b.aiScore - a.aiScore)
       .slice(0, 3)
       .map((a) => ({ headline: a.headline, bodyText: a.bodyText, platform: a.platform, ...(a.spokenHook ? { spokenHook: a.spokenHook } : {}) }));
-    return { launch, product, store, ads };
+    // rate: store currency per USD, for the supplier cost we send to Shopify.
+    return { launch, product, store, ads, rate: await usdRate(ctx, store.currency ?? "USD") };
   },
 });
 
@@ -178,6 +234,13 @@ export const setStatus = internalMutation({
     adminUrl: v.optional(v.string()),
     storeUrl: v.optional(v.string()),
     error: v.optional(v.string()),
+    store: v.optional(v.any()),
+    productHandle: v.optional(v.string()),
+    pageHandles: v.optional(v.record(v.string(), v.string())),
+    step: v.optional(v.string()),
+    themeId: v.optional(v.string()),
+    themePreviewUrl: v.optional(v.string()),
+    themeEditorUrl: v.optional(v.string()),
   },
   handler: async (ctx, { launchId, ...patch }) => {
     const launch = await ctx.db.get("launches", launchId);
@@ -190,5 +253,55 @@ export const setStatus = internalMutation({
       if (row) await ctx.db.patch("launchUsage", row._id, { count: row.count + 1 });
       else await ctx.db.insert("launchUsage", { userId: launch.userId, month: month(), count: 1 });
     }
+  },
+});
+
+// ── Full store ───────────────────────────────────────────────────────────────
+
+/** Makes the theme a Full store launch built the store's live theme. */
+export const publishTheme = mutation({
+  args: { launchId: v.id("launches") },
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+    const l = await ctx.db.get("launches", args.launchId);
+    if (!user || !l || l.userId !== user._id) throw new ConvexError({ code: "NOT_FOUND", message: "Launch not found." });
+    if (!l.themeId || l.status !== "published") throw new ConvexError({ code: "NOT_READY", message: "The store isn't ready yet." });
+    if (l.themeLive) return;
+    await ctx.db.patch("launches", args.launchId, { step: "going-live", error: undefined });
+    await ctx.scheduler.runAfter(0, internal.launchRun.publishTheme, { launchId: args.launchId });
+  },
+});
+
+export const markThemeLive = internalMutation({
+  args: { launchId: v.id("launches"), error: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    await ctx.db.patch("launches", args.launchId, args.error ? { error: args.error, step: undefined } : { themeLive: true, error: undefined, step: undefined });
+  },
+});
+
+/** Pages Full store created, kept per store so the next store launch updates them instead of adding more. */
+export const saveStorePages = internalMutation({
+  args: { userId: v.id("users"), pages: v.record(v.string(), v.string()) },
+  handler: async (ctx, args) => {
+    const conn = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", args.userId)).unique();
+    if (conn) await ctx.db.patch("shopifyConnections", conn._id, { storePages: { ...(conn.storePages ?? {}), ...args.pages } });
+  },
+});
+
+/** What the theme download (storeThemeHttp.ts) builds the zip from. */
+export const themeSource = internalQuery({
+  args: { launchId: v.id("launches") },
+  handler: async (ctx, args) => {
+    const l = await ctx.db.get("launches", args.launchId);
+    if (!l || l.mode !== "store" || !l.store || !l.productHandle || !isStoreStyle(l.style)) return null;
+    return {
+      style: l.style,
+      brandName: l.brandName ?? "",
+      productHandle: l.productHandle,
+      pageHandles: l.pageHandles ?? {},
+      store: l.store,
+      title: (l.copy as { title?: string } | undefined)?.title ?? "",
+      facts: l.facts,
+    };
   },
 });

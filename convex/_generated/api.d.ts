@@ -119,6 +119,7 @@ import type * as sourceConflicts from "../sourceConflicts.js";
 import type * as sources_links from "../sources/links.js";
 import type * as stats from "../stats.js";
 import type * as storeSales from "../storeSales.js";
+import type * as storeThemeHttp from "../storeThemeHttp.js";
 import type * as stores from "../stores.js";
 import type * as submittedAds from "../submittedAds.js";
 import type * as transcripts from "../transcripts.js";
@@ -246,6 +247,7 @@ declare const fullApi: ApiFromModules<{
   "sources/links": typeof sources_links;
   stats: typeof stats;
   storeSales: typeof storeSales;
+  storeThemeHttp: typeof storeThemeHttp;
   stores: typeof stores;
   submittedAds: typeof submittedAds;
   transcripts: typeof transcripts;

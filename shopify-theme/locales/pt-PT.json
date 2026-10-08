@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Página {{ page }}",
+    "error": "Ocorreu um erro. Tente novamente.",
+    "close": "Fechar",
+    "menu": "Menu",
+    "search": "Pesquisar",
+    "search_placeholder": "Pesquisar produtos",
+    "help": "Ajuda",
+    "policies": "Políticas",
+    "pagination": "Páginas",
+    "results": "{{ count }} resultados para «{{ terms }}»",
+    "not_found": "Esta página não existe"
+  },
+  "accessibility": {
+    "skip_to_content": "Saltar para o conteúdo"
+  },
+  "products": {
+    "added": "Adicionado ao carrinho",
+    "sold_out": "Esgotado",
+    "add_to_cart": "Adicionar ao carrinho",
+    "unavailable": "Indisponível",
+    "save": "Poupe",
+    "sale": "Promoção",
+    "view_image": "Mostrar imagem {{ number }}",
+    "description": "Descrição",
+    "faq": "Perguntas e respostas",
+    "choose_product": "Escolha um produto para esta secção no editor de temas."
+  },
+  "cart": {
+    "title": "O seu carrinho",
+    "decrease": "Diminuir quantidade",
+    "increase": "Aumentar quantidade",
+    "quantity": "Quantidade",
+    "remove": "Remover",
+    "subtotal": "Subtotal",
+    "taxes_shipping": "Os impostos e o envio são calculados no checkout.",
+    "checkout": "Finalizar compra",
+    "view_cart": "Ver carrinho",
+    "empty": "O seu carrinho está vazio.",
+    "continue": "Continuar a comprar",
+    "note": "Nota da encomenda",
+    "free_shipping_remaining": "Faltam {{ amount }} para ter portes grátis",
+    "free_shipping_unlocked": "Tem portes grátis"
+  },
+  "collections": {
+    "view_all": "Ver tudo",
+    "empty": "Ainda não há produtos aqui.",
+    "sort_by": "Ordenar por",
+    "all_collections": "Coleções"
+  },
+  "newsletter": {
+    "success": "Obrigado por se subscrever!",
+    "email": "O seu e-mail",
+    "subscribe": "Subscrever"
+  },
+  "contact": {
+    "success": "Obrigado! Responderemos assim que possível.",
+    "name": "Nome",
+    "email": "E-mail",
+    "order": "Número da encomenda (opcional)",
+    "message": "Mensagem",
+    "send": "Enviar"
+  },
+  "password": {
+    "opening_soon": "Abre em breve",
+    "notify": "Avisem-me",
+    "owner": "Proprietário da loja? Introduza a palavra-passe",
+    "password": "Palavra-passe",
+    "enter": "Entrar"
+  },
+  "customer": {
+    "account": "Conta",
+    "login": "Iniciar sessão",
+    "forgot": "Esqueceu-se da palavra-passe?",
+    "sign_in": "Iniciar sessão",
+    "create": "Criar conta",
+    "reset": "Repor a palavra-passe",
+    "reset_sent": "Enviámos-lhe um e-mail com uma ligação para repor a palavra-passe.",
+    "send": "Enviar",
+    "guest": "Continuar como convidado",
+    "first_name": "Nome próprio",
+    "last_name": "Apelido",
+    "log_out": "Terminar sessão",
+    "orders": "Encomendas",
+    "order": "Encomenda",
+    "date": "Data",
+    "status": "Estado",
+    "total": "Total",
+    "no_orders": "Ainda não fez nenhuma encomenda.",
+    "details": "Os seus dados",
+    "addresses": "Moradas",
+    "product": "Produto",
+    "billing": "Morada de faturação",
+    "shipping": "Morada de envio",
+    "default": "Predefinida",
+    "add_address": "Adicionar uma morada",
+    "address1": "Morada",
+    "address2": "Apartamento, andar, etc.",
+    "zip": "Código postal",
+    "city": "Cidade",
+    "country": "País",
+    "phone": "Telefone",
+    "set_default": "Usar como a minha morada predefinida",
+    "save": "Guardar",
+    "activate": "Ativar a sua conta",
+    "confirm_password": "Confirmar palavra-passe"
+  },
+  "gift_card": {
+    "title": "O seu cartão-presente",
+    "code": "Código",
+    "balance": "Saldo",
+    "expired": "Este cartão-presente expirou",
+    "copy": "Copiar código",
+    "shop": "Começar a comprar"
+  }
+}

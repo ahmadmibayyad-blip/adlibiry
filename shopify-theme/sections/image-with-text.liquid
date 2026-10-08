@@ -1,0 +1,44 @@
+{%- liquid
+  assign p = section.settings.product
+  assign img = section.settings.image
+  if img == blank and p != blank
+    assign img = p.media[2] | default: p.media[1] | default: p.featured_media
+  endif
+-%}
+<section class="section scheme-{{ section.settings.scheme }}">
+  <div class="page-width split{% if section.settings.image_right %} split--reverse{% endif %}">
+    <div class="split__media">
+      {%- if img != blank -%}
+        {{ img | image_url: width: 1200 | image_tag: loading: 'lazy', widths: '500, 800, 1200', sizes: '(min-width: 990px) 50vw, 100vw', alt: section.settings.heading }}
+      {%- else -%}
+        {{ 'image' | placeholder_svg_tag: 'placeholder' }}
+      {%- endif -%}
+    </div>
+    <div class="split__text">
+      {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
+      <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+      <div class="rte muted">{{ section.settings.text }}</div>
+      {%- if section.settings.button_label != blank -%}
+        <a href="{{ section.settings.button_link | default: routes.all_products_collection_url }}" class="btn btn--outline">{{ section.settings.button_label | escape }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Image with text",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "product", "id": "product", "label": "Or use a product's second image" },
+    { "type": "checkbox", "id": "image_right", "label": "Image on the right", "default": false },
+    { "type": "text", "id": "eyebrow", "label": "Small text above the heading" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Our story" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "text", "id": "button_label", "label": "Button label" },
+    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "presets": [{ "name": "Image with text" }]
+}
+{% endschema %}

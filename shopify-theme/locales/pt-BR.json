@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Página {{ page }}",
+    "error": "Algo deu errado. Tente novamente.",
+    "close": "Fechar",
+    "menu": "Menu",
+    "search": "Buscar",
+    "search_placeholder": "Buscar produtos",
+    "help": "Ajuda",
+    "policies": "Políticas",
+    "pagination": "Páginas",
+    "results": "{{ count }} resultados para “{{ terms }}”",
+    "not_found": "Esta página não existe"
+  },
+  "accessibility": {
+    "skip_to_content": "Ir para o conteúdo"
+  },
+  "products": {
+    "added": "Adicionado ao carrinho",
+    "sold_out": "Esgotado",
+    "add_to_cart": "Adicionar ao carrinho",
+    "unavailable": "Indisponível",
+    "save": "Economize",
+    "sale": "Promoção",
+    "view_image": "Ver imagem {{ number }}",
+    "description": "Descrição",
+    "faq": "Perguntas e respostas",
+    "choose_product": "Escolha um produto para esta seção no editor de temas."
+  },
+  "cart": {
+    "title": "Seu carrinho",
+    "decrease": "Diminuir quantidade",
+    "increase": "Aumentar quantidade",
+    "quantity": "Quantidade",
+    "remove": "Remover",
+    "subtotal": "Subtotal",
+    "taxes_shipping": "Impostos e frete calculados no checkout.",
+    "checkout": "Finalizar compra",
+    "view_cart": "Ver carrinho",
+    "empty": "Seu carrinho está vazio.",
+    "continue": "Continuar comprando",
+    "note": "Observação do pedido",
+    "free_shipping_remaining": "Faltam {{ amount }} para o frete grátis",
+    "free_shipping_unlocked": "Você ganhou frete grátis"
+  },
+  "collections": {
+    "view_all": "Ver tudo",
+    "empty": "Ainda não há produtos aqui.",
+    "sort_by": "Ordenar por",
+    "all_collections": "Coleções"
+  },
+  "newsletter": {
+    "success": "Obrigado por se inscrever!",
+    "email": "Seu e-mail",
+    "subscribe": "Inscrever-se"
+  },
+  "contact": {
+    "success": "Obrigado! Responderemos o mais rápido possível.",
+    "name": "Nome",
+    "email": "E-mail",
+    "order": "Número do pedido (opcional)",
+    "message": "Mensagem",
+    "send": "Enviar"
+  },
+  "password": {
+    "opening_soon": "Abrindo em breve",
+    "notify": "Avise-me",
+    "owner": "Dono da loja? Digite a senha",
+    "password": "Senha",
+    "enter": "Entrar"
+  },
+  "customer": {
+    "account": "Conta",
+    "login": "Entrar",
+    "forgot": "Esqueceu sua senha?",
+    "sign_in": "Entrar",
+    "create": "Criar conta",
+    "reset": "Redefinir sua senha",
+    "reset_sent": "Enviamos um e-mail com um link para redefinir sua senha.",
+    "send": "Enviar",
+    "guest": "Continuar como visitante",
+    "first_name": "Nome",
+    "last_name": "Sobrenome",
+    "log_out": "Sair",
+    "orders": "Pedidos",
+    "order": "Pedido",
+    "date": "Data",
+    "status": "Status",
+    "total": "Total",
+    "no_orders": "Você ainda não fez nenhum pedido.",
+    "details": "Seus dados",
+    "addresses": "Endereços",
+    "product": "Produto",
+    "billing": "Endereço de cobrança",
+    "shipping": "Endereço de entrega",
+    "default": "Padrão",
+    "add_address": "Adicionar endereço",
+    "address1": "Endereço",
+    "address2": "Apartamento, bloco, etc.",
+    "zip": "CEP",
+    "city": "Cidade",
+    "country": "País",
+    "phone": "Telefone",
+    "set_default": "Usar como meu endereço padrão",
+    "save": "Salvar",
+    "activate": "Ativar sua conta",
+    "confirm_password": "Confirmar senha"
+  },
+  "gift_card": {
+    "title": "Seu cartão-presente",
+    "code": "Código",
+    "balance": "Saldo",
+    "expired": "Este cartão-presente expirou",
+    "copy": "Copiar código",
+    "shop": "Começar a comprar"
+  }
+}

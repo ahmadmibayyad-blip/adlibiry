@@ -1,0 +1,96 @@
+{%- comment -%}
+  Gallery + buy box, shared by the product page and the home page's featured product.
+  {% render 'product-main', product: product, section: section, heading_tag: 'h1' %}
+{%- endcomment -%}
+{%- liquid
+  assign current = product.selected_or_first_available_variant
+  assign form_id = 'ProductForm-' | append: section.id
+  assign page_data = product.metafields.adspy.page.value
+-%}
+<div class="product" data-product data-section="{{ section.id }}">
+  <div class="product__gallery" data-gallery>
+    <div class="gallery__main">
+      {%- for media in product.media limit: 10 -%}
+        <div class="gallery__slide{% if forloop.first %} is-active{% endif %}" data-media-id="{{ media.id }}">
+          {%- if media.media_type == 'image' -%}
+            {%- if forloop.first -%}{%- assign loading = 'eager' -%}{%- else -%}{%- assign loading = 'lazy' -%}{%- endif -%}
+            {{ media | image_url: width: 1400 | image_tag: loading: loading, widths: '500, 750, 1000, 1400', sizes: '(min-width: 990px) 55vw, 100vw', alt: media.alt }}
+          {%- else -%}
+            {{ media | media_tag: image_size: '1400x' }}
+          {%- endif -%}
+        </div>
+      {%- else -%}
+        <div class="gallery__slide is-active">{{ 'product-1' | placeholder_svg_tag: 'placeholder' }}</div>
+      {%- endfor -%}
+    </div>
+    {%- if product.media.size > 1 -%}
+      <div class="gallery__thumbs" role="list">
+        {%- for media in product.media limit: 10 -%}
+          <button type="button" class="gallery__thumb{% if forloop.first %} is-active{% endif %}" data-thumb="{{ media.id }}" aria-label="{{ 'products.view_image' | t: number: forloop.index }}">
+            {{ media.preview_image | image_url: width: 160 | image_tag: loading: 'lazy', alt: '' }}
+          </button>
+        {%- endfor -%}
+      </div>
+    {%- endif -%}
+  </div>
+
+  <div class="product__info">
+    {%- if section.settings.show_vendor and product.vendor != blank -%}<p class="eyebrow">{{ product.vendor | escape }}</p>{%- endif -%}
+    <{{ heading_tag | default: 'h1' }} class="h2 product__title">{{ product.title | escape }}</{{ heading_tag | default: 'h1' }}>
+    {%- if page_data.subtitle != blank -%}<p class="lead muted">{{ page_data.subtitle | escape }}</p>{%- endif -%}
+    <div data-price-wrap>{% render 'price', product: product, variant: current %}</div>
+
+    {%- if page_data.benefits.size > 0 -%}
+      <ul class="ticks" role="list">
+        {%- for b in page_data.benefits limit: 4 -%}<li>{% render 'icon', name: 'check' %} {{ b | escape }}</li>{%- endfor -%}
+      </ul>
+    {%- endif -%}
+
+    {%- form 'product', product, id: form_id, class: 'product-form', data-product-form: '' -%}
+      <input type="hidden" name="id" value="{{ current.id }}" data-variant-id>
+      {%- unless product.has_only_default_variant -%}
+        {%- for option in product.options_with_values -%}
+          <label class="field">
+            <span class="field__label">{{ option.name | escape }}</span>
+            <select class="select" data-option-index="{{ forloop.index0 }}">
+              {%- for value in option.values -%}
+                <option value="{{ value | escape }}"{% if option.selected_value == value %} selected{% endif %}>{{ value | escape }}</option>
+              {%- endfor -%}
+            </select>
+          </label>
+        {%- endfor -%}
+      {%- endunless -%}
+      <div class="product-form__row">
+        <div class="qty" data-qty>
+          <button type="button" class="qty__btn" data-qty-change="-1" aria-label="{{ 'cart.decrease' | t }}">{% render 'icon', name: 'minus' %}</button>
+          <input class="qty__input" type="number" name="quantity" min="1" value="1" aria-label="{{ 'cart.quantity' | t }}">
+          <button type="button" class="qty__btn" data-qty-change="1" aria-label="{{ 'cart.increase' | t }}">{% render 'icon', name: 'plus' %}</button>
+        </div>
+        <button type="submit" name="add" class="btn btn--large btn--grow" data-add-button{% unless current.available %} disabled{% endunless %}>
+          {%- if current.available -%}{{ 'products.add_to_cart' | t }}{%- else -%}{{ 'products.sold_out' | t }}{%- endif -%}
+        </button>
+      </div>
+      {%- if section.settings.show_dynamic_checkout -%}{{ form | payment_button }}{%- endif -%}
+      <p class="form-error" data-form-error hidden></p>
+    {%- endform -%}
+
+    {%- if settings.trust_line_1 != blank or settings.trust_line_2 != blank or settings.trust_line_3 != blank -%}
+      <ul class="trust-lines" role="list">
+        {%- if settings.trust_line_1 != blank -%}<li>{% render 'icon', name: 'truck' %} {{ settings.trust_line_1 | escape }}</li>{%- endif -%}
+        {%- if settings.trust_line_2 != blank -%}<li>{% render 'icon', name: 'return' %} {{ settings.trust_line_2 | escape }}</li>{%- endif -%}
+        {%- if settings.trust_line_3 != blank -%}<li>{% render 'icon', name: 'lock' %} {{ settings.trust_line_3 | escape }}</li>{%- endif -%}
+      </ul>
+    {%- endif -%}
+
+    {%- if section.settings.show_description and product.description != blank -%}
+      <details class="accordion__item" open>
+        <summary>{{ 'products.description' | t }} {% render 'icon', name: 'plus' %}</summary>
+        <div class="accordion__body rte">{{ product.description }}</div>
+      </details>
+    {%- endif -%}
+  </div>
+
+  <script type="application/json" data-variants>
+    {{ product.variants | json }}
+  </script>
+</div>

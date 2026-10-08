@@ -1,0 +1,75 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "AdSpy Storefront",
+    "theme_version": "1.0.0",
+    "theme_author": "AdSpy Pro",
+    "theme_documentation_url": "https://adspy-pro-six.vercel.app/dashboard/launch",
+    "theme_support_url": "https://adspy-pro-six.vercel.app/dashboard/launch"
+  },
+  {
+    "name": "Colors",
+    "settings": [
+      { "type": "color", "id": "color_bg", "label": "Background", "default": "#ffffff" },
+      { "type": "color", "id": "color_surface", "label": "Soft background", "default": "#eef6f3" },
+      { "type": "color", "id": "color_text", "label": "Text", "default": "#11211b" },
+      { "type": "color", "id": "color_accent", "label": "Buttons and accents", "default": "#0f766e" },
+      { "type": "color", "id": "color_accent_text", "label": "Text on buttons", "default": "#ffffff" },
+      { "type": "color", "id": "color_sale", "label": "Sale badges", "default": "#c2410c" }
+    ]
+  },
+  {
+    "name": "Typography",
+    "settings": [
+      {
+        "type": "select",
+        "id": "font_pair",
+        "label": "Fonts",
+        "default": "fresh",
+        "options": [
+          { "value": "fresh", "label": "Plus Jakarta Sans" },
+          { "value": "bold", "label": "Archivo Black + Archivo" },
+          { "value": "luxe", "label": "Cormorant Garamond + Inter" },
+          { "value": "playful", "label": "Fredoka + Nunito" },
+          { "value": "nordic", "label": "Fraunces + Inter" },
+          { "value": "tech", "label": "Space Grotesk + Inter" }
+        ]
+      },
+      { "type": "checkbox", "id": "heading_uppercase", "label": "Uppercase headings", "default": false }
+    ]
+  },
+  {
+    "name": "Layout",
+    "settings": [
+      { "type": "range", "id": "page_width", "label": "Page width", "min": 1000, "max": 1600, "step": 20, "unit": "px", "default": 1240 },
+      { "type": "range", "id": "radius", "label": "Corner roundness", "min": 0, "max": 28, "step": 1, "unit": "px", "default": 14 },
+      { "type": "checkbox", "id": "button_pill", "label": "Pill-shaped buttons", "default": true }
+    ]
+  },
+  {
+    "name": "Store",
+    "settings": [
+      { "type": "text", "id": "brand_name", "label": "Store name in the header (empty: the Shopify store name)" },
+      { "type": "image_picker", "id": "favicon", "label": "Favicon" },
+      { "type": "header", "content": "Lines under the add-to-cart button" },
+      { "type": "text", "id": "trust_line_1", "label": "Shipping", "default": "Tracked shipping" },
+      { "type": "text", "id": "trust_line_2", "label": "Returns", "default": "Easy returns" },
+      { "type": "text", "id": "trust_line_3", "label": "Payment", "default": "Secure checkout" }
+    ]
+  },
+  {
+    "name": "Cart",
+    "settings": [
+      { "type": "select", "id": "cart_type", "label": "Cart", "default": "drawer", "options": [{ "value": "drawer", "label": "Slide-out drawer" }, { "value": "page", "label": "Cart page" }] },
+      { "type": "number", "id": "free_shipping_threshold", "label": "Free shipping from (store currency; 0 hides the progress bar)", "default": 0 }
+    ]
+  },
+  {
+    "name": "Social media",
+    "settings": [
+      { "type": "url", "id": "social_instagram", "label": "Instagram" },
+      { "type": "url", "id": "social_tiktok", "label": "TikTok" },
+      { "type": "url", "id": "social_facebook", "label": "Facebook" }
+    ]
+  }
+]

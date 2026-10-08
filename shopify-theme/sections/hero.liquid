@@ -1,0 +1,56 @@
+{%- liquid
+  assign p = section.settings.product
+  assign img = section.settings.image | default: p.media[1] | default: p.featured_media
+  assign link = section.settings.button_link | default: p.url | default: routes.all_products_collection_url
+-%}
+<section class="hero hero--{{ section.settings.layout }} scheme-{{ section.settings.scheme }}">
+  <div class="page-width hero__inner">
+    <div class="hero__text">
+      {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
+      <h1 class="h1">{{ section.settings.heading | escape }}</h1>
+      {%- if section.settings.text != blank -%}<p class="lead">{{ section.settings.text | escape }}</p>{%- endif -%}
+      <div class="hero__actions">
+        {%- if section.settings.button_label != blank -%}
+          <a href="{{ link }}" class="btn btn--large">{{ section.settings.button_label | escape }} {% render 'icon', name: 'arrow' %}</a>
+        {%- endif -%}
+        {%- if p != blank -%}
+          <span class="hero__price">{{ p.price | money }}</span>
+        {%- endif -%}
+      </div>
+      {%- if section.blocks.size > 0 -%}
+        <ul class="hero__points" role="list">
+          {%- for block in section.blocks -%}
+            <li {{ block.shopify_attributes }}>{% render 'icon', name: 'check' %} {{ block.settings.text | escape }}</li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+    </div>
+    <div class="hero__media">
+      {%- if img != blank -%}
+        {{ img | image_url: width: 1400 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '500, 750, 1000, 1400', sizes: '(min-width: 990px) 50vw, 100vw', alt: section.settings.heading }}
+      {%- else -%}
+        {{ 'lifestyle-1' | placeholder_svg_tag: 'placeholder' }}
+      {%- endif -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "max_blocks": 4,
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Small text above the heading" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Made for everyday life" },
+    { "type": "textarea", "id": "text", "label": "Text" },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Shop now" },
+    { "type": "url", "id": "button_link", "label": "Button link (empty: the product)" },
+    { "type": "product", "id": "product", "label": "Product (image, price and link)" },
+    { "type": "image_picker", "id": "image", "label": "Image (overrides the product image)" },
+    { "type": "select", "id": "layout", "label": "Layout", "default": "split", "options": [{ "value": "split", "label": "Text beside image" }, { "value": "center", "label": "Centered" }] },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "surface", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "blocks": [{ "type": "point", "name": "Point", "settings": [{ "type": "text", "id": "text", "label": "Text", "default": "Ships fast" }] }],
+  "presets": [{ "name": "Hero" }]
+}
+{% endschema %}

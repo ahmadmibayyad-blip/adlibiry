@@ -1,0 +1,117 @@
+{
+  "general": {
+    "page": "Side {{ page }}",
+    "error": "Noe gikk galt. Prøv igjen.",
+    "close": "Lukk",
+    "menu": "Meny",
+    "search": "Søk",
+    "search_placeholder": "Søk etter produkter",
+    "help": "Hjelp",
+    "policies": "Retningslinjer",
+    "pagination": "Sider",
+    "results": "{{ count }} resultater for «{{ terms }}»",
+    "not_found": "Denne siden finnes ikke"
+  },
+  "accessibility": {
+    "skip_to_content": "Gå til innhold"
+  },
+  "products": {
+    "added": "Lagt i handlekurven",
+    "sold_out": "Utsolgt",
+    "add_to_cart": "Legg i handlekurv",
+    "unavailable": "Ikke tilgjengelig",
+    "save": "Spar",
+    "sale": "Salg",
+    "view_image": "Vis bilde {{ number }}",
+    "description": "Beskrivelse",
+    "faq": "Spørsmål og svar",
+    "choose_product": "Velg et produkt for denne seksjonen i temaredigeringen."
+  },
+  "cart": {
+    "title": "Handlekurven din",
+    "decrease": "Reduser antall",
+    "increase": "Øk antall",
+    "quantity": "Antall",
+    "remove": "Fjern",
+    "subtotal": "Delsum",
+    "taxes_shipping": "Avgifter og frakt beregnes i kassen.",
+    "checkout": "Gå til kassen",
+    "view_cart": "Se handlekurv",
+    "empty": "Handlekurven din er tom.",
+    "continue": "Fortsett å handle",
+    "note": "Ordremerknad",
+    "free_shipping_remaining": "Du er {{ amount }} unna gratis frakt",
+    "free_shipping_unlocked": "Du har fått gratis frakt"
+  },
+  "collections": {
+    "view_all": "Se alle",
+    "empty": "Ingen produkter her ennå.",
+    "sort_by": "Sorter etter",
+    "all_collections": "Kolleksjoner"
+  },
+  "newsletter": {
+    "success": "Takk for at du meldte deg på!",
+    "email": "Din e-post",
+    "subscribe": "Meld meg på"
+  },
+  "contact": {
+    "success": "Takk! Vi tar kontakt så snart vi kan.",
+    "name": "Navn",
+    "email": "E-post",
+    "order": "Ordrenummer (valgfritt)",
+    "message": "Melding",
+    "send": "Send"
+  },
+  "password": {
+    "opening_soon": "Åpner snart",
+    "notify": "Varsle meg",
+    "owner": "Butikkeier? Skriv inn passordet",
+    "password": "Passord",
+    "enter": "Fortsett"
+  },
+  "customer": {
+    "account": "Konto",
+    "login": "Logg inn",
+    "forgot": "Glemt passordet?",
+    "sign_in": "Logg inn",
+    "create": "Opprett konto",
+    "reset": "Tilbakestill passordet ditt",
+    "reset_sent": "Vi har sendt deg en e-post med en lenke for å tilbakestille passordet ditt.",
+    "send": "Send",
+    "guest": "Fortsett som gjest",
+    "first_name": "Fornavn",
+    "last_name": "Etternavn",
+    "log_out": "Logg ut",
+    "orders": "Bestillinger",
+    "order": "Bestilling",
+    "date": "Dato",
+    "status": "Status",
+    "total": "Totalt",
+    "no_orders": "Du har ikke lagt inn noen bestillinger ennå.",
+    "details": "Dine opplysninger",
+    "addresses": "Adresser",
+    "product": "Produkt",
+    "billing": "Fakturaadresse",
+    "shipping": "Leveringsadresse",
+    "default": "Standard",
+    "add_address": "Legg til adresse",
+    "address1": "Adresse",
+    "address2": "Leilighet, etasje osv.",
+    "zip": "Postnummer",
+    "city": "Sted",
+    "country": "Land",
+    "phone": "Telefon",
+    "set_default": "Bruk som standardadresse",
+    "save": "Lagre",
+    "activate": "Aktiver kontoen din",
+    "confirm_password": "Bekreft passord"
+  },
+  "gift_card": {
+    "title": "Gavekortet ditt",
+    "code": "Kode",
+    "balance": "Saldo",
+    "expired": "Dette gavekortet er utløpt",
+    "copy": "Kopier kode",
+    "shop": "Begynn å handle"
+  }
+}

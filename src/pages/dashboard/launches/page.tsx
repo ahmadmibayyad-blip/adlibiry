@@ -85,12 +85,19 @@ export default function LaunchesPage() {
                   {(l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "Product"}
                 </Link>
                 <div className="text-xs text-muted-foreground">
+                  {l.mode === "store" ? `Full store${l.brandName ? ` “${l.brandName}”` : ""} · ` : ""}
                   {STATUS[l.status] ?? l.status}
-                  {l.status === "published" ? (l.publish === "DRAFT" ? " (draft)" : " (live)") : ""} · {l.shopDomain} · {new Date(l.createdAt).toLocaleDateString()}
+                  {l.status === "published" ? (l.mode === "store" ? (l.themeLive ? " (live theme)" : " (theme not live yet)") : l.publish === "DRAFT" ? " (draft)" : " (live)") : ""} · {l.shopDomain} · {new Date(l.createdAt).toLocaleDateString()}
                   {l.price ? ` · ${l.price.toFixed(2)}` : ""}
                 </div>
                 {l.status === "failed" && l.error && <div className="text-xs text-bad mt-0.5">{l.error}</div>}
               </div>
+              {l.themePreviewUrl && (
+                <a href={l.themePreviewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Preview store
+                </a>
+              )}
               {l.adminUrl && (
                 <a href={l.adminUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
                   <ExternalLink className="w-3.5 h-3.5" />
