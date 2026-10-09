@@ -216,7 +216,7 @@ export default function ProductDetail() {
           <SourceAgreement product={product} />
 
           {/* AI Score */}
-          <div className="bg-card border border-border rounded-xl p-4">
+          <div id="demand" className="bg-card border border-border rounded-xl p-4 scroll-mt-20">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl bg-foreground flex flex-col items-center justify-center shrink-0">
                 <span className="font-display text-2xl font-bold leading-none text-background">{product.aiScore}</span>
@@ -313,7 +313,9 @@ export default function ProductDetail() {
             </div>
           ) : null}
 
-          <SuppliersSection product={product} />
+          <div id="suppliers" className="scroll-mt-20 empty:hidden">
+            <SuppliersSection product={product} />
+          </div>
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
@@ -363,18 +365,25 @@ export default function ProductDetail() {
           </div>
 
           {/* Profit calculator */}
-          <ProfitCalculator basePrice={product.price ?? 0} baseCost={product.cost ?? 0} />
+          <div id="profit-calculator" className="scroll-mt-20">
+            <ProfitCalculator basePrice={product.price ?? 0} baseCost={product.cost ?? 0} />
+          </div>
 
           {/* AI Intelligence tools */}
           <div className="space-y-4">
             <h3 className="font-display text-lg font-bold">AI tools</h3>
-            <ResearchVerdictCard productId={product._id} />
+            <ResearchVerdictCard
+              productId={product._id}
+              hasSuppliers={(product.supplierMatches?.length ?? 0) + (product.wholesaleMatches?.length ?? 0) > 0}
+            />
             <AIAdAnglesCard
               title={product.title}
               description={product.description}
               category={product.category}
             />
-            <AICompetitorFinderCard productTitle={product.title} category={product.category} />
+            <div id="competitors" className="scroll-mt-20">
+              <AICompetitorFinderCard productTitle={product.title} category={product.category} />
+            </div>
             <CountrySaturationCard productTitle={product.title} niche={product.category} />
           </div>
         </motion.div>

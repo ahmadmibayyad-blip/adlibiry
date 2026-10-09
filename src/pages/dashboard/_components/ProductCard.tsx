@@ -10,6 +10,7 @@ import { Authenticated } from "convex/react";
 import { revenueEstimate } from "@/lib/estimateFormat.ts";
 import ProductImage from "@/components/ProductImage.tsx";
 import { price } from "@/lib/money.ts";
+import ResearchCallBadge from "./ai/ResearchCallBadge.tsx";
 
 type Product = Doc<"products">;
 
@@ -97,6 +98,9 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
             <span className="text-sm font-bold leading-none tabular-nums">{product.aiScore}</span>
           </div>
           {isNewToday && <div className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-brand text-[#15171c]">New</div>}
+          <Authenticated>
+            <ResearchCallBadge productId={product._id} className="px-2 py-0.5 text-[10px] bg-background/90 shadow-sm" />
+          </Authenticated>
         </div>
         <div className="absolute top-2 right-2">
           <Authenticated>

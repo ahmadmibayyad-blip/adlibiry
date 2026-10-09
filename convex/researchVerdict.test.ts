@@ -74,4 +74,27 @@ describe("AI research verdict", () => {
     await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" }));
     expect(await t.withIdentity({ subject: "u2|s" }).query(api.researchReports.latest, { productId })).toBeNull(); // someone else's report stays theirs
   });
+
+  it("lists the user's latest verdict per product, for the badges in product lists", async () => {
+    const t = convexTest(schema, modules);
+    const [a, b] = await t.run(async (ctx) => {
+      const me = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+      const other = await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" });
+      const product = (title: string) => ctx.db.insert("products", {
+        title, description: "", imageUrl: "", category: "Pet Supplies", tags: [], aiScore: 70, saturation: "Medium", trend: "Rising",
+        supplierUrl: "", adExamples: [], isWinnerOfDay: false, publishedAt: "2026-10-01T00:00:00Z",
+      });
+      const a = await product("A");
+      const b = await product("B");
+      const report = (userId: typeof me, productId: typeof a, call: string, createdAt: string) =>
+        ctx.db.insert("researchReports", { userId, productId, report: { call }, margin: null, createdAt });
+      await report(me, a, "research", "2026-10-01T00:00:00Z");
+      await report(me, a, "test", "2026-10-05T00:00:00Z");
+      await report(other, b, "skip", "2026-10-05T00:00:00Z");
+      return [a, b];
+    });
+    expect(await t.query(api.researchReports.myCalls, {})).toEqual([]);
+    expect(await t.withIdentity({ subject: "u1|s" }).query(api.researchReports.myCalls, {})).toEqual([{ productId: a, call: "test" }]);
+    expect(await t.withIdentity({ subject: "u2|s" }).query(api.researchReports.myCalls, {})).toEqual([{ productId: b, call: "skip" }]);
+  });
 });

@@ -29,6 +29,25 @@ const LABEL: Record<EvidenceLabel, { text: string; style: string }> = {
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
 
+// Where on the product page each next step can be started (ids set in products/[id].tsx).
+const NEXT_STEP: Partial<Record<ResearchReport["nextTask"], { target: string; label: string; needsSuppliers?: boolean }>> = {
+  "product review analysis": { target: "suppliers", label: "Open the supplier listings", needsSuppliers: true },
+  "supplier vetting": { target: "suppliers", label: "Compare the suppliers", needsSuppliers: true },
+  "competitor analysis": { target: "competitors", label: "Find competitors" },
+  "pricing and margin analysis": { target: "profit-calculator", label: "Check your own numbers" },
+  "product validation": { target: "demand", label: "See the demand signals" },
+};
+
+/** Scrolls to a section of the product page and briefly outlines it. */
+function goTo(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  el.classList.add("ring-2", "ring-primary", "rounded-xl");
+  window.setTimeout(() => el.classList.remove("ring-2", "ring-primary", "rounded-xl"), 1800);
+}
+
 function Section({ icon: Icon, title, children }: { icon: typeof Lightbulb; title: string; children: React.ReactNode }) {
   return (
     <div>
@@ -41,13 +60,15 @@ function Section({ icon: Icon, title, children }: { icon: typeof Lightbulb; titl
   );
 }
 
-export default function ResearchVerdictCard({ productId }: { productId: Id<"products"> }) {
+export default function ResearchVerdictCard({ productId, hasSuppliers }: { productId: Id<"products">; hasSuppliers: boolean }) {
   const saved = useQuery(api.researchReports.latest, { productId });
   const research = useAction(api.ai.researchProduct);
   const [busy, setBusy] = useState(false);
   const report = saved?.report as ResearchReport | undefined;
   const margin = saved?.margin as Margin | null | undefined;
   const reviews = saved?.reviews as ReviewSample | undefined;
+  const step = report ? NEXT_STEP[report.nextTask] : undefined;
+  const stepLink = step && (!step.needsSuppliers || hasSuppliers) ? step : undefined;
 
   const run = async () => {
     setBusy(true);
@@ -162,6 +183,12 @@ export default function ResearchVerdictCard({ productId }: { productId: Id<"prod
                 <ArrowRight className="w-3.5 h-3.5" /> Next step: {report.nextTask.charAt(0).toUpperCase() + report.nextTask.slice(1)}
               </div>
               {report.nextTaskWhy}
+              {stepLink && (
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => goTo(stepLink.target)}>
+                  {stepLink.label}
+                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </Button>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-2 flex-wrap">

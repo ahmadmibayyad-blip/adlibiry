@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { stableToken } from "./lib/authIdentity";
-import { marginMath, type ResearchEvidence } from "./lib/researchReport";
+import { marginMath, type ResearchCall, type ResearchEvidence } from "./lib/researchReport";
+import type { Id } from "./_generated/dataModel";
 import { countAngles, verdict } from "./lib/verdict";
 
 // Saved AI research verdicts (ai.ts researchProduct), one per user and product,
@@ -82,5 +83,23 @@ export const save = internalMutation({
   args: { userId: v.id("users"), productId: v.id("products"), report: v.any(), margin: v.any(), reviews: v.optional(v.any()) },
   handler: async (ctx, args) => {
     await ctx.db.insert("researchReports", { ...args, createdAt: new Date().toISOString() });
+  },
+});
+
+/** The latest research call per product for the signed-in user, for the badges in product lists. */
+export const myCalls = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique();
+    if (!user) return [];
+    const rows = await ctx.db.query("researchReports").withIndex("by_user_product", (q) => q.eq("userId", user._id)).take(2000);
+    const latest = new Map<string, { productId: Id<"products">; call: ResearchCall; at: string }>();
+    for (const r of rows) {
+      const prev = latest.get(r.productId);
+      if (!prev || r.createdAt > prev.at) latest.set(r.productId, { productId: r.productId, call: (r.report as { call: ResearchCall }).call, at: r.createdAt });
+    }
+    return [...latest.values()].map(({ productId, call }) => ({ productId, call }));
   },
 });
