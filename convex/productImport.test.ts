@@ -85,7 +85,7 @@ describe("Launch from a link", () => {
     expect(r).toMatchObject({ title: "New Pet Dog Brush Cat Comb", imageUrl: "https://ae/1.jpg" });
     expect(apifyBody).toMatchObject({ productUrls: ["https://www.aliexpress.com/item/1005012573349832.html"], maxResults: 1 });
     const saved = await t.run((ctx) => ctx.db.get("importedProducts", r.productId));
-    expect(saved).toMatchObject({ source: "aliexpress", cost: 1.09, images: ["https://ae/2.jpg"] });
+    expect(saved).toMatchObject({ source: "aliexpress", cost: 4.09, images: ["https://ae/2.jpg"] }); // $1.09 + $3 shipping estimate
   });
 
   it("explains links it can't use", async () => {
