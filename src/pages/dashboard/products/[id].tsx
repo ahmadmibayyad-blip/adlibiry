@@ -14,10 +14,7 @@ import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
 import { Authenticated } from "convex/react";
 import ProfitCalculator from "../_components/ProfitCalculator.tsx";
-import ResearchVerdictCard from "../_components/ai/ResearchVerdictCard.tsx";
-import AIAdAnglesCard from "../_components/ai/AIAdAnglesCard.tsx";
-import AICompetitorFinderCard from "../_components/ai/AICompetitorFinderCard.tsx";
-import CountrySaturationCard from "../_components/ai/CountrySaturationCard.tsx";
+import { AIToolsGrid } from "../_components/ProductTools.tsx";
 import ProductPerformance, { ProductHeadline } from "./_components/ProductPerformance.tsx";
 import AddToShopify from "./_components/AddToShopify.tsx";
 import LaunchDialog from "./_components/LaunchDialog.tsx";
@@ -372,22 +369,7 @@ export default function ProductDetail() {
 
       {/* AI tools, two side by side */}
       <div className="mt-8">
-        <h3 className="font-display text-lg font-bold mb-4">AI tools</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <ResearchVerdictCard
-            productId={product._id}
-            hasSuppliers={(product.supplierMatches?.length ?? 0) + (product.wholesaleMatches?.length ?? 0) > 0}
-          />
-          <AIAdAnglesCard
-            title={product.title}
-            description={product.description}
-            category={product.category}
-          />
-          <div id="competitors" className="scroll-mt-20">
-            <AICompetitorFinderCard productTitle={product.title} category={product.category} />
-          </div>
-          <CountrySaturationCard productTitle={product.title} niche={product.category} />
-        </div>
+        <AIToolsGrid product={product} subject={product} />
       </div>
 
       <ProductPerformance product={product} />
