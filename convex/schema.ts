@@ -128,6 +128,7 @@ export default defineSchema({
     costSource: v.optional(v.string()),   // "aliexpress" = landed cost from the AliExpress Affiliate API (convex/aliexpress.ts)
     costUrl: v.optional(v.string()),      // the matched supplier listing
     costCheckedAt: v.optional(v.string()), // last AliExpress supplier search
+    supplierLookupAt: v.optional(v.string()), // last on-demand supplier search when the product page opened (convex/aliexpress.ts findSuppliers)
     // Top 3 AliExpress suppliers by title match (convex/aliexpress.ts); url is the affiliate link when set up.
     supplierMatches: v.optional(v.array(v.object({
       title: v.string(),
@@ -722,6 +723,12 @@ export default defineSchema({
   // Follow alerts: advertisers a user follows (convex/follows.ts).
   // All free accounts' AI requests per day (convex/assistantUsage.ts claimMessage).
   aiFreeUsage: defineTable({
+    day: v.string(), // YYYY-MM-DD (UTC)
+    count: v.number(),
+  }).index("by_day", ["day"]),
+
+  // On-demand AliExpress supplier searches per day, all users (convex/aliexpress.ts findSuppliers): a cost ceiling.
+  supplierLookupUsage: defineTable({
     day: v.string(), // YYYY-MM-DD (UTC)
     count: v.number(),
   }).index("by_day", ["day"]),

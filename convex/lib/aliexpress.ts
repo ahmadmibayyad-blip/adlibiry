@@ -75,3 +75,19 @@ export function productsFromResponse(body: unknown): AliProduct[] {
     ?.aliexpress_affiliate_product_query_response?.resp_result?.result?.products?.product;
   return Array.isArray(r) ? r : [];
 }
+
+/**
+ * Search results from the Apify AliExpress reader (zen-studio/aliexpress-scraper, keyword search without
+ * details) in the Affiliate API's shape, for topMatches. Its rating is stars, not % positive, so it's left out.
+ */
+export function fromApifySearch(items: unknown): AliProduct[] {
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((x) => {
+    const i = x as { title?: unknown; price?: unknown; url?: unknown; productId?: unknown; image?: unknown; gallery?: unknown; currency?: unknown };
+    const price = Number(i.price);
+    const url = typeof i.url === "string" && i.url ? i.url : i.productId ? `https://www.aliexpress.com/item/${String(i.productId)}.html` : "";
+    if (typeof i.title !== "string" || !(price > 0) || !url || (i.currency && i.currency !== "USD")) return [];
+    const image = typeof i.image === "string" && i.image ? i.image : Array.isArray(i.gallery) && typeof i.gallery[0] === "string" ? i.gallery[0] : undefined;
+    return [{ product_title: i.title, target_sale_price: String(price), product_detail_url: url, ...(image ? { product_main_image_url: image } : {}) }];
+  });
+}
