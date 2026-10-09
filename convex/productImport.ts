@@ -143,8 +143,12 @@ export const save = internalMutation({
   handler: async (ctx, args): Promise<Id<"importedProducts"> | null> => {
     const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
     if (!user) return null;
+    // The supplier's price plus the same shipping estimate catalog costs get (aliexpress.ts), so the margin is real.
+    const shipping = Number(process.env.ALIEXPRESS_SHIPPING_USD ?? 3) || 0;
+    const { cost, ...product } = args.product;
     const row = {
-      ...args.product,
+      ...product,
+      ...(cost !== undefined ? { cost: Math.round((cost + shipping) * 100) / 100 } : {}),
       category: classifyNiche({ title: args.product.title, body: args.product.description, url: args.url }, "Other"),
       createdAt: new Date().toISOString(),
     };
