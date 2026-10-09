@@ -4,24 +4,29 @@ import { useQuery } from "convex/react";
 import { BookOpen, BookText, Calculator, CheckCircle2, Search } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Input } from "@/components/ui/input.tsx";
-import { STAGES, allGuides, knowledge, matches, topics, type Stage } from "@/lib/knowledge.ts";
+import { STAGES, matches, type Stage } from "@/lib/knowledge.ts";
+import { useKnowledge } from "@/hooks/use-knowledge.ts";
 import { TOPIC_ICONS } from "@/lib/knowledgeIcons.ts";
 import { cn } from "@/lib/utils.ts";
+import KnowledgeLoading from "./_components/KnowledgeLoading.tsx";
 import LevelTag from "./_components/LevelTag.tsx";
 
 // Knowledge hub: the 12 topics by stage, a search across every guide, the
 // user's read progress, and the calculator and glossary.
 
 export default function KnowledgeHub() {
+  const k = useKnowledge();
   const reads = useQuery(api.knowledge.myReads);
   const read = useMemo(() => new Set(reads ?? []), [reads]);
   const [q, setQ] = useState("");
   const [stage, setStage] = useState<Stage | "All">("All");
+  if (!k) return <KnowledgeLoading />;
+  const { topics, allGuides } = k;
   const total = allGuides.length;
   const done = allGuides.filter((g) => read.has(g.id)).length;
   const shown = topics.filter((t) => stage === "All" || t.stage === stage);
   const results = q.trim() ? allGuides.filter((g) => (stage === "All" || g.topic.stage === stage) && matches(g, q)) : null;
-  const reviewed = new Date(`${knowledge.reviewed}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  const reviewed = new Date(`${k.reviewed}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
   return (
     <div className="p-5 lg:p-8 max-w-7xl mx-auto">
@@ -43,7 +48,7 @@ export default function KnowledgeHub() {
             </span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}>
-            <div className="h-full bg-primary rounded-full transition-[width] duration-500" style={{ width: `${(done / total) * 100}%` }} />
+            <div className="h-full bg-primary rounded-full transition-[width] duration-500" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -58,7 +63,7 @@ export default function KnowledgeHub() {
             <BookText className="w-5 h-5 text-primary shrink-0" />
             <span className="min-w-0">
               <span className="block text-sm font-semibold">Glossary</span>
-              <span className="block text-xs text-muted-foreground">{knowledge.glossary.length} terms explained</span>
+              <span className="block text-xs text-muted-foreground">{k.glossary.length} terms explained</span>
             </span>
           </Link>
         </div>

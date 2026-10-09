@@ -2,11 +2,15 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, BookText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input.tsx";
-import { glossary } from "@/lib/knowledge.ts";
+import { useKnowledge } from "@/hooks/use-knowledge.ts";
+import KnowledgeLoading from "./_components/KnowledgeLoading.tsx";
 
 // The Knowledge glossary: the terms the guides use, A to Z, searchable.
 export default function KnowledgeGlossary() {
   const [q, setQ] = useState("");
+  const k = useKnowledge();
+  if (!k) return <KnowledgeLoading />;
+  const glossary = k.glossary;
   const needle = q.trim().toLowerCase();
   const shown = needle ? glossary.filter(([term, def]) => `${term} ${def}`.toLowerCase().includes(needle)) : glossary;
 

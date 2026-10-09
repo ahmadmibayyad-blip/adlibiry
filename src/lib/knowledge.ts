@@ -1,29 +1,39 @@
 import data from "@/data/knowledge.json";
+import { STAGES, type KContent, type KGuide, type KTopic } from "@/convex/lib/knowledge.ts";
 
-// The Knowledge section's content (src/data/knowledge.json: 12 topics, 33
-// guides, a glossary), and the pure parts of its pages: search, next guide and
-// the break-even calculator. Read progress is per user in Convex (convex/knowledge.ts).
+// The Knowledge section's content and the pure parts of its pages: search,
+// next guide and the break-even calculator. The built-in content is
+// src/data/knowledge.json (12 topics, 33 guides, a glossary); once an admin
+// saves edits (Admin → Knowledge) the saved copy in Convex is used instead,
+// through useKnowledge(). Read progress is per user (convex/knowledge.ts).
 
-export type Level = "Beginner" | "Intermediate" | "Advanced";
-export type Guide = {
-  id: string;
-  title: string;
-  level: Level;
-  mins: number;
-  summary: string;
-  points: string[];
-  mistakes: string[];
-  tip: string;
-  sources: { t: string; u: string }[];
-};
-export type Topic = { id: string; name: string; icon: string; stage: Stage; blurb: string; guides: Guide[] };
-export const STAGES = ["Foundations", "Find", "Build", "Sell", "Grow"] as const;
+export { STAGES };
 export type Stage = (typeof STAGES)[number];
+export type Level = KGuide["level"];
+export type Guide = KGuide;
+export type Topic = KTopic;
+export type Content = KContent;
 
-export const knowledge = data as { version: string; reviewed: string; topics: Topic[]; glossary: [string, string][] };
-export const topics = knowledge.topics;
-export const allGuides = topics.flatMap((t) => t.guides.map((g) => ({ ...g, topic: t })));
-export const glossary = [...knowledge.glossary].sort((a, b) => a[0].localeCompare(b[0], "en", { sensitivity: "base" }));
+/** The guides that ship with the app. */
+export const BUILT_IN: Content = data as Content;
+
+export type Knowledge = ReturnType<typeof buildKnowledge>;
+
+/** Everything the pages need from one copy of the content. */
+export function buildKnowledge(c: Content) {
+  const topics = c.topics;
+  const allGuides = topics.flatMap((t) => t.guides.map((g) => ({ ...g, topic: t })));
+  const glossary = c.glossary
+    .filter((p): p is [string, string] => p.length === 2)
+    .sort((a, b) => a[0].localeCompare(b[0], "en", { sensitivity: "base" }));
+  /** The guide after this one: the next in its topic, else the first of the next topic; null after the last. */
+  const nextGuide = (topicId: string, guideId: string): { topic: Topic; guide: Guide } | null => {
+    const i = allGuides.findIndex((g) => g.topic.id === topicId && g.id === guideId);
+    const next = i >= 0 ? allGuides[i + 1] : undefined;
+    return next ? { topic: next.topic, guide: next } : null;
+  };
+  return { reviewed: c.reviewed, topics, allGuides, glossary, nextGuide };
+}
 
 /** Whether a guide matches a search: every word appears in its title, summary, steps or tip. */
 export function matches(g: Guide, query: string): boolean {
@@ -31,13 +41,6 @@ export function matches(g: Guide, query: string): boolean {
   if (!words.length) return true;
   const text = [g.title, g.summary, ...g.points, g.tip].join(" ").toLowerCase();
   return words.every((w) => text.includes(w));
-}
-
-/** The guide after this one: the next in its topic, else the first of the next topic; null after the last. */
-export function nextGuide(topicId: string, guideId: string): { topic: Topic; guide: Guide } | null {
-  const i = allGuides.findIndex((g) => g.topic.id === topicId && g.id === guideId);
-  const next = i >= 0 ? allGuides[i + 1] : undefined;
-  return next ? { topic: next.topic, guide: next } : null;
 }
 
 export type CalcInput = {
