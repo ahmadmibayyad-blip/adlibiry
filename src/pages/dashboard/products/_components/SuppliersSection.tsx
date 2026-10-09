@@ -1,19 +1,39 @@
-import { useMutation } from "convex/react";
-import { Copy, ExternalLink, Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useAction, useConvexAuth, useMutation } from "convex/react";
+import { Copy, ExternalLink, Search, Star } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import ProductImage from "@/components/ProductImage.tsx";
 import { price } from "@/lib/money.ts";
+import { Spinner } from "@/components/ui/spinner.tsx";
 
 // Top AliExpress suppliers for the product (convex/aliexpress.ts), matched by
 // title, and 1688 wholesale offers matched by image (convex/fusion.ts, via
-// Nexscope). Hidden until a search has found some.
+// Nexscope). A product without AliExpress suppliers gets searched when its
+// page opens (aliexpress.findSuppliers); the matches then appear here.
 export default function SuppliersSection({ product }: { product: Doc<"products"> }) {
   const track = useMutation(api.events.track);
+  const findSuppliers = useAction(api.aliexpress.findSuppliers);
+  const { isAuthenticated } = useConvexAuth();
   const matches = product.supplierMatches ?? [];
   const wholesale = product.wholesaleMatches ?? [];
-  if (!matches.length && !wholesale.length) return null;
+  const [lookup, setLookup] = useState<"idle" | "searching" | "none" | "unavailable">("idle");
+  const started = useRef<string | null>(null);
+  const needsLookup = isAuthenticated && !product.isService && matches.length === 0;
+
+  useEffect(() => {
+    if (!needsLookup || started.current === product._id) return;
+    started.current = product._id;
+    setLookup("searching");
+    findSuppliers({ productId: product._id })
+      // Searched now or recently with no match → "none"; not searched (limit, failure, not set up) → "unavailable".
+      .then((r) => setLookup("found" in r || r.skipped === "searched recently" ? "none" : "unavailable"))
+      .catch(() => setLookup("unavailable"));
+  }, [needsLookup, product._id, findSuppliers]);
+
+  if (product.isService || (!matches.length && !wholesale.length && lookup === "idle")) return null;
+  const searchUrl = `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`;
   const opened = () => track({ type: "supplier_click", productId: product._id }).catch(() => {});
   return (
     <div className="bg-card border border-border rounded-xl p-4">
@@ -21,6 +41,19 @@ export default function SuppliersSection({ product }: { product: Doc<"products">
       {matches.length > 0 && (
         <p className="text-xs text-muted-foreground mb-3">
           AliExpress listings that match this product by title. Check photos and shipping times on the listing before you order.
+        </p>
+      )}
+      {!matches.length && lookup === "searching" && (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+          <Spinner className="w-3.5 h-3.5" /> Looking for this product on AliExpress… (up to a minute)
+        </p>
+      )}
+      {!matches.length && (lookup === "none" || lookup === "unavailable") && (
+        <p className="text-xs text-muted-foreground py-1">
+          {lookup === "none" ? "No close AliExpress match found by title." : "We couldn't search AliExpress for it right now."}{" "}
+          <a href={searchUrl} target="_blank" rel="noopener noreferrer" onClick={opened} className="inline-flex items-center gap-1 text-primary hover:underline">
+            <Search className="w-3 h-3" aria-hidden="true" /> Search AliExpress yourself
+          </a>
         </p>
       )}
       <ul className="divide-y divide-border">
