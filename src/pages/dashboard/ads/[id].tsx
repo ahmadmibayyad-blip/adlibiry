@@ -13,6 +13,7 @@ import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
+import ProductTools from "../_components/ProductTools.tsx";
 import AdMedia from "../_components/AdMedia.tsx";
 import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
 import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
@@ -233,11 +234,23 @@ export default function AdDetailPage() {
         </div>
       </div>
 
+      <AdTools ad={ad} />
+
       <MoreFromAdvertiser name={ad.advertiserName} adId={ad._id} />
 
       <AdDetailModal ad={ad} open={details} onOpenChange={setDetails} />
     </div>
   );
+}
+
+/** The product page's tools for the product in this ad, or for the ad's own text when it isn't linked to a product. */
+function AdTools({ ad }: { ad: Ad }) {
+  const product = useQuery(api.products.getById, ad.productId ? { id: ad.productId } : "skip");
+  if (ad.productId && product === undefined) return null;
+  const subject = product
+    ? product
+    : { title: ad.headline || ad.bodyText.slice(0, 120), description: ad.bodyText, category: ad.niche };
+  return <ProductTools product={product ?? undefined} subject={subject} />;
 }
 
 function MoreFromAdvertiser({ name, adId }: { name: string; adId: Id<"ads"> }) {
