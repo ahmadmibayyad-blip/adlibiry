@@ -112,6 +112,7 @@ import type * as publicApi from "../publicApi.js";
 import type * as pushIdentities from "../pushIdentities.js";
 import type * as pushNotifications from "../pushNotifications.js";
 import type * as research from "../research.js";
+import type * as researchReports from "../researchReports.js";
 import type * as revenueTruth from "../revenueTruth.js";
 import type * as saturation_analyze from "../saturation/analyze.js";
 import type * as saturation_compare from "../saturation/compare.js";
@@ -244,6 +245,7 @@ declare const fullApi: ApiFromModules<{
   pushIdentities: typeof pushIdentities;
   pushNotifications: typeof pushNotifications;
   research: typeof research;
+  researchReports: typeof researchReports;
   revenueTruth: typeof revenueTruth;
   "saturation/analyze": typeof saturation_analyze;
   "saturation/compare": typeof saturation_compare;

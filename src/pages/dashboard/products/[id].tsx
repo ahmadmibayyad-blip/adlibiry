@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
 import { Authenticated } from "convex/react";
 import ProfitCalculator from "../_components/ProfitCalculator.tsx";
-import AIProductScoreCard from "../_components/ai/AIProductScoreCard.tsx";
+import ResearchVerdictCard from "../_components/ai/ResearchVerdictCard.tsx";
 import AIAdAnglesCard from "../_components/ai/AIAdAnglesCard.tsx";
 import AICompetitorFinderCard from "../_components/ai/AICompetitorFinderCard.tsx";
 import CountrySaturationCard from "../_components/ai/CountrySaturationCard.tsx";
@@ -368,13 +368,7 @@ export default function ProductDetail() {
           {/* AI Intelligence tools */}
           <div className="space-y-4">
             <h3 className="font-display text-lg font-bold">AI tools</h3>
-            <AIProductScoreCard
-              title={product.title}
-              description={product.description}
-              price={product.price}
-              cost={product.cost}
-              category={product.category}
-            />
+            <ResearchVerdictCard productId={product._id} />
             <AIAdAnglesCard
               title={product.title}
               description={product.description}

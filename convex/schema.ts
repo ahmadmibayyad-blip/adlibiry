@@ -677,6 +677,16 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_url", ["userId", "url"]),
 
+  // AI research verdicts (ai.ts researchProduct): the report, the margin maths and the review sample it used.
+  researchReports: defineTable({
+    userId: v.id("users"),
+    productId: v.id("products"),
+    report: v.any(),                  // lib/researchReport.ts ResearchReport
+    margin: v.any(),                  // lib/researchReport.ts Margin | null
+    reviews: v.optional(v.any()),     // lib/researchReport.ts ReviewSample
+    createdAt: v.string(),
+  }).index("by_user_product", ["userId", "productId"]),
+
   // Published launches per user per month (the plan quota).
   launchUsage: defineTable({ userId: v.id("users"), month: v.string(), count: v.number() })
     .index("by_user_month", ["userId", "month"]),
