@@ -2,7 +2,7 @@ import { ConvexError, v, type ObjectType } from "convex/values";
 import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { limitedPage, requireSignedIn } from "./lib/access";
 import type { Expression, FilterBuilder, NamedTableInfo } from "convex/server";
-import type { DataModel } from "./_generated/dataModel";
+import type { DataModel, Doc } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
@@ -138,6 +138,28 @@ export const tiktokShop = query({
       const q = ctx.db.query("products").withIndex("by_source_units", (i) => i.eq("source", "tiktok_shop")).order("desc");
       // The user's niches: a cheap check on each row of an index-ordered page.
       return (args.niches?.length ? q.filter((f) => f.or(...args.niches!.map((n) => f.eq(f.field("category"), n)))) : q).paginate(paginationOpts);
+    });
+  },
+});
+
+// TikTok Shop page, "From TikTok ads": the products behind TikTok ads (newest
+// ads first), so everything from TikTok is in one place. A product with several
+// TikTok ads appears once per page; the page drops repeats across pages.
+export const tiktokAdvertised = query({
+  args: { paginationOpts: paginationOptsValidator, niches: v.optional(v.array(v.string())) },
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    return await limitedPage(ctx, args.paginationOpts, async (paginationOpts) => {
+      const ads = await ctx.db.query("ads").withIndex("by_platform", (q) => q.eq("platform", "TikTok")).order("desc").paginate(paginationOpts);
+      const seen = new Set<string>();
+      const page: Doc<"products">[] = [];
+      for (const ad of ads.page) {
+        if (!ad.productId || seen.has(ad.productId)) continue;
+        seen.add(ad.productId);
+        const p = await ctx.db.get("products", ad.productId);
+        if (p && !p.isService && (!args.niches?.length || args.niches.includes(p.category))) page.push(p);
+      }
+      return { ...ads, page };
     });
   },
 });
