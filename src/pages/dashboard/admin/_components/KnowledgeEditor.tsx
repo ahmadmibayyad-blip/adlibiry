@@ -594,7 +594,7 @@ function GlossaryForm({ glossary, onChange }: { glossary: string[][]; onChange: 
         <p className="text-xs text-muted-foreground">Shown A to Z on the glossary page, whatever the order here.</p>
       </div>
       {glossary.map(([term, def], i) => (
-        <div key={i} className="flex flex-col sm:flex-row gap-2">
+        <div key={i} className="flex flex-col sm:flex-row sm:items-start gap-2">
           <Input
             placeholder="Term"
             aria-label={`Term ${i + 1}`}
@@ -602,12 +602,15 @@ function GlossaryForm({ glossary, onChange }: { glossary: string[][]; onChange: 
             onChange={(e) => onChange(glossary.map((p, j) => (j === i ? [e.target.value, p[1] ?? ""] : p)))}
             className="sm:w-48"
           />
-          <div className="flex gap-2 flex-1 min-w-0">
-            <Input
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            {/* Grows with the text; a meaning is one paragraph, so Enter adds no line breaks. */}
+            <Textarea
+              rows={1}
               placeholder="What it means"
               aria-label={`Meaning of term ${i + 1}`}
               value={def ?? ""}
-              onChange={(e) => onChange(glossary.map((p, j) => (j === i ? [p[0] ?? "", e.target.value] : p)))}
+              onChange={(e) => onChange(glossary.map((p, j) => (j === i ? [p[0] ?? "", e.target.value.replace(/\s*\n\s*/g, " ")] : p)))}
+              className="min-h-9 py-1.5 resize-none"
             />
             <Button variant="ghost" size="icon" aria-label={`Remove ${term || `term ${i + 1}`}`} onClick={() => onChange(glossary.filter((_, j) => j !== i))}>
               <Trash2 className="w-4 h-4" />
