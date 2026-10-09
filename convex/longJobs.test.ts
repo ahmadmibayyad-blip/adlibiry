@@ -47,7 +47,7 @@ describe("long jobs run as short scheduled steps", () => {
     await t.action(internal.emailSender.sendMorningDigests, {});
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     expect(send).toHaveBeenCalledTimes(250);
-  });
+  }, 30_000); // thousands of users: slow when the whole suite runs at once
 
   it("store sales checks are scheduled one per store instead of run in one action", async () => {
     vi.useFakeTimers();

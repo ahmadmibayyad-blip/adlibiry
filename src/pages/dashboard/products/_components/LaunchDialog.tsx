@@ -84,6 +84,20 @@ function AiPhotos({ l }: { l: Doc<"launches"> }) {
   );
 }
 
+/** What the AI couldn't verify: for the owner to check before going live (never on the page). */
+function Checks({ items }: { items?: string[] }) {
+  if (!items?.length) return null;
+  return (
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+      <h4 className="text-sm font-semibold mb-1.5">Check before you go live</h4>
+      <ul className="space-y-1 text-xs list-disc pl-4">
+        {items.map((c) => <li key={c}>{c}</li>)}
+      </ul>
+      <p className="text-[11px] text-muted-foreground mt-1.5">The page only says what we could verify. Add these details in Shopify once you've confirmed them with your supplier.</p>
+    </div>
+  );
+}
+
 /** What the supplier reviews added to the store, and why there are few or none. */
 function ReviewsResult({ reviews, note }: { reviews?: SupplierReviews; note?: string }) {
   return (
@@ -218,6 +232,7 @@ export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAg
           </div>
         </>
       )}
+      <Checks items={(l.copy as { checks?: string[] } | undefined)?.checks} />
       <AiPhotos l={l} />
       <AdKit l={l} ready={!!quota?.aiPhotosReady} />
       <Link to="/dashboard/launch" className="text-xs text-primary hover:underline">All your launches →</Link>

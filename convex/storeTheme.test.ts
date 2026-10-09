@@ -186,7 +186,7 @@ describe("Launch → Full store", () => {
   const productCopy = {
     title: "Rank Ryg Holdningskorrektor", subtitle: "Sid ret hele dagen", benefits: ["Trækker skuldrene tilbage"], hook: "Øm ryg efter skrivebordet?",
     howItWorks: ["Tag den på"], whatsIncluded: ["1 bøjle"], faq: [{ q: "Størrelse?", a: "Én størrelse." }], shippingReturns: "Levering 5–8 dage.",
-    seo: { title: "Holdningskorrektor", description: "Justerbar." }, adKit: [],
+    seo: { title: "Holdningskorrektor", description: "Justerbar." }, adKit: [], checks: [],
   };
 
   async function setup(conn: Record<string, unknown> = {}) {

@@ -43,6 +43,33 @@ describe("Launch copy rules", () => {
     expect(r.dropped).toBe(3);
   });
 
+  it("drops hype, scarcity and urgency the store can't back up, in the stores' languages", () => {
+    const r = scrubClaims(
+      "Soft latex. The best ever dog toy. A must-have for every home. Only 3 left in stock! Hurry, ends tonight. Now 40% off. " +
+        "Fire stykker i ét sæt. Skynd dig, kun 5 tilbage. Nur noch 2 auf Lager. Piber, når hunden bider.",
+    );
+    expect(r.text).toBe("Soft latex. Fire stykker i ét sæt. Piber, når hunden bider.");
+    expect(r.dropped).toBe(7);
+  });
+
+  it("keeps the owner's checks off the page, short and at most 6", () => {
+    const { copy: c } = cleanCopy({ ...copy, checks: ["Confirm the material is natural latex", "", ...Array.from({ length: 8 }, (_, i) => `Check ${i}`)] });
+    expect(c.checks).toHaveLength(6);
+    expect(c.checks?.[0]).toBe("Confirm the material is natural latex");
+    expect(pageHtml(c)).not.toContain("Confirm the material");
+  });
+
+  it("tells the AI which facts are verified and which are ad claims", () => {
+    const facts = launchFacts(
+      { title: "Squeaky dog toys", description: "Set of 4 latex toys", category: "Pets", imageUrl: "" },
+      [{ headline: "Dogs go crazy for these!", bodyText: "10,000 happy dogs", platform: "facebook" }],
+      { language: "Danish", tone: "friendly", price: 99 },
+    );
+    expect(facts.indexOf("VERIFIED")).toBeLessThan(facts.indexOf("Set of 4 latex toys"));
+    expect(facts.indexOf("NOT VERIFIED")).toBeLessThan(facts.indexOf("10,000 happy dogs"));
+    expect(facts.indexOf("Set of 4 latex toys")).toBeLessThan(facts.indexOf("NOT VERIFIED"));
+  });
+
   it("caps lengths and counts and keeps only complete FAQ and ad kit items", () => {
     const { copy: c } = cleanCopy({
       ...copy,

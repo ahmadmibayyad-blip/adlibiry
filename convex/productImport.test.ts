@@ -35,7 +35,7 @@ describe("Launch from a link", () => {
       if (url.includes("anthropic.com")) {
         const copy = {
           title: "SnuffleMaster", subtitle: "Sniff and play", benefits: ["Keeps dogs busy"], hook: "Bored dog?", howItWorks: ["Hide treats"], whatsIncluded: ["1 mat"],
-          faq: [], shippingReturns: "", seo: { title: "SnuffleMaster", description: "Snuffle mat" }, adKit: [],
+          faq: [], shippingReturns: "", seo: { title: "SnuffleMaster", description: "Snuffle mat" }, adKit: [], checks: [],
         };
         return json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
           content: [{ type: "text", text: JSON.stringify(copy) }], usage: { input_tokens: 1, output_tokens: 1 } });

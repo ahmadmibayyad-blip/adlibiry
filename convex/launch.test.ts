@@ -80,6 +80,7 @@ describe("Launch", () => {
     hook: "Tired back after desk days?", howItWorks: ["Put it on", "Tighten"], whatsIncluded: ["1 brace"], faq: [{ q: "Size?", a: "One size." }],
     shippingReturns: "Ships from our partner warehouse.", seo: { title: "Posture Corrector", description: "Adjustable brace." },
     adKit: [{ angle: "Desk workers", hook: "Your back at 5pm…", primaryText: "Wear it under your shirt.", headline: "Sit straighter" }],
+    checks: ["Confirm the strap material with the supplier"],
   };
 
   async function setup(userFields: Record<string, unknown>) {
@@ -125,6 +126,7 @@ describe("Launch", () => {
     const launch = await user.query(api.launch.get, { launchId });
     expect(launch).toMatchObject({ status: "published", adminUrl: "https://my-store.myshopify.com/admin/products/987", storeUrl: "https://my-store.myshopify.com/products/x?preview=1", price: 21.99 });
     expect(launch?.copy.benefits).toEqual(["Pulls shoulders back", "Fits under clothes"]); // "Clinically proven" dropped
+    expect(launch?.copy.checks).toEqual(["Confirm the strap material with the supplier"]); // for the owner, not the page
     expect(prompts[0]).toContain("Your back hurts because…"); // the winning ad's spoken hook went into the prompt
     expect(productSetInput).toMatchObject({ title: "Adjustable Posture Corrector", status: "DRAFT", variants: [{ price: "21.99" }] });
     expect(String(productSetInput?.descriptionHtml)).toContain("1400+ ordered from our supplier");

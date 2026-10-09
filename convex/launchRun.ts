@@ -54,6 +54,7 @@ const CopySchema = z.object({
   shippingReturns: z.string(),
   seo: z.object({ title: z.string(), description: z.string() }),
   adKit: z.array(z.object({ angle: z.string(), hook: z.string(), primaryText: z.string(), headline: z.string() })),
+  checks: z.array(z.string()),
 });
 
 // Kept small: Anthropic compiles a strict schema into a grammar with a size
