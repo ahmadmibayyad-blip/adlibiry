@@ -48,6 +48,7 @@ import type * as imageHash from "../imageHash.js";
 import type * as imageHashAction from "../imageHashAction.js";
 import type * as imageSearch from "../imageSearch.js";
 import type * as importRuns from "../importRuns.js";
+import type * as knowledge from "../knowledge.js";
 import type * as launch from "../launch.js";
 import type * as launchAds from "../launchAds.js";
 import type * as launchCleanup from "../launchCleanup.js";
@@ -181,6 +182,7 @@ declare const fullApi: ApiFromModules<{
   imageHashAction: typeof imageHashAction;
   imageSearch: typeof imageSearch;
   importRuns: typeof importRuns;
+  knowledge: typeof knowledge;
   launch: typeof launch;
   launchAds: typeof launchAds;
   launchCleanup: typeof launchCleanup;

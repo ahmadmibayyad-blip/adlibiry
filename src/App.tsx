@@ -29,6 +29,10 @@ import { LogoMark } from "./components/Logo.tsx";
 import { useServiceWorker } from "./hooks/use-service-worker.ts";
 import UnsubscribePage from "./pages/Unsubscribe.tsx";
 import TikTokShopPage from "./pages/dashboard/tiktok-shop/page.tsx";
+import KnowledgeHub from "./pages/dashboard/knowledge/page.tsx";
+import KnowledgeTopic from "./pages/dashboard/knowledge/topic.tsx";
+import KnowledgeCalculator from "./pages/dashboard/knowledge/calculator.tsx";
+import KnowledgeGlossary from "./pages/dashboard/knowledge/glossary.tsx";
 import LaunchesPage from "./pages/dashboard/launches/page.tsx";
 
 function DashboardGuard({ children }: { children: React.ReactNode }) {
@@ -101,6 +105,10 @@ export default function App() {
             <Route path="agents" element={<AgentsPage />} />
             <Route path="hooks" element={<HooksPage />} />
             <Route path="tiktok-shop" element={<TikTokShopPage />} />
+            <Route path="knowledge" element={<KnowledgeHub />} />
+            <Route path="knowledge/tools/calculator" element={<KnowledgeCalculator />} />
+            <Route path="knowledge/glossary" element={<KnowledgeGlossary />} />
+            <Route path="knowledge/:topicId/:guideId?" element={<KnowledgeTopic />} />
             <Route path="launch" element={<LaunchesPage />} />
             <Route path="launch/shopify-callback" element={<LaunchesPage />} />
             <Route path="launches" element={<LaunchesPage />} />
