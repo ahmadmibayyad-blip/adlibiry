@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { ALIEXPRESS_ENDPOINT, signParams } from "./lib/aliexpress";
 import { classifyNiche } from "./lib/category";
-import { fromAliExpressApi, fromAliExpressHtml, fromProductHtml, fromShopifyJs, importSource, productUrl, type ImportedProduct } from "./lib/productImport";
+import { fromAliExpressApi, fromAliExpressHtml, fromApifyAliExpress, fromProductHtml, fromShopifyJs, importSource, productUrl, type ImportedProduct } from "./lib/productImport";
 import { aliexpressId } from "./lib/supplierReviews";
 import { shopifyJsUrl } from "./lib/productImages";
 
@@ -53,6 +53,43 @@ async function aliexpressDetail(id: string): Promise<ReturnType<typeof fromAliEx
   }
 }
 
+/**
+ * An AliExpress product through an Apify reader (residential proxies): AliExpress shows servers a bot
+ * check instead of the product, so this is the fallback when the API isn't set up and the page can't be read.
+ */
+async function aliexpressViaApify(url: string): Promise<ReturnType<typeof fromApifyAliExpress>> {
+  const token = process.env.APIFY_TOKEN?.trim();
+  if (!token) return null;
+  const actor = (process.env.ALIEXPRESS_IMPORT_ACTOR?.trim() || "zen-studio/aliexpress-scraper").replace("/", "~");
+  // About $0.06 a product (a $0.05 start plus the product and its details), capped at $0.10.
+  const q = new URLSearchParams({ token, timeout: "120", maxTotalChargeUsd: "0.1" });
+  try {
+    const res = await fetch(`https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?${q}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productUrls: [url],
+        maxResults: 1,
+        country: "US",
+        currency: "USD",
+        language: "en_US",
+        includeProductDetails: true,
+        includeDescription: false,
+        includeReviews: false,
+      }),
+      signal: AbortSignal.timeout(150_000),
+    });
+    if (!res.ok) {
+      console.warn("Import: Apify AliExpress reader", res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    return fromApifyAliExpress(await res.json().catch(() => null));
+  } catch (e) {
+    console.warn("Import: Apify AliExpress reader failed", e);
+    return null;
+  }
+}
+
 async function readProduct(u: URL): Promise<ImportedProduct | null> {
   const url = u.toString();
   const source = importSource(u);
@@ -68,7 +105,13 @@ async function readProduct(u: URL): Promise<ImportedProduct | null> {
   if (source === "aliexpress") {
     const p = html ? fromAliExpressHtml(html) : null;
     const id = aliexpressId(url);
-    const api = id ? await aliexpressDetail(id) : null;
+    let api = id ? await aliexpressDetail(id) : null;
+    // From a server the page is usually a bot check: read it through Apify instead.
+    if (!p && !api?.title) {
+      if (!html) console.warn("Import: AliExpress page didn't load", url);
+      else console.warn("Import: AliExpress page had no product (bot check?)", html.length);
+      api = await aliexpressViaApify(id ? `https://www.aliexpress.com/item/${id}.html` : url);
+    }
     if (!p && !api?.title) return null;
     const images = [...new Set([...(p ? [p.imageUrl, ...p.images] : []), ...(api?.images ?? [])].filter(Boolean))].slice(0, 12);
     return {
