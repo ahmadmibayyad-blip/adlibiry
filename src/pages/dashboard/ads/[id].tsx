@@ -13,7 +13,7 @@ import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
-import ProductTools from "../_components/ProductTools.tsx";
+import { AIToolsGrid, SideTools } from "../_components/ProductTools.tsx";
 import AdMedia from "../_components/AdMedia.tsx";
 import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
 import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
@@ -79,6 +79,7 @@ export default function AdDetailPage() {
   const history = useQuery(api.history.adHistory, id ? { adId, days: range } : "skip");
   const comparison = useQuery(api.history.adNicheComparison, id ? { adId } : "skip");
   const [details, setDetails] = useState(false);
+  const tools = useToolSubject(ad);
 
   if (ad === undefined) {
     return (
@@ -140,6 +141,11 @@ export default function AdDetailPage() {
             <Info className="w-3.5 h-3.5 mr-1.5" />
             Audience, timeline & ad copy
           </Button>
+          {tools && (
+            <div className="pt-2">
+              <SideTools product={tools.product} subject={tools.subject} />
+            </div>
+          )}
         </div>
 
         <div className="space-y-5 min-w-0">
@@ -234,7 +240,11 @@ export default function AdDetailPage() {
         </div>
       </div>
 
-      <AdTools ad={ad} />
+      {tools && (
+        <section className="mt-8">
+          <AIToolsGrid product={tools.product} subject={tools.subject} />
+        </section>
+      )}
 
       <MoreFromAdvertiser name={ad.advertiserName} adId={ad._id} />
 
@@ -243,14 +253,14 @@ export default function AdDetailPage() {
   );
 }
 
-/** The product page's tools for the product in this ad, or for the ad's own text when it isn't linked to a product. */
-function AdTools({ ad }: { ad: Ad }) {
-  const product = useQuery(api.products.getById, ad.productId ? { id: ad.productId } : "skip");
-  if (ad.productId && product === undefined) return null;
-  const subject = product
-    ? product
-    : { title: ad.headline || ad.bodyText.slice(0, 120), description: ad.bodyText, category: ad.niche };
-  return <ProductTools product={product ?? undefined} subject={subject} />;
+/** The product in this ad (for the product tools), or the ad's own text when it isn't linked to one; null while loading. */
+function useToolSubject(ad: Ad | null | undefined) {
+  const product = useQuery(api.products.getById, ad?.productId ? { id: ad.productId } : "skip");
+  if (!ad || (ad.productId && product === undefined)) return null;
+  return {
+    product: product ?? undefined,
+    subject: product ?? { title: ad.headline || ad.bodyText.slice(0, 120), description: ad.bodyText, category: ad.niche },
+  };
 }
 
 function MoreFromAdvertiser({ name, adId }: { name: string; adId: Id<"ads"> }) {

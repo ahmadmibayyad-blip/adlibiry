@@ -20,6 +20,8 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
   // return you need before an order stops losing money (ROAS = revenue ÷ ad cost).
   const breakEvenCpa = profit;
   const breakEvenRoas = profit > 0 ? price / profit : null;
+  // No selling price yet (e.g. an ad not linked to a product): show blanks, not a loss.
+  const empty = price <= 0;
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -59,27 +61,29 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
       <div className="border-t border-border pt-4 space-y-2">
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Profit per order</span>
-          <span className={cn("font-bold text-sm", profit >= 0 ? "text-good" : "text-bad")}>
-            {fmt(profit)}
+          <span className={cn("font-bold text-sm", empty ? "text-muted-foreground" : profit >= 0 ? "text-good" : "text-bad")}>
+            {empty ? "—" : fmt(profit)}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Margin</span>
-          <span className={cn("font-bold text-sm", margin >= 30 ? "text-good" : margin >= 15 ? "text-warn" : "text-bad")}>
-            {margin}%
+          <span className={cn("font-bold text-sm", empty ? "text-muted-foreground" : margin >= 30 ? "text-good" : margin >= 15 ? "text-warn" : "text-bad")}>
+            {empty ? "—" : `${margin}%`}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Break-even CPA</span>
-          <span className="font-bold text-sm">{breakEvenCpa > 0 ? fmt(breakEvenCpa) : "Not profitable"}</span>
+          <span className="font-bold text-sm">{empty ? "—" : breakEvenCpa > 0 ? fmt(breakEvenCpa) : "Not profitable"}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Break-even ROAS</span>
-          <span className="font-bold text-sm">{breakEvenRoas ? `${breakEvenRoas.toFixed(2)}×` : "Not profitable"}</span>
+          <span className="font-bold text-sm">{empty ? "—" : breakEvenRoas ? `${breakEvenRoas.toFixed(2)}×` : "Not profitable"}</span>
         </div>
       </div>
-      {margin < 20 && (
-        <div className="flex items-start gap-2 mt-3 bg-yellow-400/10 border border-yellow-400/20 rounded-lg p-2.5 text-xs text-yellow-300">
+      {empty ? (
+        <p className="mt-3 text-xs text-muted-foreground">Enter your selling price and supplier cost to see your profit per order.</p>
+      ) : margin < 20 && (
+        <div className="flex items-start gap-2 mt-3 bg-warn/10 border border-warn/20 rounded-lg p-2.5 text-xs text-warn">
           <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           Margin below 20% — consider raising price or negotiating cost.
         </div>
