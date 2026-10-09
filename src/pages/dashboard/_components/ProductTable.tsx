@@ -5,6 +5,8 @@ import { compactNumber, domainOf } from "@/lib/adFormat.ts";
 import { cn } from "@/lib/utils.ts";
 import ProductImage from "@/components/ProductImage.tsx";
 import { price } from "@/lib/money.ts";
+import { Authenticated } from "convex/react";
+import ResearchCallBadge from "./ai/ResearchCallBadge.tsx";
 
 type Product = Doc<"products">;
 
@@ -37,16 +39,17 @@ export default function ProductTable({ products }: { products: Product[] }) {
                     <ProductImage src={p.imageUrl} alt="" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
                     <span className="min-w-0">
                       <span className="line-clamp-2 font-medium hover:text-primary max-w-[22rem]">{p.title}</span>
-                      {(p.winnerRank !== undefined || (p.linkedAds ?? 0) > 0) && (
-                        <span className="flex flex-wrap gap-1 mt-0.5">
-                          {p.winnerRank !== undefined && (
-                            <span className="text-[10px] font-semibold px-1.5 rounded bg-primary/15 text-primary">#{p.winnerRank} in {p.category}</span>
-                          )}
-                          {(p.linkedAds ?? 0) > 0 && (
-                            <span className="text-[10px] font-medium px-1.5 rounded bg-orange-500/15 text-orange-400">From {p.linkedAds} ad{p.linkedAds === 1 ? "" : "s"}</span>
-                          )}
-                        </span>
-                      )}
+                      <span className="flex flex-wrap gap-1 mt-0.5 empty:hidden">
+                        <Authenticated>
+                          <ResearchCallBadge productId={p._id} className="text-[10px] px-1.5 rounded" />
+                        </Authenticated>
+                        {p.winnerRank !== undefined && (
+                          <span className="text-[10px] font-semibold px-1.5 rounded bg-primary/15 text-primary">#{p.winnerRank} in {p.category}</span>
+                        )}
+                        {(p.linkedAds ?? 0) > 0 && (
+                          <span className="text-[10px] font-medium px-1.5 rounded bg-orange-500/15 text-orange-400">From {p.linkedAds} ad{p.linkedAds === 1 ? "" : "s"}</span>
+                        )}
+                      </span>
                     </span>
                   </Link>
                 </td>
