@@ -733,6 +733,13 @@ export default defineSchema({
     count: v.number(),
   }).index("by_day", ["day"]),
 
+  // Knowledge section: the guides each user marked as read (convex/knowledge.ts; content in src/data/knowledge.json).
+  knowledgeProgress: defineTable({
+    userId: v.id("users"),
+    guideId: v.string(),
+    readAt: v.string(),
+  }).index("by_user_guide", ["userId", "guideId"]),
+
   // One row per daily import run (convex/importRuns.ts); pruned after 60 days.
   importRuns: defineTable({
     job: v.string(),

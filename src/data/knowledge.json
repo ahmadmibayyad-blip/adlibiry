@@ -1,0 +1,1174 @@
+{
+  "version": "1.0",
+  "reviewed": "2026-10-09",
+  "topics": [
+    {
+      "id": "start",
+      "name": "Start Here",
+      "icon": "compass",
+      "stage": "Foundations",
+      "blurb": "How dropshipping really works, what it costs, and how long it takes to pay off.",
+      "guides": [
+        {
+          "id": "how-it-works",
+          "title": "How dropshipping actually works",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "You sell a product before you own it. The customer pays you, you pay the supplier, the supplier ships to the customer. Your profit is the gap, minus ads, fees, refunds and your time.",
+          "points": [
+            "Order flow: customer pays your store → you forward the order (manually or via an app like DSers, CJ or AutoDS) → supplier ships with your tracking → you send the tracking to the customer.",
+            "You are the seller of record. Legally and in the customer's eyes, every late parcel, broken item and refund is your responsibility, not the supplier's.",
+            "Your real job is marketing and customer experience. The supplier handles stock and shipping; you own demand, the offer, and the after-sale.",
+            "Margins are thinner than they look. A €30 sale with €9 product cost is not €21 profit once ads (often €10–15 per sale while testing), payment fees, VAT and refunds come out.",
+            "The model works best as a fast, cheap way to validate products. Stores that last usually move winners to faster shipping, own branding and better margins."
+          ],
+          "mistakes": [
+            "Treating it as passive income. Expect daily work on ads, support and supplier issues.",
+            "Calculating profit from product cost only and forgetting VAT, fees and refunds.",
+            "Choosing a supplier before knowing which market you will sell to."
+          ],
+          "tip": "Before building anything, write the full unit economics for one product on paper. If the numbers only work at a perfect ad cost, the product does not work.",
+          "sources": [
+            {
+              "t": "Shopify Help Center: Dropshipping",
+              "u": "https://www.shopify.com/dropshipping"
+            },
+            {
+              "t": "Further reading: What is dropshipping (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "real-costs",
+          "title": "What it really costs to start",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "The store is cheap. Testing is not. Budget for the money you will spend finding out what doesn't sell.",
+          "points": [
+            "Fixed monthly: Shopify plan, a theme (free themes are fine to start), 2–4 essential apps, domain, email tool. Keep this under ~€80/month at the start.",
+            "Samples: order every product you plan to sell to yourself first. Budget €20–60 per product.",
+            "Ad testing budget is the big one. Plan for 3–5 product tests, each needing roughly 2–3× your target cost per purchase before you can judge it.",
+            "Cash-flow buffer: payment providers can hold payouts on new stores while your ads are charged daily. Keep 30 days of ad spend in reserve.",
+            "Company and tax setup: in Denmark a sole proprietorship (enkeltmandsvirksomhed) is free to register on Virk; VAT registration is required once taxable sales pass DKK 50,000 in 12 months."
+          ],
+          "mistakes": [
+            "Spending the budget on apps and a premium theme before a single product is validated.",
+            "Running out of money mid-test and killing a product that needed two more days of data.",
+            "Ignoring the payout hold and paying ads from a personal card you cannot cover."
+          ],
+          "tip": "Split your starting budget: 15% store and samples, 70% ad testing, 15% buffer. If your total is below ~€1,000, start with organic TikTok testing instead of paid ads.",
+          "sources": [
+            {
+              "t": "Virk: Start a business in Denmark",
+              "u": "https://virk.dk/"
+            },
+            {
+              "t": "Skat: VAT registration (moms)",
+              "u": "https://skat.dk/"
+            },
+            {
+              "t": "Further reading: Cost to start (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-much-does-it-cost-to-start-dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "timeline",
+          "title": "Realistic timeline and mindset",
+          "level": "Beginner",
+          "mins": 3,
+          "summary": "First sale and first profit are different milestones. Plan in months, measure in tests.",
+          "points": [
+            "Weeks 1–2: research, pick a market, order samples, build the store.",
+            "Weeks 3–6: run product tests. Most will fail. That is the process working, not you failing.",
+            "Months 2–4: one product shows a signal. Now you optimize the offer, creatives and page.",
+            "Count tests, not days. A useful goal is '10 product tests in 60 days' rather than 'profitable in 30 days'.",
+            "Keep a decision log: what you tested, the numbers, why you stopped or scaled. It stops you repeating losing ideas."
+          ],
+          "mistakes": [
+            "Changing five things at once after a bad day, so you never learn which change mattered.",
+            "Buying a course to fix a problem that is really a weak product.",
+            "Quitting after the first failed product instead of after a planned number of tests."
+          ],
+          "tip": "Use AdSpy Pro's saved lists as your test queue. Every product enters with a hypothesis ('works because…') and leaves with a verdict.",
+          "sources": [
+            {
+              "t": "Further reading: Dropshipping mindset (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping-mindset/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "legal",
+      "name": "Legal, Tax & EU Rules",
+      "icon": "scale",
+      "stage": "Foundations",
+      "blurb": "VAT, the new EU €3 parcel duty, product safety (GPSR) and consumer rights. The part most guides skip.",
+      "guides": [
+        {
+          "id": "eu-vat",
+          "title": "VAT for EU sellers: OSS and IOSS",
+          "level": "Intermediate",
+          "mins": 5,
+          "summary": "When you sell to consumers in other EU countries, VAT follows the customer's country. Two EU schemes let you report it all in one place.",
+          "points": [
+            "OSS (One-Stop Shop): for goods already inside the EU shipped to consumers in another EU country. Once your total cross-border B2C sales pass €10,000 a year, you charge the customer's country VAT rate and report it through your home tax authority.",
+            "IOSS (Import One-Stop Shop): for goods shipped from outside the EU (e.g. China) in consignments worth €150 or less. You charge VAT at checkout and the parcel clears customs without the customer paying again.",
+            "Without IOSS, the customer pays import VAT plus a carrier handling fee at delivery. That leads to refused parcels, chargebacks and bad reviews.",
+            "Non-EU businesses usually need an IOSS intermediary. EU-based businesses can register directly.",
+            "Danish VAT is 25%. Set prices tax-inclusive and configure Shopify Taxes per country so the displayed price matches what the customer pays."
+          ],
+          "mistakes": [
+            "Shipping from China to EU customers without IOSS, so customers get surprise fees at the door.",
+            "Showing prices without VAT to EU consumers. Consumer prices must include VAT.",
+            "Forgetting that the €150 IOSS limit is per consignment, so bundles can push an order over it."
+          ],
+          "tip": "Ask your supplier or agent whether they ship IOSS-cleared with your IOSS number on the label. If they can't, switch to one that can or use an EU warehouse.",
+          "sources": [
+            {
+              "t": "European Commission: VAT One Stop Shop",
+              "u": "https://vat-one-stop-shop.ec.europa.eu/"
+            },
+            {
+              "t": "Skat: Moms (Danish VAT)",
+              "u": "https://skat.dk/"
+            },
+            {
+              "t": "Further reading: Dropshipping taxes (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping-taxes/"
+            }
+          ]
+        },
+        {
+          "id": "eu-3-duty",
+          "title": "The EU €3 parcel duty (from 1 July 2026)",
+          "level": "Intermediate",
+          "mins": 3,
+          "summary": "Low-value parcels from outside the EU are no longer duty-free. Price it into every non-EU product now.",
+          "points": [
+            "Since 1 July 2026, a flat €3 customs duty applies to items in parcels worth €150 or less imported into the EU, mainly from e-commerce.",
+            "It is charged per tariff classification, not per piece: five identical T-shirts = €3; three T-shirts plus a watch = €6.",
+            "The seller or importer declares and pays it. For IOSS-registered sellers it is collected in the same flow as VAT.",
+            "It is a temporary measure until the EU's full customs reform, expected around 2028, when normal tariff rates will apply to low-value goods.",
+            "Separate national handling fees on small parcels exist or are planned in some EU countries (France introduced one in 2026), so check each target market."
+          ],
+          "mistakes": [
+            "Leaving landed cost unchanged and losing €3–6 margin per order without noticing.",
+            "Mixing many unrelated small items in one 'bundle' and multiplying the duty.",
+            "Assuming the supplier absorbs the duty without confirming it in writing."
+          ],
+          "tip": "For EU stores this makes EU-warehouse suppliers more competitive. Re-run the cost of your top products from China vs an EU warehouse; faster delivery may now cost about the same.",
+          "sources": [
+            {
+              "t": "European Commission: €3 customs duty on low-value parcels",
+              "u": "https://commission.europa.eu/news-and-media/news/ensuring-fairness-and-safety-eur3-customs-duty-low-value-parcels-2026-06-29_en"
+            },
+            {
+              "t": "VATCalc: EU €3 duty guidance",
+              "u": "https://vatcalc.com/eu/eu-e3-levy-low-value-e-commerce-import-package-july-2026"
+            }
+          ]
+        },
+        {
+          "id": "gpsr-safety",
+          "title": "Product safety and liability (GPSR)",
+          "level": "Intermediate",
+          "mins": 4,
+          "summary": "If you sell to EU consumers, the product must be safe, traceable and have a responsible person in the EU. 'The supplier made it' is not a defence.",
+          "points": [
+            "The EU General Product Safety Regulation (GPSR) has applied since 13 December 2024 to consumer products sold online.",
+            "Every product needs an economic operator established in the EU who is responsible for safety. If you import from China, that is often you.",
+            "Your product listing must show manufacturer details, the EU responsible person, product identifiers (type/batch/model), and warnings or safety info in the customer's language.",
+            "Electrical items, toys, cosmetics and anything touching skin or food need CE marking or specific compliance documents. Ask the supplier for test reports before listing.",
+            "Avoid high-risk categories until you have experience: baby products, toys for under-3s, cosmetics, supplements, anything with lithium batteries or medical claims."
+          ],
+          "mistakes": [
+            "Copying a competitor's 'medical' claims (pain relief, cures) that need regulatory approval.",
+            "Selling chargers and electronics with no CE documentation.",
+            "Not having safety instructions in Danish/Swedish when selling in DK/SE."
+          ],
+          "tip": "Add a 'Compliance' row to every product in your research sheet: CE needed? Test reports received? Battery? Claims allowed? Kill the product early if the answers are unclear.",
+          "sources": [
+            {
+              "t": "European Commission: General Product Safety Regulation",
+              "u": "https://commission.europa.eu/business-economy-euro/product-safety-and-requirements/product-safety/general-product-safety-regulation_en"
+            },
+            {
+              "t": "EU Safety Gate (recalled products)",
+              "u": "https://ec.europa.eu/safety-gate-alerts/"
+            },
+            {
+              "t": "Further reading: Product liability (Do Dropshipping)",
+              "u": "https://dodropshipping.com/product-liability-in-dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "consumer-rights",
+          "title": "Consumer rights: returns and warranty",
+          "level": "Beginner",
+          "mins": 3,
+          "summary": "EU consumers have rights your policy cannot remove. Write your policy around them instead of against them.",
+          "points": [
+            "14-day right of withdrawal: online buyers can cancel without a reason within 14 days of receiving the goods.",
+            "If you don't inform the customer about this right, the withdrawal period extends up to 12 months.",
+            "2-year legal guarantee: faulty or not-as-described goods must be repaired, replaced or refunded. A 'no refunds' policy is not valid in the EU.",
+            "You may require the customer to pay return shipping, but only if you state it clearly before purchase.",
+            "Refund within 14 days of the withdrawal notice (you may wait until the item is back or proof of return is sent)."
+          ],
+          "mistakes": [
+            "Return addresses in China for EU customers, making returns practically impossible. Regulators treat this as obstructing the right of withdrawal.",
+            "Fake scarcity timers and invented 'was' prices, which break EU unfair-commercial-practice rules.",
+            "Hiding company name, address and CVR. Danish law requires them on the site."
+          ],
+          "tip": "Offer an EU return address (an agent or 3PL) or a 'keep it, here is your refund' policy for low-cost items. It costs less than a chargeback.",
+          "sources": [
+            {
+              "t": "Your Europe: Guarantees and returns",
+              "u": "https://europa.eu/youreurope/citizens/consumers/shopping/guarantees-returns/index_en.htm"
+            },
+            {
+              "t": "Forbrugerombudsmanden (Danish Consumer Ombudsman)",
+              "u": "https://www.forbrugerombudsmanden.dk/"
+            },
+            {
+              "t": "Further reading: Return policy template (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-do-you-create-a-dropshipping-return-policy/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "platform",
+      "name": "Where to Sell",
+      "icon": "storefront",
+      "stage": "Foundations",
+      "blurb": "Shopify, WooCommerce or marketplaces, and which store type fits your budget.",
+      "guides": [
+        {
+          "id": "platform-choice",
+          "title": "Choosing your platform",
+          "level": "Beginner",
+          "mins": 3,
+          "summary": "For most dropshippers Shopify is the default. Choose something else only for a clear reason.",
+          "points": [
+            "Shopify: hosted, largest app ecosystem, every dropshipping app integrates with it, Shopify Payments works in Denmark and most of the EU. Best default.",
+            "WooCommerce: cheaper software, but you manage hosting, security and updates. Good if you already run WordPress.",
+            "Marketplaces (Amazon, Etsy, eBay): built-in traffic but strict rules on shipping times and dropshipping. Account bans are common for slow delivery.",
+            "Social selling (Facebook Marketplace, TikTok Shop where available): fast to test, but you rent the audience and must follow each platform's seller policy.",
+            "Pick one platform and go deep. Switching costs more time than any feature difference saves."
+          ],
+          "mistakes": [
+            "Building on a marketplace whose policy forbids third-party fulfilment.",
+            "Choosing a platform to save €20/month and losing weeks to setup.",
+            "Paying for an annual plan before validating a product."
+          ],
+          "tip": "Start on Shopify's monthly Basic plan. Upgrade only when transaction fees cost more than the plan difference.",
+          "sources": [
+            {
+              "t": "Shopify pricing",
+              "u": "https://www.shopify.com/pricing"
+            },
+            {
+              "t": "Further reading: Best platforms for dropshipping (Do Dropshipping)",
+              "u": "https://dodropshipping.com/best-ecommerce-platforms-for-dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "store-type",
+          "title": "One-product, niche or general store",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "Store type decides how you test products and how much trust you can build.",
+          "points": [
+            "One-product store: highest conversion when the product is strong. All content, reviews and branding focus on one hero. Expensive to restart if it fails.",
+            "Niche store (e.g. pets, home cleaning, hair care): 5–20 related products, room for upsells and repeat customers, and a brand you can grow.",
+            "General store: fastest for testing unrelated products, but lowest trust and conversion. Use it as a testing lab, not a brand.",
+            "A common path: test in a general or broad-niche store, then build a dedicated one-product or niche store around the winner.",
+            "Match the domain and name to the type. 'shop-deals-nordic.com' undermines a one-product brand."
+          ],
+          "mistakes": [
+            "Building a polished brand before any product has sold.",
+            "Running a general store long term and wondering why repeat purchases are near zero.",
+            "Mixing unrelated products in a niche store 'to test quickly', which confuses the pixel and visitors."
+          ],
+          "tip": "If you already have a niche store, test new products on it first; existing traffic and email lists give faster, cheaper signals.",
+          "sources": [
+            {
+              "t": "Further reading: One-product stores (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-to-start-an-online-one-product-store/"
+            },
+            {
+              "t": "Further reading: Niche stores (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-to-start-an-online-niche-store/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "research",
+      "name": "Product Research",
+      "icon": "radar",
+      "stage": "Find",
+      "blurb": "Finding winners with AdSpy Pro, judging demand, and scoring a product before you spend on it.",
+      "guides": [
+        {
+          "id": "winner-criteria",
+          "title": "What makes a winning product",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "A winner solves a visible problem, demonstrates well on video, and leaves room for at least a 3× markup.",
+          "points": [
+            "Problem or desire you can show in 3 seconds: before/after, a satisfying demo, an 'I didn't know that existed' moment.",
+            "Not easily found in local shops at the same price. If it is in every supermarket, your ad competes with a 5-minute walk.",
+            "Price sweet spot for impulse buys: roughly €25–70 retail. Below that, ads eat the margin; above, buyers need more trust.",
+            "Landed cost (product + shipping + duty) at most one-third of the selling price.",
+            "Light, small, unbreakable, no batteries or liquids. Each of these lowers shipping cost and refund rate."
+          ],
+          "mistakes": [
+            "Choosing products you personally like instead of products with proven demand.",
+            "Ignoring how many advertisers already saturate the product in your market.",
+            "Picking fragile or sized items (clothes, shoes) as a first product; returns kill margins."
+          ],
+          "tip": "Look for 'second-wave' products: proven in the US/UK in AdSpy Pro, but with few or no active advertisers in Danish or Swedish yet.",
+          "sources": [
+            {
+              "t": "Further reading: How to choose a product (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-to-choose-what-to-dropship/"
+            }
+          ]
+        },
+        {
+          "id": "adspy-signals",
+          "title": "Reading ad signals in AdSpy Pro",
+          "level": "Intermediate",
+          "mins": 5,
+          "summary": "An ad that has run for weeks with many variations is evidence someone is profitable. One viral ad is not.",
+          "points": [
+            "Longevity: an ad active for 2+ weeks usually means it is paying for itself. Advertisers kill losing ads within days.",
+            "Duplication: the same creative running in several ad sets or countries means the advertiser is scaling it.",
+            "Many advertisers, many creatives: proof of demand, but also a warning about saturation. Check how many started in the last 14 days.",
+            "Engagement quality: read the comments. 'Where can I buy?' and tagged friends are buying intent. Complaints about delivery are a warning.",
+            "Open the store behind the ad: check price, offer (bundles, free shipping), reviews and how long the store has existed."
+          ],
+          "mistakes": [
+            "Copying an ad that has been live for 2 days. It may still be in testing and losing money.",
+            "Judging by likes alone; likes can be bought or come from the wrong country.",
+            "Entering a product where the top advertiser has a brand, own manufacturing and 10× your budget."
+          ],
+          "tip": "Filter AdSpy Pro to ads started 14–45 days ago that are still active. That window shows products that work but are not yet saturated.",
+          "sources": [
+            {
+              "t": "Meta Ad Library",
+              "u": "https://www.facebook.com/ads/library/"
+            },
+            {
+              "t": "TikTok Creative Center",
+              "u": "https://ads.tiktok.com/business/creativecenter/"
+            },
+            {
+              "t": "Further reading: Product research methods (Do Dropshipping)",
+              "u": "https://dodropshipping.com/find-winning-dropshipping-products/"
+            }
+          ]
+        },
+        {
+          "id": "validate",
+          "title": "Validate before you test: the 10-point scorecard",
+          "level": "Intermediate",
+          "mins": 4,
+          "summary": "Score every candidate the same way. Only products scoring 7+ get ad budget.",
+          "points": [
+            "1 point each: visible problem/wow factor; demonstrable on video; not in local stores; 3×+ markup possible; landed cost under €15; light and unbreakable.",
+            "1 point each: active ads 2+ weeks old; under ~10 active advertisers in your target country; supplier with good reviews and EU or fast shipping; no compliance red flags.",
+            "Check search trends (Google Trends) for the last 12 months. Avoid products already in steep decline or purely seasonal unless timed right.",
+            "Collect at least 5 existing creatives you could improve on. If you can't imagine a better ad, you have no edge.",
+            "Write your angle in one sentence: who it is for, the problem, why now."
+          ],
+          "mistakes": [
+            "Skipping the score when excited about a product.",
+            "Testing a product with no creative edge over the existing ads.",
+            "Not checking seasonality; a cooling mat in October is a hard test."
+          ],
+          "tip": "Save the score in the product's notes in AdSpy Pro so your team can compare candidates side by side.",
+          "sources": [
+            {
+              "t": "Google Trends",
+              "u": "https://trends.google.com/"
+            },
+            {
+              "t": "Further reading: Find gaps in the market (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-to-find-gaps-in-the-ecommerce-market/"
+            }
+          ]
+        },
+        {
+          "id": "markets",
+          "title": "Choosing a target market",
+          "level": "Beginner",
+          "mins": 3,
+          "summary": "Pick the country before the supplier. Language, delivery time and payment habits decide conversion.",
+          "points": [
+            "Nordic markets (DK, SE, NO, FI): high purchasing power and lower ad competition in the local language, but buyers expect fast delivery and local payment methods.",
+            "Translate fully, including checkout, emails and size charts. Machine translation must be checked by a native speaker.",
+            "Norway is outside the EU: separate VAT (VOEC scheme) and customs rules apply.",
+            "Germany and the Netherlands are large but regulated and competitive; strong legal pages are essential.",
+            "Test one country at a time so the data is clean, then expand to neighbours that share delivery routes."
+          ],
+          "mistakes": [
+            "Running one English store for 'all of Europe'.",
+            "Offering only card payments where MobilePay, Klarna or iDEAL dominate.",
+            "Promising 3–5 day delivery from China."
+          ],
+          "tip": "Use the same product in DK and SE as two separate tests. Results often differ more than you expect.",
+          "sources": [
+            {
+              "t": "Skatteetaten: VOEC (Norway)",
+              "u": "https://www.skatteetaten.no/en/business-and-organisation/vat-and-duties/vat/foreign/e-commerce-voec/"
+            },
+            {
+              "t": "Further reading: Best countries for dropshipping (Do Dropshipping)",
+              "u": "https://dodropshipping.com/best-and-worst-countries-to-target-dropshipping/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "suppliers",
+      "name": "Suppliers & Sourcing",
+      "icon": "box",
+      "stage": "Find",
+      "blurb": "AliExpress, CJ, agents and EU warehouses. How to choose, test and negotiate.",
+      "guides": [
+        {
+          "id": "supplier-types",
+          "title": "Supplier options compared",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "Start where testing is easy, move to where margins and delivery are better once something sells.",
+          "points": [
+            "AliExpress (via DSers): no minimums, huge range, easy for testing. Slower and inconsistent packaging.",
+            "CJ Dropshipping and similar platforms: sourcing requests, warehouses in the EU/US, branded packaging options.",
+            "Private agent: a sourcing agent in China buys, checks and ships for you. Best margins and control once you have steady orders (often 10–30+ per day).",
+            "EU warehouses / local wholesalers: 2–5 day delivery, fewer customs problems, higher unit cost. Increasingly competitive after the EU €3 duty.",
+            "Alibaba: for bulk orders and private label, not single-unit dropshipping."
+          ],
+          "mistakes": [
+            "Using an agent before you have volume; they will not prioritize you.",
+            "Picking the cheapest listing with few reviews to save €0.50.",
+            "Not having a backup supplier for your best-selling product."
+          ],
+          "tip": "Once a product sells 10+ orders a day, request a quote from an agent and an EU warehouse. Compare landed cost and delivery time, not just unit price.",
+          "sources": [
+            {
+              "t": "Further reading: Best dropshipping suppliers (Do Dropshipping)",
+              "u": "https://dodropshipping.com/best-dropshipping-suppliers/"
+            },
+            {
+              "t": "Further reading: Dropshipping agents (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-to-start-with-a-dropshipping-agent/"
+            }
+          ]
+        },
+        {
+          "id": "vet-supplier",
+          "title": "How to vet a supplier",
+          "level": "Intermediate",
+          "mins": 4,
+          "summary": "Score suppliers on proof, not promises. Test them with a real order.",
+          "points": [
+            "Store age 2+ years, 95%+ positive feedback, and thousands of orders on the specific product.",
+            "Read the 1–3 star reviews. Look for patterns: wrong colour, broken on arrival, slow dispatch.",
+            "Processing time (days before dispatch) matters as much as shipping time. Ask for both.",
+            "Order a sample to your own address, timed and photographed: delivery days, packaging, quality vs listing photos.",
+            "Ask: Do you ship IOSS-cleared to the EU? Can you remove invoices and branding? What happens if a parcel is lost? How do you handle defects?"
+          ],
+          "mistakes": [
+            "Trusting product photos instead of your own sample.",
+            "Accepting 'fast shipping' without a specific day range for your country.",
+            "Not saving supplier chats; you need them in disputes."
+          ],
+          "tip": "Order the sample with the same shipping method your customers will get. Premium sample shipping hides the real experience.",
+          "sources": [
+            {
+              "t": "Further reading: 14 supplier questions (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping-supplier-questions/"
+            },
+            {
+              "t": "Further reading: Product samples guide (Do Dropshipping)",
+              "u": "https://dodropshipping.com/product-samples-for-dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "quality",
+          "title": "Quality control and branding upgrades",
+          "level": "Advanced",
+          "mins": 3,
+          "summary": "When a product scales, quality problems scale with it. Fix them before they reach reviews.",
+          "points": [
+            "Agree a defect rate with your supplier and track it weekly from support tickets.",
+            "Ask your agent for photo/video QC on bulk stock before it ships to a warehouse.",
+            "Branded packaging, inserts and logo printing become affordable around a few hundred units.",
+            "Improve the product itself: better materials, an accessory, a manual in your customers' language.",
+            "Keep a golden sample at home to compare new batches against."
+          ],
+          "mistakes": [
+            "Changing supplier during scale without testing the new supplier's batch first.",
+            "Adding branding before fixing a known defect.",
+            "Ignoring repeat complaints because the ad ROAS still looks good."
+          ],
+          "tip": "A local-language manual card in the box is cheap and noticeably cuts 'how do I use this?' tickets and returns.",
+          "sources": [
+            {
+              "t": "Further reading: Quality control (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping-quality-control/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "name": "Store Build & Trust",
+      "icon": "layout",
+      "stage": "Build",
+      "blurb": "Pages, policies and the product page anatomy that converts cold traffic.",
+      "guides": [
+        {
+          "id": "essentials",
+          "title": "Store essentials checklist",
+          "level": "Beginner",
+          "mins": 3,
+          "summary": "These pages are legally required or expected. Missing them costs trust and can get ad accounts flagged.",
+          "points": [
+            "Contact page with company name, address, CVR number, email and response time.",
+            "Shipping policy with real delivery ranges per country, processing time and tracking info.",
+            "Refund/return policy written around the EU 14-day withdrawal right.",
+            "Terms of service, privacy policy and cookie consent that blocks tracking until accepted.",
+            "Clean navigation, working search, fast mobile load, consistent currency and language."
+          ],
+          "mistakes": [
+            "Copy-pasted policies that mention another store's name or country.",
+            "Meta ad rejections because the shipping page promises delivery you can't meet.",
+            "No cookie consent, which is a GDPR issue in the EU."
+          ],
+          "tip": "Read your store on your phone as if you are a suspicious buyer. Anything that makes you hesitate, fix before spending on ads.",
+          "sources": [
+            {
+              "t": "Shopify Help: Store policies",
+              "u": "https://help.shopify.com/en/manual/checkout-settings/refund-privacy-tos"
+            },
+            {
+              "t": "Further reading: Standard Shopify pages (Do Dropshipping)",
+              "u": "https://dodropshipping.com/shopify-standard-pages/"
+            }
+          ]
+        },
+        {
+          "id": "product-page",
+          "title": "Anatomy of a converting product page",
+          "level": "Intermediate",
+          "mins": 5,
+          "summary": "Cold traffic decides in seconds. The top of the page must answer: what is it, why do I need it, why trust you.",
+          "points": [
+            "Above the fold: benefit-led headline, price with offer, star rating, 'add to cart', and the best demo image or short video first.",
+            "Gallery: lifestyle first, then close-ups, size reference, what is in the box. Use your own sample photos where possible.",
+            "Benefits before features, in short scannable blocks with icons. Address the top 3 objections from ad comments.",
+            "Social proof: real reviews with photos, and UGC clips. Never invent reviews; it is illegal in the EU and destroys trust.",
+            "Offer: bundles (buy 2 save 15%), free shipping threshold, clear delivery estimate and guarantee near the button."
+          ],
+          "mistakes": [
+            "Supplier photos with Chinese text or watermarks.",
+            "Long paragraphs nobody reads on mobile.",
+            "Fake countdown timers that reset on refresh."
+          ],
+          "tip": "Match the page to the ad. If the ad's hook is 'stops limescale in 10 seconds', that exact promise and visual should be the first thing on the page.",
+          "sources": [
+            {
+              "t": "Baymard Institute: Product page UX research",
+              "u": "https://baymard.com/research/product-page"
+            },
+            {
+              "t": "Further reading: Product page examples (Do Dropshipping)",
+              "u": "https://dodropshipping.com/product-page-examples/"
+            }
+          ]
+        },
+        {
+          "id": "trust",
+          "title": "Building trust as a new store",
+          "level": "Beginner",
+          "mins": 3,
+          "summary": "New stores have no reputation. Borrow trust from transparency, local signals and reviews.",
+          "points": [
+            "Local language and currency everywhere, including emails and checkout.",
+            "Familiar payment logos that actually work at checkout (MobilePay, Klarna, Apple Pay).",
+            "A real 'about us' with the people or company behind the store.",
+            "Trustpilot profile from day one; invite every real customer to review.",
+            "Consistent branding: logo, colours and tone the same in ads, store, emails and packaging."
+          ],
+          "mistakes": [
+            "Fake 'as seen on' logos.",
+            "Trust badges for guarantees you don't honour.",
+            "A domain or store name that sounds generic or spammy."
+          ],
+          "tip": "Answer every comment on your ads within a day. Visible, polite replies convert people reading the comments before they click.",
+          "sources": [
+            {
+              "t": "Trustpilot for business",
+              "u": "https://business.trustpilot.com/"
+            },
+            {
+              "t": "Further reading: Build trust (Do Dropshipping)",
+              "u": "https://dodropshipping.com/how-to-build-trust-in-a-dropshipping-store/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pricing",
+      "name": "Pricing & Profit",
+      "icon": "calculator",
+      "stage": "Build",
+      "blurb": "Unit economics, break-even ROAS and offers that raise order value. Includes a calculator.",
+      "guides": [
+        {
+          "id": "unit-economics",
+          "title": "Unit economics and break-even ROAS",
+          "level": "Intermediate",
+          "mins": 5,
+          "summary": "Know the ad cost you can afford per sale before you launch. That number is your kill/scale line.",
+          "points": [
+            "Net price = selling price ÷ (1 + VAT rate). In Denmark a €39.95 price is about €31.96 before 25% VAT.",
+            "Contribution before ads = net price − product cost − shipping − duty − payment fees (~2–3%) − refund allowance (~3–5%).",
+            "Break-even CPA = contribution before ads. Spend more than that per sale and you lose money.",
+            "Break-even ROAS = selling price ÷ break-even CPA. Meta reports ROAS on gross (VAT-inclusive) revenue, so compare like with like.",
+            "Target ROAS is break-even ROAS × 1.3 or more to leave real profit and a buffer for tracking errors."
+          ],
+          "mistakes": [
+            "Using ex-VAT cost and VAT-inclusive revenue in the same calculation.",
+            "Ignoring refunds and chargebacks in margin.",
+            "Judging a campaign by ROAS without knowing your break-even."
+          ],
+          "tip": "Use the calculator in this Knowledge section for every product before testing, and paste the break-even ROAS into the product's notes.",
+          "sources": [
+            {
+              "t": "Shopify Help: Profit margin reports",
+              "u": "https://help.shopify.com/en/manual/reports-and-analytics"
+            },
+            {
+              "t": "Further reading: Pricing strategy (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping-pricing-strategy/"
+            }
+          ]
+        },
+        {
+          "id": "aov",
+          "title": "Raising order value (AOV)",
+          "level": "Intermediate",
+          "mins": 3,
+          "summary": "Ad cost is per order, not per item. Every extra unit in the cart drops your effective CPA.",
+          "points": [
+            "Quantity bundles: 1 / 2 / 3 packs with increasing savings. Pre-select the middle option.",
+            "Free shipping threshold just above one unit's price to nudge a second item.",
+            "Complementary add-ons at checkout (refills, cases, cleaning kits) priced under 30% of the main item.",
+            "Post-purchase upsell one-click offer after payment; it doesn't hurt conversion.",
+            "Watch the €150 IOSS limit and the per-tariff-line €3 duty when designing bundles."
+          ],
+          "mistakes": [
+            "Discounting so deep the bundle earns less than a single unit.",
+            "Too many upsell pop-ups that slow down checkout.",
+            "Bundles of unrelated items that add duty lines."
+          ],
+          "tip": "Test a 'most popular' badge on the 2-pack. It is often the single fastest AOV win.",
+          "sources": [
+            {
+              "t": "Further reading: Increase sales (Do Dropshipping)",
+              "u": "https://dodropshipping.com/tips-to-increase-dropshipping-sales/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "name": "Meta Ads",
+      "icon": "target",
+      "stage": "Sell",
+      "blurb": "Pixel and CAPI, testing structure, creative and when to kill or scale.",
+      "guides": [
+        {
+          "id": "tracking",
+          "title": "Tracking setup: Pixel + Conversions API",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "Bad data means bad optimization. Set up both browser and server tracking before spending.",
+          "points": [
+            "Install the Meta Pixel through Shopify's Facebook & Instagram app, which also enables the Conversions API (server events).",
+            "Verify your domain in Business Manager and check events in Events Manager: ViewContent, AddToCart, InitiateCheckout, Purchase.",
+            "Aim for a 'Good' or better Event Match Quality for Purchase; pass email and phone via CAPI.",
+            "Test a purchase with a 100% discount code and confirm it appears once (deduplicated) in Events Manager.",
+            "Respect cookie consent. Tracking before consent is a GDPR risk in the EU."
+          ],
+          "mistakes": [
+            "Double-firing purchases from two pixel installs (theme code + app).",
+            "Launching ads before a test purchase is confirmed in Events Manager.",
+            "Sharing one ad account across unrelated stores, which muddies learning."
+          ],
+          "tip": "Keep one ad account and one pixel per store. Mixing products from different brands confuses the algorithm.",
+          "sources": [
+            {
+              "t": "Meta Business Help: Conversions API",
+              "u": "https://www.facebook.com/business/help/2041148702652965"
+            },
+            {
+              "t": "Meta Business Help Center",
+              "u": "https://www.facebook.com/business/help"
+            },
+            {
+              "t": "Further reading: Meta Pixel setup (Do Dropshipping)",
+              "u": "https://dodropshipping.com/meta-pixel/"
+            }
+          ]
+        },
+        {
+          "id": "testing-structure",
+          "title": "A simple product testing structure",
+          "level": "Intermediate",
+          "mins": 5,
+          "summary": "Test the product, then the creative. Keep structure simple so the algorithm does the targeting.",
+          "points": [
+            "Campaign: Sales objective, purchase optimization, Advantage+ placements, broad targeting (country, age 18+ or product-relevant range).",
+            "Start with 3–5 different creatives (different hooks, not just colour changes) in one ad set or an Advantage+ shopping campaign.",
+            "Daily budget around your break-even CPA to 2× it, so each day can produce at least one purchase signal.",
+            "Give a test 2–3 days or spend of 2–3× break-even CPA before deciding. Don't edit during the first 48 hours.",
+            "Log results per creative: hook rate (3-second views ÷ impressions), CTR, CPC, add-to-cart rate, CPA."
+          ],
+          "mistakes": [
+            "Narrow interest stacking on a tiny budget.",
+            "Testing 10 ad sets at €5 each; none gets enough data.",
+            "Changing budget, audience and creative on the same day."
+          ],
+          "tip": "Duplicate the top 2–3 hooks from long-running competitor ads in AdSpy Pro, then make your version better (local language, real customer, faster demo).",
+          "sources": [
+            {
+              "t": "Meta Business Help Center: Advantage+ and campaign setup",
+              "u": "https://www.facebook.com/business/help"
+            },
+            {
+              "t": "Further reading: Marketing for dropshipping (Do Dropshipping)",
+              "u": "https://dodropshipping.com/marketing-for-dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "kill-scale",
+          "title": "Kill, iterate or scale: decision rules",
+          "level": "Intermediate",
+          "mins": 4,
+          "summary": "Decide with rules written before launch, not feelings on the day.",
+          "points": [
+            "Kill: spend reaches 2–3× break-even CPA with no purchases and weak add-to-carts.",
+            "Iterate: good CTR (above ~1.5%) and add-to-carts but few purchases. The problem is the page, price or offer, not the ad.",
+            "Iterate creative: low CTR or hook rate. The product may be fine; the first 3 seconds are not.",
+            "Scale: 3+ days at or above target ROAS. Raise budget 20–30% every 2–3 days, or duplicate into a new campaign at higher budget.",
+            "Keep feeding fresh creatives weekly. Fatigue shows as rising frequency and CPA."
+          ],
+          "mistakes": [
+            "Doubling budget overnight and resetting learning.",
+            "Killing a product with strong add-to-carts instead of fixing checkout.",
+            "Scaling while support tickets about delivery are rising."
+          ],
+          "tip": "Write your kill and scale numbers in the campaign name, e.g. 'CHILLMAT_DK_BE-ROAS-1.9'. You'll stop arguing with yourself.",
+          "sources": [
+            {
+              "t": "Meta Business Help: Learning phase",
+              "u": "https://www.facebook.com/business/help/112167992830700"
+            }
+          ]
+        },
+        {
+          "id": "creative",
+          "title": "Creative that sells",
+          "level": "Intermediate",
+          "mins": 4,
+          "summary": "In 2026 creative is the targeting. The video decides who sees it and who buys.",
+          "points": [
+            "Hook in the first 1–3 seconds: the problem, the result, or a pattern interrupt. Test hooks more than anything else.",
+            "Formats to rotate: UGC-style testimonial, problem/solution demo, before/after, 'TikTok made me buy it' reaction, unboxing.",
+            "Vertical 9:16, captions on (most watch muted), product visible in the first frame.",
+            "Native language voiceover for Nordic markets beats English with subtitles in most tests.",
+            "Claims must be truthful and provable. Health, weight-loss and before/after claims face strict Meta policies."
+          ],
+          "mistakes": [
+            "Re-uploading a competitor's video. It's copyright infringement and gets accounts banned.",
+            "Long intros with logos before the product appears.",
+            "One creative style only; the account fatigues fast."
+          ],
+          "tip": "Brief creators with the exact hook line and three shots you need. Pay for raw footage so you can re-cut new hooks without new shoots.",
+          "sources": [
+            {
+              "t": "Meta Advertising Standards",
+              "u": "https://transparency.meta.com/policies/ad-standards/"
+            },
+            {
+              "t": "Meta Ad Library",
+              "u": "https://www.facebook.com/ads/library/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok & Organic",
+      "icon": "play",
+      "stage": "Sell",
+      "blurb": "Free traffic tests, TikTok ads and using organic content to find winning angles.",
+      "guides": [
+        {
+          "id": "organic-testing",
+          "title": "Organic product testing on TikTok",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "A low-budget way to test product demand: let the For You feed tell you which angles land.",
+          "points": [
+            "Create a niche account, not a store account. Post 1–3 videos a day for 2 weeks.",
+            "Each video tests one hook. Track views, average watch time, shares and 'where to buy' comments.",
+            "A video with high watch time and purchase questions is a creative to turn into a paid ad.",
+            "Use trending sounds within TikTok's commercial music rules for business accounts.",
+            "Link in bio to the product page once the account is eligible."
+          ],
+          "mistakes": [
+            "Deleting videos that flop; it doesn't help and loses data.",
+            "Posting the same video repeatedly.",
+            "Using copyrighted music on a business account."
+          ],
+          "tip": "Reuse your best organic videos as Spark Ads; they keep the social proof (likes and comments).",
+          "sources": [
+            {
+              "t": "TikTok Creative Center",
+              "u": "https://ads.tiktok.com/business/creativecenter/"
+            },
+            {
+              "t": "TikTok Ads Help Center",
+              "u": "https://ads.tiktok.com/help/"
+            },
+            {
+              "t": "Further reading: Free traffic (Do Dropshipping)",
+              "u": "https://dodropshipping.com/free-traffic-dropshipping-store/"
+            }
+          ]
+        },
+        {
+          "id": "tiktok-ads",
+          "title": "TikTok ads basics",
+          "level": "Intermediate",
+          "mins": 3,
+          "summary": "Same principles as Meta, with faster creative fatigue and a stronger need for native-looking video.",
+          "points": [
+            "Install the TikTok pixel and Events API through Shopify's TikTok app.",
+            "Ads that look like ads underperform. Film on a phone, real people, real rooms.",
+            "Plan for 5–10 new creatives per week once a product works.",
+            "Smart+ or automated campaigns work well with broad targeting once the pixel has data.",
+            "Check product category restrictions in TikTok's ad policy before producing content."
+          ],
+          "mistakes": [
+            "Re-using polished Meta ads unchanged.",
+            "Judging after one day; TikTok often needs 3–5 days.",
+            "Ignoring comments, which are very visible on TikTok ads."
+          ],
+          "tip": "Hire 3 micro-creators for raw clips instead of one expensive video; variety beats polish on TikTok.",
+          "sources": [
+            {
+              "t": "TikTok Advertising Policies",
+              "u": "https://ads.tiktok.com/help/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "email",
+      "name": "Email & Retention",
+      "icon": "mail",
+      "stage": "Grow",
+      "blurb": "The automated flows that recover lost sales and bring buyers back for free.",
+      "guides": [
+        {
+          "id": "core-flows",
+          "title": "The 4 flows every store needs",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "Set these up before you scale ads. They often add 10–20% revenue at almost no cost.",
+          "points": [
+            "Welcome flow: discount or free gift for signing up, then brand story and best-sellers (3 emails).",
+            "Abandoned checkout: 1 hour, 24 hours, 48 hours after. Remind, handle objections, then offer a small incentive.",
+            "Browse abandonment: for visitors who viewed a product but did not add to cart.",
+            "Post-purchase: order thanks, how-to-use tips, review request after delivery, cross-sell 2–3 weeks later.",
+            "Write in the customer's language and match the store's tone."
+          ],
+          "mistakes": [
+            "Emailing people who never consented. GDPR requires consent for marketing email in the EU.",
+            "Asking for a review before the product has arrived.",
+            "Sending discounts in every email and training customers to wait."
+          ],
+          "tip": "Add an SMS step only for abandoned checkout and only with explicit opt-in; it often recovers more than email alone.",
+          "sources": [
+            {
+              "t": "Shopify Help: Abandoned checkouts",
+              "u": "https://help.shopify.com/en/manual/orders/abandoned-checkouts"
+            },
+            {
+              "t": "Further reading: Abandoned cart emails (Do Dropshipping)",
+              "u": "https://dodropshipping.com/abandoned-cart-emails-for-ecommerce-beginners-guide/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "service",
+      "name": "Customer Service & Payments",
+      "icon": "chat",
+      "stage": "Grow",
+      "blurb": "Support scripts, refunds, chargebacks and keeping payment providers happy.",
+      "guides": [
+        {
+          "id": "support",
+          "title": "Customer service that prevents chargebacks",
+          "level": "Beginner",
+          "mins": 4,
+          "summary": "Most chargebacks start as an unanswered email. Fast, honest replies are the cheapest insurance you have.",
+          "points": [
+            "Reply within 24 hours on weekdays. State the response time on the contact page.",
+            "Send tracking automatically and proactively notify customers if a parcel is delayed.",
+            "Prepare saved replies for: where is my order, wrong item, damaged item, want to return, cancel order.",
+            "For a cheap item, a refund or reship without return is often cheaper than a dispute.",
+            "Log every complaint with the product and supplier. Patterns tell you when to switch suppliers."
+          ],
+          "mistakes": [
+            "Telling customers 'it's with the supplier' instead of owning the problem.",
+            "Ignoring tickets during scaling, so chargebacks spike two weeks later.",
+            "Promising refunds and forgetting to process them."
+          ],
+          "tip": "Keep your chargeback rate well under 1% of orders. Above that, Shopify Payments and Stripe may hold funds or close the account.",
+          "sources": [
+            {
+              "t": "Shopify Help: Chargebacks",
+              "u": "https://help.shopify.com/en/manual/payments/chargebacks"
+            },
+            {
+              "t": "Further reading: Customer service (Do Dropshipping)",
+              "u": "https://dodropshipping.com/customer-service-dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "payments",
+          "title": "Payments, holds and payouts",
+          "level": "Intermediate",
+          "mins": 3,
+          "summary": "A new store with sudden sales looks risky to payment providers. Plan for reserves and avoid triggers.",
+          "points": [
+            "Use Shopify Payments as the main gateway where available; add PayPal and local methods (MobilePay, Klarna).",
+            "Expect possible payout holds or rolling reserves on new accounts, especially with long delivery times.",
+            "Upload tracking numbers quickly; providers watch fulfilment speed.",
+            "Keep descriptors clear so customers recognise the charge on their statement.",
+            "Respond to every dispute with tracking, delivery confirmation and the customer conversation."
+          ],
+          "mistakes": [
+            "Scaling from €0 to thousands per day overnight on a brand-new account.",
+            "Delivery promises shorter than actual delivery time.",
+            "Not answering PayPal or Shopify information requests on time."
+          ],
+          "tip": "Ramp ad spend gradually in the first month. It costs a little growth but greatly reduces the risk of frozen funds.",
+          "sources": [
+            {
+              "t": "Shopify Help: Payouts and holds",
+              "u": "https://help.shopify.com/en/manual/payments/shopify-payments/payouts"
+            },
+            {
+              "t": "Further reading: PayPal for dropshipping (Do Dropshipping)",
+              "u": "https://dodropshipping.com/paypal-for-dropshipping/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scale",
+      "name": "Scaling & Operations",
+      "icon": "trend",
+      "stage": "Grow",
+      "blurb": "What to do after a product sells: margins, automation, new markets and becoming a brand.",
+      "guides": [
+        {
+          "id": "after-winner",
+          "title": "You found a winner. Now what?",
+          "level": "Advanced",
+          "mins": 4,
+          "summary": "A winning product has a short lead. Use the profit window to lock in margin, delivery and brand.",
+          "points": [
+            "Week 1: secure supply. Confirm stock levels and a backup supplier.",
+            "Weeks 2–4: move to an agent or EU warehouse for faster delivery and lower landed cost.",
+            "Expand creatives and markets: the same product in the next Nordic country, then DE/NL.",
+            "Build a one-product or niche brand store around it if you tested on a general store.",
+            "Add complementary products and email flows so customers buy again."
+          ],
+          "mistakes": [
+            "Spending all profit on ads without improving supply.",
+            "Ignoring copycats until your CPA doubles.",
+            "Expanding to five countries at once without translations or support capacity."
+          ],
+          "tip": "Set alerts in AdSpy Pro for new advertisers on your product. When competitors arrive, your best move is a better offer, not a lower price.",
+          "sources": [
+            {
+              "t": "Further reading: After a product sells (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping-product-that-sells/"
+            }
+          ]
+        },
+        {
+          "id": "automation",
+          "title": "Automating daily operations",
+          "level": "Intermediate",
+          "mins": 3,
+          "summary": "Automate repeatable tasks so your time goes to products and creatives.",
+          "points": [
+            "Order routing: DSers, CJ or your agent's app sends orders automatically.",
+            "Tracking sync: auto-update Shopify with tracking and notify customers.",
+            "Helpdesk with macros and order lookups (Gorgias, Zendesk, Shopify Inbox).",
+            "Daily dashboard: revenue, ad spend, CPA, ROAS, refunds. One view, same time every day.",
+            "Weekly review: product P&L, top tickets, creative fatigue, stock risk."
+          ],
+          "mistakes": [
+            "Automating before the process works manually.",
+            "Too many overlapping apps slowing the store.",
+            "Not checking automations; failed order syncs leave customers waiting."
+          ],
+          "tip": "Check failed and unfulfilled orders every morning. One stuck sync can create dozens of angry customers.",
+          "sources": [
+            {
+              "t": "Shopify Flow",
+              "u": "https://help.shopify.com/en/manual/shopify-flow"
+            },
+            {
+              "t": "Further reading: Automated dropshipping (Do Dropshipping)",
+              "u": "https://dodropshipping.com/automated-dropshipping/"
+            }
+          ]
+        },
+        {
+          "id": "troubleshoot",
+          "title": "Traffic but no sales: the diagnosis",
+          "level": "Intermediate",
+          "mins": 4,
+          "summary": "Work down the funnel. Find the step where people drop off and fix that step only.",
+          "points": [
+            "Low CTR on ads → creative/hook problem.",
+            "Good CTR, low add-to-cart → page, price or offer mismatch with the ad.",
+            "Add-to-carts but few checkouts → surprise shipping cost, slow cart, trust issues.",
+            "Checkouts started but not completed → payment methods, errors, required account, price shock from VAT or duty.",
+            "Check mobile speed and do a full test order on a phone from the ad link."
+          ],
+          "mistakes": [
+            "Redesigning the whole store when only the checkout is broken.",
+            "Judging with fewer than ~500 product page visitors.",
+            "Not checking that the ad's country matches the store's currency and shipping zones."
+          ],
+          "tip": "Use Shopify's conversion funnel report and write down the drop-off at each step before changing anything.",
+          "sources": [
+            {
+              "t": "Shopify Help: Analytics",
+              "u": "https://help.shopify.com/en/manual/reports-and-analytics"
+            },
+            {
+              "t": "Further reading: Traffic but no sales (Do Dropshipping)",
+              "u": "https://dodropshipping.com/dropshipping-traffic-but-no-sales/"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "glossary": [
+    [
+      "AOV",
+      "Average order value. Total revenue ÷ number of orders."
+    ],
+    [
+      "CPA",
+      "Cost per acquisition. Ad spend ÷ purchases."
+    ],
+    [
+      "ROAS",
+      "Return on ad spend. Revenue ÷ ad spend. 2.5 means €2.50 back for every €1."
+    ],
+    [
+      "Break-even ROAS",
+      "The ROAS at which ad cost equals your profit before ads. Below it, you lose money."
+    ],
+    [
+      "CTR",
+      "Click-through rate. Link clicks ÷ impressions."
+    ],
+    [
+      "Hook rate",
+      "3-second video views ÷ impressions. Shows if the first seconds stop the scroll."
+    ],
+    [
+      "CAPI",
+      "Meta Conversions API. Sends events from the server, more reliable than the browser pixel alone."
+    ],
+    [
+      "IOSS",
+      "EU Import One-Stop Shop. Collects VAT at checkout for non-EU parcels worth €150 or less."
+    ],
+    [
+      "OSS",
+      "EU One-Stop Shop. Reports VAT on intra-EU B2C sales in one return."
+    ],
+    [
+      "GPSR",
+      "EU General Product Safety Regulation. Safety, traceability and EU responsible person rules."
+    ],
+    [
+      "Landed cost",
+      "Product + shipping + duties + fees to get one unit to the customer."
+    ],
+    [
+      "Processing time",
+      "Days the supplier takes before dispatch. Adds to shipping time."
+    ],
+    [
+      "Agent",
+      "A sourcing partner who buys, inspects and ships products for you."
+    ],
+    [
+      "UGC",
+      "User-generated content. Videos that look like real customers made them."
+    ],
+    [
+      "Spark Ads",
+      "TikTok ads that boost an existing organic post and keep its engagement."
+    ],
+    [
+      "Chargeback",
+      "A customer disputes a charge with their bank. Costs you the sale plus a fee."
+    ],
+    [
+      "Rolling reserve",
+      "Part of your payouts held by the payment provider for a period as security."
+    ]
+  ]
+}

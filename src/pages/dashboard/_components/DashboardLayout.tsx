@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   Puzzle,
   Trophy,
-  ShoppingBag, Rocket, Menu } from "lucide-react";
+  ShoppingBag, Rocket, Menu, BookOpen } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import { useEffect, useState } from "react";
@@ -32,7 +32,7 @@ import OnboardingDialog from "./OnboardingDialog.tsx";
 
 // `short` is the label in the bottom bar on phones and tablets: the first 4 items and "More" (5 at 360px wide),
 // which opens every page.
-const navItems: { icon: typeof Search; label: string; href: string; short?: string }[] = [
+const navItems: { icon: typeof Search; label: string; href: string; short?: string; badge?: string }[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", short: "Home" },
   { icon: Trophy, label: "Winning Products", href: "/dashboard/winners", short: "Winners" },
   { icon: TrendingUp, label: "Products", href: "/dashboard/products" },
@@ -42,6 +42,7 @@ const navItems: { icon: typeof Search; label: string; href: string; short?: stri
   { icon: LineChart, label: "Research", href: "/dashboard/research" },
   { icon: Store, label: "Store Tracker", href: "/dashboard/stores" },
   { icon: Rocket, label: "Launch", href: "/dashboard/launch" },
+  { icon: BookOpen, label: "Knowledge", href: "/dashboard/knowledge", badge: "NEW" },
   { icon: BookmarkCheck, label: "Saved", href: "/dashboard/saved" },
   { icon: Bot, label: "AI Agents", href: "/dashboard/agents" },
   { icon: Bell, label: "Alerts", href: "/dashboard/alerts" },
@@ -123,6 +124,7 @@ export default function DashboardLayout() {
                   >
                     <item.icon className="w-4 h-4 shrink-0" />
                     <span className="flex-1">{item.label}</span>
+                    {item.badge && <span className="text-[9px] font-bold tracking-wide bg-brand text-[#15171c] px-1.5 py-0.5 rounded-full">{item.badge}</span>}
                     {item.href === "/dashboard/alerts" && !!unreadCount && unreadCount > 0 && (
                       <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium min-w-[18px] text-center">
                         {unreadCount > 9 ? "9+" : unreadCount}
@@ -259,6 +261,7 @@ export default function DashboardLayout() {
                   >
                     <item.icon className="w-4 h-4 shrink-0" />
                     <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                    {item.badge && <span className="text-[9px] font-bold tracking-wide bg-brand text-[#15171c] px-1.5 py-0.5 rounded-full shrink-0">{item.badge}</span>}
                     {item.href === "/dashboard/alerts" && !!unreadCount && unreadCount > 0 && (
                       <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">{unreadCount > 9 ? "9+" : unreadCount}</span>
                     )}
