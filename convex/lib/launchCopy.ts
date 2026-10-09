@@ -15,6 +15,8 @@ export type LaunchCopy = {
   shippingReturns: string;
   seo: { title: string; description: string };
   adKit: { angle: string; hook: string; primaryText: string; headline: string }[];
+  /** For the store owner, not the page: things to verify before going live (needs-verification items, pre-launch QA). */
+  checks?: string[];
 };
 
 export type LaunchProduct = {
@@ -74,26 +76,38 @@ const clip = (s: string | undefined, n: number) => (s ? (s.length > n ? `${s.sli
 /** Only true things: the product, its real supplier signals and the ads already selling it. */
 export function launchFacts(p: LaunchProduct, ads: LaunchAd[], opts: { language: string; tone: string; price?: number }): string {
   const best = p.supplierMatches?.[0];
+  // Evidence levels: what's verified may be stated; ad claims are marketing, for angles and wording only.
   const lines = [
+    "VERIFIED (may be stated on the page):",
     `Product: ${p.title}`,
     `Niche: ${p.category}`,
     opts.price ? `Selling price: ${opts.price}` : "",
-    p.description ? `Known description: ${clip(p.description, 800)}` : "",
+    p.description ? `Product description from the product's own page: ${clip(p.description, 800)}` : "",
     best?.orders ? `Supplier proof (real, may be quoted as "${best.orders.toLocaleString("en-US")}+ sold"): ${best.orders} orders in 30 days` : "",
     best?.rating ? `Supplier rating: ${best.rating}% positive` : "",
-    ads.length ? "Ads already selling it (learn the angles, don't copy them word for word):" : "",
+    ads.length ? "\nNOT VERIFIED, marketing claims from ads already selling it (learn the angles and the customer's words; never state their claims, numbers or results as facts):" : "",
     ...ads.slice(0, 3).map((a, i) => `${i + 1}. [${a.platform}] ${clip(a.spokenHook || a.headline, 160)} — ${clip(a.bodyText, 300)}`),
-    `Write in: ${opts.language}. Tone: ${opts.tone}.`,
+    `\nWrite in: ${opts.language}. Tone: ${opts.tone}.`,
   ];
   return lines.filter(Boolean).join("\n");
 }
 
 export const LAUNCH_SYSTEM =
-  "You write Shopify product pages for dropshipping stores. Use only the facts given: never invent reviews, ratings, " +
-  "sales numbers, awards, certifications, discounts, guarantees or medical/health effects. Benefits must follow from what " +
-  "the product is. Short sentences, concrete, no hype words like 'revolutionary' or 'miracle'. The FAQ answers real " +
-  "buyer questions (sizing, use, care, shipping) without promising delivery times you don't know. The ad kit gives three " +
-  "different angles learned from the ads already selling it. Return the requested JSON only.";
+  "You are a careful Shopify product page strategist and copywriter for a dropshipping store. Write the clearest product page " +
+  "the evidence supports, not the most aggressive sales page possible. Only VERIFIED facts may be stated; ad claims are " +
+  "marketing, for angles and the customer's words only. " +
+  "Never invent: reviews, testimonials, star ratings, customer counts, sales numbers, certifications, awards, guarantees, " +
+  "warranties, medical or performance results, product features, materials, specifications, dimensions, delivery times, " +
+  "return terms, stock scarcity, countdown urgency, discounts, before-and-after results, trust badges or endorsements. " +
+  "Don't turn an ordinary feature into a strong outcome unless the facts support that connection; no health, financial, " +
+  "safety, beauty or performance claims without evidence. No hype ('best ever', 'life-changing', 'must-have', 'revolutionary', " +
+  "'miracle', 'sells out fast') and no scarcity or urgency. Short, concrete sentences. " +
+  "Leave out what you can't support: whatsIncluded only lists package contents you were given (else empty); howItWorks only " +
+  "steps that follow from what the product is; the FAQ only questions you can answer from the facts (sizing, use, care), never " +
+  "inventing delivery or return terms. Something plausible but unverified stays off the page and goes in checks instead. " +
+  "checks: up to 6 short items the store owner must verify before going live (unverified details worth adding, e.g. materials, " +
+  "size, what's in the box, the supplier's real delivery time; and any wording that depends on an assumption). " +
+  "The ad kit gives three different angles learned from the ads already selling it, with the same rules. Return the requested JSON only.";
 
 // ── claim rules ─────────────────────────────────────────────────────────────
 
@@ -107,6 +121,12 @@ const BANNED = [
   /\b(#1|number one|best[- ]selling|world'?s best)\b/i,
   /\b(lose|losing)\s+\d+\s*(kg|lbs?|pounds)\b/i,
   /\b\d[\d,.]*\+?\s*(happy|satisfied)?\s*(customers|reviews|buyers)\b/i,
+  // Hype and pressure the evidence can't back up: no scarcity, urgency or discounts the store didn't set.
+  /\b(best ever|life[- ]changing|must[- ]have|sells? out fast|selling fast|going fast)\b/i,
+  /\b(only \d+ left|limited stock|while (stocks?|supplies) last|last chance|hurry|ends (today|tonight|soon)|today only|act now)\b/i,
+  /\b\d{1,2}\s?% off\b/i,
+  // The same pressure in the stores' other common languages (Danish, Norwegian, Swedish, German).
+  /\b(skynd dig|skynd deg|skynda|beeil dich|kun \d+ (tilbage|igjen)|endast \d+ kvar|nur noch \d+|begrænset lager|begrenset lager|begränsat lager|udsolgt snart)\b/i,
 ];
 
 /** Drops sentences making claims we can't back up. Returns the cleaned text and how many were dropped. */
@@ -144,6 +164,8 @@ export function cleanCopy(raw: LaunchCopy): { copy: LaunchCopy; dropped: number 
       .slice(0, 6),
     shippingReturns: s(raw.shippingReturns, 400),
     seo: { title: s(raw.seo?.title, 70), description: s(raw.seo?.description, 160) },
+    // Shown to the owner only, never on the page.
+    checks: (Array.isArray(raw.checks) ? raw.checks : []).map((c) => cut(c, 200)).filter(Boolean).slice(0, 6),
     adKit: (Array.isArray(raw.adKit) ? raw.adKit : [])
       .map((a) => ({ angle: s(a?.angle, 60), hook: s(a?.hook, 160), primaryText: s(a?.primaryText, 600), headline: s(a?.headline, 60) }))
       .filter((a) => a.hook && a.primaryText)

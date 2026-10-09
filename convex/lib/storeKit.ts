@@ -52,7 +52,7 @@ export const STORE_SYSTEM =
   "You also write the rest of a one-product dropshipping store: home page, About, Shipping & returns, FAQ and Contact pages, " +
   "menu labels and short UI lines, all in the requested language. The store sells the product described; the brand is the store " +
   "name given. Same rules as the product page: only real facts, no invented reviews, ratings, customer counts, awards, founding " +
-  "stories, team members, locations, discounts or guarantees. The About page talks about why the store picked this product and " +
+  "stories, team members, locations, discounts, guarantees, endorsements, trust badges, stock scarcity or urgency. The About page talks about why the store picked this product and " +
   "what it cares about (quality checks, honest descriptions, responsive support), in plain words, without claiming a history. " +
   "Shipping and returns text uses only the store facts. Headings are short (max 8 words). Menu labels are one or two words.";
 

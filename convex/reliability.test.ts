@@ -93,5 +93,5 @@ describe("work that used to stop at a fixed cap now reaches everyone", () => {
       done = page.isDone;
     }
     expect(total).toBe(2100);
-  });
+  }, 30_000); // thousands of users: slow when the whole suite runs at once
 });
