@@ -134,6 +134,10 @@ export default function ProductDetail() {
           transition={{ duration: 0.4 }}
         >
           <ProductGallery product={product} />
+          {/* Profit calculator, under the images */}
+          <div id="profit-calculator" className="scroll-mt-20 mb-6">
+            <ProfitCalculator basePrice={product.price ?? 0} baseCost={product.cost ?? 0} />
+          </div>
           {product.adExamples.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold mb-3">Ad examples</h3>
@@ -366,15 +370,10 @@ export default function ProductDetail() {
         </motion.div>
       </div>
 
-      {/* Profit calculator beside the AI tools, so neither is far down the page */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 items-start">
-        {/* Profit calculator */}
-        <div id="profit-calculator" className="scroll-mt-20 lg:sticky lg:top-6">
-          <ProfitCalculator basePrice={product.price ?? 0} baseCost={product.cost ?? 0} />
-        </div>
-        {/* AI Intelligence tools */}
-        <div className="space-y-4">
-          <h3 className="font-display text-lg font-bold">AI tools</h3>
+      {/* AI tools, two side by side */}
+      <div className="mt-8">
+        <h3 className="font-display text-lg font-bold mb-4">AI tools</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <ResearchVerdictCard
             productId={product._id}
             hasSuppliers={(product.supplierMatches?.length ?? 0) + (product.wholesaleMatches?.length ?? 0) > 0}
