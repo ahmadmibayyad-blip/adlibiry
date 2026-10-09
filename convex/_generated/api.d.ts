@@ -71,6 +71,7 @@ import type * as lib_herculesShim from "../lib/herculesShim.js";
 import type * as lib_hooks from "../lib/hooks.js";
 import type * as lib_imageHash from "../lib/imageHash.js";
 import type * as lib_importRuns from "../lib/importRuns.js";
+import type * as lib_knowledge from "../lib/knowledge.js";
 import type * as lib_metaAdLibrary from "../lib/metaAdLibrary.js";
 import type * as lib_northStar from "../lib/northStar.js";
 import type * as lib_pagination from "../lib/pagination.js";
@@ -205,6 +206,7 @@ declare const fullApi: ApiFromModules<{
   "lib/hooks": typeof lib_hooks;
   "lib/imageHash": typeof lib_imageHash;
   "lib/importRuns": typeof lib_importRuns;
+  "lib/knowledge": typeof lib_knowledge;
   "lib/metaAdLibrary": typeof lib_metaAdLibrary;
   "lib/northStar": typeof lib_northStar;
   "lib/pagination": typeof lib_pagination;

@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { contentFields as knowledgeContentFields } from "./lib/knowledge";
 
 export default defineSchema({
   ...authTables,
@@ -734,6 +735,13 @@ export default defineSchema({
   }).index("by_day", ["day"]),
 
   // Knowledge section: the guides each user marked as read (convex/knowledge.ts; content in src/data/knowledge.json).
+  // The Knowledge guides as edited in Admin (one row; none = src/data/knowledge.json).
+  knowledgeContent: defineTable({
+    ...knowledgeContentFields,
+    updatedAt: v.string(),
+    updatedBy: v.id("users"),
+  }),
+
   knowledgeProgress: defineTable({
     userId: v.id("users"),
     guideId: v.string(),

@@ -5,9 +5,10 @@ import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, BookOpen, Calculator, CheckCircle2, Circle, Clock, ExternalLink, Lightbulb, X } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
-import { nextGuide, topics } from "@/lib/knowledge.ts";
+import { useKnowledge } from "@/hooks/use-knowledge.ts";
 import { TOPIC_ICONS } from "@/lib/knowledgeIcons.ts";
 import { cn } from "@/lib/utils.ts";
+import KnowledgeLoading from "./_components/KnowledgeLoading.tsx";
 import LevelTag from "./_components/LevelTag.tsx";
 
 // A topic: its guides in a rail on the left (ticked when read), the open guide
@@ -19,11 +20,13 @@ export default function KnowledgeTopic() {
   const reads = useQuery(api.knowledge.myReads);
   const read = useMemo(() => new Set(reads ?? []), [reads]);
   const toggle = useMutation(api.knowledge.toggleRead);
+  const k = useKnowledge();
 
-  const topic = topics.find((t) => t.id === topicId);
-  if (!topic) return <Navigate to="/dashboard/knowledge" replace />;
+  if (!k) return <KnowledgeLoading />;
+  const topic = k.topics.find((t) => t.id === topicId);
+  if (!topic || !topic.guides.length) return <Navigate to="/dashboard/knowledge" replace />;
   const guide = topic.guides.find((g) => g.id === guideId) ?? topic.guides[0];
-  const next = nextGuide(topic.id, guide.id);
+  const next = k.nextGuide(topic.id, guide.id);
   const isRead = read.has(guide.id);
   const Icon = TOPIC_ICONS[topic.icon] ?? BookOpen;
 

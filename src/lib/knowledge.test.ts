@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CALC_DEFAULTS, allGuides, glossary, matches, nextGuide, topics, unitEconomics } from "./knowledge";
+import { contentProblems } from "@/convex/lib/knowledge.ts";
+import { BUILT_IN, CALC_DEFAULTS, buildKnowledge, matches, unitEconomics } from "./knowledge";
+
+const { topics, allGuides, glossary, nextGuide } = buildKnowledge(BUILT_IN);
 
 describe("Knowledge", () => {
   it("has the 12 topics and 33 guides, with unique guide ids", () => {
@@ -31,6 +34,29 @@ describe("Knowledge", () => {
     expect(nextGuide("pricing", "aov")?.topic.id).toBe("meta");
     const last = allGuides[allGuides.length - 1];
     expect(nextGuide(last.topic.id, last.id)).toBeNull();
+  });
+
+  it("the built-in guides pass the checks an admin's save must pass", () => {
+    expect(contentProblems(BUILT_IN)).toEqual([]);
+  });
+
+  it("explains what stops an edited copy from saving", () => {
+    const copy = structuredClone(BUILT_IN);
+    copy.topics[0].guides[1].id = copy.topics[0].guides[0].id;
+    copy.topics[1].guides[0].title = " ";
+    copy.topics[1].guides[0].sources = [{ t: "Docs", u: "javascript:alert(1)" }];
+    copy.topics[2].guides = [];
+    copy.glossary.push(["AOV", "again"]);
+    const problems = contentProblems(copy);
+    expect(problems).toEqual(
+      expect.arrayContaining([
+        `Two guides share the id "${BUILT_IN.topics[0].guides[0].id}".`,
+        expect.stringMatching(/title is empty/),
+        expect.stringMatching(/isn't a web address/),
+        expect.stringMatching(/has no guides/),
+        'The glossary has "AOV" twice.',
+      ]),
+    );
   });
 
   it("sorts the glossary alphabetically", () => {
