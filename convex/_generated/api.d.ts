@@ -105,6 +105,7 @@ import type * as notifications from "../notifications.js";
 import type * as priceFetch from "../priceFetch.js";
 import type * as proPlan from "../proPlan.js";
 import type * as productImages from "../productImages.js";
+import type * as productImport from "../productImport.js";
 import type * as productPipeline from "../productPipeline.js";
 import type * as products from "../products.js";
 import type * as publicApi from "../publicApi.js";
@@ -236,6 +237,7 @@ declare const fullApi: ApiFromModules<{
   priceFetch: typeof priceFetch;
   proPlan: typeof proPlan;
   productImages: typeof productImages;
+  productImport: typeof productImport;
   productPipeline: typeof productPipeline;
   products: typeof products;
   publicApi: typeof publicApi;

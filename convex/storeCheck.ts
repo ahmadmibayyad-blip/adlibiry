@@ -3,6 +3,7 @@ import { action, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { stableToken } from "./lib/authIdentity";
 import { decryptToken } from "./lib/shopifyOAuth";
+import { getLaunchProduct } from "./lib/launchProduct";
 import { bigBrandIn } from "./lib/productMatch";
 import { NoAccess, adminGql as gql } from "./lib/shopifyAdmin";
 import { storeChecks, type ShippingZone, type StoreCheckItem } from "./lib/storeCheck";
@@ -30,7 +31,7 @@ export const context = internalQuery({
     for (const l of launches) {
       if (seen.has(l.shopifyProductId!) || products.length >= 50) continue;
       seen.add(l.shopifyProductId!);
-      const p = await ctx.db.get("products", l.productId);
+      const p = await getLaunchProduct(ctx, l.productId, user._id);
       products.push({ id: l.shopifyProductId!, bigBrand: !!p?.isBigBrand });
     }
     return { shopDomain: store.shopDomain, accessToken: store.accessToken, currency: store.currency ?? "USD", facts, products };

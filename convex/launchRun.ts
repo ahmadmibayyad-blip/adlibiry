@@ -418,7 +418,7 @@ async function translateReviews(reviews: SupplierReviews, language: string): Pro
 /** Makes `count` AI photos of the product and keeps them in Convex storage, so Shopify can download them. */
 async function makeAiPhotos(
   ctx: ActionCtx,
-  product: Doc<"products">,
+  product: Pick<Doc<"products">, "title" | "category" | "description">,
   realPhotos: string[],
   count: number,
 ): Promise<{ urls: string[]; ids: Id<"_storage">[]; note?: string }> {

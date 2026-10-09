@@ -7,6 +7,7 @@ import { effectivePlan, onProTrial } from "./lib/billing";
 import { MAX_AI_PHOTOS, aiPhotosReady } from "./lib/aiPhotos";
 import { suggestPrice } from "./lib/launchCopy";
 import { bigBrandIn } from "./lib/productMatch";
+import { getLaunchProduct, type Launchable } from "./lib/launchProduct";
 import { missingStoreScopes } from "./lib/shopifyOAuth";
 import { isStoreStyle } from "./lib/storeStyles";
 
@@ -54,7 +55,7 @@ async function allowance(ctx: QueryCtx, user: Doc<"users">): Promise<{ left: num
 }
 
 /** Why Launch is off for a big-brand product (flagged on import, or a brand in its title), or null. */
-function bigBrandBlock(p: Doc<"products">): string | null {
+function bigBrandBlock(p: Launchable): string | null {
   const brand = bigBrandIn(p.title);
   if (!brand && !p.isBigBrand) return null;
   return `${brand ? `This looks like a ${brand} product.` : "This is a big-brand product."} Selling it risks trademark claims and Meta and Shopify bans, so Launch is off for it.`;
@@ -62,11 +63,11 @@ function bigBrandBlock(p: Doc<"products">): string | null {
 
 /** The Launch dialog: store, quota, suggested price and the last launch of this product. */
 export const prepare = query({
-  args: { productId: v.id("products") },
+  args: { productId: v.union(v.id("products"), v.id("importedProducts")) },
   handler: async (ctx, args) => {
     const user = await currentUser(ctx);
     if (!user) return null;
-    const product = await ctx.db.get("products", args.productId);
+    const product = await getLaunchProduct(ctx, args.productId, user._id);
     if (!product) return null;
     const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
     const last = await ctx.db
@@ -95,6 +96,7 @@ export const prepare = query({
       // In the store's currency (product prices and costs are USD).
       suggested: suggestPrice({ price: product.price, cost: product.cost }, { currency, rate: await usdRate(ctx, currency) }),
       last: last ?? null,
+      imported: product.kind === "imported",
       aiPhotosReady: aiPhotosReady(),
       // An AliExpress listing we matched, to fill the reviews link in.
       supplierUrl: product.supplierMatches?.find((m) => /aliexpress\./i.test(m.url) && /\/item\//.test(m.url))?.url ?? null,
@@ -103,7 +105,7 @@ export const prepare = query({
 });
 
 const startArgs = {
-  productId: v.id("products"),
+  productId: v.union(v.id("products"), v.id("importedProducts")),
   language: v.string(),
   tone: v.union(v.literal("friendly"), v.literal("premium"), v.literal("bold")),
   price: v.optional(v.number()),
@@ -177,7 +179,7 @@ async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs
   const allowed = await allowance(ctx, user);
   if (!allowed) throw new ConvexError({ code: "PLAN_REQUIRED", message: "Launch is part of Pro. Start the 7-day trial or upgrade to use it." });
   if (allowed.left === 0) throw new ConvexError({ code: "LIMIT", message: `You've used your ${allowed.limit} launches${allowed.limit === TRIAL_TOTAL ? " on the trial" : " this month"}.` });
-  const product = await ctx.db.get("products", args.productId);
+  const product = await getLaunchProduct(ctx, args.productId, user._id);
   if (!product) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found." });
   const blocked = bigBrandBlock(product);
   if (blocked) throw new ConvexError({ code: "BLOCKED", message: blocked });
@@ -246,7 +248,7 @@ export const mine = query({
     const user = await currentUser(ctx);
     if (!user) return [];
     const rows = await ctx.db.query("launches").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").take(50);
-    return Promise.all(rows.map(async (l) => ({ ...l, product: await ctx.db.get("products", l.productId).then((p) => (p ? { title: p.title, imageUrl: p.imageUrl } : null)) })));
+    return Promise.all(rows.map(async (l) => ({ ...l, product: await getLaunchProduct(ctx, l.productId, user._id).then((p) => (p ? { title: p.title, imageUrl: p.imageUrl, imported: p.kind === "imported" } : null)) })));
   },
 });
 
@@ -285,7 +287,7 @@ export const context = internalQuery({
   handler: async (ctx, args) => {
     const launch = await ctx.db.get("launches", args.launchId);
     if (!launch) return null;
-    const product = await ctx.db.get("products", launch.productId);
+    const product = await getLaunchProduct(ctx, launch.productId, launch.userId);
     const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", launch.userId)).unique();
     if (!product || !store) return { launch, product: null, store: null, ads: [], rate: 1, previousShopifyProductId: undefined };
     // The ads already selling it, best first: their angles shape the page and ad kit.
@@ -357,7 +359,7 @@ export const startAdImages = internalMutation({
     if (l.status !== "published" || !adKit.length) return { error: "This launch has no ad kit yet." };
     if (l.adImagesStatus === "making") return { error: "The ad images are already being made." };
     if ((l.adImageRuns ?? 0) >= MAX_AD_IMAGE_RUNS) return { error: `You've made ad images ${MAX_AD_IMAGE_RUNS} times for this launch.` };
-    const product = await ctx.db.get("products", l.productId);
+    const product = await getLaunchProduct(ctx, l.productId, user._id);
     if (!product) return { error: "The product is gone." };
     await ctx.db.patch("launches", l._id, { adImagesStatus: "making", adImagesNote: undefined, adImageRuns: (l.adImageRuns ?? 0) + 1 });
     return { product: { title: product.title, category: product.category, imageUrl: product.imageUrl, images: product.images ?? [] }, aiPhotoUrls: l.aiPhotoUrls ?? [], adKit };

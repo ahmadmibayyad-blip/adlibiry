@@ -612,7 +612,7 @@ export default defineSchema({
   // the user's Shopify store, with its ad kit.
   launches: defineTable({
     userId: v.id("users"),
-    productId: v.id("products"),
+    productId: v.union(v.id("products"), v.id("importedProducts")),
     shopDomain: v.string(),
     status: v.string(),               // "generating" | "publishing" | "published" | "failed"
     language: v.string(),
@@ -659,6 +659,23 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_product", ["userId", "productId"]),
+
+  // Launch from any link (productImport.ts): a product page a user pasted, private to them.
+  importedProducts: defineTable({
+    userId: v.id("users"),
+    url: v.string(),
+    source: v.string(),               // "aliexpress" | "shopify" | "web"
+    title: v.string(),
+    description: v.string(),
+    category: v.string(),
+    imageUrl: v.string(),
+    images: v.array(v.string()),
+    price: v.optional(v.number()),    // the page's selling price, USD
+    cost: v.optional(v.number()),     // the supplier's price, USD (AliExpress)
+    createdAt: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_url", ["userId", "url"]),
 
   // Published launches per user per month (the plan quota).
   launchUsage: defineTable({ userId: v.id("users"), month: v.string(), count: v.number() })

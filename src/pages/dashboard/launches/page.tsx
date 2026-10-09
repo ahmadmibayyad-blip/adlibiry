@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useAction } from "convex/react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ExternalLink, Megaphone, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
+import { ExternalLink, Link2, Megaphone, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
@@ -12,6 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import AdKit from "@/pages/dashboard/products/_components/AdKit.tsx";
 import DeleteLaunches from "./_components/DeleteLaunches.tsx";
 import RelaunchDialog from "./_components/RelaunchDialog.tsx";
+import LaunchDialog from "@/pages/dashboard/products/_components/LaunchDialog.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 
 // Every product page launched to Shopify (convex/launch.ts), newest first.
@@ -33,6 +38,10 @@ export default function LaunchesPage() {
   const [toDelete, setToDelete] = useState<Id<"launches">[] | null>(null);
   // A copy, not a lookup: a relaunch that replaces this launch removes its row while the dialog shows progress.
   const [relaunching, setRelaunching] = useState<Doc<"launches"> | null>(null);
+  const importLink = useAction(api.productImport.importLink);
+  const [link, setLink] = useState("");
+  const [reading, setReading] = useState(false);
+  const [fromLink, setFromLink] = useState<{ _id: Id<"importedProducts">; imageUrl: string } | null>(null);
   const failed = rows?.filter((l) => l.status === "failed") ?? [];
   const deleting = rows?.filter((l) => toDelete?.includes(l._id)) ?? [];
 
@@ -85,6 +94,38 @@ export default function LaunchesPage() {
           </button>
         ) : null}
       </div>
+      {quota?.store && quota.allowed && (
+        <form
+          className="mb-6 rounded-xl border border-border bg-card p-4 space-y-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!link.trim()) return;
+            setReading(true);
+            try {
+              const r = await importLink({ url: link.trim() });
+              setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
+              setLink("");
+            } catch (err) {
+              toast.error(errorMessage(err, "Couldn't read that link"));
+            } finally {
+              setReading(false);
+            }
+          }}
+        >
+          <label htmlFor="launch-link" className="text-sm font-semibold flex items-center gap-1.5">
+            <Link2 className="w-4 h-4 text-primary" /> Launch from a link
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            <Input id="launch-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="AliExpress, Shopify store or other product page link" className="flex-1 min-w-48" />
+            <Button type="submit" disabled={reading || !link.trim()}>
+              {reading ? <Spinner className="w-4 h-4 mr-2" /> : <Rocket className="w-4 h-4 mr-2" />}
+              {reading ? "Reading the page…" : "Launch"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Any product you found yourself: we read its title, photos and price, and you launch it like a winning product.</p>
+        </form>
+      )}
+      {fromLink ? <LaunchDialog key={fromLink._id} product={fromLink} startOpen onClose={() => setFromLink(null)} /> : null}
       {quota && !quota.store && (
         <div className="mb-6 rounded-xl border border-dashed border-primary/20 bg-primary/10 p-4 max-w-sm space-y-3">
           <p className="text-sm">Connect your Shopify store to launch winning products as ready-made product pages.</p>
@@ -103,9 +144,13 @@ export default function LaunchesPage() {
             <li key={l._id} className="flex flex-wrap items-center gap-3 p-3">
               <ProductImage src={l.product?.imageUrl} alt="" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
               <div className="min-w-0 flex-1 basis-48">
-                <Link to={`/dashboard/products/${l.productId}`} className="text-sm font-medium line-clamp-1 hover:underline">
-                  {(l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "Product"}
-                </Link>
+                {l.product?.imported ? (
+                  <span className="text-sm font-medium line-clamp-1">{(l.copy as { title?: string } | undefined)?.title ?? l.product.title}</span>
+                ) : (
+                  <Link to={`/dashboard/products/${l.productId}`} className="text-sm font-medium line-clamp-1 hover:underline">
+                    {(l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "Product"}
+                  </Link>
+                )}
                 <div className="text-xs text-muted-foreground">
                   {l.mode === "store" ? `Full store${l.brandName ? ` “${l.brandName}”` : ""} · ` : ""}
                   {STATUS[l.status] ?? l.status}
