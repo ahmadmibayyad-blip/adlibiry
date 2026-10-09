@@ -68,6 +68,26 @@ describe("Launch from a link", () => {
     await expect(other.mutation(api.launch.start, { productId: imported.productId, language: "English", tone: "friendly", publish: "DRAFT" })).rejects.toThrow(/not found/);
   });
 
+  it("reads AliExpress through the Apify reader when AliExpress shows the server a bot check", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    let apifyBody: Record<string, unknown> | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.startsWith("https://www.aliexpress.com/item/")) return new Response("<html><title>Verify</title><div id=baxia-punish></div></html>", { status: 200 });
+      if (url.startsWith("https://api.apify.com/v2/acts/zen-studio~aliexpress-scraper/run-sync-get-dataset-items")) {
+        apifyBody = JSON.parse(String(init?.body));
+        return json([{ title: "New Pet Dog Brush Cat Comb", price: 1.09, currency: "USD", gallery: ["https://ae/1.jpg", "https://ae/2.jpg"] }]);
+      }
+      return new Response("", { status: 404 });
+    }));
+    const { t, user } = await setup();
+    const r = await user.action(api.productImport.importLink, { url: "https://www.aliexpress.com/item/1005012573349832.html?spm=x" });
+    expect(r).toMatchObject({ title: "New Pet Dog Brush Cat Comb", imageUrl: "https://ae/1.jpg" });
+    expect(apifyBody).toMatchObject({ productUrls: ["https://www.aliexpress.com/item/1005012573349832.html"], maxResults: 1 });
+    const saved = await t.run((ctx) => ctx.db.get("importedProducts", r.productId));
+    expect(saved).toMatchObject({ source: "aliexpress", cost: 1.09, images: ["https://ae/2.jpg"] });
+  });
+
   it("explains links it can't use", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<html><p>Just a blog</p></html>", { status: 200, headers: { "Content-Type": "text/html" } })));
     const { user } = await setup();

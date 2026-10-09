@@ -109,6 +109,23 @@ export function fromProductHtml(html: string, pageUrl: string): ImportedProduct 
   };
 }
 
+/**
+ * The product from an Apify AliExpress reader run (ALIEXPRESS_IMPORT_ACTOR, default zen-studio/aliexpress-scraper):
+ * it reads AliExpress in a way AliExpress doesn't block, as it blocks servers. Price in `currency` (we ask for USD).
+ */
+export function fromApifyAliExpress(items: unknown): { title?: string; images: string[]; cost?: number } | null {
+  if (!Array.isArray(items)) return null;
+  const p = items.find((i) => i && typeof i === "object" && (i as { recordType?: string }).recordType !== "review" && typeof (i as { title?: unknown }).title === "string") as
+    | Record<string, unknown>
+    | undefined;
+  if (!p) return null;
+  const list = (k: string) => (Array.isArray(p[k]) ? (p[k] as unknown[]).filter((u): u is string => typeof u === "string") : []);
+  const images = unique([String(p.imageUrl ?? ""), ...list("images"), ...list("imageUrls"), ...list("gallery")].map((u) => (u.startsWith("//") ? `https:${u}` : u)).filter((u) => u.startsWith("https:")));
+  const price = Number(p.price);
+  const cost = Number.isFinite(price) && price > 0 ? (String(p.currency ?? "USD").toUpperCase() === "USD" ? price : toUsd({ amount: price, currency: String(p.currency) })) : undefined;
+  return { title: String(p.title).trim().slice(0, 200), images, ...(cost ? { cost: Math.round(cost * 100) / 100 } : {}) };
+}
+
 /** The first product in an aliexpress.affiliate.productdetail.get response: price in USD and photos. */
 export function fromAliExpressApi(body: unknown): { cost?: number; images: string[]; title?: string } | null {
   const p = (body as { aliexpress_affiliate_productdetail_get_response?: { resp_result?: { result?: { products?: { product?: Record<string, unknown>[] } } } } })

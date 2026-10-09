@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromAliExpressApi, fromAliExpressHtml, fromProductHtml, fromShopifyJs, importSource, productUrl } from "./productImport";
+import { fromAliExpressApi, fromAliExpressHtml, fromApifyAliExpress, fromProductHtml, fromShopifyJs, importSource, productUrl } from "./productImport";
 
 describe("Launch from a link", () => {
   it("accepts public product links and tells where they're from", () => {
@@ -33,6 +33,16 @@ describe("Launch from a link", () => {
     expect(fromAliExpressApi({ aliexpress_affiliate_productdetail_get_response: { resp_result: { result: { products: { product: [
       { target_sale_price: "4.37", product_main_image_url: "https://ae/1.jpg", product_small_image_urls: { string: ["https://ae/2.jpg"] }, product_title: "Brush" },
     ] } } } } })).toEqual({ cost: 4.37, images: ["https://ae/1.jpg", "https://ae/2.jpg"], title: "Brush" });
+  });
+
+  it("reads the Apify AliExpress reader's product", () => {
+    // Shaped like zen-studio/aliexpress-scraper's answer for the brush (2026-10-09).
+    expect(fromApifyAliExpress([
+      { title: " New Pet Dog Brush Cat Comb Self Cleaning ", price: 1.09, currency: "USD", gallery: ["https://ae-pic-a1.aliexpress-media.com/kf/S1.jpg_960x960.jpg", "https://ae-pic-a1.aliexpress-media.com/kf/S2.png_960x960.png"], deliveryDaysMin: 9 },
+    ])).toEqual({ title: "New Pet Dog Brush Cat Comb Self Cleaning", images: ["https://ae-pic-a1.aliexpress-media.com/kf/S1.jpg_960x960.jpg", "https://ae-pic-a1.aliexpress-media.com/kf/S2.png_960x960.png"], cost: 1.09 });
+    expect(fromApifyAliExpress([{ recordType: "review", title: "nope" }])).toBeNull();
+    expect(fromApifyAliExpress([])).toBeNull();
+    expect(fromApifyAliExpress({ error: "x" })).toBeNull();
   });
 
   it("reads any shop's product tags", () => {

@@ -119,10 +119,12 @@ export default function LaunchesPage() {
             <Input id="launch-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="AliExpress, Shopify store or other product page link" className="flex-1 min-w-48" />
             <Button type="submit" disabled={reading || !link.trim()}>
               {reading ? <Spinner className="w-4 h-4 mr-2" /> : <Rocket className="w-4 h-4 mr-2" />}
-              {reading ? "Reading the page…" : "Launch"}
+              {reading ? "Reading the product…" : "Launch"}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Any product you found yourself: we read its title, photos and price, and you launch it like a winning product.</p>
+          <p className="text-xs text-muted-foreground">
+            Any product you found yourself: we read its title, photos and price, and you launch it like a winning product. AliExpress links can take up to a minute.
+          </p>
         </form>
       )}
       {fromLink ? <LaunchDialog key={fromLink._id} product={fromLink} startOpen onClose={() => setFromLink(null)} /> : null}
