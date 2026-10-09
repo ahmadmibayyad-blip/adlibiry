@@ -253,8 +253,11 @@ function ModeSwitch({ mode, onChange }: { mode: "page" | "store"; onChange: (m: 
   );
 }
 
-function LaunchButton({ product }: { product: Doc<"products"> }) {
-  const [open, setOpen] = useState(false);
+/** What the dialog needs: a catalog product, or one pasted as a link (convex/productImport.ts). */
+type LaunchTarget = { _id: Id<"products"> | Id<"importedProducts">; imageUrl: string };
+
+function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void }) {
+  const [open, setOpen] = useState(!!startOpen);
   const prep = useQuery(api.launch.prepare, open ? { productId: product._id } : "skip");
   const status = useQuery(api.shopifyApp.status, open ? {} : "skip");
   const start = useMutation(api.launch.start);
@@ -304,15 +307,21 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
-        <Rocket className="w-4 h-4 mr-2" />
-        Launch
-      </Button>
-      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setLaunchId(null); }}>
+      {!startOpen && (
+        <Button onClick={() => setOpen(true)}>
+          <Rocket className="w-4 h-4 mr-2" />
+          Launch
+        </Button>
+      )}
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setLaunchId(null); onClose?.(); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Launch to Shopify</DialogTitle>
-            <DialogDescription>Written from the ads already selling it, priced from the real supplier cost.</DialogDescription>
+            <DialogDescription>
+              {prep?.imported
+                ? "Written from the product's page, priced from what we could read. Check the price before you build."
+                : "Written from the ads already selling it, priced from the real supplier cost."}
+            </DialogDescription>
           </DialogHeader>
           {!prep || !status ? (
             <Spinner />
@@ -519,10 +528,10 @@ function LaunchButton({ product }: { product: Doc<"products"> }) {
   );
 }
 
-export default function LaunchDialog({ product }: { product: Doc<"products"> }) {
+export default function LaunchDialog({ product, startOpen, onClose }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void }) {
   return (
     <Authenticated>
-      <LaunchButton product={product} />
+      <LaunchButton product={product} startOpen={startOpen} onClose={onClose} />
     </Authenticated>
   );
 }
