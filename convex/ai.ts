@@ -8,6 +8,10 @@ import { action, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { claimAiRequest } from "./lib/aiQuota";
 import { isDemoAd, isDemoStore, productFacts } from "./lib/aiFacts";
+import { stableToken } from "./lib/authIdentity";
+import { RESEARCH_SYSTEM, cleanReport, researchEvidence, reviewSample, type ResearchReport } from "./lib/researchReport";
+import { aliexpressId } from "./lib/supplierReviews";
+import type { Id } from "./_generated/dataModel";
 import { claudeClient } from "./lib/claudeClient";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 
@@ -74,6 +78,60 @@ export const scoreProduct = action({
       `${productFacts(args)}\n\nRate this product's winning potential 0-100 and explain your reasoning.`,
     );
     return { ...r, score: Math.max(0, Math.min(100, Math.round(r.score))), strengths: r.strengths.slice(0, 4), risks: r.risks.slice(0, 4) };
+  },
+});
+
+// ── AI research verdict ─────────────────────────────────────────────────────
+// The dropshipping product research method (lib/researchReport.ts) on the
+// evidence AdSpy has, plus a first page of the matched AliExpress listing's
+// reviews. Saved per user and product (researchReports.ts).
+
+// No enums or min/max: Anthropic compiles strict schemas into a size-limited grammar; cleanReport checks the values.
+const ResearchSchema = z.object({
+  call: z.string(),
+  bottomLine: z.string(),
+  reasons: z.array(z.object({ text: z.string(), label: z.string() })),
+  risks: z.array(z.object({ text: z.string(), blocker: z.boolean() })),
+  fixes: z.array(z.string()),
+  missing: z.array(z.string()),
+  checklist: z.array(z.string()),
+  nextTask: z.string(),
+  nextTaskWhy: z.string(),
+});
+
+export const researchProduct = action({
+  args: { productId: v.id("products") },
+  handler: async (ctx, args): Promise<ResearchReport> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to use AI tools." });
+    const found = await ctx.runQuery(internal.researchReports.evidence, { productId: args.productId, token: stableToken(identity) });
+    if (!found) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found." });
+    await claimAiRequest(ctx);
+    // What the supplier's buyers say: works from servers, unlike AliExpress product pages.
+    const id = aliexpressId(found.supplierUrl);
+    let reviews: ReturnType<typeof reviewSample> = null;
+    if (id) {
+      try {
+        const res = await fetch(
+          `https://feedback.aliexpress.com/pc/searchEvaluation.do?productId=${id}&lang=en_US&country=US&page=1&pageSize=40&filter=all&sort=complex_default`,
+          { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36" }, signal: AbortSignal.timeout(12_000) },
+        );
+        reviews = res.ok ? reviewSample(await res.json().catch(() => null)) : null;
+      } catch (e) {
+        console.warn("Research: supplier reviews failed", e);
+      }
+    }
+    const evidence = { ...found.evidence, reviews };
+    const raw = await askClaude(ctx, ResearchSchema, RESEARCH_SYSTEM, `${researchEvidence(evidence)}\n\nWrite the first-pass research report.`);
+    const report = cleanReport(raw);
+    await ctx.runMutation(internal.researchReports.save, {
+      userId: found.userId as Id<"users">,
+      productId: args.productId,
+      report,
+      margin: evidence.margin,
+      ...(reviews ? { reviews } : {}),
+    });
+    return report;
   },
 });
 
