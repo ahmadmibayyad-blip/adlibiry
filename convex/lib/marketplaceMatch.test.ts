@@ -19,7 +19,7 @@ describe("Nexscope image matches", () => {
     expect(pickAmazonTwin([{ asin: "short", title: "x" }])).toBeNull();
   });
 
-  it("converts 1688 offers from yuan and keeps the 3 cheapest", () => {
+  it("converts 1688 offers from yuan and keeps the first 3 in image-match order", () => {
     const offers = pickWholesale(
       [
         { subject: "Posture belt A", price: "35.5", offerId: "111", moq: 2, monthSold: 900 },
@@ -30,8 +30,19 @@ describe("Nexscope image matches", () => {
       ],
       7.1,
     );
-    expect(offers.map((o) => o.priceUsd)).toEqual([2, 3, 5]);
-    expect(offers[2]).toMatchObject({ title: "Posture belt A", url: "https://detail.1688.com/offer/111.html", moq: 2, monthlySales: 900 });
+    expect(offers.map((o) => o.priceUsd)).toEqual([5, 2, 10]);
+    expect(offers[0]).toMatchObject({ title: "Posture belt A", url: "https://detail.1688.com/offer/111.html", moq: 2, monthlySales: 900 });
+  });
+
+  it("drops part-priced 1688 offers below 2% of the selling price (real Veken fountain reply, 2026-10-10)", () => {
+    const reply = [
+      { title: "宠物饮水机滤芯过滤棉芯", price: 0.35, url: "https://detail.1688.com/offer/1.html" },
+      { title: "2.2L不锈钢宠物饮水机", price: 3.7, url: "https://detail.1688.com/offer/2.html" },
+      { title: "宠物饮水机滤芯合集", price: 4.9, url: "https://detail.1688.com/offer/3.html" },
+      { title: "不锈钢猫咪饮水机 3.2L 自动循环", price: 58, url: "https://detail.1688.com/offer/4.html" },
+    ];
+    expect(pickWholesale(reply, 7.1, 27.5).map((o) => o.url)).toEqual(["https://detail.1688.com/offer/3.html", "https://detail.1688.com/offer/4.html"]);
+    expect(pickWholesale(reply, 7.1)).toHaveLength(3); // no selling price: nothing to compare with
   });
 
   it("names the fields of a reply it couldn't read", () => {

@@ -3,10 +3,53 @@
 // plus a shipping estimate as the landed cost. Pure parts here (signing,
 // picking the match); convex/aliexpress.ts calls the API.
 
-import { titleSimilarity } from "./productMatch";
-
 export const ALIEXPRESS_ENDPOINT = "https://api-sg.aliexpress.com/sync";
-export const MIN_MATCH = 0.35; // share of title words in common
+export const MIN_MATCH = 0.5; // share of the product's own title words found in the supplier's title
+
+// Words that say nothing about what the product is: offers, counts, sizes,
+// colours and fillers. Dropped before matching so "2 x … (Buy 1 & Get 1 Free)"
+// matches on what's being sold.
+const FILLER = new Set(
+  ("a an and the of for with to in on by at from or new hot sale best top quality premium original official buy get free " +
+    "pack packs pc pcs piece pieces set sets x xs xl xxl xxxl small medium large big mini size one two three plus " +
+    "black white red blue green pink grey gray brown beige yellow purple orange gold silver color colour").split(" "),
+);
+
+/** A title's meaningful words: lowercase, no numbers or units, simple plurals folded ("leggings" → "legging"). */
+export function titleWords(title: string): string[] {
+  return title
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} ]+/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !/\d/.test(w) && !FILLER.has(w))
+    .map((w) => (w.length > 4 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w));
+}
+
+/**
+ * What the product is: the last meaningful word before the title's first
+ * aside ("Resistance Band Leggings (Buy 1…)" → "legging"; "Pet brush for dogs"
+ * → "brush"; "… Cat Water Fountain 108oz C1" → "fountain").
+ */
+export function headNoun(title: string): string | undefined {
+  const clause = title.split(/[([,|–—:]| - | for | with | to | in | by /i)[0];
+  const words = titleWords(clause);
+  return words[words.length - 1];
+}
+
+/**
+ * How well a supplier's listing title matches a product: the share of the
+ * product's own words it contains, and 0 when it doesn't name the same thing
+ * (the head noun). Supplier titles are long and keyword-stuffed, so a symmetric
+ * overlap (Jaccard) scores real matches ~0.1–0.2; this one doesn't.
+ */
+export function supplierMatchScore(productTitle: string, supplierTitle: string): number {
+  const own = [...new Set(titleWords(productTitle))];
+  if (!own.length) return 0;
+  const theirs = new Set(titleWords(supplierTitle));
+  const head = headNoun(productTitle);
+  if (head && !theirs.has(head)) return 0;
+  return own.filter((w) => theirs.has(w)).length / own.length;
+}
 
 /** HMAC-SHA256 signature of the sorted params (key+value concatenated), uppercase hex, as the AliExpress Open Platform expects. */
 export async function signParams(params: Record<string, string>, secret: string): Promise<string> {
@@ -42,7 +85,7 @@ export function topMatches(title: string, products: AliProduct[], n = 3): Suppli
     const price = Number(p.target_sale_price);
     const url = p.promotion_link || p.product_detail_url;
     if (!p.product_title || !(price > 0) || !url) continue;
-    const similarity = titleSimilarity(title, p.product_title);
+    const similarity = supplierMatchScore(title, p.product_title);
     if (similarity < MIN_MATCH) continue;
     const rating = parseFloat(String(p.evaluate_rate ?? "").replace("%", ""));
     const orders = Number(p.lastest_volume);
@@ -59,14 +102,16 @@ export function topMatches(title: string, products: AliProduct[], n = 3): Suppli
   return out.sort((a, b) => b.similarity - a.similarity || (b.orders ?? 0) - (a.orders ?? 0)).slice(0, n);
 }
 
-/** The search query for a product title: its first 8 meaningful words. */
+/** The search query for a product title: its first 8 words without offers or counts, always including what the product is. */
 export function searchKeywords(title: string): string {
-  return title
+  const words = title
     .replace(/[^\p{L}\p{N} ]+/gu, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 1)
-    .slice(0, 8)
-    .join(" ");
+    .filter((w) => w.length > 1 && !/^(buy|get|free|pack|pcs?|x)$/i.test(w) && !/^\d+x?$/i.test(w))
+    .slice(0, 8);
+  const head = headNoun(title);
+  if (head && !words.some((w) => titleWords(w)[0] === head)) words.push(head);
+  return words.join(" ");
 }
 
 /** The products array from an affiliate.product.query response, whatever its nesting. */

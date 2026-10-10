@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import ProductImage from "@/components/ProductImage.tsx";
 import { price } from "@/lib/money.ts";
+import { WHOLESALE_MIN_SHARE } from "@/convex/lib/marketplaceMatch.ts";
 import { Spinner } from "@/components/ui/spinner.tsx";
 
 // Top AliExpress suppliers for the product (convex/aliexpress.ts), matched by
@@ -17,7 +18,9 @@ export default function SuppliersSection({ product }: { product: Doc<"products">
   const findSuppliers = useAction(api.aliexpress.findSuppliers);
   const { isAuthenticated } = useConvexAuth();
   const matches = product.supplierMatches ?? [];
-  const wholesale = product.wholesaleMatches ?? [];
+  // Offers saved before the part-price filter (convex/lib/marketplaceMatch.ts) can still be filter pads or spare parts.
+  const wholesaleFloor = product.price ? product.price * WHOLESALE_MIN_SHARE : 0;
+  const wholesale = (product.wholesaleMatches ?? []).filter((w) => w.priceUsd >= wholesaleFloor);
   const [lookup, setLookup] = useState<"idle" | "searching" | "none" | "unavailable">("idle");
   const started = useRef<string | null>(null);
   const needsLookup = isAuthenticated && !product.isService && matches.length === 0;

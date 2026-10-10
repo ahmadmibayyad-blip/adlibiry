@@ -3,7 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
-import { fromApifySearch, topMatches } from "./lib/aliexpress";
+import { fromApifySearch, headNoun, searchKeywords, supplierMatchScore, topMatches } from "./lib/aliexpress";
 
 const modules = import.meta.glob("./**/*.ts");
 afterEach(() => {
@@ -40,6 +40,25 @@ describe("AliExpress suppliers on demand", () => {
     const m = topMatches("Self-cleaning pet brush for dogs and cats", fromApifySearch(real));
     expect(m.length).toBeGreaterThan(0);
     expect(m[0]).toMatchObject({ imageUrl: expect.stringContaining("aliexpress-media.com") });
+  });
+
+  it("matches keyword-stuffed AliExpress titles (real Apify run, 2026-10-10) and rejects other products", () => {
+    const product = "2 x Resistance Band Leggings (Buy 1 & Get 1 Free)";
+    expect(headNoun(product)).toBe("legging");
+    expect(searchKeywords(product)).toBe("Resistance Band Leggings");
+    const real = [
+      { title: "Women Sports Leggings Seamless Yoga Long Pants Low Band Fitness Leggings Compress The Hips Tights Gym Workout Pants", price: 2.59, currency: "USD", url: "https://www.aliexpress.com/item/a.html" },
+      { title: "NCLAGEN Yoga Leggings Women Seamless Sports Pants Low Ribbed Band Gym Clothes Fitness Workout Wear Scrunch Bum Tights", price: 3.43, currency: "USD", url: "https://www.aliexpress.com/item/b.html" },
+      { title: "1pc Stackable Heavy Tension TPE Resistance Band Set - Anti-Snap for Home Gym Muscle Strength & Body Stretching Yoga Gym", price: 0.33, currency: "USD", url: "https://www.aliexpress.com/item/c.html" },
+    ];
+    const m = topMatches(product, fromApifySearch(real));
+    expect(m.map((x) => x.url)).toEqual(["https://www.aliexpress.com/item/a.html", "https://www.aliexpress.com/item/b.html"]); // leggings, not the band set
+    expect(m[0].similarity).toBeGreaterThanOrEqual(0.5);
+    // A fountain title whose first 8 words never say "fountain" still searches for one.
+    const fountain = "Veken Innovation Award Winner Stainless Steel Cat Water Fountain 108oz C1";
+    expect(searchKeywords(fountain).split(" ")).toContain("fountain");
+    expect(supplierMatchScore(fountain, "Stainless Steel Cat Water Fountain 3.2L Automatic Pet Drinking Dispenser Quiet Pump")).toBeGreaterThanOrEqual(0.5);
+    expect(supplierMatchScore(fountain, "Cat Water Fountain Filter Replacement Cotton 6pcs")).toBeLessThan(0.5);
   });
 
   it("searches once when a product page opens, saves the matches for everyone, and keeps to the daily limit", async () => {
