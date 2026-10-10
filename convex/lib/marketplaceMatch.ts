@@ -51,8 +51,17 @@ export function pickAmazonTwin(products: unknown[]): AmazonTwin | null {
 
 export type WholesaleMatch = { title: string; priceUsd: number; url: string; moq?: number; monthlySales?: number; imageUrl?: string };
 
-/** Up to 3 1688 offers with a price, cheapest first; prices converted from CNY. */
-export function pickWholesale(products: unknown[], cnyPerUsd: number): WholesaleMatch[] {
+// A 1688 offer below this share of the product's selling price is almost always
+// a spare part or a listing priced at its cheapest variant (filter pads at $0.05
+// for a $27 fountain), not the product itself.
+export const WHOLESALE_MIN_SHARE = 0.02;
+
+/**
+ * Up to 3 1688 offers with a price, in the image search's order (closest look
+ * first); prices converted from CNY. With the product's selling price, offers
+ * under WHOLESALE_MIN_SHARE of it are left out.
+ */
+export function pickWholesale(products: unknown[], cnyPerUsd: number, sellPriceUsd?: number): WholesaleMatch[] {
   const out: WholesaleMatch[] = [];
   for (const raw of products) {
     if (!raw || typeof raw !== "object") continue;
@@ -74,7 +83,8 @@ export function pickWholesale(products: unknown[], cnyPerUsd: number): Wholesale
       ...(imageUrl ? { imageUrl } : {}),
     });
   }
-  return out.sort((a, b) => a.priceUsd - b.priceUsd).slice(0, 3);
+  const floor = sellPriceUsd && sellPriceUsd > 0 ? sellPriceUsd * WHOLESALE_MIN_SHARE : 0;
+  return out.filter((o) => o.priceUsd >= floor).slice(0, 3);
 }
 
 /** Field names of the first item, for a reply we couldn't read. */

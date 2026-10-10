@@ -215,7 +215,7 @@ export const runTriggers = internalAction({
             if (/ 40[123]\b/.test(reply.error)) break;
             continue;
           }
-          const offers = pickWholesale(reply.products, cnyPerUsd);
+          const offers = pickWholesale(reply.products, cnyPerUsd, p.price);
           if (offers.length) out.wholesale.done++;
           else if (reply.products.length && out.wholesale.errors.length < 3) out.wholesale.errors.push(`No usable offers. Fields sent: ${fieldsOf(reply.products)}`);
           await ctx.runMutation(internal.fusion.saveWholesale, { id: p._id, day: args.day, offers });
@@ -401,14 +401,14 @@ export const twinCandidates = internalQuery({
   args: { day: v.string(), limit: v.number() },
   handler: async (ctx, args) => {
     const recheck = dayMinus(args.day, IMAGE_RECHECK_DAYS);
-    const out: { _id: Id<"products">; imageUrl: string }[] = [];
+    const out: { _id: Id<"products">; imageUrl: string; price?: number }[] = [];
     const seen = new Set<string>();
     const consider = (p: Doc<"products"> | null) => {
       if (!p || out.length >= args.limit || seen.has(p._id)) return;
       seen.add(p._id);
       if (p.source !== "ads" || !/^https:\/\//.test(p.imageUrl) || (p.unitsPerMonth ?? 0) > 0) return;
       if (p.imageMatchedAt && p.imageMatchedAt > recheck) return;
-      out.push({ _id: p._id, imageUrl: p.imageUrl });
+      out.push({ _id: p._id, imageUrl: p.imageUrl, ...(p.price ? { price: p.price } : {}) });
     };
     for (const w of await ctx.db.query("winningProducts").withIndex("by_position").take(600)) consider(await ctx.db.get("products", w.productId));
     if (out.length < args.limit) for (const p of await ctx.db.query("products").withIndex("by_score").order("desc").take(400)) consider(p);
@@ -435,12 +435,12 @@ export const wholesaleCandidates = internalQuery({
   args: { day: v.string(), limit: v.number() },
   handler: async (ctx, args) => {
     const recheck = dayMinus(args.day, IMAGE_RECHECK_DAYS);
-    const out: { _id: Id<"products">; imageUrl: string }[] = [];
+    const out: { _id: Id<"products">; imageUrl: string; price?: number }[] = [];
     for (const w of await ctx.db.query("winningProducts").withIndex("by_position").take(600)) {
       if (out.length >= args.limit) break;
       const p = await ctx.db.get("products", w.productId);
       if (!p || !/^https:\/\//.test(p.imageUrl) || (p.wholesaleCheckedAt && p.wholesaleCheckedAt > recheck)) continue;
-      out.push({ _id: p._id, imageUrl: p.imageUrl });
+      out.push({ _id: p._id, imageUrl: p.imageUrl, ...(p.price ? { price: p.price } : {}) });
     }
     return out;
   },
