@@ -1,0 +1,90 @@
+{%- comment -%}
+  AdSpy Pro: reviews from buyers at the supplier (Launch: convex/lib/supplierReviews.ts), labelled as such,
+  with the listing's real average and count. Shows nothing when the product has none.
+  On a product page it uses that product; elsewhere the product picked in the section settings.
+{%- endcomment -%}
+{%- liquid
+  assign p = section.settings.product | default: product
+  assign reviews = p.metafields.adspy.reviews.value
+-%}
+{%- if reviews.items.size > 0 -%}
+  <style>
+    .adspy-reviews { text-align: center; }
+    .adspy-reviews__summary { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .6rem 1rem; margin: .8rem 0 0; }
+    .adspy-stars { display: inline-flex; gap: .2rem; vertical-align: middle; }
+    .adspy-stars svg { width: 1.6rem; height: 1.6rem; fill: currentColor; }
+    .adspy-stars .is-off { opacity: .25; }
+    .adspy-reviews__bars { list-style: none; margin: 1.8rem auto 0; padding: 0; max-width: 34rem; display: grid; gap: .6rem; font-size: 1.3rem; }
+    .adspy-reviews__bars li { display: grid; grid-template-columns: 3.4rem 1fr 3.2rem; align-items: center; gap: 1rem; }
+    .adspy-reviews__bar { height: .6rem; border-radius: 9.9rem; background: rgba(var(--color-foreground), .12); overflow: hidden; }
+    .adspy-reviews__bar span { display: block; height: 100%; background: rgb(var(--color-button)); }
+    .adspy-reviews__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 28rem), 1fr)); gap: 1.6rem; margin-top: 3rem; text-align: left; }
+    .adspy-review { margin: 0; padding: 2rem; border: 1px solid rgba(var(--color-foreground), .12); border-radius: var(--text-boxes-radius); display: grid; gap: 1rem; align-content: start; }
+    .adspy-review blockquote { margin: 0; font-size: 1.5rem; line-height: 1.55; }
+    .adspy-review__photos { display: flex; gap: .8rem; flex-wrap: wrap; }
+    .adspy-review__photos img { width: 7.2rem; height: 7.2rem; object-fit: cover; border-radius: var(--media-radius); }
+    .adspy-review figcaption { font-size: 1.3rem; color: rgba(var(--color-foreground), .7); }
+  </style>
+  {%- capture star -%}<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>{%- endcapture -%}
+  <div class="color-{{ section.settings.color_scheme }} gradient">
+    <div class="adspy-reviews page-width section-{{ section.id }}-padding" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+      <h2 class="h2">{{ 'adspy.reviews_heading' | t }}</h2>
+      {%- assign filled = reviews.average | round -%}
+      <p class="adspy-reviews__summary">
+        <span class="adspy-stars" role="img" aria-label="{{ 'adspy.rating' | t: rating: reviews.average }}">
+          {%- for i in (1..5) -%}<span{% if i > filled %} class="is-off"{% endif %}>{{ star }}</span>{%- endfor -%}
+        </span>
+        <strong>{{ reviews.average }}</strong>
+        <span>
+          {%- if reviews.listings > 1 -%}{{ 'adspy.reviews_source_many' | t: count: reviews.total }}{%- else -%}{{ 'adspy.reviews_source' | t: count: reviews.total }}{%- endif -%}
+        </span>
+      </p>
+      {%- if reviews.stars.size == 5 and reviews.total > 0 -%}
+        <ul class="adspy-reviews__bars" role="list">
+          {%- for n in reviews.stars -%}
+            {%- assign pct = n | times: 100 | divided_by: reviews.total -%}
+            <li>
+              <span>{{ 6 | minus: forloop.index }} ★</span>
+              <span class="adspy-reviews__bar" aria-hidden="true"><span style="width: {{ pct }}%"></span></span>
+              <span>{{ n }}</span>
+            </li>
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
+      <div class="adspy-reviews__grid">
+        {%- for r in reviews.items -%}
+          {%- assign filled = r.rating | round -%}
+          <figure class="adspy-review">
+            <span class="adspy-stars" role="img" aria-label="{{ 'adspy.rating' | t: rating: r.rating }}">
+              {%- for i in (1..5) -%}<span{% if i > filled %} class="is-off"{% endif %}>{{ star }}</span>{%- endfor -%}
+            </span>
+            <blockquote>{{ r.text | escape }}</blockquote>
+            {%- if r.images.size > 0 -%}
+              <div class="adspy-review__photos">
+                {%- for img in r.images -%}<img src="{{ img | escape }}" alt="" loading="lazy" width="72" height="72">{%- endfor -%}
+              </div>
+            {%- endif -%}
+            <figcaption>
+              {%- if r.name != blank -%}{{ r.name | escape }}{%- else -%}{{ 'adspy.reviews_buyer' | t }}{%- endif -%}
+              {%- if r.country != blank %} · {{ r.country | escape }}{%- endif -%}
+            </figcaption>
+          </figure>
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Supplier reviews",
+  "settings": [
+    { "type": "paragraph", "content": "Reviews from buyers of this product at the supplier, added by AdSpy Pro Launch. Hidden when the product has none." },
+    { "type": "product", "id": "product", "label": "Product (product pages use their own)" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "scheme-1" },
+    { "type": "range", "id": "padding_top", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Top padding", "default": 36 },
+    { "type": "range", "id": "padding_bottom", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Bottom padding", "default": 36 }
+  ],
+  "presets": [{ "name": "Supplier reviews" }]
+}
+{% endschema %}

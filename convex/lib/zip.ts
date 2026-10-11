@@ -17,15 +17,15 @@ export function crc32(data: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-/** Zips text files ({ "layout/theme.liquid": "…" }) into one archive. */
-export function zipFiles(files: Record<string, string>): Uint8Array {
+/** Zips files ({ "layout/theme.liquid": "…" }; binary ones as bytes) into one archive. */
+export function zipFiles(files: Record<string, string | Uint8Array>): Uint8Array {
   const enc = new TextEncoder();
   const locals: Uint8Array[] = [];
   const centrals: Uint8Array[] = [];
   let offset = 0;
   for (const [path, text] of Object.entries(files)) {
     const name = enc.encode(path);
-    const data = enc.encode(text);
+    const data = typeof text === "string" ? enc.encode(text) : text;
     const crc = crc32(data);
     const local = new Uint8Array(30 + name.length + data.length);
     const lv = new DataView(local.buffer);

@@ -322,7 +322,7 @@ export const run = internalAction({
       if (!secret || !site) return fail("Full store isn't set up on the server yet (missing SHOPIFY_TOKEN_KEY). The product and pages were created.");
       const source = `${site}/shopify/theme.zip?l=${args.launchId}&s=${await themeSignature(args.launchId, secret)}`;
       const style = STORE_STYLES[launch.style as keyof typeof STORE_STYLES];
-      const name = `${launch.brandName ?? "Store"} · ${style.name}`.slice(0, 50);
+      const name = `${launch.brandName ?? "Store"} · ${style.name}${launch.baseTheme === "dawn" ? " (Dawn)" : ""}`.slice(0, 50);
       const t = (await shopify(store.shopDomain, token, THEME_CREATE, { source, name })) as {
         themeCreate?: { theme: { id: string; processing: boolean } | null; userErrors: UserError[] };
       };

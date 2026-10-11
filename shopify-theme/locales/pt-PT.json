@@ -33,7 +33,14 @@
     "guarantee_title": "Garantia de devolução do dinheiro de {{ days }} dias",
     "guarantee_text": "Não ficou satisfeito? Devolva no prazo de {{ days }} dias e receba o seu dinheiro de volta.",
     "view_product": "Ver o produto",
-    "choose_product": "Escolha um produto para esta secção no editor de temas."
+    "choose_product": "Escolha um produto para esta secção no editor de temas.",
+    "deals_heading": "Compre mais, poupe mais",
+    "deal_items": {
+      "one": "{{ count }} unidade",
+      "other": "{{ count }} unidades"
+    },
+    "deal_save": "Poupe {{ percent }}%",
+    "sale_ends_html": "A promoção termina em {{ time }}"
   },
   "cart": {
     "title": "O seu carrinho",

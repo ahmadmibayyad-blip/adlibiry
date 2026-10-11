@@ -204,6 +204,11 @@
       const next = Math.max(min, (Number(input.value) || 0) + Number(step.dataset.qtyChange));
       input.value = next;
       if (input.dataset.lineQty) changeLine(input.dataset.lineQty, next);
+      const deals = $('[data-deals]', step.closest('form') || document.createElement('div'));
+      if (deals) {
+        const match = $(`[data-deal-qty="${next}"]`, deals);
+        $$('[data-deal-qty]', deals).forEach((r) => { r.checked = r === match; r.closest('.deal').classList.toggle('is-selected', r === match); });
+      }
       return;
     }
     const thumb = t.closest('[data-thumb]');
@@ -224,6 +229,12 @@
       window.location.href = url.toString();
     }
     if (t.matches('[data-option-index]')) selectVariant(t.closest('[data-product]'));
+    if (t.matches('[data-deal-qty]')) {
+      const form = t.closest('form');
+      const qty = form && $('.qty__input', form);
+      if (qty) qty.value = t.dataset.dealQty;
+      $$('.deal', t.closest('[data-deals]')).forEach((d) => d.classList.toggle('is-selected', d.contains(t)));
+    }
   });
 
   document.addEventListener('keydown', (e) => {
@@ -233,11 +244,61 @@
   });
 
   // ── product ─────────────────────────────────────────────────────────
-  function showMedia(gallery, id) {
+  // On phones the photos sit side by side to swipe through (base.css), so showing one scrolls to it.
+  const swipeable = (main) => main && main.scrollWidth > main.clientWidth + 1;
+  function showMedia(gallery, id, scroll = true) {
     if (!gallery || !id) return;
     $$('[data-media-id]', gallery).forEach((s) => s.classList.toggle('is-active', s.dataset.mediaId === String(id)));
     $$('[data-thumb]', gallery).forEach((b) => b.classList.toggle('is-active', b.dataset.thumb === String(id)));
+    const main = $('.gallery__main', gallery);
+    const slide = $(`[data-media-id="${id}"]`, gallery);
+    if (scroll && slide && swipeable(main)) main.scrollTo({ left: slide.offsetLeft - main.offsetLeft, behavior: 'smooth' });
   }
+  $$('[data-gallery]').forEach((gallery) => {
+    const main = $('.gallery__main', gallery);
+    let timer;
+    main?.addEventListener('scroll', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const i = Math.round(main.scrollLeft / main.clientWidth);
+        const slide = $$('[data-media-id]', main)[i];
+        if (slide) showMedia(gallery, slide.dataset.mediaId, false);
+      }, 80);
+    }, { passive: true });
+  });
+
+  // Quantity deals (snippets/product-main.liquid): picking one sets the quantity; prices follow the variant.
+  function updateDeals(product, price) {
+    $$('[data-deal-qty]', product).forEach((input) => {
+      const label = input.closest('.deal');
+      const qty = Number(input.dataset.dealQty);
+      const off = Number(input.dataset.dealOff) || 0;
+      const full = price * qty;
+      const pay = $('[data-deal-price]', label);
+      const was = $('[data-deal-full]', label);
+      if (pay) pay.textContent = formatMoney(Math.floor((full * (100 - off)) / 100));
+      if (was) was.textContent = formatMoney(full);
+    });
+  }
+
+  // Sale countdown: to the owner's end date, while the chosen variant is on sale.
+  const timers = $$('[data-sale-timer]');
+  function tickTimers() {
+    const now = Date.now();
+    timers.forEach((el) => {
+      const end = Date.parse(el.dataset.end);
+      const left = end - now;
+      const onSale = !!el.closest('[data-product]')?.querySelector('.price--sale');
+      if (!Number.isFinite(left) || left <= 0 || !onSale) { el.hidden = true; return; }
+      const s = Math.floor(left / 1000);
+      const d = Math.floor(s / 86400);
+      const pad = (n) => String(n).padStart(2, '0');
+      const out = $('[data-sale-time]', el);
+      if (out) out.textContent = `${d > 0 ? `${d}d ` : ''}${pad(Math.floor((s % 86400) / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+      el.hidden = false;
+    });
+  }
+  if (timers.length) { tickTimers(); setInterval(tickTimers, 1000); }
 
   function selectVariant(product) {
     if (!product) return;
@@ -266,6 +327,8 @@
       price.innerHTML = `<span class="price__current">${formatMoney(variant.price)}</span>` +
         (onSale ? `<s class="price__compare">${formatMoney(variant.compare_at_price)}</s>` : '');
     }
+    updateDeals(product, variant.price);
+    if (timers.length) tickTimers();
     if (variant.featured_media) showMedia($('[data-gallery]', product), variant.featured_media.id);
     if (product.closest('.template-product')) {
       const url = new URL(window.location.href);

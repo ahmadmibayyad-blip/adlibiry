@@ -33,7 +33,14 @@
     "guarantee_title": "Garanzia soddisfatti o rimborsati di {{ days }} giorni",
     "guarantee_text": "Non ti convince? Rimandacelo entro {{ days }} giorni e ti rimborsiamo.",
     "view_product": "Vedi il prodotto",
-    "choose_product": "Scegli un prodotto per questa sezione nell'editor del tema."
+    "choose_product": "Scegli un prodotto per questa sezione nell'editor del tema.",
+    "deals_heading": "Compra di più, risparmia di più",
+    "deal_items": {
+      "one": "{{ count }} pezzo",
+      "other": "{{ count }} pezzi"
+    },
+    "deal_save": "Risparmi il {{ percent }}%",
+    "sale_ends_html": "L'offerta termina tra {{ time }}"
   },
   "cart": {
     "title": "Il tuo carrello",
