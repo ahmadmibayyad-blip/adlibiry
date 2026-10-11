@@ -1,0 +1,22 @@
+{%- comment -%}
+  Order tracking page (page template "track"; Launch creates it): the page's own text, then a
+  tracking-number form that opens the parcel's status on 17TRACK, which covers most carriers.
+{%- endcomment -%}
+<section class="section section--tight">
+  <div class="page-width page-width--narrow">
+    <h1 class="h1">{{ page.title | escape }}</h1>
+    {%- if page.content != blank -%}<div class="rte">{{ page.content }}</div>{%- endif -%}
+    <form class="track-form" data-track-form>
+      <label class="field">
+        <span class="field__label">{{ 'track.label' | t }}</span>
+        <input class="input" type="text" name="number" required autocomplete="off" spellcheck="false" placeholder="LX123456789CN">
+      </label>
+      <button type="submit" class="btn">{% render 'icon', name: 'truck' %} {{ 'track.button' | t }}</button>
+    </form>
+    <p class="small muted">{{ 'track.help' | t }}</p>
+  </div>
+</section>
+
+{% schema %}
+{ "name": "Order tracking", "settings": [] }
+{% endschema %}

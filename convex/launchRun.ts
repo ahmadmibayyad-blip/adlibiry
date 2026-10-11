@@ -309,9 +309,10 @@ export const run = internalAction({
 
       // 3. Full store: pages, menus, then the theme.
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", shopifyProductId: created.id, productHandle: created.handle, step: "pages" });
-      const pages = await upsertPages(store.shopDomain, token, storePages(storeCopy, facts), store);
+      const pageList = storePages(storeCopy, facts, launch.language);
+      const pages = await upsertPages(store.shopDomain, token, pageList, store);
       await ctx.runMutation(internal.launch.saveStorePages, { userId: launch.userId, pages: Object.fromEntries(Object.entries(pages).map(([k, p]) => [k, p.id])) });
-      const menus = storeMenus(storeCopy, { productId: created.id, pages: Object.fromEntries(Object.entries(pages).map(([k, p]) => [k, p.id])) }, copy.title || product.title);
+      const menus = storeMenus(storeCopy, { productId: created.id, pages: Object.fromEntries(Object.entries(pages).map(([k, p]) => [k, p.id])) }, copy.title || product.title, pageList.track.title);
       await upsertMenu(store.shopDomain, token, STORE_MENU_HANDLES.main, launch.brandName ?? "Main menu", menus.main);
       await upsertMenu(store.shopDomain, token, STORE_MENU_HANDLES.footer, `${launch.brandName ?? ""} footer`.trim(), menus.footer);
       const pageHandles = Object.fromEntries(Object.entries(pages).map(([k, p]) => [k, p.handle]));

@@ -573,6 +573,17 @@ export default defineSchema({
     addedAt: v.string(),
   }),
 
+  // Store Inspector (convex/storeInspector.ts): a store's theme and apps as one user saw them.
+  storeInspections: defineTable({
+    userId: v.id("users"),
+    host: v.string(),        // "store.com"
+    url: v.string(),
+    result: v.any(),         // lib/storeInspect.ts Inspection
+    inspectedAt: v.string(), // ISO 8601 UTC
+  })
+    .index("by_user", ["userId", "inspectedAt"])
+    .index("by_host", ["host", "inspectedAt"]),
+
   // Store Tracker: user watchlist
   trackedStores: defineTable({
     userId: v.id("users"),

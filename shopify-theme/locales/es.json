@@ -40,7 +40,8 @@
       "other": "{{ count }} unidades"
     },
     "deal_save": "Ahorra un {{ percent }} %",
-    "sale_ends_html": "La oferta termina en {{ time }}"
+    "sale_ends_html": "La oferta termina en {{ time }}",
+    "deal_popular": "El más popular"
   },
   "cart": {
     "title": "Tu carrito",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Tienes envío gratis",
     "delivery_eta_html": "Entrega estimada: {{ dates }}",
     "add_another": "Añadir uno más – {{ price }}",
-    "payment_methods": "Métodos de pago"
+    "payment_methods": "Métodos de pago",
+    "upsell_heading": "También te puede gustar"
   },
   "collections": {
     "view_all": "Ver todo",
@@ -131,5 +133,10 @@
     "expired": "Esta tarjeta regalo ha caducado",
     "copy": "Copiar código",
     "shop": "Empezar a comprar"
+  },
+  "track": {
+    "label": "Número de seguimiento",
+    "button": "Seguir mi pedido",
+    "help": "Encontrarás el número de seguimiento en el correo de confirmación de envío. El enlace de tu confirmación de pedido también muestra su estado."
   }
 }

@@ -112,7 +112,52 @@
     const wasOpen = d.classList.contains('is-open');
     d.innerHTML = fresh.innerHTML;
     fillDeliveryDates(d);
+    loadUpsell(d);
     if (wasOpen) $('.drawer__panel', d)?.focus();
+  }
+
+  // Cart upsell (sections/cart-drawer.liquid): Shopify's recommendations for the first product,
+  // minus what's already in the cart. Stays hidden when there are none.
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  async function loadUpsell(scope) {
+    const box = $('[data-cart-upsell]', scope);
+    const list = box && $('[data-cart-upsell-list]', box);
+    if (!box || !list || !box.dataset.productId) return;
+    try {
+      const res = await fetch(`${root}recommendations/products.json?product_id=${encodeURIComponent(box.dataset.productId)}&limit=6`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) return;
+      const inCart = new Set((box.dataset.inCart || '').split(',').filter(Boolean));
+      const products = ((await res.json()).products || []).filter((p) => !inCart.has(String(p.id)) && p.available).slice(0, 2);
+      if (!products.length) return;
+      list.innerHTML = products.map((p) => {
+        const variant = (p.variants || []).find((v) => v.available) || p.variants?.[0];
+        const img = p.featured_image ? `${p.featured_image}${p.featured_image.includes('?') ? '&' : '?'}width=120` : '';
+        return `<li class="cart-upsell__item">
+          ${img ? `<img src="${esc(img)}" alt="" loading="lazy" width="56" height="56">` : '<span></span>'}
+          <div><a class="cart-upsell__title" href="${esc(p.url)}">${esc(p.title)}</a><div class="cart-upsell__price">${formatMoney(variant?.price ?? p.price)}</div></div>
+          <button type="button" class="btn" data-upsell-add="${esc(variant?.id)}">${esc(theme.strings.addToCart)}</button>
+        </li>`;
+      }).join('');
+      box.hidden = false;
+    } catch {
+      // No recommendations: the cart works the same without them.
+    }
+  }
+
+  async function addVariant(id, button) {
+    button?.classList.add('is-loading');
+    try {
+      const res = await fetch(`${root}cart/add.js`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ items: [{ id: Number(id), quantity: 1 }] }),
+      });
+      if (!res.ok) { toast(theme.strings.error); return; }
+      await syncCount();
+      await refreshDrawer();
+    } finally {
+      button?.classList.remove('is-loading');
+    }
   }
 
   async function syncCount() {
@@ -169,6 +214,14 @@
   }
 
   document.addEventListener('submit', (e) => {
+    // Order tracking page: the parcel's status on 17TRACK, in a new tab.
+    const track = e.target.closest('[data-track-form]');
+    if (track) {
+      e.preventDefault();
+      const number = new FormData(track).get('number').toString().replace(/\s+/g, '').toUpperCase();
+      if (number) window.open(`https://t.17track.net/en#nums=${encodeURIComponent(number)}`, '_blank', 'noopener');
+      return;
+    }
     const form = e.target.closest('[data-product-form]');
     if (!form) return;
     e.preventDefault();
@@ -190,6 +243,11 @@
     if (another) {
       another.classList.add('is-loading');
       changeLine(another.dataset.lineAdd, another.dataset.lineNext);
+      return;
+    }
+    const upsell = t.closest('[data-upsell-add]');
+    if (upsell) {
+      addVariant(upsell.dataset.upsellAdd, upsell);
       return;
     }
     const remove = t.closest('[data-line-remove]');
@@ -338,6 +396,7 @@
   }
 
   fillDeliveryDates(document);
+  loadUpsell(document);
 
   // Sticky add-to-cart bar once the main button scrolls out of view.
   const sticky = $('[data-sticky-buy]');

@@ -1,0 +1,183 @@
+import { useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { Bookmark, BookmarkCheck, ExternalLink, Palette, Puzzle, Radar, Radio } from "lucide-react";
+import { toast } from "sonner";
+import { api } from "@/convex/_generated/api.js";
+import type { Id } from "@/convex/_generated/dataModel.d.ts";
+import type { Inspection } from "@/convex/lib/storeInspect.ts";
+import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Spinner } from "@/components/ui/spinner.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
+import { cn } from "@/lib/utils.ts";
+
+// Store Inspector (convex/storeInspector.ts): paste a Shopify store's link and
+// see its theme, apps and ad pixels; then add it to the watchlist.
+
+type Shown = { id: Id<"storeInspections">; host: string; result: Inspection };
+
+function Result({ shown, tracked }: { shown: Shown; tracked: boolean }) {
+  const track = useMutation(api.storeInspector.track);
+  const [busy, setBusy] = useState(false);
+  const { result: r, host } = shown;
+  const theme = r.theme;
+  return (
+    <div className="rounded-xl border border-border bg-background/50 p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <a href={`https://${host}`} target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline inline-flex items-center gap-1">
+            {r.shopName || host} <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+          </a>
+          <div className="text-xs text-muted-foreground">
+            {host}
+            {r.country ? ` · ${r.country}` : ""}
+            {r.currency ? ` · ${r.currency}` : ""}
+            {r.locale ? ` · ${r.locale}` : ""}
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={tracked ? "secondary" : "default"}
+          disabled={busy || tracked}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await track({ inspectionId: shown.id });
+              toast.success(`${r.shopName || host} is on your watchlist`);
+            } catch (err) {
+              toast.error(errorMessage(err, "Couldn't add the store"));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {tracked ? <BookmarkCheck className="w-4 h-4 mr-2" /> : <Bookmark className="w-4 h-4 mr-2" />}
+          {tracked ? "On your watchlist" : "Track this store"}
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" />Theme</h4>
+          {theme ? (
+            <div className="space-y-1 text-sm">
+              <div className="font-medium">
+                {theme.url ? (
+                  <a href={theme.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{theme.schemaName ?? theme.name}</a>
+                ) : (
+                  theme.schemaName ?? theme.name
+                )}
+                {theme.version ? <span className="text-muted-foreground font-normal"> v{theme.version}</span> : null}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {theme.vendor ? `by ${theme.vendor} · ` : ""}
+                {theme.free === true ? "Free" : theme.free === false ? "Paid" : "Unknown theme"}
+                {theme.themeStoreId === null && theme.schemaName ? " · uploaded copy" : ""}
+              </div>
+              {theme.schemaName && theme.name !== theme.schemaName ? <div className="text-xs text-muted-foreground">Named “{theme.name}” in their store</div> : null}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Couldn't read the theme.</p>
+          )}
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2 flex items-center gap-1.5"><Radio className="w-3.5 h-3.5" />Ad pixels</h4>
+          {r.pixels.length ? (
+            <ul className="text-sm space-y-0.5">{r.pixels.map((p) => <li key={p}>{p}</li>)}</ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">None found</p>
+          )}
+        </section>
+        <section>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5"><Puzzle className="w-3.5 h-3.5" />Apps ({r.apps.length})</h4>
+          {r.apps.length ? (
+            <ul className="grid sm:grid-cols-2 gap-2">
+              {r.apps.map((a) => (
+                <li key={a.key} className="rounded-lg border border-border px-3 py-2">
+                  <div className="text-sm font-medium flex items-center gap-1">
+                    {a.url ? (
+                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1">
+                        {a.name} <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                      </a>
+                    ) : (
+                      a.name
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{a.category}</div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No apps found on the pages we read.</p>
+          )}
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Read from the store's home page and one product page. Apps that only run in the checkout or the admin don't show here.
+          </p>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export default function StoreInspector() {
+  const inspect = useAction(api.storeInspector.inspect);
+  const recent = useQuery(api.storeInspector.recent, {});
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [shown, setShown] = useState<Shown | null>(null);
+  const current = shown ?? (recent?.[0] ? { id: recent[0]._id, host: recent[0].host, result: recent[0].result } : null);
+  const tracked = !!recent?.find((x) => x.host === current?.host)?.tracked;
+
+  const run = async (link: string) => {
+    if (!link.trim()) return;
+    setBusy(true);
+    try {
+      const r = await inspect({ url: link.trim() });
+      setShown(r);
+      setUrl("");
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't inspect the store"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Radar className="w-4 h-4 text-primary" />
+        <h2 className="font-semibold text-sm">Store Inspector</h2>
+        <span className="text-xs text-muted-foreground">See which theme, apps and ad pixels any Shopify store runs</span>
+      </div>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(url);
+        }}
+      >
+        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste a store link, like https://needyknee.se" disabled={busy} />
+        <Button type="submit" disabled={busy || !url.trim()} className="shrink-0">
+          {busy ? <Spinner className="w-4 h-4 mr-2" /> : <Radar className="w-4 h-4 mr-2" />}
+          Inspect
+        </Button>
+      </form>
+      {recent && recent.length > 1 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {recent.map((x) => (
+            <button
+              key={x._id}
+              type="button"
+              onClick={() => setShown({ id: x._id, host: x.host, result: x.result })}
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 text-xs transition",
+                current?.host === x.host ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {x.host}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {current ? <Result shown={current} tracked={tracked} /> : null}
+    </div>
+  );
+}

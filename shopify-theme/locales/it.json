@@ -40,7 +40,8 @@
       "other": "{{ count }} pezzi"
     },
     "deal_save": "Risparmi il {{ percent }}%",
-    "sale_ends_html": "L'offerta termina tra {{ time }}"
+    "sale_ends_html": "L'offerta termina tra {{ time }}",
+    "deal_popular": "Il più scelto"
   },
   "cart": {
     "title": "Il tuo carrello",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Hai la spedizione gratuita",
     "delivery_eta_html": "Consegna stimata: {{ dates }}",
     "add_another": "Aggiungine un altro – {{ price }}",
-    "payment_methods": "Metodi di pagamento"
+    "payment_methods": "Metodi di pagamento",
+    "upsell_heading": "Potrebbe piacerti anche"
   },
   "collections": {
     "view_all": "Vedi tutto",
@@ -131,5 +133,10 @@
     "expired": "Questa carta regalo è scaduta",
     "copy": "Copia codice",
     "shop": "Inizia lo shopping"
+  },
+  "track": {
+    "label": "Numero di tracciamento",
+    "button": "Traccia il mio ordine",
+    "help": "Trovi il numero di tracciamento nell'email di conferma della spedizione. Il link nella conferma d'ordine mostra anche lo stato dell'ordine."
   }
 }

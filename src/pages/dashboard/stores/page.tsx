@@ -9,6 +9,7 @@ import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import StoreCard, { StoreCardSkeleton } from "./_components/StoreCard.tsx";
 import StoreDetailModal from "./_components/StoreDetailModal.tsx";
 import StoreCompareModal from "./_components/StoreCompareModal.tsx";
+import StoreInspector from "./_components/StoreInspector.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { toast } from "sonner";
@@ -135,6 +136,12 @@ export default function StoreTrackerPage() {
         </p>
       </motion.div>
       <TrialLimitNotice />
+
+      {!showWatchlist && (
+        <Authenticated>
+          <StoreInspector />
+        </Authenticated>
+      )}
 
       {/* Stores added by product discovery (Shopify stores running Facebook ads) */}
       {!showWatchlist && newlyDiscovered && newlyDiscovered.length > 0 && (

@@ -40,7 +40,8 @@
       "other": "{{ count }} st"
     },
     "deal_save": "Spara {{ percent }} %",
-    "sale_ends_html": "Rean slutar om {{ time }}"
+    "sale_ends_html": "Rean slutar om {{ time }}",
+    "deal_popular": "Mest populär"
   },
   "cart": {
     "title": "Din varukorg",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Du har fått fri frakt",
     "delivery_eta_html": "Beräknad leverans: {{ dates }}",
     "add_another": "Lägg till en till – {{ price }}",
-    "payment_methods": "Betalningsmetoder"
+    "payment_methods": "Betalningsmetoder",
+    "upsell_heading": "Du kanske också gillar"
   },
   "collections": {
     "view_all": "Visa alla",
@@ -131,5 +133,10 @@
     "expired": "Det här presentkortet har gått ut",
     "copy": "Kopiera kod",
     "shop": "Börja handla"
+  },
+  "track": {
+    "label": "Spårningsnummer",
+    "button": "Spåra min order",
+    "help": "Du hittar spårningsnumret i mejlet om att ordern har skickats. Länken i orderbekräftelsen visar också orderns status."
   }
 }

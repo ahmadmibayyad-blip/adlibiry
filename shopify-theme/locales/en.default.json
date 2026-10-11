@@ -40,7 +40,8 @@
       "other": "{{ count }} items"
     },
     "deal_save": "Save {{ percent }}%",
-    "sale_ends_html": "Sale ends in {{ time }}"
+    "sale_ends_html": "Sale ends in {{ time }}",
+    "deal_popular": "Most popular"
   },
   "cart": {
     "title": "Your cart",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "You've got free shipping",
     "delivery_eta_html": "Estimated delivery: {{ dates }}",
     "add_another": "Add one more – {{ price }}",
-    "payment_methods": "Payment methods"
+    "payment_methods": "Payment methods",
+    "upsell_heading": "You may also like"
   },
   "collections": {
     "view_all": "View all",
@@ -131,5 +133,10 @@
     "expired": "This gift card has expired",
     "copy": "Copy code",
     "shop": "Start shopping"
+  },
+  "track": {
+    "label": "Tracking number",
+    "button": "Track my order",
+    "help": "You'll find the tracking number in your shipping confirmation email. The link in your order confirmation email also shows your order's status."
   }
 }
