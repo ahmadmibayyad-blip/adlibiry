@@ -40,7 +40,8 @@
       "other": "{{ count }} szt."
     },
     "deal_save": "Oszczędzasz {{ percent }}%",
-    "sale_ends_html": "Promocja kończy się za {{ time }}"
+    "sale_ends_html": "Promocja kończy się za {{ time }}",
+    "deal_popular": "Najpopularniejsze"
   },
   "cart": {
     "title": "Twój koszyk",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Masz darmową dostawę",
     "delivery_eta_html": "Przewidywana dostawa: {{ dates }}",
     "add_another": "Dodaj jeszcze jeden – {{ price }}",
-    "payment_methods": "Metody płatności"
+    "payment_methods": "Metody płatności",
+    "upsell_heading": "Może Ci się spodobać"
   },
   "collections": {
     "view_all": "Zobacz wszystkie",
@@ -131,5 +133,10 @@
     "expired": "Ta karta podarunkowa wygasła",
     "copy": "Kopiuj kod",
     "shop": "Zacznij zakupy"
+  },
+  "track": {
+    "label": "Numer przesyłki",
+    "button": "Śledź zamówienie",
+    "help": "Numer przesyłki znajdziesz w e-mailu z potwierdzeniem wysyłki. Link w potwierdzeniu zamówienia też pokazuje jego status."
   }
 }

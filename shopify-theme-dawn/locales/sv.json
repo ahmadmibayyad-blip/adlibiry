@@ -534,6 +534,9 @@
     "reviews_source_many": "{{ count }} recensioner från köpare av produkten hos våra leverantörer",
     "reviews_buyer": "Verifierad köpare",
     "rating": "{{ rating }} av 5 stjärnor",
-    "faq": "Frågor och svar"
+    "faq": "Frågor och svar",
+    "track_label": "Spårningsnummer",
+    "track_button": "Spåra min order",
+    "track_help": "Du hittar spårningsnumret i mejlet om att ordern har skickats. Länken i orderbekräftelsen visar också orderns status."
   }
 }

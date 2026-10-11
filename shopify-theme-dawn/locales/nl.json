@@ -534,6 +534,9 @@
     "reviews_source_many": "{{ count }} reviews van kopers van dit product bij onze leveranciers",
     "reviews_buyer": "Geverifieerde koper",
     "rating": "{{ rating }} van 5 sterren",
-    "faq": "Vragen en antwoorden"
+    "faq": "Vragen en antwoorden",
+    "track_label": "Trackingnummer",
+    "track_button": "Volg mijn bestelling",
+    "track_help": "Je vindt het trackingnummer in de verzendbevestiging per e-mail. De link in je orderbevestiging toont ook de status van je bestelling."
   }
 }

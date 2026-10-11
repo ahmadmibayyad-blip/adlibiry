@@ -127,11 +127,18 @@ export function cleanStore(raw: StoreCopy): StoreCopy {
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const paras = (list: string[]) => list.map((p) => `<p>${esc(p)}</p>`).join("\n");
 
-export type StorePageKey = "about" | "shipping" | "faq" | "contact";
-export const STORE_PAGE_HANDLES: Record<StorePageKey, string> = { about: "about", shipping: "shipping-returns", faq: "faq", contact: "contact" };
+export type StorePageKey = "about" | "shipping" | "faq" | "contact" | "track";
+export const STORE_PAGE_HANDLES: Record<StorePageKey, string> = { about: "about", shipping: "shipping-returns", faq: "faq", contact: "contact", track: "track-order" };
+
+/** The order tracking page's title in the launch's language (the theme's page.track template has the form). */
+export const TRACK_PAGE_TITLES: Record<string, string> = {
+  English: "Track your order", Danish: "Spor din ordre", German: "Bestellung verfolgen", Swedish: "Spåra din order", Norwegian: "Spor bestillingen",
+  French: "Suivre ma commande", Spanish: "Seguir mi pedido", Dutch: "Bestelling volgen", Italian: "Traccia l'ordine", Polish: "Śledź zamówienie",
+  Finnish: "Seuraa tilausta", Portuguese: "Rastrear pedido",
+};
 
 /** The four pages created in the store (Online Store → Pages). */
-export function storePages(c: StoreCopy, facts: StoreFacts): Record<StorePageKey, { title: string; handle: string; body: string; templateSuffix?: string }> {
+export function storePages(c: StoreCopy, facts: StoreFacts, language = "English"): Record<StorePageKey, { title: string; handle: string; body: string; templateSuffix?: string }> {
   const faqItems = c.faq.items;
   return {
     about: { title: c.pages.about.title || c.menu.about, handle: STORE_PAGE_HANDLES.about, body: paras(c.pages.about.paragraphs) },
@@ -149,6 +156,7 @@ export function storePages(c: StoreCopy, facts: StoreFacts): Record<StorePageKey
         .join("\n"),
       templateSuffix: "contact",
     },
+    track: { title: TRACK_PAGE_TITLES[language] ?? TRACK_PAGE_TITLES.English, handle: STORE_PAGE_HANDLES.track, body: "", templateSuffix: "track" },
   };
 }
 
@@ -171,7 +179,7 @@ export function menuLabel(title: string, max = 30): string {
 }
 
 /** Header and footer menus. Our own handles, so the live theme's menus stay as they are. */
-export function storeMenus(c: StoreCopy, ids: { productId: string; pages: Partial<Record<StorePageKey, string>> }, productTitle: string) {
+export function storeMenus(c: StoreCopy, ids: { productId: string; pages: Partial<Record<StorePageKey, string>> }, productTitle: string, trackTitle?: string) {
   const page = (key: StorePageKey, title: string): MenuItem[] => (ids.pages[key] ? [{ title, type: "PAGE", resourceId: ids.pages[key] }] : []);
   const main: MenuItem[] = [
     { title: c.menu.home, type: "FRONTPAGE", url: "/" },
@@ -182,6 +190,7 @@ export function storeMenus(c: StoreCopy, ids: { productId: string; pages: Partia
     ...page("contact", c.menu.contact),
   ];
   const footer: MenuItem[] = [
+    ...page("track", trackTitle ?? TRACK_PAGE_TITLES.English),
     ...page("shipping", c.menu.shipping),
     ...page("faq", c.menu.faq),
     ...page("contact", c.menu.contact),

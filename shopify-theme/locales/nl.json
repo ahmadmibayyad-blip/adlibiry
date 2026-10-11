@@ -40,7 +40,8 @@
       "other": "{{ count }} stuks"
     },
     "deal_save": "Bespaar {{ percent }}%",
-    "sale_ends_html": "Actie eindigt over {{ time }}"
+    "sale_ends_html": "Actie eindigt over {{ time }}",
+    "deal_popular": "Meest gekozen"
   },
   "cart": {
     "title": "Je winkelwagen",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Je krijgt gratis verzending",
     "delivery_eta_html": "Verwachte levering: {{ dates }}",
     "add_another": "Voeg er nog één toe – {{ price }}",
-    "payment_methods": "Betaalmethoden"
+    "payment_methods": "Betaalmethoden",
+    "upsell_heading": "Misschien vind je dit ook leuk"
   },
   "collections": {
     "view_all": "Alles bekijken",
@@ -131,5 +133,10 @@
     "expired": "Deze cadeaubon is verlopen",
     "copy": "Code kopiëren",
     "shop": "Begin met winkelen"
+  },
+  "track": {
+    "label": "Trackingnummer",
+    "button": "Volg mijn bestelling",
+    "help": "Je vindt het trackingnummer in de verzendbevestiging per e-mail. De link in je orderbevestiging toont ook de status van je bestelling."
   }
 }

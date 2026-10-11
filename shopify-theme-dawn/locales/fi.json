@@ -534,6 +534,9 @@
     "reviews_source_many": "{{ count }} arviota tämän tuotteen ostajilta toimittajiltamme",
     "reviews_buyer": "Varmistettu ostaja",
     "rating": "{{ rating }}/5 tähteä",
-    "faq": "Kysymykset ja vastaukset"
+    "faq": "Kysymykset ja vastaukset",
+    "track_label": "Seurantanumero",
+    "track_button": "Seuraa tilaustani",
+    "track_help": "Löydät seurantanumeron lähetysvahvistuksesta. Tilausvahvistuksen linkistä näet myös tilauksesi tilan."
   }
 }

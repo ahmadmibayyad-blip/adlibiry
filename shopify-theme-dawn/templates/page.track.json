@@ -1,0 +1,24 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-page",
+      "settings": {
+        "padding_top": 36,
+        "padding_bottom": 0
+      }
+    },
+    "track": {
+      "type": "custom-liquid",
+      "settings": {
+        "custom_liquid": "<form class=\"adspy-track\" onsubmit=\"event.preventDefault();var n=this.number.value.replace(/\\s+/g,'').toUpperCase();if(n)window.open('https://t.17track.net/en#nums='+encodeURIComponent(n),'_blank','noopener');\" style=\"display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end\"><div class=\"field\" style=\"flex:1 1 26rem;margin:0\"><input class=\"field__input\" id=\"AdspyTrack\" type=\"text\" name=\"number\" required autocomplete=\"off\" placeholder=\"{{ 'adspy.track_label' | t }}\"><label class=\"field__label\" for=\"AdspyTrack\">{{ 'adspy.track_label' | t }}</label></div><button type=\"submit\" class=\"button\">{{ 'adspy.track_button' | t }}</button></form><p style=\"margin-top:1.2rem;font-size:1.4rem;opacity:.75\">{{ 'adspy.track_help' | t }}</p>",
+        "color_scheme": "scheme-1",
+        "padding_top": 12,
+        "padding_bottom": 48
+      }
+    }
+  },
+  "order": [
+    "main",
+    "track"
+  ]
+}

@@ -558,6 +558,9 @@
     "reviews_source_many": "{{ count }} opinii kupujących ten produkt u naszych dostawców",
     "reviews_buyer": "Zweryfikowany kupujący",
     "rating": "{{ rating }} na 5 gwiazdek",
-    "faq": "Pytania i odpowiedzi"
+    "faq": "Pytania i odpowiedzi",
+    "track_label": "Numer przesyłki",
+    "track_button": "Śledź zamówienie",
+    "track_help": "Numer przesyłki znajdziesz w e-mailu z potwierdzeniem wysyłki. Link w potwierdzeniu zamówienia też pokazuje jego status."
   }
 }

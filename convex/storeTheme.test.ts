@@ -142,6 +142,11 @@ describe("storefront theme", () => {
     const menus = storeMenus(c, { productId: "gid://shopify/Product/1", pages: { about: "gid://shopify/Page/1", contact: "gid://shopify/Page/2" } }, "Posture corrector");
     expect(menus.main.map((m) => m.type)).toEqual(["FRONTPAGE", "CATALOG", "PRODUCT", "PAGE", "PAGE"]);
     expect(menus.footer.map((m) => m.title)).toEqual(["Contact", "Search"]);
+    // The order tracking page, in the launch's language, first in the footer.
+    expect(storePages(c, facts, "Danish").track).toMatchObject({ title: "Spor din ordre", handle: "track-order", templateSuffix: "track" });
+    expect(pages.track.title).toBe("Track your order");
+    const withTrack = storeMenus(c, { productId: "p", pages: { track: "gid://shopify/Page/3" } }, "x", "Spor din ordre");
+    expect(withTrack.footer.map((m) => m.title)).toEqual(["Spor din ordre", "Search"]);
   });
 
   it("reads the delivery time for the cart's delivery dates", () => {
@@ -393,7 +398,7 @@ describe("Launch → Full store", () => {
     expect(productSet.variants[0]).toMatchObject({ price: "79.00", inventoryItem: { cost: "26.88" } });
     expect(productSet.descriptionHtml).toContain("<h3>Sådan virker det</h3>"); // Danish headings
     expect(productSet.descriptionHtml).not.toContain("Trækker skuldrene"); // the theme shows benefits itself
-    expect(calls.filter((c) => c.query.includes("pageCreate"))).toHaveLength(4);
+    expect(calls.filter((c) => c.query.includes("pageCreate"))).toHaveLength(5);
     expect(calls.find((c) => c.query.includes("menuCreate"))?.variables).toMatchObject({ handle: "adspy-main" });
     expect(calls.find((c) => c.query.includes("menuUpdate"))?.variables).toMatchObject({ id: "gid://shopify/Menu/5", handle: "adspy-footer" });
     const conn = await t.run(async (ctx) => (await ctx.db.query("shopifyConnections").collect())[0]);

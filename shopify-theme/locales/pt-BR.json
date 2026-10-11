@@ -40,7 +40,8 @@
       "other": "{{ count }} unidades"
     },
     "deal_save": "Economize {{ percent }}%",
-    "sale_ends_html": "A promoção termina em {{ time }}"
+    "sale_ends_html": "A promoção termina em {{ time }}",
+    "deal_popular": "Mais popular"
   },
   "cart": {
     "title": "Seu carrinho",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Você ganhou frete grátis",
     "delivery_eta_html": "Entrega estimada: {{ dates }}",
     "add_another": "Adicionar mais um – {{ price }}",
-    "payment_methods": "Formas de pagamento"
+    "payment_methods": "Formas de pagamento",
+    "upsell_heading": "Você também pode gostar"
   },
   "collections": {
     "view_all": "Ver tudo",
@@ -131,5 +133,10 @@
     "expired": "Este cartão-presente expirou",
     "copy": "Copiar código",
     "shop": "Começar a comprar"
+  },
+  "track": {
+    "label": "Código de rastreio",
+    "button": "Rastrear meu pedido",
+    "help": "O código de rastreio está no e-mail de confirmação de envio. O link na confirmação do pedido também mostra o status do pedido."
   }
 }

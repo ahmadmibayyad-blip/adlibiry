@@ -18,6 +18,13 @@
             <span>{{ 'cart.add_another' | t: price: one_more }}</span>
           </button>
         {%- endif -%}
+        {%- comment -%} Other products Shopify recommends for the first one in the cart (theme.js fills it in). {%- endcomment -%}
+        {%- if settings.cart_upsell -%}
+          <div class="cart-upsell" data-cart-upsell data-product-id="{{ first.product_id }}" data-in-cart="{{ cart.items | map: 'product_id' | join: ',' }}" hidden>
+            <h3 class="h5">{{ 'cart.upsell_heading' | t }}</h3>
+            <ul class="cart-upsell__list" role="list" data-cart-upsell-list></ul>
+          </div>
+        {%- endif -%}
       </div>
       <footer class="drawer__foot">
         <div class="cart-total"><span>{{ 'cart.subtotal' | t }}</span><strong>{{ cart.total_price | money_with_currency }}</strong></div>

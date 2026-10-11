@@ -40,7 +40,8 @@
       "other": "{{ count }} stk."
     },
     "deal_save": "Spar {{ percent }} %",
-    "sale_ends_html": "Salget slutter om {{ time }}"
+    "sale_ends_html": "Salget slutter om {{ time }}",
+    "deal_popular": "Mest populær"
   },
   "cart": {
     "title": "Handlekurven din",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Du har fått gratis frakt",
     "delivery_eta_html": "Forventet levering: {{ dates }}",
     "add_another": "Legg til én til – {{ price }}",
-    "payment_methods": "Betalingsmåter"
+    "payment_methods": "Betalingsmåter",
+    "upsell_heading": "Du vil kanskje også like"
   },
   "collections": {
     "view_all": "Se alle",
@@ -131,5 +133,10 @@
     "expired": "Dette gavekortet er utløpt",
     "copy": "Kopier kode",
     "shop": "Begynn å handle"
+  },
+  "track": {
+    "label": "Sporingsnummer",
+    "button": "Spor bestillingen min",
+    "help": "Du finner sporingsnummeret i e-posten om forsendelsen. Lenken i ordrebekreftelsen viser også statusen til bestillingen din."
   }
 }

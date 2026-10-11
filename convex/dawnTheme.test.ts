@@ -107,6 +107,12 @@ describe("Dawn theme", () => {
     expect(product.sections.main.block_order).toContain("adspy_benefits");
   });
 
+  it("has an order tracking page for the page Launch creates", () => {
+    const j = JSON.parse(DAWN_FILES["templates/page.track.json"]) as { sections: Record<string, SectionJson>; order: string[] };
+    checkSections(j.sections, j.order, "page.track.json");
+    expect(j.sections.track.settings?.custom_liquid).toContain("17track.net");
+  });
+
   it("zips Dawn with the store's files on top, binary files intact", () => {
     const files = dawnThemeFiles(input());
     expect(Object.keys(files).length).toBe(Object.keys(DAWN_FILES).length + Object.keys(DAWN_BINARY).length);
@@ -117,7 +123,7 @@ describe("Dawn theme", () => {
 
   it("has the AdSpy strings in every language our launches write", () => {
     const used = new Set(
-      [...Object.entries(DAWN_FILES).filter(([p]) => p.startsWith("sections/adspy-")).map(([, s]) => s).join("\n").matchAll(/'(adspy\.[a-z_]+)' \| t\b/g)].map((m) => m[1].split(".")[1]),
+      [...Object.entries(DAWN_FILES).filter(([p]) => p.startsWith("sections/adspy-") || p === "templates/page.track.json").map(([, s]) => s).join("\n").matchAll(/'(adspy\.[a-z_]+)' \| t\b/g)].map((m) => m[1].split(".")[1]),
     );
     expect(used.size).toBeGreaterThan(4);
     for (const loc of ["en.default", "da", "de", "es", "fi", "fr", "it", "nb", "nl", "pl", "pt-BR", "pt-PT", "sv"]) {

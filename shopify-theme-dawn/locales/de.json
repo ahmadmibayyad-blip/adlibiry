@@ -534,6 +534,9 @@
     "reviews_source_many": "{{ count }} Bewertungen von Käufern dieses Produkts bei unseren Lieferanten",
     "reviews_buyer": "Verifizierter Käufer",
     "rating": "{{ rating }} von 5 Sternen",
-    "faq": "Fragen & Antworten"
+    "faq": "Fragen & Antworten",
+    "track_label": "Sendungsnummer",
+    "track_button": "Bestellung verfolgen",
+    "track_help": "Die Sendungsnummer findest du in der Versandbestätigung per E-Mail. Der Link in deiner Bestellbestätigung zeigt auch den Status deiner Bestellung."
   }
 }

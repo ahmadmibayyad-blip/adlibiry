@@ -40,7 +40,8 @@
       "other": "{{ count }} articles"
     },
     "deal_save": "Économisez {{ percent }} %",
-    "sale_ends_html": "La promo se termine dans {{ time }}"
+    "sale_ends_html": "La promo se termine dans {{ time }}",
+    "deal_popular": "Le plus populaire"
   },
   "cart": {
     "title": "Votre panier",
@@ -59,7 +60,8 @@
     "free_shipping_unlocked": "Vous bénéficiez de la livraison gratuite",
     "delivery_eta_html": "Livraison estimée : {{ dates }}",
     "add_another": "En ajouter un autre – {{ price }}",
-    "payment_methods": "Moyens de paiement"
+    "payment_methods": "Moyens de paiement",
+    "upsell_heading": "Vous aimerez aussi"
   },
   "collections": {
     "view_all": "Voir tout",
@@ -131,5 +133,10 @@
     "expired": "Cette carte cadeau a expiré",
     "copy": "Copier le code",
     "shop": "Commencer vos achats"
+  },
+  "track": {
+    "label": "Numéro de suivi",
+    "button": "Suivre ma commande",
+    "help": "Vous trouverez le numéro de suivi dans l'e-mail de confirmation d'expédition. Le lien de votre confirmation de commande indique aussi son statut."
   }
 }

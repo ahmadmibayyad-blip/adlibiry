@@ -97,7 +97,7 @@
             -%}
             <label class="deal{% if forloop.first %} is-selected{% endif %}">
               <input type="radio" name="deal-{{ section.id }}" value="{{ qty }}" data-deal-qty="{{ qty }}" data-deal-off="{{ off }}"{% if forloop.first %} checked{% endif %}>
-              <span class="deal__name">{{ 'products.deal_items' | t: count: qty }}</span>
+              <span class="deal__name">{{ 'products.deal_items' | t: count: qty }}{% if qty == 2 %} <span class="badge">{{ 'products.deal_popular' | t }}</span>{% endif %}</span>
               {%- if off > 0 -%}<span class="badge badge--sale">{{ 'products.deal_save' | t: percent: off }}</span>{%- endif -%}
               <span class="deal__price">
                 <span data-deal-price>{{ pay | money }}</span>

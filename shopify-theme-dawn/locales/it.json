@@ -546,6 +546,9 @@
     "reviews_source_many": "{{ count }} recensioni di acquirenti di questo prodotto presso i nostri fornitori",
     "reviews_buyer": "Acquirente verificato",
     "rating": "{{ rating }} su 5 stelle",
-    "faq": "Domande e risposte"
+    "faq": "Domande e risposte",
+    "track_label": "Numero di tracciamento",
+    "track_button": "Traccia il mio ordine",
+    "track_help": "Trovi il numero di tracciamento nell'email di conferma della spedizione. Il link nella conferma d'ordine mostra anche lo stato dell'ordine."
   }
 }

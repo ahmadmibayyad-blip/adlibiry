@@ -546,6 +546,9 @@
     "reviews_source_many": "{{ count }} avis d'acheteurs de ce produit chez nos fournisseurs",
     "reviews_buyer": "Acheteur vérifié",
     "rating": "{{ rating }} sur 5 étoiles",
-    "faq": "Questions et réponses"
+    "faq": "Questions et réponses",
+    "track_label": "Numéro de suivi",
+    "track_button": "Suivre ma commande",
+    "track_help": "Vous trouverez le numéro de suivi dans l'e-mail de confirmation d'expédition. Le lien de votre confirmation de commande indique aussi son statut."
   }
 }
