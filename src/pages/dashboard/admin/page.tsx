@@ -39,6 +39,7 @@ import CsvImportDialog from "./_components/CsvImportDialog.tsx";
 import AdCsvImportDialog from "./_components/AdCsvImportDialog.tsx";
 import RemoveLastAdImport from "./_components/RemoveLastAdImport.tsx";
 import RemoveProductListingAds from "./_components/RemoveProductListingAds.tsx";
+import RemoveLastProductImport from "./_components/RemoveLastProductImport.tsx";
 import KnowledgeEditor from "./_components/KnowledgeEditor.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users" | "knowledge";
@@ -537,6 +538,7 @@ function ProductsTab() {
           <Upload className="w-4 h-4 mr-1.5" />
           Import CSV
         </Button>
+        <RemoveLastProductImport />
         <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
           <Plus className="w-4 h-4 mr-1.5" />
           Add product

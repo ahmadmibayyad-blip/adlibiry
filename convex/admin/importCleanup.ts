@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requireAdmin } from "./helpers";
 import { markStatsDirty } from "../stats";
+import { productKey } from "./productImport";
 
 // Undo the last ad CSV import. Every ad from one import shares the same
 // firstSeenAt (the import time, see src/lib/adCsv.ts buildAdRows), so the
@@ -99,5 +100,66 @@ export const removeProductListingAds = mutation({
     }
     if (deleted) await markStatsDirty(ctx);
     return { deleted, cursor: page.continueCursor, isDone: page.isDone };
+  },
+});
+
+// Undo the last product CSV import. Its products have source "csv_import" and
+// the source name typed in the import dialog as their second tag (see
+// productImport.ts upsertProductRows). One import is a run of those products
+// created close together, ending at a product of another import; products it
+// only updated were already there, so they stay.
+
+const SCAN = 400;
+// A longer pause between two products of the same name starts an older import.
+const IMPORT_GAP_MS = 30 * 60 * 1000;
+
+type ImportedProduct = { source?: string; tags: string[] };
+const importName = (p: ImportedProduct) => (p.source === "csv_import" ? (p.tags[1] ?? "") : null);
+
+export const lastProductImport = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const recent = await ctx.db.query("products").order("desc").take(2000);
+    const newest = recent.find((p) => importName(p) !== null);
+    if (!newest) return null;
+    return { name: importName(newest)!, at: newest._creationTime };
+  },
+});
+
+// Walks products newest first from `before` and deletes this import's ones;
+// call again with the returned `before` and `last` until done.
+export const removeProductImport = mutation({
+  args: { name: v.string(), before: v.number(), last: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const page = await ctx.db
+      .query("products")
+      .withIndex("by_creation_time", (q) => q.lt("_creationTime", args.before))
+      .order("desc")
+      .take(SCAN);
+    let last = args.last;
+    let deleted = 0;
+    let done = page.length < SCAN;
+    for (const p of page) {
+      const name = importName(p);
+      if (name === null) continue;
+      // A product of another import, or a long pause, means the older imports begin.
+      if (name !== args.name || (last !== undefined && last - p._creationTime > IMPORT_GAP_MS)) {
+        done = true;
+        break;
+      }
+      last = p._creationTime;
+      const link = await ctx.db
+        .query("syncLinks")
+        .withIndex("by_kind_external", (q) => q.eq("kind", "product").eq("externalId", productKey(p.storeUrl ?? "", p.title, p.imageUrl)))
+        .unique();
+      if (link && link.docId === p._id) await ctx.db.delete("syncLinks", link._id);
+      await ctx.db.delete("products", p._id);
+      deleted += 1;
+    }
+    if (deleted) await markStatsDirty(ctx);
+    const before = page.length ? page[page.length - 1]._creationTime : args.before;
+    return { deleted, before, last, done };
   },
 });

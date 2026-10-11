@@ -97,3 +97,43 @@ describe("product import with sales columns", () => {
     expect(p.aiScore).toBeGreaterThan(1);
   });
 });
+
+describe("remove last product CSV import", () => {
+  const prow = (i: number) => ({
+    title: `Product ${i}`, imageUrl: `https://img/p${i}.jpg`, productUrl: `https://shop${i}.com/products/p${i}`, category: "Beauty", priceUsd: 20,
+  });
+
+  it("deletes only the products the newest import added", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a", role: "admin" }));
+    const admin = t.withIdentity({ subject: "a|s" });
+    // An older import, then FindNiche: one batch updates product 1, two batches add 450 new ones.
+    await admin.mutation(api.admin.productImport.importProducts, { rows: [1, 2].map(prow), source: "PiPiAds" });
+    await admin.mutation(api.admin.productImport.importProducts, { rows: [prow(1)], source: "FindNiche" });
+    for (let b = 0; b < 3; b++) {
+      const rows = Array.from({ length: b === 2 ? 50 : 200 }, (_, k) => prow(100 + b * 200 + k));
+      await admin.mutation(api.admin.productImport.importProducts, { rows, source: "FindNiche" });
+    }
+
+    const last = await admin.query(api.admin.importCleanup.lastProductImport, {});
+    expect(last?.name).toBe("FindNiche");
+    let before = last!.at + 1;
+    let prev: number | undefined;
+    let total = 0;
+    for (let i = 0; i < 10; i++) {
+      const r = await admin.mutation(api.admin.importCleanup.removeProductImport, { name: "FindNiche", before, last: prev });
+      total += r.deleted;
+      if (r.done) break;
+      before = r.before;
+      prev = r.last;
+    }
+    expect(total).toBe(450);
+
+    const left = await t.run(async (ctx) => ({
+      titles: (await ctx.db.query("products").collect()).map((p) => p.title).sort(),
+      links: (await ctx.db.query("syncLinks").collect()).length,
+    }));
+    expect(left.titles).toEqual(["Product 1", "Product 2"]);
+    expect(left.links).toBe(2);
+  });
+});
