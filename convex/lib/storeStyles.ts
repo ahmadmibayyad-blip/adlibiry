@@ -161,6 +161,15 @@ export const STORE_STYLES: Record<StoreStyleId, StoreStyle> = {
   },
 };
 
+/**
+ * The theme a Full store is built on: our AdSpy Storefront theme (shopify-theme/), or Shopify's
+ * free Dawn (shopify-theme-dawn/, lib/dawnTheme.ts) with the same copy, colors and fonts.
+ */
+export const BASE_THEMES = ["adspy", "dawn"] as const;
+export type BaseTheme = (typeof BASE_THEMES)[number];
+export const BASE_THEME_NAMES: Record<BaseTheme, string> = { adspy: "AdSpy Storefront", dawn: "Dawn" };
+export const isBaseTheme = (v: unknown): v is BaseTheme => typeof v === "string" && (BASE_THEMES as readonly string[]).includes(v);
+
 export const isStoreStyle = (s: unknown): s is StoreStyleId => typeof s === "string" && (STORE_STYLE_IDS as readonly string[]).includes(s);
 
 /** One Google Fonts stylesheet with every style's fonts, for the dashboard previews. */

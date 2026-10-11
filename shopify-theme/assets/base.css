@@ -292,6 +292,12 @@ textarea.input { min-height: 120px; }
 .gallery__thumb { flex: 0 0 72px; padding: 0; border: 2px solid transparent; border-radius: calc(var(--radius) * .7); overflow: hidden; cursor: pointer; background: var(--c-surface); opacity: .7; }
 .gallery__thumb.is-active { border-color: var(--c-text); opacity: 1; }
 .gallery__thumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; }
+/* Phones: swipe through the photos. */
+@media (max-width: 989px) {
+  .gallery__main { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .gallery__main::-webkit-scrollbar { display: none; }
+  .gallery__slide { display: block; flex: 0 0 100%; scroll-snap-align: start; }
+}
 .product__title { margin-bottom: .3em; font-size: clamp(1.6rem, 3vw, 2.4rem); }
 .product__info > * + * { margin-top: 18px; }
 .product__info .price { font-size: 1.5rem; }
@@ -307,6 +313,20 @@ textarea.input { min-height: 120px; }
 .qty__input { width: 40px; border: 0; background: none; text-align: center; -moz-appearance: textfield; appearance: textfield; }
 .qty__input::-webkit-outer-spin-button, .qty__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .shopify-payment-button__button { border-radius: var(--btn-radius) !important; min-height: 52px; }
+.deals { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; }
+.deals legend { margin-bottom: 8px; }
+.deal { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 12px; padding: 14px 16px; border: 1.5px solid var(--c-border); border-radius: var(--radius); cursor: pointer; }
+.deal.is-selected { border-color: var(--c-accent); box-shadow: 0 0 0 1px var(--c-accent); }
+.deal input { accent-color: var(--c-accent); margin: 0; }
+.deal__name { font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.deal .badge { grid-column: 2; justify-self: start; }
+.deal__price { grid-column: 3; grid-row: 1 / span 2; text-align: right; display: flex; flex-direction: column; font-weight: 600; }
+.deal__price s { font-weight: 400; font-size: .85rem; }
+.sale-timer { display: flex; gap: 8px; align-items: center; margin: 10px 0 0; color: var(--c-sale); font-size: .95rem; }
+.sale-timer[hidden] { display: none; }
+.sale-timer .icon { width: 18px; height: 18px; }
+.sale-timer strong { font-variant-numeric: tabular-nums; }
+.product-extras { margin-top: 16px; }
 .trust-lines { display: grid; gap: 10px; padding: 18px; border-radius: var(--radius); background: var(--c-surface); font-size: .95rem; }
 .trust-lines li { display: flex; gap: 10px; align-items: center; }
 .trust-lines .icon { width: 20px; height: 20px; }

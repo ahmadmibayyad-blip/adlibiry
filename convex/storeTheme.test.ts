@@ -90,7 +90,8 @@ describe("storefront theme", () => {
     for (const [path, text] of Object.entries(THEME_FILES)) if (path.startsWith("locales/")) expect(keys(JSON.parse(text)).sort(), path).toEqual(en);
     // Every 'key' | t in the theme exists in English.
     const used = new Set([...Object.values(THEME_FILES).join("\n").matchAll(/'([a-z_]+\.[a-z_]+)' \| t\b/g)].map((m) => m[1]));
-    for (const k of used) expect(en, k).toContain(k);
+    // Plural keys ({ one, other }) are used by their parent key.
+    for (const k of used) expect(en.some((e) => e === k || e.startsWith(`${k}.`)), k).toBe(true);
   });
 
   it("writes a home page, header and footer the theme can render, in every style", () => {
@@ -408,6 +409,15 @@ describe("Launch → Full store", () => {
     expect(Object.keys(files).length).toBe(Object.keys(THEME_FILES).length);
     expect(JSON.parse(files["config/settings_data.json"]).current).toMatchObject({ color_accent: STORE_STYLES.nordic.settings.color_accent, brand_name: "Rank Ryg" });
     expect(JSON.parse(files["templates/index.json"]).sections.hero.settings.product).toBe("rank-ryg");
+
+    // A launch built on Dawn gets Dawn from the same link, with the same copy and style.
+    await t.run((ctx) => ctx.db.patch("launches", launchId, { baseTheme: "dawn" }));
+    const dawn = unzip(new Uint8Array(await (await t.fetch(`${source.pathname}${source.search}`)).arrayBuffer()));
+    expect(dawn["snippets/dawn-license.liquid"]).toContain("Shopify Inc.");
+    expect(dawn["sections/adspy-reviews.liquid"]).toBeTruthy();
+    expect(JSON.parse(dawn["templates/index.json"]).sections.product.settings.product).toBe("rank-ryg");
+    expect(JSON.parse(dawn["config/settings_data.json"]).current.color_schemes["scheme-1"].settings.button).toBe(STORE_STYLES.nordic.settings.color_accent);
+    await t.run((ctx) => ctx.db.patch("launches", launchId, { baseTheme: undefined }));
 
     // Going live is the user's call.
     expect(calls.some((c) => c.query.includes("themePublish"))).toBe(false);

@@ -33,7 +33,14 @@
     "guarantee_title": "{{ days }} dagars pengarna-tillbaka-garanti",
     "guarantee_text": "Inte nöjd? Skicka tillbaka den inom {{ days }} dagar och få pengarna tillbaka.",
     "view_product": "Se produkten",
-    "choose_product": "Välj en produkt för det här avsnittet i temaredigeraren."
+    "choose_product": "Välj en produkt för det här avsnittet i temaredigeraren.",
+    "deals_heading": "Köp fler, spara mer",
+    "deal_items": {
+      "one": "{{ count }} st",
+      "other": "{{ count }} st"
+    },
+    "deal_save": "Spara {{ percent }} %",
+    "sale_ends_html": "Rean slutar om {{ time }}"
   },
   "cart": {
     "title": "Din varukorg",

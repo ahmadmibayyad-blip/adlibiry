@@ -33,7 +33,14 @@
     "guarantee_title": "{{ days }}-day money-back guarantee",
     "guarantee_text": "Not happy with it? Send it back within {{ days }} days and get your money back.",
     "view_product": "See the product",
-    "choose_product": "Choose a product for this section in the theme editor."
+    "choose_product": "Choose a product for this section in the theme editor.",
+    "deals_heading": "Buy more, save more",
+    "deal_items": {
+      "one": "{{ count }} item",
+      "other": "{{ count }} items"
+    },
+    "deal_save": "Save {{ percent }}%",
+    "sale_ends_html": "Sale ends in {{ time }}"
   },
   "cart": {
     "title": "Your cart",

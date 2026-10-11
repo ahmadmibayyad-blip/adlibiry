@@ -33,7 +33,14 @@
     "guarantee_title": "{{ days }} päivän rahat takaisin -takuu",
     "guarantee_text": "Etkö ole tyytyväinen? Palauta tuote {{ days }} päivän sisällä ja saat rahasi takaisin.",
     "view_product": "Katso tuote",
-    "choose_product": "Valitse tuote tälle osiolle teemaeditorissa."
+    "choose_product": "Valitse tuote tälle osiolle teemaeditorissa.",
+    "deals_heading": "Osta enemmän, säästä enemmän",
+    "deal_items": {
+      "one": "{{ count }} kpl",
+      "other": "{{ count }} kpl"
+    },
+    "deal_save": "Säästä {{ percent }} %",
+    "sale_ends_html": "Ale päättyy {{ time }} kuluttua"
   },
   "cart": {
     "title": "Ostoskorisi",

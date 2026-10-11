@@ -40,6 +40,17 @@
     {%- if page_data.subtitle != blank -%}<p class="lead muted">{{ page_data.subtitle | escape }}</p>{%- endif -%}
     <div data-price-wrap>{% render 'price', product: product, variant: current %}</div>
 
+    {%- comment -%}
+      Sale countdown: only with an end date the owner set (settings.sale_end_date, the end of that
+      day in the store's time zone) and only while the chosen variant has a compare-at price.
+    {%- endcomment -%}
+    {%- if settings.sale_end_date != blank -%}
+      <p class="sale-timer" data-sale-timer data-end="{{ settings.sale_end_date | strip }}T23:59:59{{ 'now' | date: '%z' | slice: 0, 3 }}:{{ 'now' | date: '%z' | slice: 3, 2 }}" hidden>
+        {% render 'icon', name: 'clock' %}
+        <span>{{ 'products.sale_ends_html' | t: time: '<strong data-sale-time></strong>' }}</span>
+      </p>
+    {%- endif -%}
+
     {%- if page_data.benefits.size > 0 -%}
       <ul class="ticks" role="list">
         {%- for b in page_data.benefits limit: 4 -%}<li>{% render 'icon', name: 'check' %} {{ b | escape }}</li>{%- endfor -%}
@@ -60,6 +71,42 @@
           </label>
         {%- endfor -%}
       {%- endunless -%}
+      {%- comment -%}
+        Quantity deals: the owner turns them on and sets the % off for 2 and 3 items. The prices shown
+        are only honest with a matching automatic discount in Shopify (Discounts → Amount off products,
+        minimum quantity), which the setting's label asks for. Picking a deal sets the quantity.
+      {%- endcomment -%}
+      {%- if settings.bundle_enabled and settings.bundle_2_off > 0 -%}
+        {%- liquid
+          assign tiers = '1'
+          assign tiers = tiers | append: ',2:' | append: settings.bundle_2_off
+          if settings.bundle_3_off > 0
+            assign tiers = tiers | append: ',3:' | append: settings.bundle_3_off
+          endif
+          assign tiers = tiers | split: ','
+        -%}
+        <fieldset class="deals" data-deals>
+          <legend class="field__label">{{ 'products.deals_heading' | t }}</legend>
+          {%- for tier in tiers -%}
+            {%- liquid
+              assign parts = tier | split: ':'
+              assign qty = parts[0] | plus: 0
+              assign off = parts[1] | default: 0 | plus: 0
+              assign full = current.price | times: qty
+              assign pay = 100 | minus: off | times: full | divided_by: 100
+            -%}
+            <label class="deal{% if forloop.first %} is-selected{% endif %}">
+              <input type="radio" name="deal-{{ section.id }}" value="{{ qty }}" data-deal-qty="{{ qty }}" data-deal-off="{{ off }}"{% if forloop.first %} checked{% endif %}>
+              <span class="deal__name">{{ 'products.deal_items' | t: count: qty }}</span>
+              {%- if off > 0 -%}<span class="badge badge--sale">{{ 'products.deal_save' | t: percent: off }}</span>{%- endif -%}
+              <span class="deal__price">
+                <span data-deal-price>{{ pay | money }}</span>
+                {%- if off > 0 -%}<s class="muted" data-deal-full>{{ full | money }}</s>{%- endif -%}
+              </span>
+            </label>
+          {%- endfor -%}
+        </fieldset>
+      {%- endif -%}
       <div class="product-form__row">
         <div class="qty" data-qty>
           <button type="button" class="qty__btn" data-qty-change="-1" aria-label="{{ 'cart.decrease' | t }}">{% render 'icon', name: 'minus' %}</button>
@@ -80,6 +127,22 @@
         {%- if settings.trust_line_2 != blank -%}<li>{% render 'icon', name: 'return' %} {{ settings.trust_line_2 | escape }}</li>{%- endif -%}
         {%- if settings.trust_line_3 != blank -%}<li>{% render 'icon', name: 'lock' %} {{ settings.trust_line_3 | escape }}</li>{%- endif -%}
       </ul>
+    {%- endif -%}
+
+    {%- if settings.delivery_max_days > 0 or settings.show_payment_icons -%}
+      <div class="cart-extras product-extras">
+        {%- if settings.delivery_max_days > 0 -%}
+          <p class="cart-eta" data-eta data-min="{{ settings.delivery_min_days | default: settings.delivery_max_days }}" data-max="{{ settings.delivery_max_days }}" hidden>
+            {% render 'icon', name: 'truck' %}
+            <span>{{ 'cart.delivery_eta_html' | t: dates: '<strong data-eta-dates></strong>' }}</span>
+          </p>
+        {%- endif -%}
+        {%- if settings.show_payment_icons and shop.enabled_payment_types.size > 0 -%}
+          <ul class="pay-icons" role="list" aria-label="{{ 'cart.payment_methods' | t }}">
+            {%- for type in shop.enabled_payment_types -%}<li>{{ type | payment_type_svg_tag }}</li>{%- endfor -%}
+          </ul>
+        {%- endif -%}
+      </div>
     {%- endif -%}
 
     {%- if section.settings.show_description and product.description != blank -%}

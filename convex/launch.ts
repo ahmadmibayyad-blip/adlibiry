@@ -9,7 +9,7 @@ import { suggestPrice } from "./lib/launchCopy";
 import { bigBrandIn } from "./lib/productMatch";
 import { getLaunchProduct, type Launchable } from "./lib/launchProduct";
 import { missingStoreScopes } from "./lib/shopifyOAuth";
-import { isStoreStyle } from "./lib/storeStyles";
+import { isBaseTheme, isStoreStyle } from "./lib/storeStyles";
 
 // ── Launch: winning product → product page (or a full store) in the user's Shopify store ──
 // start() checks the plan, the monthly quota and the product, then schedules
@@ -112,6 +112,7 @@ const startArgs = {
   publish: v.union(v.literal("DRAFT"), v.literal("ACTIVE")),
   mode: v.optional(v.union(v.literal("page"), v.literal("store"))),
   style: v.optional(v.string()),
+  baseTheme: v.optional(v.union(v.literal("adspy"), v.literal("dawn"))),
   brandName: v.optional(v.string()),
   aiPhotos: v.optional(v.number()),
   reviewsUrl: v.optional(v.string()),
@@ -152,6 +153,7 @@ export const relaunch = mutation({
         ? {
             mode: "store" as const,
             style: old.style,
+            ...(isBaseTheme(old.baseTheme) ? { baseTheme: old.baseTheme } : {}),
             brandName: old.brandName,
             ...(facts
               ? {
@@ -205,6 +207,7 @@ async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs
     storeFields = {
       mode: "store",
       style: args.style,
+      ...(args.baseTheme === "dawn" ? { baseTheme: "dawn" } : {}),
       brandName: (args.brandName?.trim() || store.shopName).slice(0, 60),
       facts: {
         shippingTime: (f?.shippingTime.trim() || "5–10 business days").slice(0, 60),
@@ -442,6 +445,7 @@ export const themeSource = internalQuery({
     if (!l || l.mode !== "store" || !l.store || !l.productHandle || !isStoreStyle(l.style)) return null;
     return {
       style: l.style,
+      baseTheme: isBaseTheme(l.baseTheme) ? l.baseTheme : ("adspy" as const),
       brandName: l.brandName ?? "",
       productHandle: l.productHandle,
       pageHandles: l.pageHandles ?? {},

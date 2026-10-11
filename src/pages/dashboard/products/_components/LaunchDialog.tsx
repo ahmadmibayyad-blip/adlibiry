@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
-import { STORE_STYLES, type StoreStyleId } from "@/convex/lib/storeStyles.ts";
+import { BASE_THEME_NAMES, STORE_STYLES, type BaseTheme, type StoreStyleId } from "@/convex/lib/storeStyles.ts";
 import type { SupplierReviews } from "@/convex/lib/supplierReviews.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -182,7 +182,7 @@ export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAg
       {isStore ? (
         <>
           <p className="text-sm">
-            <strong>{l.brandName}</strong> is ready in the {STORE_STYLES[l.style as StoreStyleId]?.name ?? ""} style: home page, product page, cart, About,
+            <strong>{l.brandName}</strong> is ready in the {STORE_STYLES[l.style as StoreStyleId]?.name ?? ""} style{l.baseTheme === "dawn" ? " on Dawn" : ""}: home page, product page, cart, About,
             FAQ, Shipping &amp; returns and Contact. It's installed as a new theme, so your current store doesn't change until you make it live.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -268,6 +268,34 @@ function ModeSwitch({ mode, onChange }: { mode: "page" | "store"; onChange: (m: 
   );
 }
 
+/** The theme a Full store is built on (convex/lib/storeStyles.ts BASE_THEMES). */
+function ThemeSwitch({ value, onChange }: { value: BaseTheme; onChange: (t: BaseTheme) => void }) {
+  const options = [
+    ["adspy", "Cart drawer with free-shipping bar and delivery dates, sticky add-to-cart, quantity deals, sale countdown"],
+    ["dawn", "Shopify's free default theme: fast, familiar, works with every app"],
+  ] as const;
+  return (
+    <div role="radiogroup" aria-label="Theme" className="grid grid-cols-2 gap-2">
+      {options.map(([id, sub]) => (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={value === id}
+          onClick={() => onChange(id)}
+          className={cn(
+            "rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            value === id ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:border-foreground/30",
+          )}
+        >
+          <div className="text-sm font-medium">{BASE_THEME_NAMES[id]}{id === "adspy" ? " (recommended)" : ""}</div>
+          <div className="text-xs text-muted-foreground leading-snug">{sub}</div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** What the dialog needs: a catalog product, or one pasted as a link (convex/productImport.ts). */
 type LaunchTarget = { _id: Id<"products"> | Id<"importedProducts">; imageUrl: string };
 
@@ -292,6 +320,7 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
   const [publishInput, setPublish] = useState<"DRAFT" | "ACTIVE" | null>(null);
   const [mode, setMode] = useState<"page" | "store">("store");
   const [style, setStyle] = useState<StoreStyleId>("fresh");
+  const [baseTheme, setBaseTheme] = useState<BaseTheme>("adspy");
   const [brandInput, setBrand] = useState<string | null>(null);
   const [shippingTime, setShippingTime] = useState("5–10 business days");
   const [returnDays, setReturnDays] = useState("30");
@@ -379,6 +408,7 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
                       ? {
                           mode,
                           style,
+                          baseTheme,
                           brandName: brand,
                           facts: {
                             shippingTime,
@@ -408,6 +438,8 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">Pick a style</h3>
                   <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
+                  <h3 className="text-sm font-semibold pt-1">Theme</h3>
+                  <ThemeSwitch value={baseTheme} onChange={setBaseTheme} />
                   <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
                 </section>
               )}

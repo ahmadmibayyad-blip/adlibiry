@@ -33,7 +33,14 @@
     "guarantee_title": "{{ days }} dagers pengene-tilbake-garanti",
     "guarantee_text": "Ikke fornøyd? Send den tilbake innen {{ days }} dager og få pengene tilbake.",
     "view_product": "Se produktet",
-    "choose_product": "Velg et produkt for denne seksjonen i temaredigeringen."
+    "choose_product": "Velg et produkt for denne seksjonen i temaredigeringen.",
+    "deals_heading": "Kjøp flere, spar mer",
+    "deal_items": {
+      "one": "{{ count }} stk.",
+      "other": "{{ count }} stk."
+    },
+    "deal_save": "Spar {{ percent }} %",
+    "sale_ends_html": "Salget slutter om {{ time }}"
   },
   "cart": {
     "title": "Handlekurven din",

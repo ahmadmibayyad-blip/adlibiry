@@ -33,7 +33,14 @@
     "guarantee_title": "Garantia de {{ days }} dias ou seu dinheiro de volta",
     "guarantee_text": "Não gostou? Devolva em até {{ days }} dias e receba seu dinheiro de volta.",
     "view_product": "Ver o produto",
-    "choose_product": "Escolha um produto para esta seção no editor de temas."
+    "choose_product": "Escolha um produto para esta seção no editor de temas.",
+    "deals_heading": "Compre mais, economize mais",
+    "deal_items": {
+      "one": "{{ count }} unidade",
+      "other": "{{ count }} unidades"
+    },
+    "deal_save": "Economize {{ percent }}%",
+    "sale_ends_html": "A promoção termina em {{ time }}"
   },
   "cart": {
     "title": "Seu carrinho",

@@ -33,7 +33,14 @@
     "guarantee_title": "{{ days }} dni gwarancji zwrotu pieniędzy",
     "guarantee_text": "Nie jesteś zadowolony? Odeślij produkt w ciągu {{ days }} dni, a zwrócimy pieniądze.",
     "view_product": "Zobacz produkt",
-    "choose_product": "Wybierz produkt dla tej sekcji w edytorze motywu."
+    "choose_product": "Wybierz produkt dla tej sekcji w edytorze motywu.",
+    "deals_heading": "Kup więcej, zaoszczędź więcej",
+    "deal_items": {
+      "one": "{{ count }} szt.",
+      "other": "{{ count }} szt."
+    },
+    "deal_save": "Oszczędzasz {{ percent }}%",
+    "sale_ends_html": "Promocja kończy się za {{ time }}"
   },
   "cart": {
     "title": "Twój koszyk",

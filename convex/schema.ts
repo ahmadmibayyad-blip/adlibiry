@@ -632,6 +632,7 @@ export default defineSchema({
     // store copy (lib/storeKit.ts StoreCopy), and the unpublished theme it built.
     mode: v.optional(v.string()),     // "page" (default) | "store"
     style: v.optional(v.string()),    // lib/storeStyles.ts StoreStyleId
+    baseTheme: v.optional(v.string()), // lib/storeStyles.ts BaseTheme; missing = "adspy"
     brandName: v.optional(v.string()),
     facts: v.optional(v.any()),       // lib/storeKit.ts StoreFacts
     store: v.optional(v.any()),       // lib/storeKit.ts StoreCopy
