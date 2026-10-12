@@ -118,6 +118,8 @@ describe("storefront theme", () => {
     for (const [path, src] of Object.entries(THEME_FILES)) {
       if (!path.startsWith("sections/") || !src.includes("{% schema %}")) continue;
       const schema = sectionSchema(path.slice("sections/".length, -".liquid".length));
+      const named = schema as { name?: string; blocks?: { name?: string }[] };
+      for (const name of [named.name, ...(named.blocks ?? []).map((b) => b.name)]) if (name) expect(name.length, `${path}: "${name}"`).toBeLessThanOrEqual(25);
       for (const s of [...(schema.settings ?? []), ...(schema.blocks ?? []).flatMap((b) => b.settings ?? [])]) {
         const label = (s as { label?: string }).label ?? "";
         expect(label.length, `${path}: "${label}"`).toBeLessThanOrEqual(70);

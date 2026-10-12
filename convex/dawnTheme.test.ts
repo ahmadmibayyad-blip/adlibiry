@@ -154,10 +154,13 @@ describe("Dawn theme", () => {
     expect(plain.sections.adspy_problem.settings).toMatchObject({ image_index: 1 });
   });
 
-  it("keeps our sections' setting labels within Shopify's 70 characters", () => {
+  it("keeps our names within Shopify's 25 characters and labels within 70 (longer ones make Shopify drop the section and its templates)", () => {
     for (const [path, src] of Object.entries(DAWN_FILES)) {
       if (!/^sections\/(adspy-|main-product)/.test(path)) continue;
-      const schema = JSON.parse(src.split("{% schema %}")[1].split("{% endschema %}")[0]) as { settings?: { label?: string }[]; blocks?: { settings?: { label?: string }[] }[] };
+      const schema = JSON.parse(src.split("{% schema %}")[1].split("{% endschema %}")[0]) as { name?: string; settings?: { label?: string }[]; blocks?: { name?: string; settings?: { label?: string }[] }[] };
+      for (const name of [schema.name, ...(schema.blocks ?? []).map((b) => b.name)]) {
+        if (name && !name.startsWith("t:")) expect(name.length, `${path}: "${name}"`).toBeLessThanOrEqual(25);
+      }
       for (const st of [...(schema.settings ?? []), ...(schema.blocks ?? []).flatMap((b) => b.settings ?? [])]) {
         const label = st.label ?? "";
         if (!label.startsWith("t:")) expect(label.length, `${path}: "${label}"`).toBeLessThanOrEqual(70);
