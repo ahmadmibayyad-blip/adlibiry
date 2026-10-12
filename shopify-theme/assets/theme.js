@@ -184,7 +184,15 @@
     await refreshDrawer();
   }
 
+  // The bundle deal that's chosen decides the quantity (snippets/product-bundles.liquid).
+  function syncDealQty(product) {
+    const deal = product && $('[data-deal-qty]:checked', product);
+    const qty = deal && $('input[name="quantity"]', product);
+    if (qty) qty.value = deal.dataset.dealQty;
+  }
+
   async function addToCart(form) {
+    syncDealQty(form.closest('[data-product]'));
     const button = $('[data-add-button]', form);
     const error = $('[data-form-error]', form);
     if (error) error.hidden = true;
@@ -394,6 +402,7 @@
     });
   }
   if (timers.length) { tickTimers(); setInterval(tickTimers, 1000); }
+  $$('[data-product]').forEach(syncDealQty);
 
   function selectVariant(product) {
     if (!product) return;
