@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   Puzzle,
   Trophy,
-  ShoppingBag, Rocket, Menu, BookOpen } from "lucide-react";
+  ShoppingBag, Rocket, Menu, BookOpen, Tags } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import { useEffect, useState } from "react";
@@ -37,6 +37,7 @@ const navItems: { icon: typeof Search; label: string; href: string; short?: stri
   { icon: Trophy, label: "Winning Products", href: "/dashboard/winners", short: "Winners" },
   { icon: TrendingUp, label: "Products", href: "/dashboard/products" },
   { icon: Search, label: "Ad Spy", href: "/dashboard/ad-spy" },
+  { icon: Tags, label: "Offer Search", href: "/dashboard/offer-search", badge: "NEW" },
   { icon: Sparkles, label: "Hooks of the week", href: "/dashboard/hooks", short: "Hooks" },
   { icon: ShoppingBag, label: "TikTok Shop", href: "/dashboard/tiktok-shop" },
   { icon: LineChart, label: "Research", href: "/dashboard/research" },

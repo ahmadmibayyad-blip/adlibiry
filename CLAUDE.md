@@ -77,6 +77,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Ads come from source syncs (`convex/sources`, `convex/adlibrary`, `convex/nexscope`) and admin CSV imports (`source: "csv_import"`).
   All rows of one CSV import share its `firstSeenAt`; Admin → Ads can remove the last import.
 - Scraped CSVs often miss columns (likes, impressions, prices). Check which columns are filled before importing.
+- Offer Search (`convex/offerSearch.ts`, `/dashboard/offer-search`) searches Meta's Ad Library for an offer in the country's
+  language through Apify (trigger "offer", counted against `APIFY_DAILY_BUDGET_USD`); its ads also land in Ad Spy.
+  Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.
 
 ## UI
 

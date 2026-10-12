@@ -10,6 +10,7 @@ import ProductsFeed from "./pages/dashboard/products/page.tsx";
 import ProductDetail from "./pages/dashboard/products/[id].tsx";
 import SavedProducts from "./pages/dashboard/saved/page.tsx";
 import AdSpyPage from "./pages/dashboard/ad-spy/page.tsx";
+import OfferSearchPage from "./pages/dashboard/offer-search/page.tsx";
 import AdDetailPage from "./pages/dashboard/ads/[id].tsx";
 import WinnersPage from "./pages/dashboard/winners/page.tsx";
 import AgentsPage from "./pages/dashboard/agents/page.tsx";
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="products/:id" element={<ProductDetail />} />
             <Route path="winners" element={<WinnersPage />} />
             <Route path="ad-spy" element={<AdSpyPage />} />
+            <Route path="offer-search" element={<OfferSearchPage />} />
             <Route path="ads/:id" element={<AdDetailPage />} />
             <Route path="research" element={<ResearchPage />} />
             <Route path="stores" element={<StoreTrackerPage />} />

@@ -387,6 +387,26 @@ export default defineSchema({
     updatedAt: v.string(),
   }).index("by_key", ["key"]),
 
+  // Offer Search (offerSearch.ts): one search of the Ad Library for an offer in a country, and the stores found.
+  offerSearches: defineTable({
+    userId: v.id("users"),
+    key: v.string(),                 // lib/offerSearch.ts searchKey: country + phrases
+    country: v.string(),
+    offer: v.optional(v.string()),   // lib/offerSearch.ts OfferId; missing for the user's own phrase
+    phrases: v.array(v.string()),
+    status: v.string(),              // "running" | "done" | "failed"
+    runToken: v.optional(v.string()), // the Apify run (apifyRuns.token)
+    cachedFrom: v.optional(v.id("offerSearches")), // answered from an earlier search with the same key
+    createdAt: v.string(),
+    finishedAt: v.optional(v.string()),
+    error: v.optional(v.string()),
+    adsFound: v.optional(v.number()),
+    stores: v.optional(v.any()),     // lib/offerSearch.ts FoundStore[]
+  })
+    .index("by_user", ["userId", "createdAt"])
+    .index("by_key", ["key", "createdAt"])
+    .index("by_token", ["runToken"]),
+
   apifyRuns: defineTable({
     token: v.string(),
     country: v.string(),
