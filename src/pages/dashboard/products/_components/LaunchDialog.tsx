@@ -436,10 +436,10 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
 
               {mode === "store" && (
                 <section className="space-y-3">
-                  <h3 className="text-sm font-semibold">Pick a style</h3>
-                  <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
-                  <h3 className="text-sm font-semibold pt-1">Theme</h3>
+                  <h3 className="text-sm font-semibold">Theme</h3>
                   <ThemeSwitch value={baseTheme} onChange={setBaseTheme} />
+                  <h3 className="text-sm font-semibold pt-1">Pick a style</h3>
+                  <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
                   <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
                 </section>
               )}
