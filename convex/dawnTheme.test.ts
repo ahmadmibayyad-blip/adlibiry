@@ -105,6 +105,12 @@ describe("Dawn theme", () => {
     const product = JSON.parse(files["templates/product.json"]);
     expect(product.order.slice(0, 3)).toEqual(["main", "adspy_reviews", "adspy_faq"]);
     expect(product.sections.main.block_order).toContain("adspy_benefits");
+    // Dawn's multicolumn shows a "Button label" button unless the label is blanked.
+    expect(home.sections.benefits.settings.button_label).toBe("");
+    expect(home.sections.steps.settings.button_label).toBe("");
+    // Liquid settings only see global objects: the home page finds its product by handle.
+    expect(home.sections.product.blocks.benefits.settings.custom_liquid).toContain("assign p = all_products['rank-ryg']");
+    expect(product.sections.main.blocks.adspy_benefits.settings.custom_liquid).toContain("assign p = product");
   });
 
   it("has an order tracking page for the page Launch creates", () => {
