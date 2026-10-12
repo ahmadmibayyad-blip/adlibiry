@@ -24,6 +24,7 @@ export type KimiRequest = {
   messages: { role: "system" | "user" | "assistant"; content: string | OpenAiPart[] }[];
   max_completion_tokens: number;
   response_format?: { type: "json_object" };
+  thinking: { type: "disabled" };
 };
 
 /** Whether a failed Claude call should be retried on Kimi: billing, overload, rate limits and outages, not bad requests. */
@@ -68,8 +69,11 @@ export function toKimiRequest(params: ClaudeParams, model = KIMI_DEFAULT_MODEL):
   return {
     model,
     messages,
-    max_completion_tokens: Math.max(1024, params.max_tokens ?? 4096),
+    // Kimi's Danish/German copy takes more tokens than Claude's, so leave room.
+    max_completion_tokens: Math.max(8192, (params.max_tokens ?? 4096) * 2),
     ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
+    // K2.6 thinks by default and spends the token budget on hidden reasoning, leaving the answer empty or cut off.
+    thinking: { type: "disabled" },
   };
 }
 
@@ -93,6 +97,9 @@ export function toClaudeMessage(res: KimiResponse, params: ClaudeParams) {
   const format = params.output_config?.format;
   const raw = choice?.message?.content ?? "";
   const text = format?.type === "json_schema" ? stripFence(raw) : raw;
+  if (format?.type === "json_schema" && (!text || choice?.finish_reason === "length")) {
+    throw new Error(`Kimi's answer was ${text ? "cut off" : "empty"} (finish_reason ${choice?.finish_reason ?? "none"})`);
+  }
   let parsed_output: unknown = null;
   if (format?.type === "json_schema") parsed_output = format.parse ? format.parse(text) : JSON.parse(text);
   return {

@@ -31,7 +31,8 @@ describe("Kimi fallback", () => {
       output_config: { format: { type: "json_schema", schema: { type: "object", properties: { title: { type: "string" } } } } },
     });
     expect(req.model).toBe("kimi-k2.6");
-    expect(req.max_completion_tokens).toBe(6000);
+    expect(req.max_completion_tokens).toBe(12000);
+    expect(req.thinking).toEqual({ type: "disabled" });
     expect(req.response_format).toEqual({ type: "json_object" });
     expect(req.messages[0]).toMatchObject({ role: "system" });
     expect(req.messages[0].content).toContain("You write product pages.");
@@ -55,6 +56,14 @@ describe("Kimi fallback", () => {
     expect(msg).toMatchObject({ type: "message", stop_reason: "end_turn", parsed_output: { title: "Hej" }, usage: { input_tokens: 5, output_tokens: 3 } });
     expect(msg.content[0].text).toBe('{"title":"Hej"}');
     expect(stripFence("plain")).toBe("plain");
+  });
+
+  it("says so when Kimi's JSON answer is empty or cut off", async () => {
+    const params = { messages: [{ role: "user" as const, content: "x" }], output_config: { format: zodOutputFormat(z.object({ title: z.string() })) } };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: "" }, finish_reason: "length" }] }))));
+    await expect(askKimi(params, { apiKey: "k" })).rejects.toThrow("Kimi's answer was empty (finish_reason length)");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: '{"title":"H' }, finish_reason: "length" }] }))));
+    await expect(askKimi(params, { apiKey: "k" })).rejects.toThrow("cut off");
   });
 
   it("reports Kimi's own error", async () => {
