@@ -332,6 +332,8 @@ export const setStatus = internalMutation({
     aiPhotoNote: v.optional(v.string()),
     reviews: v.optional(v.any()),
     reviewsNote: v.optional(v.string()),
+    bundleOff: v.optional(v.array(v.number())),
+    bundlesNote: v.optional(v.string()),
   },
   handler: async (ctx, { launchId, ...patch }) => {
     const launch = await ctx.db.get("launches", launchId);
@@ -452,6 +454,7 @@ export const themeSource = internalQuery({
       store: l.store,
       title: (l.copy as { title?: string } | undefined)?.title ?? "",
       facts: l.facts,
+      bundleOff: l.bundleOff,
     };
   },
 });

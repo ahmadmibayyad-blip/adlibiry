@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { THEME_FILES } from "./lib/themeFiles.generated";
-import { cleanStore, deliveryDays, menuLabel, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
+import { BUNDLE_OFF, cleanProductPage, cleanStore, deliveryDays, menuLabel, productTemplate, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
 import { crc32, zipFiles } from "./lib/zip";
 import { readTheme } from "../scripts/build-theme.mjs";
@@ -71,6 +71,37 @@ function checkSettings(defs: { id: string; type: string; options?: { value: stri
   }
 }
 
+/** Every section and block of a JSON template exists in the theme, with settings its schema has. */
+function checkTemplate(tpl: { order: string[]; sections: Record<string, unknown> }, where: string) {
+  type Section = { type: string; settings?: Record<string, unknown>; blocks?: Record<string, { type: string; settings: Record<string, unknown> }>; block_order?: string[] };
+  for (const key of tpl.order) {
+    const sec = tpl.sections[key] as Section;
+    const schema = sectionSchema(sec.type);
+    checkSettings(schema.settings, sec.settings ?? {}, `${where} ${key}`);
+    for (const blockKey of sec.block_order ?? []) {
+      const block = sec.blocks![blockKey];
+      const def = schema.blocks?.find((b) => b.type === block.type);
+      expect(def, `${key} block type ${block.type}`).toBeTruthy();
+      checkSettings(def?.settings, block.settings, `${key}.${blockKey}`);
+    }
+  }
+}
+
+const productPage = {
+  ticks: ["Rank ryg – uden at tænke over det", "Blød polstring – til hele dagen", "Usynlig – under tøjet", "Justerbar – passer de fleste"],
+  offer: "Spar op til 25 % når du køber flere",
+  bundles: { heading: "Køb flere, spar mere", tiers: [{ title: "1 stk.", subtitle: "Prøv den" }, { title: "2 stk.", subtitle: "Kun [unit] pr. stk." }, { title: "3 stk.", subtitle: "Én til gaven" }], popular: "Mest populær", best: "Bedste pris" },
+  sections: [
+    { eyebrow: "Problemet", heading: "Ondt i nakken efter en lang dag?", text: "Mange sidder krumbøjede foran skærmen.", points: ["Ondt i nakken", "Træt ryg"] },
+    { eyebrow: "Løsningen", heading: "Trækker skuldrene blidt tilbage", text: "Remmene minder dig om at sidde rankt.", points: ["Blid støtte"] },
+    { eyebrow: "Detaljen", heading: "Kan vaskes i hånden", text: "Tag den af og skyl den.", points: [] },
+  ],
+  comparison: { heading: "Hvorfor vælge os", others: "Almindelig bandage", rows: [{ feature: "Justerbar", us: "YES", others: "partly" }, { feature: "Usynlig under tøj", us: "yes", others: "no" }, { feature: "Åndbar", us: "yes", others: "maybe" }] },
+  tabs: [{ heading: "Materialer", text: "Neopren og nylon." }, { heading: "Brug", text: "Tag den på over en t-shirt." }],
+  button: "Bestil nu",
+  reviewsHeading: "Det siger kunderne",
+};
+
 describe("storefront theme", () => {
   it("is bundled from shopify-theme/ (run node scripts/build-theme.mjs after editing it)", () => {
     expect(THEME_FILES).toEqual(readTheme());
@@ -112,20 +143,7 @@ describe("storefront theme", () => {
       const files = themeOverrides(input);
       const settings = JSON.parse(files["config/settings_data.json"]);
       expect(settings.current).toMatchObject({ ...STORE_STYLES[style].settings, brand_name: "Rank Ryg", free_shipping_threshold: 299, delivery_min_days: 5, delivery_max_days: 8, show_add_another: true, guarantee_days: 30 });
-      for (const group of ["templates/index.json", "sections/header-group.json", "sections/footer-group.json"]) {
-        const tpl = JSON.parse(files[group]);
-        for (const key of tpl.order) {
-          const sec = tpl.sections[key];
-          const schema = sectionSchema(sec.type);
-          checkSettings(schema.settings, sec.settings ?? {}, `${group} ${key}`);
-          for (const blockKey of sec.block_order ?? []) {
-            const block = sec.blocks[blockKey];
-            const def = schema.blocks?.find((b) => b.type === block.type);
-            expect(def, `${key} block type ${block.type}`).toBeTruthy();
-            checkSettings(def?.settings, block.settings, `${key}.${blockKey}`);
-          }
-        }
-      }
+      for (const group of ["templates/index.json", "templates/product.json", "sections/header-group.json", "sections/footer-group.json"]) checkTemplate(JSON.parse(files[group]), group);
       const index = JSON.parse(files["templates/index.json"]);
       expect(index.sections.hero.settings).toMatchObject({ product: "posture-corrector", heading: "Sit straighter, all day", layout: STORE_STYLES[style].heroLayout });
       expect(index.sections.story.settings.button_link).toBe("/pages/about-1");
@@ -135,6 +153,37 @@ describe("storefront theme", () => {
       expect(index.order.slice(index.order.indexOf("story"), index.order.indexOf("story") + 3)).toEqual(["story", "reviews", "faq"]);
       expect(themeFiles(input)["layout/theme.liquid"]).toContain("content_for_header");
     }
+  });
+
+  it("builds the product page like the stores selling with ads, with bundle cards only when the discounts exist", () => {
+    const pp = cleanProductPage(productPage)!;
+    // Marks the theme doesn't know fall back to yes for us and no for others.
+    expect(pp.comparison.rows.map((r) => [r.us, r.others])).toEqual([["yes", "partly"], ["yes", "no"], ["yes", "no"]]);
+    const base: ThemeInput = { style: "fresh", brandName: "Rank Ryg", productHandle: "posture-corrector", copy: { ...cleanStore(storeCopy), productPage: pp }, product: { title: "Posture corrector" }, facts };
+
+    const withDeals = productTemplate({ ...base, bundleOff: [...BUNDLE_OFF] });
+    checkTemplate(withDeals, "product.json");
+    const main = withDeals.sections.main as { blocks: Record<string, { type: string; settings: Record<string, unknown> }>; block_order: string[] };
+    expect(main.block_order.slice(0, 5)).toEqual(["rating", "title", "subtitle", "price", "benefits"]);
+    expect(main.block_order.indexOf("bundles")).toBe(main.block_order.indexOf("buy_buttons") - 1);
+    expect(main.blocks.bundles.settings).toMatchObject({ tier1_qty: 1, tier2_qty: 2, tier3_qty: 3, tier1_off: 0, tier2_off: 15, tier3_off: 25, tier2_badge: "Mest populær", tier3_badge: "Bedste pris", tier2_subtitle: "Kun [unit] pr. stk." });
+    expect(main.blocks.buy_buttons.settings.show_quantity).toBe(false);
+    expect(main.blocks.urgency.settings.offer).toBe("Spar op til 25 % når du køber flere");
+    expect(main.blocks.benefits.settings.lines).toBe(productPage.ticks.join("\n"));
+    expect(main.block_order.filter((k) => main.blocks[k].type === "collapsible_tab")).toHaveLength(2);
+    expect(withDeals.order).toEqual(["main", "problem", "comparison", "row2", "row3", "testimonials", "reviews", "guarantee", "faq"]);
+
+    // Without Launch's discounts the cards would show prices the checkout doesn't charge: none, and no offer line.
+    const noDeals = productTemplate(base);
+    const plain = noDeals.sections.main as typeof main;
+    expect(plain.block_order).not.toContain("bundles");
+    expect(plain.blocks.urgency.settings.offer).toBe("");
+    expect(plain.blocks.buy_buttons.settings.show_quantity).toBe(true);
+    // Without the product page copy: the theme's blocks with Launch's other copy, and no empty rows or table.
+    const bare = productTemplate({ ...base, copy: cleanStore(storeCopy) });
+    checkTemplate(bare, "product.json");
+    expect(bare.order).toEqual(["main", "testimonials", "reviews", "guarantee", "faq"]);
+    expect(cleanProductPage({})).toBeNull();
   });
 
   it("drops claims it can't back up and icons the theme doesn't have", () => {
@@ -290,6 +339,7 @@ describe("Launch → Full store", () => {
         const msg = (text: string) => json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
           content: [{ type: "text", text }], usage: { input_tokens: 1, output_tokens: 1 } });
         if (!String(body.system).includes("rest of a one-product dropshipping store")) return msg(JSON.stringify(productCopy));
+        if (String(body.messages[0].content).includes("product page's extra copy")) return msg(JSON.stringify(productPage));
         storeCalls++;
         if (body.output_config?.format) {
           return json({ type: "error", error: { type: "invalid_request_error", message: "The compiled grammar is too large, which would cause performance issues." } }, 400);
@@ -362,10 +412,11 @@ describe("Launch → Full store", () => {
       if (url.includes("anthropic.com")) {
         const body = JSON.parse(String(init?.body ?? "{}"));
         aiBodies.push(body);
-        const isStore = String(body.system).includes("rest of a one-product dropshipping store");
+        const isPage = String(body.messages[0].content).includes("product page's extra copy");
+        const isStore = !isPage && String(body.system).includes("rest of a one-product dropshipping store");
         if (isStore) prompt = String(init?.body ?? "");
         return json({ id: "msg_1", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
-          content: [{ type: "text", text: JSON.stringify(isStore ? validStore : productCopy) }], usage: { input_tokens: 10, output_tokens: 10 } });
+          content: [{ type: "text", text: JSON.stringify(isPage ? productPage : isStore ? validStore : productCopy) }], usage: { input_tokens: 10, output_tokens: 10 } });
       }
       if (!url.includes("/graphql.json")) return new Response("", { status: 404 });
       const body = JSON.parse(String(init?.body));
@@ -384,6 +435,15 @@ describe("Launch → Full store", () => {
       if (q.includes("themeCreate")) return json({ data: { themeCreate: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: true }, userErrors: [] } } });
       if (q.includes("theme(id")) return json({ data: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: false, processingFailed: false } } });
       if (q.includes("themePublish")) return json({ data: { themePublish: { theme: { id: "gid://shopify/OnlineStoreTheme/77", role: "MAIN" }, userErrors: [] } } });
+      // An earlier launch's bundle discount for this product, and someone else's.
+      if (q.includes("discountNodes")) {
+        return json({ data: { discountNodes: { nodes: [
+          { id: "gid://shopify/DiscountAutomaticNode/1", discount: { __typename: "DiscountAutomaticBasic", title: "AdSpy bundle 2+ · rank-ryg" } },
+          { id: "gid://shopify/DiscountAutomaticNode/2", discount: { __typename: "DiscountAutomaticBasic", title: "AdSpy bundle 2+ · rank-ryg-mini" } },
+        ] } } });
+      }
+      if (q.includes("discountAutomaticDelete")) return json({ data: { discountAutomaticDelete: { deletedAutomaticDiscountId: body.variables.id, userErrors: [] } } });
+      if (q.includes("discountAutomaticBasicCreate")) return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: { id: "gid://shopify/DiscountAutomaticNode/9" }, userErrors: [] } } });
       return json({ errors: [{ message: `unexpected ${q.slice(0, 40)}` }] });
     }));
 
@@ -400,8 +460,8 @@ describe("Launch → Full store", () => {
       themeEditorUrl: "https://rank.myshopify.com/admin/themes/77/editor", pageHandles: { about: "about", contact: "contact-1" },
     });
     expect(prompt).toContain("Returns: within 30 days of delivery");
-    // Two small strict schemas without enums: one big one was rejected ("compiled grammar is too large").
-    expect(aiBodies).toHaveLength(2);
+    // Small strict schemas without enums: one big one was rejected ("compiled grammar is too large").
+    expect(aiBodies).toHaveLength(3);
     for (const b of aiBodies) expect(JSON.stringify(b.output_config.format.schema)).not.toContain('"enum"');
     expect(prompt).toContain("Free shipping on orders from 299 DKK");
 
@@ -425,6 +485,18 @@ describe("Launch → Full store", () => {
     expect(Object.keys(files).length).toBe(Object.keys(THEME_FILES).length);
     expect(JSON.parse(files["config/settings_data.json"]).current).toMatchObject({ color_accent: STORE_STYLES.nordic.settings.color_accent, brand_name: "Rank Ryg" });
     expect(JSON.parse(files["templates/index.json"]).sections.hero.settings.product).toBe("rank-ryg");
+
+    // Bundle deals: the old launch's discount replaced (not someone else's), one discount per deal, and the cards on the page.
+    expect(calls.filter((c) => c.query.includes("discountAutomaticDelete")).map((c) => c.variables.id)).toEqual(["gid://shopify/DiscountAutomaticNode/1"]);
+    const deals = calls.filter((c) => c.query.includes("discountAutomaticBasicCreate")).map((c) => c.variables.d as { title: string; customerGets: unknown; minimumRequirement: unknown });
+    expect(deals).toMatchObject([
+      { title: "AdSpy bundle 2+ · rank-ryg", customerGets: { value: { percentage: 0.15 }, items: { products: { productsToAdd: ["gid://shopify/Product/9"] } } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "2" } } },
+      { title: "AdSpy bundle 3+ · rank-ryg", customerGets: { value: { percentage: 0.25 } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "3" } } },
+    ]);
+    expect(await user.query(api.launch.get, { launchId })).toMatchObject({ bundleOff: [0, 15, 25] });
+    const productTpl = JSON.parse(files["templates/product.json"]);
+    expect(productTpl.sections.main.blocks.bundles.settings).toMatchObject({ tier2_off: 15, tier3_off: 25, tier2_badge: "Mest populær" });
+    expect(productTpl.sections.comparison.settings).toMatchObject({ us_label: "Rank Ryg", them_1: "Almindelig bandage" });
 
     // A launch built on Dawn gets Dawn from the same link, with the same copy and style.
     await t.run((ctx) => ctx.db.patch("launches", launchId, { baseTheme: "dawn" }));

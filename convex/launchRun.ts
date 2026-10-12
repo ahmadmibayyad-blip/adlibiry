@@ -19,7 +19,10 @@ import {
   STORE_ICONS,
   STORE_SYSTEM,
   TRUST_ICONS,
+  BUNDLE_OFF,
+  cleanProductPage,
   cleanStore,
+  productPageGuide,
   storeFacts,
   storeMenus,
   storePages,
@@ -79,6 +82,19 @@ const StoreSchema = z.object({
     contact: z.object({ title: z.string(), intro: z.string() }),
   }),
   menu: z.object({ home: z.string(), shop: z.string(), about: z.string(), faq: z.string(), contact: z.string(), shipping: z.string(), search: z.string() }),
+});
+
+// Our theme's product page (lib/storeKit.ts ProductPageCopy): its own small request, so a failure
+// only leaves the page on the theme's defaults. Marks (yes / partly / no) are checked in cleanProductPage.
+const ProductPageSchema = z.object({
+  ticks: z.array(z.string()),
+  offer: z.string(),
+  bundles: z.object({ heading: z.string(), tiers: z.array(z.object({ title: z.string(), subtitle: z.string() })), popular: z.string(), best: z.string() }),
+  sections: z.array(z.object({ eyebrow: z.string(), heading: z.string(), text: z.string(), points: z.array(z.string()) })),
+  comparison: z.object({ heading: z.string(), others: z.string(), rows: z.array(z.object({ feature: z.string(), us: z.string(), others: z.string() })) }),
+  tabs: z.array(z.object({ heading: z.string(), text: z.string() })),
+  button: z.string(),
+  reviewsHeading: z.string(),
 });
 
 const STORE_GUIDE =
@@ -213,11 +229,30 @@ export const run = internalAction({
             }
           }
         };
-        // Two requests at once: the product page and the rest of the store.
-        const [page, storeOut] = await Promise.all([writePage(), writeStore()]);
+        // Our theme's product page sections; Dawn has its own product page.
+        const writeProductPage = async (): Promise<unknown> => {
+          if (launch.baseTheme === "dawn") return null;
+          try {
+            const message = await claudeClient().messages.parse({
+              model: MODEL,
+              max_tokens: 5000,
+              system,
+              messages: [{ role: "user", content: `${productFacts}\nStore name: ${launch.brandName}\n\n${productPageGuide(BUNDLE_OFF)}` }],
+              output_config: { effort: "low", format: zodOutputFormat(ProductPageSchema) },
+            });
+            return message.stop_reason === "refusal" ? null : message.parsed_output;
+          } catch (e) {
+            console.warn("Launch: product page copy failed, using the theme's defaults", e instanceof Error ? e.message : e);
+            return null;
+          }
+        };
+        // Three requests at once: the product page, the rest of the store, and our theme's product page sections.
+        const [page, storeOut, productPage] = await Promise.all([writePage(), writeStore(), writeProductPage()]);
         if (!page || !storeOut) return fail("The AI couldn't write this store. Try again or pick another product.");
         copy = cleanCopy(page).copy;
         storeCopy = cleanStore(storeOut);
+        const pp = cleanProductPage(productPage);
+        if (pp) storeCopy.productPage = pp;
       } else {
         const page = await writePage();
         if (!page) return fail("The AI couldn't write this page. Try again or pick another product.");
@@ -307,8 +342,12 @@ export const run = internalAction({
         return;
       }
 
-      // 3. Full store: pages, menus, then the theme.
+      // 3. Full store: bundle discounts, pages, menus, then the theme.
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", shopifyProductId: created.id, productHandle: created.handle, step: "pages" });
+      if (launch.baseTheme !== "dawn") {
+        const deals = await bundleDiscounts(store.shopDomain, token, created.id, created.handle, BUNDLE_OFF);
+        await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", ...deals });
+      }
       const pageList = storePages(storeCopy, facts, launch.language);
       const pages = await upsertPages(store.shopDomain, token, pageList, store);
       await ctx.runMutation(internal.launch.saveStorePages, { userId: launch.userId, pages: Object.fromEntries(Object.entries(pages).map(([k, p]) => [k, p.id])) });
@@ -465,6 +504,58 @@ async function upsertProduct(
     r = await attempt({ ...input, handle: `${input.handle}-${Math.random().toString(36).slice(2, 6)}` });
   }
   return r?.product ?? { error: `Shopify: ${userErrors(r?.userErrors) || "the product wasn't created"}` };
+}
+
+const DISCOUNTS = `query Bundles($q: String!) { discountNodes(first: 20, query: $q) { nodes { id discount { __typename ... on DiscountAutomaticBasic { title } } } } }`;
+const DISCOUNT_DELETE = `mutation Del($id: ID!) { discountAutomaticDelete(id: $id) { deletedAutomaticDiscountId userErrors { field message } } }`;
+const DISCOUNT_CREATE = `mutation D($d: DiscountAutomaticBasicInput!) {
+  discountAutomaticBasicCreate(automaticBasicDiscount: $d) { automaticDiscountNode { id } userErrors { field message } }
+}`;
+
+/**
+ * The bundle cards' prices, made real: one automatic discount per deal ("2 or more: 15% off" on this
+ * product), replacing the ones an earlier launch of it made. Shopify applies the best one that fits.
+ * Without the discounts permission (stores connected before) there are no bundle cards, and a note says why.
+ */
+async function bundleDiscounts(
+  shop: string,
+  token: string,
+  productId: string,
+  handle: string,
+  off: readonly number[],
+): Promise<{ bundleOff: number[] } | { bundlesNote: string }> {
+  const title = (qty: number) => `AdSpy bundle ${qty}+ · ${handle}`.slice(0, 255);
+  try {
+    const found = (await shopify(shop, token, DISCOUNTS, { q: `title:'AdSpy bundle' AND title:'${handle}'` })) as {
+      discountNodes?: { nodes: { id: string; discount: { title?: string } }[] };
+    };
+    const ours = new Set(off.map((_, i) => title(i + 1)));
+    for (const node of found.discountNodes?.nodes ?? []) {
+      if (node.discount.title && ours.has(node.discount.title)) await shopify(shop, token, DISCOUNT_DELETE, { id: node.id });
+    }
+    for (let i = 1; i < off.length; i++) {
+      if (!(off[i] > 0)) continue;
+      const r = (await shopify(shop, token, DISCOUNT_CREATE, {
+        d: {
+          title: title(i + 1),
+          startsAt: new Date().toISOString(),
+          customerGets: { value: { percentage: off[i] / 100 }, items: { products: { productsToAdd: [productId] } } },
+          minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: String(i + 1) } },
+          combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: true },
+        },
+      })) as { discountAutomaticBasicCreate?: { automaticDiscountNode: { id: string } | null; userErrors: UserError[] } };
+      if (!r.discountAutomaticBasicCreate?.automaticDiscountNode) {
+        return { bundlesNote: `No bundle deals: Shopify didn't create the discount (${userErrors(r.discountAutomaticBasicCreate?.userErrors) || "unknown error"}).` };
+      }
+    }
+    return { bundleOff: [...off] };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    console.warn("Launch: bundle discounts failed", msg);
+    return /permission|access/i.test(msg)
+      ? { bundlesNote: "No bundle deals yet: reconnect your store in Settings → Shopify and approve the discounts permission, then relaunch." }
+      : { bundlesNote: "No bundle deals: the discounts couldn't be created in Shopify this time." };
+  }
 }
 
 /** Creates the store's pages, or updates the ones an earlier Full store launch made. */

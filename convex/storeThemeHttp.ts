@@ -41,6 +41,7 @@ export const serveTheme = httpAction(async (ctx, req) => {
     copy: src.store as StoreCopy,
     product: { title: src.title },
     facts: src.facts as StoreFacts,
+    bundleOff: src.bundleOff,
   };
   const zip = zipFiles(src.baseTheme === "dawn" ? dawnThemeFiles(input) : themeFiles(input));
   return new Response(zip.buffer as ArrayBuffer, {
