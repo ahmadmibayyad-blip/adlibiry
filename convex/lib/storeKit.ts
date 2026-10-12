@@ -61,8 +61,9 @@ export function productPageGuide(off: readonly number[] = BUNDLE_OFF): string {
   return (
     "Write the product page's extra copy: ticks (4 benefit lines, each “Short bold part – detail”, max 70 characters), " +
     `bundles (heading 2–4 words like “Bundle & save”; tiers: exactly 3, for 1, 2 and 3 items, which cost ${off.map((o) => `${o}%`).join(", ")} less; ` +
-    "each with a title of 1–3 words (e.g. “1 fountain”, “2 fountains”) and a subtitle of max 40 characters, where [unit] stands for the price per item " +
-    "(e.g. “Only [unit] each”, “One for the bedroom”); popular: the badge for the 2-item deal (“Most popular”), best: for the 3-item deal (“Best value”)), " +
+    "each with a title of 1–3 words naming the product itself with its count (e.g. “1 fountain”, “2 fountains”, not a part or accessory) and a " +
+    "subtitle of max 40 characters; never write a price or number in it: write [unit] where the price per item goes (e.g. “Only [unit] each”, " +
+    "“One for the bedroom”); popular: the badge for the 2-item deal (“Most popular”), best: for the 3-item deal (“Best value”)), " +
     `offer (one line about the real bundle saving: up to ${Math.max(...off)}% off when buying more; no dates or scarcity), ` +
     "sections (3 image-with-text rows: first the problem the product solves, then how it helps, then a detail buyers care about; " +
     "eyebrow 1–3 words, heading max 8 words, text 1–2 sentences, 3 short points), " +
@@ -87,7 +88,13 @@ export function cleanProductPage(raw: unknown): ProductPageCopy | null {
     offer: s(r.offer, 80),
     bundles: {
       heading: s(b.heading, 40),
-      tiers: arr<{ title?: unknown; subtitle?: unknown }>(b.tiers).slice(0, 3).map((t) => ({ title: s(t?.title, 30), subtitle: s(t?.subtitle, 50) })),
+      tiers: arr<{ title?: unknown; subtitle?: unknown }>(b.tiers)
+        .slice(0, 3)
+        .map((t) => {
+          const subtitle = s(t?.subtitle, 50);
+          // A price written out ("152 kr each") goes stale with the price; the theme fills in [unit] itself.
+          return { title: s(t?.title, 30), subtitle: /\d/.test(subtitle.replace(/\[unit\]/g, "")) ? "" : subtitle };
+        }),
       popular: s(b.popular, 24),
       best: s(b.best, 24),
     },
@@ -288,6 +295,8 @@ export type ThemeInput = {
   facts: StoreFacts;
   /** % off for 1, 2 and 3 items when Launch created the matching automatic discounts; no bundle cards without. */
   bundleOff?: number[];
+  /** How many AI photos the product got: they're its 2nd, 3rd… photos (lib/aiPhotos.ts withAiPhotos). */
+  aiPhotos?: number;
 };
 
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
@@ -469,10 +478,13 @@ export function productTemplate(t: ThemeInput) {
 
   const style = STORE_STYLES[t.style];
   const soft = style.schemes.story === "surface" ? "base" : "surface";
+  // Rows show the AI photos; without one, the main photo. The supplier's other photos are often infographics
+  // in English or other models of the product.
+  const ai = t.aiPhotos ?? 0;
   const rows = (pp?.sections ?? []).map((x, i) => ({
     type: "image-with-text",
     settings: {
-      image_index: i + 2,
+      image_index: ai > 0 ? 2 + (i % ai) : 1,
       image_right: i % 2 === 1,
       eyebrow: x.eyebrow,
       heading: x.heading,

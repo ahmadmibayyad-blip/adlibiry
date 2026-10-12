@@ -455,6 +455,7 @@ export const themeSource = internalQuery({
       title: (l.copy as { title?: string } | undefined)?.title ?? "",
       facts: l.facts,
       bundleOff: l.bundleOff,
+      aiPhotos: l.aiPhotoUrls?.length ?? 0,
     };
   },
 });

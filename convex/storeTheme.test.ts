@@ -90,7 +90,7 @@ function checkTemplate(tpl: { order: string[]; sections: Record<string, unknown>
 const productPage = {
   ticks: ["Rank ryg – uden at tænke over det", "Blød polstring – til hele dagen", "Usynlig – under tøjet", "Justerbar – passer de fleste"],
   offer: "Spar op til 25 % når du køber flere",
-  bundles: { heading: "Køb flere, spar mere", tiers: [{ title: "1 stk.", subtitle: "Prøv den" }, { title: "2 stk.", subtitle: "Kun [unit] pr. stk." }, { title: "3 stk.", subtitle: "Én til gaven" }], popular: "Mest populær", best: "Bedste pris" },
+  bundles: { heading: "Køb flere, spar mere", tiers: [{ title: "1 stk.", subtitle: "Prøv den" }, { title: "2 stk.", subtitle: "Kun [unit] pr. stk." }, { title: "3 stk.", subtitle: "Kun 134 kr pr. stk." }], popular: "Mest populær", best: "Bedste pris" },
   sections: [
     { eyebrow: "Problemet", heading: "Ondt i nakken efter en lang dag?", text: "Mange sidder krumbøjede foran skærmen.", points: ["Ondt i nakken", "Træt ryg"] },
     { eyebrow: "Løsningen", heading: "Trækker skuldrene blidt tilbage", text: "Remmene minder dig om at sidde rankt.", points: ["Blid støtte"] },
@@ -161,7 +161,8 @@ describe("storefront theme", () => {
     expect(pp.comparison.rows.map((r) => [r.us, r.others])).toEqual([["yes", "partly"], ["yes", "no"], ["yes", "no"]]);
     const base: ThemeInput = { style: "fresh", brandName: "Rank Ryg", productHandle: "posture-corrector", copy: { ...cleanStore(storeCopy), productPage: pp }, product: { title: "Posture corrector" }, facts };
 
-    const withDeals = productTemplate({ ...base, bundleOff: [...BUNDLE_OFF] });
+    expect(pp.bundles.tiers.map((x) => x.subtitle)).toEqual(["Prøv den", "Kun [unit] pr. stk.", ""]);
+    const withDeals = productTemplate({ ...base, bundleOff: [...BUNDLE_OFF], aiPhotos: 2 });
     checkTemplate(withDeals, "product.json");
     const main = withDeals.sections.main as { blocks: Record<string, { type: string; settings: Record<string, unknown> }>; block_order: string[] };
     expect(main.block_order.slice(0, 5)).toEqual(["rating", "title", "subtitle", "price", "benefits"]);
@@ -172,11 +173,15 @@ describe("storefront theme", () => {
     expect(main.blocks.benefits.settings.lines).toBe(productPage.ticks.join("\n"));
     expect(main.block_order.filter((k) => main.blocks[k].type === "collapsible_tab")).toHaveLength(2);
     expect(withDeals.order).toEqual(["main", "problem", "comparison", "row2", "row3", "testimonials", "reviews", "guarantee", "faq"]);
+    // The rows show the AI photos (2nd and 3rd photo), and the main photo without any.
+    const photo = (tpl: ReturnType<typeof productTemplate>, key: string) => (tpl.sections[key] as { settings: { image_index: number } }).settings.image_index;
+    expect(["problem", "row2", "row3"].map((k) => photo(withDeals, k))).toEqual([2, 3, 2]);
 
     // Without Launch's discounts the cards would show prices the checkout doesn't charge: none, and no offer line.
     const noDeals = productTemplate(base);
     const plain = noDeals.sections.main as typeof main;
     expect(plain.block_order).not.toContain("bundles");
+    expect(photo(noDeals, "problem")).toBe(1);
     expect(plain.blocks.urgency.settings.offer).toBe("");
     expect(plain.blocks.buy_buttons.settings.show_quantity).toBe(true);
     // Without the product page copy: the theme's blocks with Launch's other copy, and no empty rows or table.
