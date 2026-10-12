@@ -20,6 +20,7 @@ import {
   STORE_SYSTEM,
   TRUST_ICONS,
   BUNDLE_OFF,
+  bundleTitles,
   cleanProductPage,
   cleanStore,
   productPageGuide,
@@ -175,7 +176,7 @@ export const run = internalAction({
     const c = await ctx.runQuery(internal.launch.context, { launchId: args.launchId });
     if (!c) return;
     if (!c.product || !c.store) return fail("The product or the connected store is gone.");
-    const { launch, product, store, ads, rate, previousShopifyProductId } = c;
+    const { launch, product, store, ads, rate, previousShopifyProductId, previousDiscountIds } = c;
     const fullStore = launch.mode === "store" && isStoreStyle(launch.style);
     const facts = launch.facts as StoreFacts | undefined;
 
@@ -345,7 +346,7 @@ export const run = internalAction({
       // 3. Full store: bundle discounts, pages, menus, then the theme.
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", shopifyProductId: created.id, productHandle: created.handle, step: "pages" });
       if (launch.baseTheme !== "dawn") {
-        const deals = await bundleDiscounts(store.shopDomain, token, created.id, created.handle, BUNDLE_OFF);
+        const deals = await bundleDiscounts(store.shopDomain, token, created.id, BUNDLE_OFF, bundleTitles(storeCopy.productPage, BUNDLE_OFF.length), previousDiscountIds);
         await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", ...deals });
       }
       const pageList = storePages(storeCopy, facts, launch.language);
@@ -496,7 +497,9 @@ async function upsertProduct(
   previousId: string | undefined,
 ): Promise<{ id: string; handle: string; onlineStorePreviewUrl?: string } | { error: string }> {
   const attempt = async (i: Record<string, unknown>) => ((await shopify(shop, token, PRODUCT_SET, { input: i })) as ProductSetResult).productSet;
-  let r = previousId ? await attempt({ ...input, id: previousId }) : undefined;
+  // Updating keeps the product's handle: a new title mustn't change the address ads already link to.
+  const { handle: _handle, ...update } = input;
+  let r = previousId ? await attempt({ ...update, id: previousId }) : undefined;
   if (r?.product) return r.product;
   // No earlier product, or it was deleted in Shopify since.
   r = await attempt(input);
@@ -506,7 +509,6 @@ async function upsertProduct(
   return r?.product ?? { error: `Shopify: ${userErrors(r?.userErrors) || "the product wasn't created"}` };
 }
 
-const DISCOUNTS = `query Bundles($q: String!) { discountNodes(first: 20, query: $q) { nodes { id discount { __typename ... on DiscountAutomaticBasic { title } } } } }`;
 const DISCOUNT_DELETE = `mutation Del($id: ID!) { discountAutomaticDelete(id: $id) { deletedAutomaticDiscountId userErrors { field message } } }`;
 const DISCOUNT_CREATE = `mutation D($d: DiscountAutomaticBasicInput!) {
   discountAutomaticBasicCreate(automaticBasicDiscount: $d) { automaticDiscountNode { id } userErrors { field message } }
@@ -514,41 +516,43 @@ const DISCOUNT_CREATE = `mutation D($d: DiscountAutomaticBasicInput!) {
 
 /**
  * The bundle cards' prices, made real: one automatic discount per deal ("2 or more: 15% off" on this
- * product), replacing the ones an earlier launch of it made. Shopify applies the best one that fits.
+ * product), replacing the ones earlier launches of it made (by id). Shopify applies the best one that fits.
+ * Shoppers see the title in the cart and at checkout, so it's the deal's own name ("Køb flere · 2 fontæner").
  * Without the discounts permission (stores connected before) there are no bundle cards, and a note says why.
  */
 async function bundleDiscounts(
   shop: string,
   token: string,
   productId: string,
-  handle: string,
   off: readonly number[],
-): Promise<{ bundleOff: number[] } | { bundlesNote: string }> {
-  const title = (qty: number) => `AdSpy bundle ${qty}+ · ${handle}`.slice(0, 255);
+  titles: string[],
+  previousIds: string[],
+): Promise<{ bundleOff: number[]; bundleDiscountIds: string[] } | { bundlesNote: string }> {
   try {
-    const found = (await shopify(shop, token, DISCOUNTS, { q: `title:'AdSpy bundle' AND title:'${handle}'` })) as {
-      discountNodes?: { nodes: { id: string; discount: { title?: string } }[] };
-    };
-    const ours = new Set(off.map((_, i) => title(i + 1)));
-    for (const node of found.discountNodes?.nodes ?? []) {
-      if (node.discount.title && ours.has(node.discount.title)) await shopify(shop, token, DISCOUNT_DELETE, { id: node.id });
+    for (const id of previousIds) {
+      // Already deleted in Shopify, or never ours: either way it no longer competes with the new ones.
+      await shopify(shop, token, DISCOUNT_DELETE, { id }).catch((e) => console.warn("Launch: old bundle discount", id, e instanceof Error ? e.message : e));
     }
+    const ids: string[] = [];
     for (let i = 1; i < off.length; i++) {
       if (!(off[i] > 0)) continue;
       const r = (await shopify(shop, token, DISCOUNT_CREATE, {
         d: {
-          title: title(i + 1),
+          title: titles[i],
           startsAt: new Date().toISOString(),
           customerGets: { value: { percentage: off[i] / 100 }, items: { products: { productsToAdd: [productId] } } },
           minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: String(i + 1) } },
           combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: true },
         },
       })) as { discountAutomaticBasicCreate?: { automaticDiscountNode: { id: string } | null; userErrors: UserError[] } };
-      if (!r.discountAutomaticBasicCreate?.automaticDiscountNode) {
+      const node = r.discountAutomaticBasicCreate?.automaticDiscountNode;
+      if (!node) {
+        for (const id of ids) await shopify(shop, token, DISCOUNT_DELETE, { id }).catch(() => undefined);
         return { bundlesNote: `No bundle deals: Shopify didn't create the discount (${userErrors(r.discountAutomaticBasicCreate?.userErrors) || "unknown error"}).` };
       }
+      ids.push(node.id);
     }
-    return { bundleOff: [...off] };
+    return { bundleOff: [...off], bundleDiscountIds: ids };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     console.warn("Launch: bundle discounts failed", msg);

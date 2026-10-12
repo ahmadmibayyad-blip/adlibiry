@@ -672,6 +672,7 @@ export default defineSchema({
     // automatic discounts exist in Shopify (launchRun.ts); or why there are none.
     bundleOff: v.optional(v.array(v.number())),
     bundlesNote: v.optional(v.string()),
+    bundleDiscountIds: v.optional(v.array(v.string())), // the automatic discounts it made, removed by the next launch of the product
     // A relaunch that replaces this earlier launch (its theme and row go once this one is ready).
     replacesLaunchId: v.optional(v.id("launches")),
   })

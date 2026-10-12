@@ -292,7 +292,7 @@ export const context = internalQuery({
     if (!launch) return null;
     const product = await getLaunchProduct(ctx, launch.productId, launch.userId);
     const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", launch.userId)).unique();
-    if (!product || !store) return { launch, product: null, store: null, ads: [], rate: 1, previousShopifyProductId: undefined };
+    if (!product || !store) return { launch, product: null, store: null, ads: [], rate: 1, previousShopifyProductId: undefined, previousDiscountIds: [] };
     // The ads already selling it, best first: their angles shape the page and ad kit.
     const ads = (await Promise.all((product.adIds ?? []).slice(0, 30).map((id) => ctx.db.get("ads", id))))
       .filter((a): a is Doc<"ads"> => !!a)
@@ -306,8 +306,10 @@ export const context = internalQuery({
       .order("desc")
       .take(20);
     const previousShopifyProductId = earlier.find((l) => l._id !== launch._id && l.shopDomain === store.shopDomain && l.shopifyProductId)?.shopifyProductId;
+    // The bundle discounts earlier launches of it made in this store, which this one replaces.
+    const previousDiscountIds = [...new Set(earlier.filter((l) => l._id !== launch._id && l.shopDomain === store.shopDomain).flatMap((l) => l.bundleDiscountIds ?? []))];
     // rate: store currency per USD, for the supplier cost we send to Shopify.
-    return { launch, product, store, ads, rate: await usdRate(ctx, store.currency ?? "USD"), previousShopifyProductId };
+    return { launch, product, store, ads, rate: await usdRate(ctx, store.currency ?? "USD"), previousShopifyProductId, previousDiscountIds };
   },
 });
 
@@ -334,6 +336,7 @@ export const setStatus = internalMutation({
     reviewsNote: v.optional(v.string()),
     bundleOff: v.optional(v.array(v.number())),
     bundlesNote: v.optional(v.string()),
+    bundleDiscountIds: v.optional(v.array(v.string())),
   },
   handler: async (ctx, { launchId, ...patch }) => {
     const launch = await ctx.db.get("launches", launchId);

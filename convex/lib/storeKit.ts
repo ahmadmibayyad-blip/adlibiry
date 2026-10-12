@@ -57,6 +57,14 @@ const MARKS = ["yes", "partly", "no"] as const;
 /** % off for 1, 2 and 3 items: the bundle cards and the automatic discounts Launch creates for them. */
 export const BUNDLE_OFF = [0, 15, 25] as const;
 
+/** What shoppers see as the discount's name in the cart and at checkout: "Køb flere · 2 fontæner". */
+export function bundleTitles(pp: ProductPageCopy | undefined, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => {
+    const tier = pp?.bundles.tiers[i]?.title || `${i + 1}+`;
+    return (pp?.bundles.heading ? `${pp.bundles.heading} · ${tier}` : tier).slice(0, 255);
+  });
+}
+
 export function productPageGuide(off: readonly number[] = BUNDLE_OFF): string {
   return (
     "Write the product page's extra copy: ticks (4 benefit lines, each “Short bold part – detail”, max 70 characters), " +
