@@ -395,6 +395,8 @@ describe("Launch → Full store", () => {
     await settle(t);
     expect(inputs).toHaveLength(1);
     expect(inputs[0]).toMatchObject({ id: "gid://shopify/Product/1" });
+    // The product keeps its address: ads may already link to it.
+    expect(inputs[0]).not.toHaveProperty("handle");
     expect(await user.query(api.launch.get, { launchId: again.launchId })).toMatchObject({ status: "published", shopifyProductId: "gid://shopify/Product/1" });
   });
 
@@ -440,19 +442,22 @@ describe("Launch → Full store", () => {
       if (q.includes("themeCreate")) return json({ data: { themeCreate: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: true }, userErrors: [] } } });
       if (q.includes("theme(id")) return json({ data: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: false, processingFailed: false } } });
       if (q.includes("themePublish")) return json({ data: { themePublish: { theme: { id: "gid://shopify/OnlineStoreTheme/77", role: "MAIN" }, userErrors: [] } } });
-      // An earlier launch's bundle discount for this product, and someone else's.
-      if (q.includes("discountNodes")) {
-        return json({ data: { discountNodes: { nodes: [
-          { id: "gid://shopify/DiscountAutomaticNode/1", discount: { __typename: "DiscountAutomaticBasic", title: "AdSpy bundle 2+ · rank-ryg" } },
-          { id: "gid://shopify/DiscountAutomaticNode/2", discount: { __typename: "DiscountAutomaticBasic", title: "AdSpy bundle 2+ · rank-ryg-mini" } },
-        ] } } });
-      }
       if (q.includes("discountAutomaticDelete")) return json({ data: { discountAutomaticDelete: { deletedAutomaticDiscountId: body.variables.id, userErrors: [] } } });
-      if (q.includes("discountAutomaticBasicCreate")) return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: { id: "gid://shopify/DiscountAutomaticNode/9" }, userErrors: [] } } });
+      if (q.includes("discountAutomaticBasicCreate")) {
+        const n = calls.filter((c) => c.query.includes("discountAutomaticBasicCreate")).length;
+        return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: { id: `gid://shopify/DiscountAutomaticNode/${10 + n}` }, userErrors: [] } } });
+      }
       return json({ errors: [{ message: `unexpected ${q.slice(0, 40)}` }] });
     }));
 
     const { t, productId, user } = await setup();
+    // An earlier launch of the product in another store, and one in this store with its bundle discounts.
+    await t.run(async (ctx) => {
+      const userId = (await ctx.db.query("users").first())!._id;
+      const base = { userId, productId, language: "Danish", tone: "friendly", publish: "DRAFT", status: "published", createdAt: "2026-10-01" };
+      await ctx.db.insert("launches", { ...base, shopDomain: "other.myshopify.com", bundleDiscountIds: ["gid://shopify/DiscountAutomaticNode/7"] });
+      await ctx.db.insert("launches", { ...base, shopDomain: "rank.myshopify.com", bundleDiscountIds: ["gid://shopify/DiscountAutomaticNode/1"] });
+    });
     const { launchId } = await user.mutation(api.launch.start, {
       productId, language: "Danish", tone: "friendly", publish: "ACTIVE", mode: "store", style: "nordic", brandName: "Rank Ryg",
       facts: { shippingTime: "5–8 hverdage", returnDays: 30, freeShippingFrom: 299, supportEmail: "hej@rankryg.dk" },
@@ -491,14 +496,15 @@ describe("Launch → Full store", () => {
     expect(JSON.parse(files["config/settings_data.json"]).current).toMatchObject({ color_accent: STORE_STYLES.nordic.settings.color_accent, brand_name: "Rank Ryg" });
     expect(JSON.parse(files["templates/index.json"]).sections.hero.settings.product).toBe("rank-ryg");
 
-    // Bundle deals: the old launch's discount replaced (not someone else's), one discount per deal, and the cards on the page.
+    // Bundle deals: this store's earlier discounts replaced (not another store's), one discount per deal named for
+    // shoppers, and the cards on the page.
     expect(calls.filter((c) => c.query.includes("discountAutomaticDelete")).map((c) => c.variables.id)).toEqual(["gid://shopify/DiscountAutomaticNode/1"]);
     const deals = calls.filter((c) => c.query.includes("discountAutomaticBasicCreate")).map((c) => c.variables.d as { title: string; customerGets: unknown; minimumRequirement: unknown });
     expect(deals).toMatchObject([
-      { title: "AdSpy bundle 2+ · rank-ryg", customerGets: { value: { percentage: 0.15 }, items: { products: { productsToAdd: ["gid://shopify/Product/9"] } } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "2" } } },
-      { title: "AdSpy bundle 3+ · rank-ryg", customerGets: { value: { percentage: 0.25 } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "3" } } },
+      { title: "Køb flere, spar mere · 2 stk.", customerGets: { value: { percentage: 0.15 }, items: { products: { productsToAdd: ["gid://shopify/Product/9"] } } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "2" } } },
+      { title: "Køb flere, spar mere · 3 stk.", customerGets: { value: { percentage: 0.25 } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "3" } } },
     ]);
-    expect(await user.query(api.launch.get, { launchId })).toMatchObject({ bundleOff: [0, 15, 25] });
+    expect(await user.query(api.launch.get, { launchId })).toMatchObject({ bundleOff: [0, 15, 25], bundleDiscountIds: ["gid://shopify/DiscountAutomaticNode/11", "gid://shopify/DiscountAutomaticNode/12"] });
     const productTpl = JSON.parse(files["templates/product.json"]);
     expect(productTpl.sections.main.blocks.bundles.settings).toMatchObject({ tier2_off: 15, tier3_off: 25, tier2_badge: "Mest populær" });
     expect(productTpl.sections.comparison.settings).toMatchObject({ us_label: "Rank Ryg", them_1: "Almindelig bandage" });
