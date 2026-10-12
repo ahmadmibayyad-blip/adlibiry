@@ -2,7 +2,36 @@
 <section class="section scheme-{{ section.settings.scheme }}" id="Featured-{{ section.id }}">
   <div class="page-width">
     {%- if product != blank -%}
-      {% render 'product-main', product: product, section: section, heading_tag: 'h2' %}
+      {%- comment -%}
+        Gallery and buy box. The buy box is built from blocks (snippets/product-block.liquid) the owner can add,
+        move and remove in the theme editor, review apps' blocks included. A section saved without blocks gets
+        the default list.
+      {%- endcomment -%}
+      {%- liquid
+        assign current = product.selected_or_first_available_variant
+        assign form_id = 'ProductForm-' | append: section.id
+        assign page_data = product.metafields.adspy.page.value
+      -%}
+      <div class="product" data-product data-section="{{ section.id }}">
+        {% render 'product-gallery', product: product %}
+        <div class="product__info">
+          {%- for block in section.blocks -%}
+            {%- if block.type == '@app' -%}
+              <div class="product__app" {{ block.shopify_attributes }}>{% render block %}</div>
+            {%- else -%}
+              {% render 'product-block', block: block, type: block.type, product: product, section: section, current: current, form_id: form_id, page_data: page_data, heading_tag: 'h2' %}
+            {%- endif -%}
+          {%- else -%}
+            {%- assign default_blocks = 'rating,title,subtitle,price,benefits,variant_picker,buy_buttons,trust_icons,delivery,payment_icons,description' | split: ',' -%}
+            {%- for type in default_blocks -%}
+              {% render 'product-block', block: nil, type: type, product: product, section: section, current: current, form_id: form_id, page_data: page_data, heading_tag: 'h2', defaults: true %}
+            {%- endfor -%}
+          {%- endfor -%}
+        </div>
+        <script type="application/json" data-variants>
+          {{ product.variants | json }}
+        </script>
+      </div>
     {%- else -%}
       <p class="muted center">{{ 'products.choose_product' | t }}</p>
     {%- endif -%}
@@ -13,12 +42,787 @@
 {
   "name": "Featured product",
   "settings": [
-    { "type": "product", "id": "product", "label": "Product" },
-    { "type": "checkbox", "id": "show_vendor", "label": "Show vendor", "default": false },
-    { "type": "checkbox", "id": "show_description", "label": "Show description", "default": false },
-    { "type": "checkbox", "id": "show_dynamic_checkout", "label": "Show express checkout buttons", "default": true },
-    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+    {
+      "type": "product",
+      "id": "product",
+      "label": "Product"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "label": "Show vendor",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "Show description",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_dynamic_checkout",
+      "label": "Show express checkout buttons (without blocks)",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "scheme",
+      "label": "Background",
+      "default": "base",
+      "options": [
+        {
+          "value": "base",
+          "label": "Page"
+        },
+        {
+          "value": "surface",
+          "label": "Soft"
+        },
+        {
+          "value": "accent",
+          "label": "Accent"
+        },
+        {
+          "value": "inverse",
+          "label": "Inverted"
+        }
+      ]
+    }
   ],
-  "presets": [{ "name": "Featured product" }]
+  "blocks": [
+    {
+      "type": "rating",
+      "name": "Star rating",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Shows your review app's rating (Judge.me, Loox, Okendo and others save it on the product). Without one: the numbers below, or else the supplier's reviews added by AdSpy Pro Launch, labelled as the supplier's."
+        },
+        {
+          "type": "text",
+          "id": "rating",
+          "label": "Your rating (e.g. 4.8)",
+          "info": "Only your real average rating. Leave empty to use your review app or the supplier's reviews."
+        },
+        {
+          "type": "number",
+          "id": "count",
+          "label": "Your number of reviews",
+          "info": "Only your real number of reviews."
+        }
+      ]
+    },
+    {
+      "type": "review_quote",
+      "name": "Customer quote",
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "A short quote from a real customer review."
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Photo"
+        },
+        {
+          "type": "text",
+          "id": "name",
+          "label": "Name and city",
+          "default": "Anna, Copenhagen"
+        },
+        {
+          "type": "textarea",
+          "id": "text",
+          "label": "Quote"
+        },
+        {
+          "type": "range",
+          "id": "rating",
+          "label": "Stars",
+          "min": 1,
+          "max": 5,
+          "step": 1,
+          "default": 5
+        }
+      ]
+    },
+    {
+      "type": "title",
+      "name": "Title",
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "subtitle",
+      "name": "Promise line",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text",
+          "info": "Empty: the line AdSpy Pro Launch wrote for the product."
+        }
+      ]
+    },
+    {
+      "type": "price",
+      "name": "Price",
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "benefits",
+      "name": "Benefit ticks",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "textarea",
+          "id": "lines",
+          "label": "One benefit per line",
+          "info": "Text before “ – ” is bold. Empty: the benefits AdSpy Pro Launch wrote for the product."
+        }
+      ]
+    },
+    {
+      "type": "urgency",
+      "name": "Offer and stock",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "offer",
+          "label": "Offer line",
+          "info": "For example: Autumn sale – 2 for 1 until 31/10."
+        },
+        {
+          "type": "text",
+          "id": "end_date",
+          "label": "Offer ends on (YYYY-MM-DD)",
+          "info": "Shows a countdown to the end of that day in your store's time zone, and hides it when the offer ends. Only use the real end date."
+        },
+        {
+          "type": "range",
+          "id": "stock_below",
+          "label": "Show “Only N left” at or below",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "default": 10,
+          "info": "The chosen variant's real stock, when Shopify tracks it. 0 hides it."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_in_stock",
+          "label": "Show “In stock” otherwise",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "variant_picker",
+      "name": "Variant picker",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "select",
+          "id": "style",
+          "label": "Style",
+          "default": "buttons",
+          "options": [
+            {
+              "value": "buttons",
+              "label": "Buttons"
+            },
+            {
+              "value": "dropdown",
+              "label": "Dropdown"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "bundles",
+      "name": "Bundle deals",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Buying more for less. Shopify only charges these prices with a matching automatic discount (Discounts → Amount off products, minimum quantity, same %). AdSpy Pro Launch creates it for you; if you change a % here, change the discount too."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "info": "Empty: “Buy more, save more”."
+        },
+        {
+          "type": "select",
+          "id": "preselect",
+          "label": "Chosen at first",
+          "default": "2",
+          "options": [
+            {
+              "value": "1",
+              "label": "Deal 1"
+            },
+            {
+              "value": "2",
+              "label": "Deal 2"
+            },
+            {
+              "value": "3",
+              "label": "Deal 3"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "unit_price",
+          "label": "Show the price per item",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Deal 1"
+        },
+        {
+          "type": "range",
+          "id": "tier1_qty",
+          "label": "Items",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "default": 1
+        },
+        {
+          "type": "text",
+          "id": "tier1_title",
+          "label": "Title",
+          "info": "Empty: “1 item”."
+        },
+        {
+          "type": "text",
+          "id": "tier1_subtitle",
+          "label": "Text under the title",
+          "info": "[unit] shows the price per item."
+        },
+        {
+          "type": "range",
+          "id": "tier1_off",
+          "label": "Discount",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "%",
+          "default": 0
+        },
+        {
+          "type": "text",
+          "id": "tier1_badge",
+          "label": "Badge"
+        },
+        {
+          "type": "text",
+          "id": "tier1_gift",
+          "label": "Free gift line"
+        },
+        {
+          "type": "header",
+          "content": "Deal 2"
+        },
+        {
+          "type": "range",
+          "id": "tier2_qty",
+          "label": "Items (0 hides the deal)",
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "default": 2
+        },
+        {
+          "type": "text",
+          "id": "tier2_title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "tier2_subtitle",
+          "label": "Text under the title"
+        },
+        {
+          "type": "range",
+          "id": "tier2_off",
+          "label": "Discount",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "%",
+          "default": 15
+        },
+        {
+          "type": "text",
+          "id": "tier2_badge",
+          "label": "Badge",
+          "default": "Most popular"
+        },
+        {
+          "type": "text",
+          "id": "tier2_gift",
+          "label": "Free gift line"
+        },
+        {
+          "type": "header",
+          "content": "Deal 3"
+        },
+        {
+          "type": "range",
+          "id": "tier3_qty",
+          "label": "Items (0 hides the deal)",
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "default": 3
+        },
+        {
+          "type": "text",
+          "id": "tier3_title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "tier3_subtitle",
+          "label": "Text under the title"
+        },
+        {
+          "type": "range",
+          "id": "tier3_off",
+          "label": "Discount",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "%",
+          "default": 25
+        },
+        {
+          "type": "text",
+          "id": "tier3_badge",
+          "label": "Badge",
+          "default": "Best value"
+        },
+        {
+          "type": "text",
+          "id": "tier3_gift",
+          "label": "Free gift line"
+        }
+      ]
+    },
+    {
+      "type": "buy_buttons",
+      "name": "Buy buttons",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_quantity",
+          "label": "Show the quantity selector",
+          "info": "Hidden anyway with bundle deals, which set the quantity.",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_dynamic_checkout",
+          "label": "Show express checkout buttons",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "upsell",
+      "name": "Add-on product",
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Name to show",
+          "info": "Empty: the product's title."
+        }
+      ]
+    },
+    {
+      "type": "gift",
+      "name": "Free gift",
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Only a gift every order really gets."
+        },
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Free gift with your order"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text"
+        }
+      ]
+    },
+    {
+      "type": "guarantee",
+      "name": "Guarantee",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "number",
+          "id": "days",
+          "label": "Days",
+          "info": "Empty: the money-back guarantee in Theme settings → Cart."
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "info": "Empty: “30-day money-back guarantee”."
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text"
+        }
+      ]
+    },
+    {
+      "type": "trust_icons",
+      "name": "Trust icons",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Empty texts: the three lines in Theme settings → Store."
+        },
+        {
+          "type": "select",
+          "id": "icon_1",
+          "label": "Icon 1",
+          "default": "truck",
+          "options": [
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "return",
+              "label": "Return"
+            },
+            {
+              "value": "chat",
+              "label": "Chat"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "clock",
+              "label": "Clock"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "text_1",
+          "label": "Text 1"
+        },
+        {
+          "type": "select",
+          "id": "icon_2",
+          "label": "Icon 2",
+          "default": "return",
+          "options": [
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "return",
+              "label": "Return"
+            },
+            {
+              "value": "chat",
+              "label": "Chat"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "clock",
+              "label": "Clock"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "text_2",
+          "label": "Text 2"
+        },
+        {
+          "type": "select",
+          "id": "icon_3",
+          "label": "Icon 3",
+          "default": "lock",
+          "options": [
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "return",
+              "label": "Return"
+            },
+            {
+              "value": "chat",
+              "label": "Chat"
+            },
+            {
+              "value": "lock",
+              "label": "Lock"
+            },
+            {
+              "value": "clock",
+              "label": "Clock"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            },
+            {
+              "value": "star",
+              "label": "Star"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "text_3",
+          "label": "Text 3"
+        }
+      ]
+    },
+    {
+      "type": "payment_icons",
+      "name": "Payment icons",
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "delivery",
+      "name": "Delivery estimate",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Dates from today, using the delivery time in Theme settings → Cart."
+        }
+      ]
+    },
+    {
+      "type": "collapsible_tab",
+      "name": "Collapsible tab",
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Shipping & returns"
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "default": "none",
+          "options": [
+            {
+              "value": "none",
+              "label": "None"
+            },
+            {
+              "value": "truck",
+              "label": "Truck"
+            },
+            {
+              "value": "return",
+              "label": "Return"
+            },
+            {
+              "value": "shield",
+              "label": "Shield"
+            },
+            {
+              "value": "leaf",
+              "label": "Leaf"
+            },
+            {
+              "value": "sparkle",
+              "label": "Sparkle"
+            },
+            {
+              "value": "heart",
+              "label": "Heart"
+            },
+            {
+              "value": "check",
+              "label": "Check"
+            },
+            {
+              "value": "chat",
+              "label": "Chat"
+            },
+            {
+              "value": "clock",
+              "label": "Clock"
+            },
+            {
+              "value": "gift",
+              "label": "Gift"
+            }
+          ]
+        },
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "Text"
+        },
+        {
+          "type": "page",
+          "id": "page",
+          "label": "Or a page's text"
+        },
+        {
+          "type": "checkbox",
+          "id": "open",
+          "label": "Open at first",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "Description",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "collapsible",
+          "label": "Show as a collapsible tab",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "open",
+          "label": "Open at first",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": "Text"
+        }
+      ]
+    },
+    {
+      "type": "custom_liquid",
+      "name": "Custom Liquid",
+      "settings": [
+        {
+          "type": "liquid",
+          "id": "custom_liquid",
+          "label": "Liquid"
+        }
+      ]
+    },
+    {
+      "type": "@app"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured product",
+      "blocks": [
+        {
+          "type": "rating"
+        },
+        {
+          "type": "title"
+        },
+        {
+          "type": "price"
+        },
+        {
+          "type": "benefits"
+        },
+        {
+          "type": "variant_picker"
+        },
+        {
+          "type": "buy_buttons"
+        },
+        {
+          "type": "trust_icons"
+        }
+      ]
+    }
+  ]
 }
 {% endschema %}

@@ -39,9 +39,31 @@
       "one": "{{ count }} article",
       "other": "{{ count }} articles"
     },
-    "deal_save": "Économisez {{ percent }} %",
     "sale_ends_html": "La promo se termine dans {{ time }}",
-    "deal_popular": "Le plus populaire"
+    "rating_count": {
+      "one": "{{ count }} avis",
+      "other": "{{ count }} avis"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} avis chez notre fournisseur",
+      "other": "{{ count }} avis chez notre fournisseur"
+    },
+    "deal_save_amount_html": "Économisez {{ amount }}",
+    "deal_unit_html": "{{ price }} l'unité",
+    "stock_low": "Plus que {{ count }} en stock",
+    "in_stock": "En stock",
+    "guarantee_seal": "jours",
+    "add": "Ajouter",
+    "verified": "Achat vérifié",
+    "reviews_based_on": {
+      "one": "Basé sur {{ count }} avis",
+      "other": "Basé sur {{ count }} avis"
+    },
+    "reviews_empty_editor": "Ajoutez ici les avis de vos clients : Avis clients → Ajouter un bloc → Avis.",
+    "compare_others": "Autres",
+    "compare_yes": "Oui",
+    "compare_partly": "En partie",
+    "compare_no": "Non"
   },
   "cart": {
     "title": "Votre panier",
@@ -61,7 +83,8 @@
     "delivery_eta_html": "Livraison estimée : {{ dates }}",
     "add_another": "En ajouter un autre – {{ price }}",
     "payment_methods": "Moyens de paiement",
-    "upsell_heading": "Vous aimerez aussi"
+    "upsell_heading": "Vous aimerez aussi",
+    "you_save": "Vous économisez"
   },
   "collections": {
     "view_all": "Voir tout",

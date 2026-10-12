@@ -262,11 +262,18 @@
       const next = Math.max(min, (Number(input.value) || 0) + Number(step.dataset.qtyChange));
       input.value = next;
       if (input.dataset.lineQty) changeLine(input.dataset.lineQty, next);
-      const deals = $('[data-deals]', step.closest('form') || document.createElement('div'));
+      const deals = $('[data-deals]', step.closest('[data-product]') || document.createElement('div'));
       if (deals) {
         const match = $(`[data-deal-qty="${next}"]`, deals);
-        $$('[data-deal-qty]', deals).forEach((r) => { r.checked = r === match; r.closest('.deal').classList.toggle('is-selected', r === match); });
+        $$('[data-deal-qty]', deals).forEach((r) => { r.checked = r === match; r.closest('.tier').classList.toggle('is-selected', r === match); });
       }
+      return;
+    }
+    // The star rating links to the reviews further down: the first reviews section on the page.
+    const toReviews = t.closest('[data-scroll-reviews]');
+    if (toReviews) {
+      const target = $('.js-reviews');
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       return;
     }
     const thumb = t.closest('[data-thumb]');
@@ -286,12 +293,11 @@
       url.searchParams.delete('page');
       window.location.href = url.toString();
     }
-    if (t.matches('[data-option-index]')) selectVariant(t.closest('[data-product]'));
+    if (t.closest('[data-option-index]')) selectVariant(t.closest('[data-product]'));
     if (t.matches('[data-deal-qty]')) {
-      const form = t.closest('form');
-      const qty = form && $('.qty__input', form);
+      const qty = $('input[name="quantity"]', t.closest('[data-product]') || document);
       if (qty) qty.value = t.dataset.dealQty;
-      $$('.deal', t.closest('[data-deals]')).forEach((d) => d.classList.toggle('is-selected', d.contains(t)));
+      $$('.tier', t.closest('[data-deals]')).forEach((d) => d.classList.toggle('is-selected', d.contains(t)));
     }
   });
 
@@ -321,22 +327,54 @@
         const i = Math.round(main.scrollLeft / main.clientWidth);
         const slide = $$('[data-media-id]', main)[i];
         if (slide) showMedia(gallery, slide.dataset.mediaId, false);
+        const index = $('[data-gallery-index]', gallery);
+        if (index) index.textContent = String(i + 1);
       }, 80);
     }, { passive: true });
   });
 
-  // Quantity deals (snippets/product-main.liquid): picking one sets the quantity; prices follow the variant.
-  function updateDeals(product, price) {
+  // Bundle deals (snippets/product-block.liquid): picking one sets the quantity; prices follow the variant.
+  // Struck out: the compare-at (else regular) price × items; paid: the price × items less the deal's %.
+  function updateDeals(product, variant) {
+    const was = Math.max(variant.compare_at_price || 0, variant.price);
     $$('[data-deal-qty]', product).forEach((input) => {
-      const label = input.closest('.deal');
+      const tier = input.closest('.tier');
       const qty = Number(input.dataset.dealQty);
       const off = Number(input.dataset.dealOff) || 0;
-      const full = price * qty;
-      const pay = $('[data-deal-price]', label);
-      const was = $('[data-deal-full]', label);
-      if (pay) pay.textContent = formatMoney(Math.floor((full * (100 - off)) / 100));
-      if (was) was.textContent = formatMoney(full);
+      const full = was * qty;
+      const pay = Math.floor(((100 - off) * variant.price * qty) / 100);
+      const saved = full - pay;
+      const set = (sel, text) => { const el = $(sel, tier); if (el) el.textContent = text; };
+      set('[data-deal-price]', formatMoney(pay));
+      set('[data-deal-full]', formatMoney(full));
+      set('[data-deal-unit]', formatMoney(Math.floor(pay / qty)));
+      const fullEl = $('[data-deal-full]', tier);
+      if (fullEl) fullEl.hidden = saved <= 0;
+      const save = $('[data-deal-save]', tier);
+      if (save) {
+        save.hidden = saved <= 0;
+        const amount = $('[data-deal-saved]', save);
+        if (amount) amount.textContent = formatMoney(saved);
+      }
     });
+  }
+
+  // "Only 4 left" / "In stock" (the urgency block in product-block.liquid) for the chosen variant.
+  function updateStock(product, variant) {
+    const line = $('[data-stock-line]', product);
+    if (!line) return;
+    let stock = {};
+    try { stock = JSON.parse($('[data-stock]', product).textContent); } catch { /* no stock data */ }
+    const strings = $('[data-stock-strings]', product)?.content;
+    const left = stock[String(variant.id)];
+    line.hidden = !variant.available;
+    if (left) {
+      line.innerHTML = `<span class="stock__dot stock__dot--low"></span><span>${esc(($('[data-low]', strings)?.textContent || '').replace('[count]', left))}</span>`;
+    } else if (line.dataset.inStock === 'true' && variant.available) {
+      line.innerHTML = `<span class="stock__dot"></span><span>${esc($('[data-in]', strings)?.textContent || '')}</span>`;
+    } else {
+      line.innerHTML = '';
+    }
   }
 
   // Sale countdown: to the owner's end date, while the chosen variant is on sale.
@@ -346,8 +384,7 @@
     timers.forEach((el) => {
       const end = Date.parse(el.dataset.end);
       const left = end - now;
-      const onSale = !!el.closest('[data-product]')?.querySelector('.price--sale');
-      if (!Number.isFinite(left) || left <= 0 || !onSale) { el.hidden = true; return; }
+      if (!Number.isFinite(left) || left <= 0) { el.hidden = true; return; }
       const s = Math.floor(left / 1000);
       const d = Math.floor(s / 86400);
       const pad = (n) => String(n).padStart(2, '0');
@@ -366,7 +403,12 @@
     } catch {
       return;
     }
-    const chosen = $$('[data-option-index]', product).map((s) => s.value);
+    // Each option is a dropdown or a row of buttons (radio inputs).
+    const chosen = $$('[data-option-index]', product).map((el) => (el.tagName === 'SELECT' ? el.value : $('input:checked', el)?.value));
+    $$('fieldset[data-option-index]', product).forEach((el) => {
+      const shown = $('[data-option-value]', el);
+      if (shown) shown.textContent = $('input:checked', el)?.value || '';
+    });
     const variant = variants.find((v) => v.options.every((o, i) => o === chosen[i]));
     const button = $('[data-add-button]', product);
     if (!variant) {
@@ -381,11 +423,15 @@
     const price = $('[data-price]', product);
     if (price) {
       const onSale = variant.compare_at_price > variant.price;
+      const pct = onSale ? Math.floor(((variant.compare_at_price - variant.price) * 100) / variant.compare_at_price) : 0;
       price.classList.toggle('price--sale', onSale);
       price.innerHTML = `<span class="price__current">${formatMoney(variant.price)}</span>` +
-        (onSale ? `<s class="price__compare">${formatMoney(variant.compare_at_price)}</s>` : '');
+        (onSale ? `<s class="price__compare">${formatMoney(variant.compare_at_price)}</s><span class="badge badge--sale">${esc(theme.strings.save || '')} ${pct}%</span>` : '');
     }
-    updateDeals(product, variant.price);
+    const stickyPrice = $('[data-sticky-price]');
+    if (stickyPrice && product.closest('.template-product')) stickyPrice.textContent = formatMoney(variant.price);
+    updateDeals(product, variant);
+    updateStock(product, variant);
     if (timers.length) tickTimers();
     if (variant.featured_media) showMedia($('[data-gallery]', product), variant.featured_media.id);
     if (product.closest('.template-product')) {

@@ -36,7 +36,7 @@
     <script>
       window.theme = {
         routes: { cart: {{ routes.cart_url | json }}, cartAdd: {{ routes.cart_add_url | json }}, cartChange: {{ routes.cart_change_url | json }}, root: {{ routes.root_url | json }} },
-        strings: { added: {{ 'products.added' | t | json }}, soldOut: {{ 'products.sold_out' | t | json }}, addToCart: {{ 'products.add_to_cart' | t | json }}, unavailable: {{ 'products.unavailable' | t | json }}, error: {{ 'general.error' | t | json }} },
+        strings: { added: {{ 'products.added' | t | json }}, soldOut: {{ 'products.sold_out' | t | json }}, addToCart: {{ 'products.add_to_cart' | t | json }}, unavailable: {{ 'products.unavailable' | t | json }}, save: {{ 'products.save' | t | json }}, error: {{ 'general.error' | t | json }} },
         cartType: {{ settings.cart_type | json }},
         moneyFormat: {{ shop.money_format | json }}
       };

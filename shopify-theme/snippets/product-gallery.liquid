@@ -1,0 +1,30 @@
+{%- comment -%}
+  The product's photos: one big image with thumbnails, swiped through on phones (base.css, theme.js).
+  {% render 'product-gallery', product: product %}
+{%- endcomment -%}
+<div class="product__gallery" data-gallery>
+  <div class="gallery__main">
+    {%- for media in product.media limit: 10 -%}
+      <div class="gallery__slide{% if forloop.first %} is-active{% endif %}" data-media-id="{{ media.id }}">
+        {%- if media.media_type == 'image' -%}
+          {%- if forloop.first -%}{%- assign loading = 'eager' -%}{%- else -%}{%- assign loading = 'lazy' -%}{%- endif -%}
+          {{ media | image_url: width: 1400 | image_tag: loading: loading, widths: '500, 750, 1000, 1400', sizes: '(min-width: 990px) 55vw, 100vw', alt: media.alt }}
+        {%- else -%}
+          {{ media | media_tag: image_size: '1400x' }}
+        {%- endif -%}
+      </div>
+    {%- else -%}
+      <div class="gallery__slide is-active">{{ 'product-1' | placeholder_svg_tag: 'placeholder' }}</div>
+    {%- endfor -%}
+  </div>
+  {%- if product.media.size > 1 -%}
+    <span class="gallery__count" aria-hidden="true"><span data-gallery-index>1</span> / {{ product.media.size | at_most: 10 }}</span>
+    <div class="gallery__thumbs" role="list">
+      {%- for media in product.media limit: 10 -%}
+        <button type="button" class="gallery__thumb{% if forloop.first %} is-active{% endif %}" data-thumb="{{ media.id }}" aria-label="{{ 'products.view_image' | t: number: forloop.index }}">
+          {{ media.preview_image | image_url: width: 160 | image_tag: loading: 'lazy', alt: '' }}
+        </button>
+      {%- endfor -%}
+    </div>
+  {%- endif -%}
+</div>

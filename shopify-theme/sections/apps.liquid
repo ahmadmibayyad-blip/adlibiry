@@ -1,0 +1,20 @@
+{%- comment -%} App blocks anywhere on a page, e.g. a review app's full reviews widget. {%- endcomment -%}
+<section class="section{% if section.settings.tight %} section--tight{% endif %}{% if section.settings.reviews %} js-reviews{% endif %}">
+  <div class="page-width">
+    {%- for block in section.blocks -%}
+      {% render block %}
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Apps",
+  "settings": [
+    { "type": "checkbox", "id": "reviews", "label": "This holds the reviews (the star rating links here)", "default": true },
+    { "type": "checkbox", "id": "tight", "label": "Less space around it", "default": false }
+  ],
+  "blocks": [{ "type": "@app" }],
+  "presets": [{ "name": "Apps" }]
+}
+{% endschema %}

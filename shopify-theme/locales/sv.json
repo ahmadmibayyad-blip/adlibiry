@@ -39,9 +39,31 @@
       "one": "{{ count }} st",
       "other": "{{ count }} st"
     },
-    "deal_save": "Spara {{ percent }} %",
     "sale_ends_html": "Rean slutar om {{ time }}",
-    "deal_popular": "Mest populär"
+    "rating_count": {
+      "one": "{{ count }} recension",
+      "other": "{{ count }} recensioner"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} recension hos vår leverantör",
+      "other": "{{ count }} recensioner hos vår leverantör"
+    },
+    "deal_save_amount_html": "Spara {{ amount }}",
+    "deal_unit_html": "{{ price }} per st.",
+    "stock_low": "Endast {{ count }} kvar i lager",
+    "in_stock": "I lager",
+    "guarantee_seal": "dagar",
+    "add": "Lägg till",
+    "verified": "Verifierat köp",
+    "reviews_based_on": {
+      "one": "Baserat på {{ count }} recension",
+      "other": "Baserat på {{ count }} recensioner"
+    },
+    "reviews_empty_editor": "Lägg till dina kunders recensioner här: Kundrecensioner → Lägg till block → Recension.",
+    "compare_others": "Andra",
+    "compare_yes": "Ja",
+    "compare_partly": "Delvis",
+    "compare_no": "Nej"
   },
   "cart": {
     "title": "Din varukorg",
@@ -61,7 +83,8 @@
     "delivery_eta_html": "Beräknad leverans: {{ dates }}",
     "add_another": "Lägg till en till – {{ price }}",
     "payment_methods": "Betalningsmetoder",
-    "upsell_heading": "Du kanske också gillar"
+    "upsell_heading": "Du kanske också gillar",
+    "you_save": "Du sparar"
   },
   "collections": {
     "view_all": "Visa alla",

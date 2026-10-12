@@ -2,10 +2,116 @@
   "sections": {
     "main": {
       "type": "main-product",
-      "settings": {}
+      "settings": {
+        "sticky_bar": true
+      },
+      "blocks": {
+        "rating": {
+          "type": "rating",
+          "settings": {}
+        },
+        "title": {
+          "type": "title",
+          "settings": {}
+        },
+        "subtitle": {
+          "type": "subtitle",
+          "settings": {}
+        },
+        "price": {
+          "type": "price",
+          "settings": {}
+        },
+        "benefits": {
+          "type": "benefits",
+          "settings": {}
+        },
+        "urgency": {
+          "type": "urgency",
+          "settings": {
+            "stock_below": 10,
+            "show_in_stock": true
+          }
+        },
+        "variant_picker": {
+          "type": "variant_picker",
+          "settings": {
+            "style": "buttons"
+          }
+        },
+        "buy_buttons": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_quantity": true,
+            "show_dynamic_checkout": true
+          }
+        },
+        "guarantee": {
+          "type": "guarantee",
+          "settings": {}
+        },
+        "trust_icons": {
+          "type": "trust_icons",
+          "settings": {}
+        },
+        "payment_icons": {
+          "type": "payment_icons",
+          "settings": {}
+        },
+        "delivery": {
+          "type": "delivery",
+          "settings": {}
+        },
+        "description": {
+          "type": "description",
+          "settings": {
+            "collapsible": true,
+            "open": false
+          }
+        }
+      },
+      "block_order": [
+        "rating",
+        "title",
+        "subtitle",
+        "price",
+        "benefits",
+        "urgency",
+        "variant_picker",
+        "buy_buttons",
+        "guarantee",
+        "trust_icons",
+        "payment_icons",
+        "delivery",
+        "description"
+      ]
+    },
+    "testimonials": {
+      "type": "testimonials",
+      "settings": {
+        "show_summary": true,
+        "layout": "slider",
+        "scheme": "surface"
+      }
+    },
+    "reviews": {
+      "type": "reviews",
+      "settings": {
+        "scheme": "base"
+      }
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "product_questions": true,
+        "scheme": "surface"
+      }
     }
   },
   "order": [
-    "main"
+    "main",
+    "testimonials",
+    "reviews",
+    "faq"
   ]
 }

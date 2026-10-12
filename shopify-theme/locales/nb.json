@@ -39,9 +39,31 @@
       "one": "{{ count }} stk.",
       "other": "{{ count }} stk."
     },
-    "deal_save": "Spar {{ percent }} %",
     "sale_ends_html": "Salget slutter om {{ time }}",
-    "deal_popular": "Mest populær"
+    "rating_count": {
+      "one": "{{ count }} anmeldelse",
+      "other": "{{ count }} anmeldelser"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} anmeldelse hos leverandøren vår",
+      "other": "{{ count }} anmeldelser hos leverandøren vår"
+    },
+    "deal_save_amount_html": "Spar {{ amount }}",
+    "deal_unit_html": "{{ price }} per stk.",
+    "stock_low": "Bare {{ count }} igjen på lager",
+    "in_stock": "På lager",
+    "guarantee_seal": "dager",
+    "add": "Legg til",
+    "verified": "Verifisert kjøp",
+    "reviews_based_on": {
+      "one": "Basert på {{ count }} anmeldelse",
+      "other": "Basert på {{ count }} anmeldelser"
+    },
+    "reviews_empty_editor": "Legg til kundenes anmeldelser her: Kundeanmeldelser → Legg til blokk → Anmeldelse.",
+    "compare_others": "Andre",
+    "compare_yes": "Ja",
+    "compare_partly": "Delvis",
+    "compare_no": "Nei"
   },
   "cart": {
     "title": "Handlekurven din",
@@ -61,7 +83,8 @@
     "delivery_eta_html": "Forventet levering: {{ dates }}",
     "add_another": "Legg til én til – {{ price }}",
     "payment_methods": "Betalingsmåter",
-    "upsell_heading": "Du vil kanskje også like"
+    "upsell_heading": "Du vil kanskje også like",
+    "you_save": "Du sparer"
   },
   "collections": {
     "view_all": "Se alle",

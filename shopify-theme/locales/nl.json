@@ -39,9 +39,31 @@
       "one": "{{ count }} stuk",
       "other": "{{ count }} stuks"
     },
-    "deal_save": "Bespaar {{ percent }}%",
     "sale_ends_html": "Actie eindigt over {{ time }}",
-    "deal_popular": "Meest gekozen"
+    "rating_count": {
+      "one": "{{ count }} review",
+      "other": "{{ count }} reviews"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} review bij onze leverancier",
+      "other": "{{ count }} reviews bij onze leverancier"
+    },
+    "deal_save_amount_html": "Bespaar {{ amount }}",
+    "deal_unit_html": "{{ price }} per stuk",
+    "stock_low": "Nog maar {{ count }} op voorraad",
+    "in_stock": "Op voorraad",
+    "guarantee_seal": "dagen",
+    "add": "Toevoegen",
+    "verified": "Geverifieerde aankoop",
+    "reviews_based_on": {
+      "one": "Op basis van {{ count }} review",
+      "other": "Op basis van {{ count }} reviews"
+    },
+    "reviews_empty_editor": "Voeg hier de reviews van je klanten toe: Klantreviews → Blok toevoegen → Review.",
+    "compare_others": "Anderen",
+    "compare_yes": "Ja",
+    "compare_partly": "Deels",
+    "compare_no": "Nee"
   },
   "cart": {
     "title": "Je winkelwagen",
@@ -61,7 +83,8 @@
     "delivery_eta_html": "Verwachte levering: {{ dates }}",
     "add_another": "Voeg er nog één toe – {{ price }}",
     "payment_methods": "Betaalmethoden",
-    "upsell_heading": "Misschien vind je dit ook leuk"
+    "upsell_heading": "Misschien vind je dit ook leuk",
+    "you_save": "Je bespaart"
   },
   "collections": {
     "view_all": "Alles bekijken",

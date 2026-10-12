@@ -1,8 +1,17 @@
 {%- liquid
-  assign p = section.settings.product
+  assign p = section.settings.product | default: product
   assign img = section.settings.image
   if img == blank and p != blank
-    assign img = p.media[2] | default: p.media[1] | default: p.featured_media
+    assign index = section.settings.image_index | default: 3 | minus: 1
+    assign img = p.media[index] | default: p.media[1] | default: p.featured_media
+  endif
+  assign button_link = section.settings.button_link
+  if button_link == blank
+    if template.name == 'product'
+      assign button_link = '#buy'
+    else
+      assign button_link = routes.all_products_collection_url
+    endif
   endif
 -%}
 <section class="section scheme-{{ section.settings.scheme }}">
@@ -18,8 +27,17 @@
       {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
       <h2 class="h2">{{ section.settings.heading | escape }}</h2>
       <div class="rte muted">{{ section.settings.text }}</div>
+      {%- assign points = section.settings.points | newline_to_br | split: '<br />' -%}
+      {%- if section.settings.points != blank -%}
+        <ul class="ticks split__points" role="list">
+          {%- for point in points -%}
+            {%- assign text = point | strip -%}
+            {%- if text != blank -%}<li>{% render 'icon', name: 'check' %} <span>{{ text | escape }}</span></li>{%- endif -%}
+          {%- endfor -%}
+        </ul>
+      {%- endif -%}
       {%- if section.settings.button_label != blank -%}
-        <a href="{{ section.settings.button_link | default: routes.all_products_collection_url }}" class="btn btn--outline">{{ section.settings.button_label | escape }}</a>
+        <a href="{{ button_link }}" class="btn{% unless section.settings.button_solid %} btn--outline{% endunless %}">{{ section.settings.button_label | escape }}</a>
       {%- endif -%}
     </div>
   </div>
@@ -30,13 +48,16 @@
   "name": "Image with text",
   "settings": [
     { "type": "image_picker", "id": "image", "label": "Image" },
-    { "type": "product", "id": "product", "label": "Or use a product's second image" },
+    { "type": "product", "id": "product", "label": "Or a product's photo", "info": "Empty on product pages: that product." },
+    { "type": "range", "id": "image_index", "label": "Which of the product's photos", "min": 1, "max": 10, "step": 1, "default": 3 },
     { "type": "checkbox", "id": "image_right", "label": "Image on the right", "default": false },
     { "type": "text", "id": "eyebrow", "label": "Small text above the heading" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "Our story" },
     { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "textarea", "id": "points", "label": "Ticked points, one per line" },
     { "type": "text", "id": "button_label", "label": "Button label" },
-    { "type": "url", "id": "button_link", "label": "Button link" },
+    { "type": "url", "id": "button_link", "label": "Button link", "info": "Empty: back to the buy button on product pages, else all products." },
+    { "type": "checkbox", "id": "button_solid", "label": "Filled button", "default": false },
     { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
   ],
   "presets": [{ "name": "Image with text" }]

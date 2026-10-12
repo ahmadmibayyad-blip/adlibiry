@@ -1,0 +1,33 @@
+{%- comment -%} A money-back guarantee band. Days: the section's, else Theme settings → Cart. Hidden at 0. {%- endcomment -%}
+{%- assign days = section.settings.days | default: settings.guarantee_days | default: 0 -%}
+{%- if days > 0 -%}
+  <section class="section section--tight scheme-{{ section.settings.scheme }}">
+    <div class="page-width page-width--narrow">
+      <div class="guarantee-band">
+        <span class="seal seal--large" aria-hidden="true"><strong>{{ days }}</strong><span>{{ 'products.guarantee_seal' | t }}</span></span>
+        <div>
+          <h2 class="h3">{%- if section.settings.heading != blank -%}{{ section.settings.heading | escape }}{%- else -%}{{ 'products.guarantee_title' | t: days: days }}{%- endif -%}</h2>
+          <p class="muted">{%- if section.settings.text != blank -%}{{ section.settings.text | escape }}{%- else -%}{{ 'products.guarantee_text' | t: days: days }}{%- endif -%}</p>
+          {%- if section.settings.button_label != blank -%}
+            <a href="{{ section.settings.button_link | default: '#buy' }}" class="btn">{{ section.settings.button_label | escape }}</a>
+          {%- endif -%}
+        </div>
+      </div>
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Guarantee",
+  "settings": [
+    { "type": "number", "id": "days", "label": "Days", "info": "Empty: the money-back guarantee in Theme settings → Cart." },
+    { "type": "text", "id": "heading", "label": "Heading", "info": "Empty: “30-day money-back guarantee”." },
+    { "type": "textarea", "id": "text", "label": "Text" },
+    { "type": "text", "id": "button_label", "label": "Button label" },
+    { "type": "url", "id": "button_link", "label": "Button link", "info": "Empty: back to the buy button on product pages." },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "presets": [{ "name": "Guarantee" }]
+}
+{% endschema %}

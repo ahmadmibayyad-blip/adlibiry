@@ -1,0 +1,6 @@
+{%- comment -%} A comparison table cell: `value` yes / partly / no. {%- endcomment -%}
+{%- case value -%}
+  {%- when 'yes' -%}<span class="mark mark--yes" role="img" aria-label="{{ 'products.compare_yes' | t }}">{% render 'icon', name: 'check' %}</span>
+  {%- when 'partly' -%}<span class="mark mark--partly" role="img" aria-label="{{ 'products.compare_partly' | t }}">{% render 'icon', name: 'minus' %}</span>
+  {%- else -%}<span class="mark mark--no" role="img" aria-label="{{ 'products.compare_no' | t }}">{% render 'icon', name: 'close' %}</span>
+{%- endcase -%}

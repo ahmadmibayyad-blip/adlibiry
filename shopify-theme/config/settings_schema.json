@@ -71,17 +71,6 @@
     ]
   },
   {
-    "name": "Offers",
-    "settings": [
-      { "type": "paragraph", "content": "Quantity deals only show prices the checkout really charges if you also create an automatic discount in Shopify (Discounts → Amount off products, minimum quantity 2 and 3) with the same percentages." },
-      { "type": "checkbox", "id": "bundle_enabled", "label": "Show quantity deals on product pages", "default": false },
-      { "type": "range", "id": "bundle_2_off", "label": "Discount for 2 items", "min": 0, "max": 50, "step": 1, "unit": "%", "default": 10 },
-      { "type": "range", "id": "bundle_3_off", "label": "Discount for 3 items (0 hides it)", "min": 0, "max": 50, "step": 1, "unit": "%", "default": 15 },
-      { "type": "header", "content": "Sale countdown" },
-      { "type": "text", "id": "sale_end_date", "label": "Sale ends on (YYYY-MM-DD; empty hides the countdown)", "info": "Counts down to the end of that day in your store's time zone, on products with a compare-at price. It disappears when the sale ends; change the date only when you really extend the sale." }
-    ]
-  },
-  {
     "name": "Social media",
     "settings": [
       { "type": "url", "id": "social_instagram", "label": "Instagram" },

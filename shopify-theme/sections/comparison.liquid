@@ -1,0 +1,76 @@
+{%- comment -%}
+  "Us vs others": rows of features with a yes / no / partly per column, our column highlighted.
+  Hidden without rows.
+{%- endcomment -%}
+{%- if section.blocks.size > 0 -%}
+  {%- liquid
+    assign us = section.settings.us_label
+    if us == blank
+      assign us = settings.brand_name | default: shop.name
+    endif
+    assign columns = 1
+    if section.settings.them_2 != blank
+      assign columns = 2
+    endif
+  -%}
+  <section class="section scheme-{{ section.settings.scheme }}">
+    <div class="page-width page-width--narrow">
+      <div class="section__head">
+        {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
+        <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+        {%- if section.settings.text != blank -%}<p class="muted">{{ section.settings.text | escape }}</p>{%- endif -%}
+      </div>
+      <div class="compare" style="--compare-cols: {{ columns }}">
+        <div class="compare__row compare__row--head">
+          <span></span>
+          <span class="compare__us">{{ us | escape }}</span>
+          <span>{%- if section.settings.them_1 != blank -%}{{ section.settings.them_1 | escape }}{%- else -%}{{ 'products.compare_others' | t }}{%- endif -%}</span>
+          {%- if columns > 1 -%}<span>{{ section.settings.them_2 | escape }}</span>{%- endif -%}
+        </div>
+        {%- for block in section.blocks -%}
+          <div class="compare__row" {{ block.shopify_attributes }}>
+            <span class="compare__feature">{{ block.settings.feature | escape }}</span>
+            <span class="compare__us">{% render 'compare-mark', value: block.settings.us %}</span>
+            <span>{% render 'compare-mark', value: block.settings.them_1 %}</span>
+            {%- if columns > 1 -%}<span>{% render 'compare-mark', value: block.settings.them_2 %}</span>{%- endif -%}
+          </div>
+        {%- endfor -%}
+      </div>
+      {%- if section.settings.button_label != blank -%}
+        <p class="link-center"><a href="{{ section.settings.button_link | default: '#buy' }}" class="btn">{{ section.settings.button_label | escape }}</a></p>
+      {%- endif -%}
+    </div>
+  </section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Comparison table",
+  "max_blocks": 10,
+  "settings": [
+    { "type": "paragraph", "content": "Compare with alternatives in general (“Others”, “Plastic bowls”), and only with facts about the products." },
+    { "type": "text", "id": "eyebrow", "label": "Small text above the heading" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Why choose us" },
+    { "type": "text", "id": "text", "label": "Text" },
+    { "type": "text", "id": "us_label", "label": "Our column", "info": "Empty: the store name." },
+    { "type": "text", "id": "them_1", "label": "Other column", "info": "Empty: “Others”." },
+    { "type": "text", "id": "them_2", "label": "Second other column (optional)" },
+    { "type": "text", "id": "button_label", "label": "Button label" },
+    { "type": "url", "id": "button_link", "label": "Button link", "info": "Empty: back to the buy button on product pages." },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "base", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "blocks": [
+    {
+      "type": "row",
+      "name": "Row",
+      "settings": [
+        { "type": "text", "id": "feature", "label": "Feature", "default": "Easy to clean" },
+        { "type": "select", "id": "us", "label": "Us", "default": "yes", "options": [{ "value": "yes", "label": "Yes" }, { "value": "partly", "label": "Partly" }, { "value": "no", "label": "No" }] },
+        { "type": "select", "id": "them_1", "label": "Other column", "default": "no", "options": [{ "value": "yes", "label": "Yes" }, { "value": "partly", "label": "Partly" }, { "value": "no", "label": "No" }] },
+        { "type": "select", "id": "them_2", "label": "Second other column", "default": "no", "options": [{ "value": "yes", "label": "Yes" }, { "value": "partly", "label": "Partly" }, { "value": "no", "label": "No" }] }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Comparison table", "blocks": [{ "type": "row" }, { "type": "row" }, { "type": "row" }] }]
+}
+{% endschema %}

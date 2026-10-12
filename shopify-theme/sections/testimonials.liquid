@@ -1,0 +1,84 @@
+{%- comment -%}
+  The owner's own customer reviews, typed in as blocks: stars, text, name, photo, "Verified purchase".
+  The average and count in the heading come from these reviews. Hidden without any.
+{%- endcomment -%}
+{%- liquid
+  assign total = 0
+  assign count = 0
+  for block in section.blocks
+    if block.settings.text != blank
+      assign total = total | plus: block.settings.rating
+      assign count = count | plus: 1
+    endif
+  endfor
+-%}
+{%- if count > 0 -%}
+  {%- assign average = total | times: 1.0 | divided_by: count | round: 1 -%}
+  <section class="section scheme-{{ section.settings.scheme }} js-reviews" id="Testimonials-{{ section.id }}">
+    <div class="page-width">
+      <div class="section__head">
+        {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
+        <h2 class="h2">{%- if section.settings.heading != blank -%}{{ section.settings.heading | escape }}{%- else -%}{{ 'products.reviews_heading' | t }}{%- endif -%}</h2>
+        {%- if section.settings.show_summary -%}
+          <p class="reviews__summary">
+            {% render 'stars', rating: average %}
+            <strong>{{ average }}/5</strong>
+            <span class="muted">{{ 'products.reviews_based_on' | t: count: count }}</span>
+          </p>
+        {%- endif -%}
+      </div>
+      <div class="testimonials testimonials--{{ section.settings.layout }}" role="list">
+        {%- for block in section.blocks -%}
+          {%- assign r = block.settings -%}
+          {%- if r.text == blank -%}{%- continue -%}{%- endif -%}
+          <figure class="testimonial" role="listitem" {{ block.shopify_attributes }}>
+            {%- if r.image != blank -%}
+              {{ r.image | image_url: width: 640 | image_tag: class: 'testimonial__photo', loading: 'lazy', widths: '320, 640', sizes: '(min-width: 990px) 25vw, 80vw', alt: r.name }}
+            {%- endif -%}
+            <div class="testimonial__body">
+              {% render 'stars', rating: r.rating %}
+              {%- if r.title != blank -%}<strong class="testimonial__title">{{ r.title | escape }}</strong>{%- endif -%}
+              <blockquote class="testimonial__text">{{ r.text | escape | newline_to_br }}</blockquote>
+              <figcaption class="testimonial__by">
+                <strong>{{ r.name | escape }}</strong>
+                {%- if r.verified -%}<span class="testimonial__verified">{% render 'icon', name: 'check' %} {{ 'products.verified' | t }}</span>{%- endif -%}
+              </figcaption>
+            </div>
+          </figure>
+        {%- endfor -%}
+      </div>
+    </div>
+  </section>
+{%- elsif request.design_mode -%}
+  <section class="section"><div class="page-width"><p class="note center">{{ 'products.reviews_empty_editor' | t }}</p></div></section>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Customer reviews",
+  "max_blocks": 24,
+  "settings": [
+    { "type": "paragraph", "content": "Your own customers' reviews. Only real reviews: copy them from emails, messages or your review app." },
+    { "type": "text", "id": "eyebrow", "label": "Small text above the heading" },
+    { "type": "text", "id": "heading", "label": "Heading", "info": "Empty: “What buyers say”." },
+    { "type": "checkbox", "id": "show_summary", "label": "Show the average of these reviews", "default": true },
+    { "type": "select", "id": "layout", "label": "Layout", "default": "slider", "options": [{ "value": "slider", "label": "Slider" }, { "value": "grid", "label": "Grid" }] },
+    { "type": "select", "id": "scheme", "label": "Background", "default": "surface", "options": [{ "value": "base", "label": "Page" }, { "value": "surface", "label": "Soft" }, { "value": "accent", "label": "Accent" }, { "value": "inverse", "label": "Inverted" }] }
+  ],
+  "blocks": [
+    {
+      "type": "review",
+      "name": "Review",
+      "settings": [
+        { "type": "range", "id": "rating", "label": "Stars", "min": 1, "max": 5, "step": 1, "default": 5 },
+        { "type": "text", "id": "title", "label": "Title" },
+        { "type": "textarea", "id": "text", "label": "Review" },
+        { "type": "text", "id": "name", "label": "Name and city", "default": "Anna, Copenhagen" },
+        { "type": "image_picker", "id": "image", "label": "Photo" },
+        { "type": "checkbox", "id": "verified", "label": "Verified purchase", "default": true }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Customer reviews", "blocks": [{ "type": "review" }, { "type": "review" }, { "type": "review" }] }]
+}
+{% endschema %}
