@@ -361,10 +361,23 @@ export const run = internalAction({
       const source = `${site}/shopify/theme.zip?l=${args.launchId}&s=${await themeSignature(args.launchId, secret)}`;
       const style = STORE_STYLES[launch.style as keyof typeof STORE_STYLES];
       const name = `${launch.brandName ?? "Store"} · ${style.name}${launch.baseTheme === "dawn" ? " (Dawn)" : ""}`.slice(0, 50);
-      const t = (await shopify(store.shopDomain, token, THEME_CREATE, { source, name })) as {
-        themeCreate?: { theme: { id: string; processing: boolean } | null; userErrors: UserError[] };
-      };
+      type Created = { themeCreate?: { theme: { id: string; processing: boolean } | null; userErrors: UserError[] } };
+      const install = async () => (await shopify(store.shopDomain, token, THEME_CREATE, { source, name })) as Created;
+      // Shopify keeps at most 20 themes per store, and every launch adds one.
+      const full = (r: Created) => /only have \d+ themes|theme limit|maximum number of themes/i.test(userErrors(r.themeCreate?.userErrors));
+      let t = await install();
+      if (!t.themeCreate?.theme && full(t) && launch.replacesLaunchId) {
+        // The launch this one replaces would lose its theme once this one is ready: make room now.
+        await ctx.runAction(internal.launchCleanup.replaceOld, { userId: launch.userId, launchId: launch.replacesLaunchId });
+        t = await install();
+      }
       const theme = t.themeCreate?.theme;
+      if (!theme && full(t)) {
+        return fail(
+          "Your store has Shopify's maximum of 20 themes. Delete launches you don't need on the Launches page (their themes go too), " +
+            "or old themes in Shopify → Online Store → Themes, then try again. The product and pages were created.",
+        );
+      }
       if (!theme) return fail(`Shopify couldn't install the theme: ${userErrors(t.themeCreate?.userErrors) || "unknown error"}`);
       // Shopify unpacks the zip in the background; wait for it (up to ~2 minutes).
       for (let i = 0; i < 40; i++) {
