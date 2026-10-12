@@ -39,9 +39,31 @@
       "one": "{{ count }} item",
       "other": "{{ count }} items"
     },
-    "deal_save": "Save {{ percent }}%",
     "sale_ends_html": "Sale ends in {{ time }}",
-    "deal_popular": "Most popular"
+    "rating_count": {
+      "one": "{{ count }} review",
+      "other": "{{ count }} reviews"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} review at our supplier",
+      "other": "{{ count }} reviews at our supplier"
+    },
+    "deal_save_amount_html": "Save {{ amount }}",
+    "deal_unit_html": "{{ price }} each",
+    "stock_low": "Only {{ count }} left in stock",
+    "in_stock": "In stock",
+    "guarantee_seal": "days",
+    "add": "Add",
+    "verified": "Verified purchase",
+    "reviews_based_on": {
+      "one": "Based on {{ count }} review",
+      "other": "Based on {{ count }} reviews"
+    },
+    "reviews_empty_editor": "Add your customers' reviews here: Customer reviews → Add block → Review.",
+    "compare_others": "Others",
+    "compare_yes": "Yes",
+    "compare_partly": "Partly",
+    "compare_no": "No"
   },
   "cart": {
     "title": "Your cart",
@@ -61,7 +83,8 @@
     "delivery_eta_html": "Estimated delivery: {{ dates }}",
     "add_another": "Add one more – {{ price }}",
     "payment_methods": "Payment methods",
-    "upsell_heading": "You may also like"
+    "upsell_heading": "You may also like",
+    "you_save": "You save"
   },
   "collections": {
     "view_all": "View all",

@@ -1,0 +1,69 @@
+{%- comment -%}
+  Bundle deals (the product page's bundles block): up to three tiers, picking one sets the quantity. The prices are only what the checkout
+  charges with a matching automatic discount in Shopify (Launch creates it; see the block's note).
+  [unit] in a subtitle becomes the price per item.
+  {% render 'product-bundles', block: block, section: section, current: current %}
+{%- endcomment -%}
+{%- assign s = block.settings -%}
+{%- liquid
+  assign unit_price = current.price
+  assign unit_was = current.price
+  if current.compare_at_price > current.price
+    assign unit_was = current.compare_at_price
+  endif
+  assign preselect = s.preselect | default: '2' | plus: 0
+-%}
+<fieldset class="tiers" data-deals {{ block.shopify_attributes }}>
+  <legend class="tiers__head"><span>{%- if s.heading != blank -%}{{ s.heading | escape }}{%- else -%}{{ 'products.deals_heading' | t }}{%- endif -%}</span></legend>
+  {%- for i in (1..3) -%}
+    {%- liquid
+      assign k_qty = 'tier' | append: i | append: '_qty'
+      assign k_title = 'tier' | append: i | append: '_title'
+      assign k_sub = 'tier' | append: i | append: '_subtitle'
+      assign k_off = 'tier' | append: i | append: '_off'
+      assign k_badge = 'tier' | append: i | append: '_badge'
+      assign k_gift = 'tier' | append: i | append: '_gift'
+      assign qty = s[k_qty] | plus: 0
+      if qty < 1
+        continue
+      endif
+      assign off = s[k_off] | plus: 0
+      assign full = unit_was | times: qty
+      assign pay = 100 | minus: off | times: unit_price | times: qty | divided_by: 100
+      assign saved = full | minus: pay
+      assign saved_money = saved | money
+      assign saved_html = '<span data-deal-saved>' | append: saved_money | append: '</span>'
+      assign per_item = pay | divided_by: qty
+      assign per_item_money = per_item | money
+      assign selected = false
+      if i == preselect
+        assign selected = true
+      endif
+      assign title = s[k_title]
+      if title == blank
+        assign title = 'products.deal_items' | t: count: qty
+      endif
+      assign unit_html = '<span data-deal-unit>' | append: per_item_money | append: '</span>'
+      assign sub = s[k_sub] | escape | replace: '[unit]', unit_html
+      if sub == blank and s.unit_price and qty > 1
+        assign sub = 'products.deal_unit_html' | t: price: unit_html
+      endif
+    -%}
+    <label class="tier{% if selected %} is-selected{% endif %}{% if s[k_badge] != blank %} tier--badged{% endif %}">
+      <input type="radio" name="deal-{{ section.id }}" value="{{ qty }}" data-deal-qty="{{ qty }}" data-deal-off="{{ off }}"{% if selected %} checked{% endif %}>
+      <span class="tier__radio" aria-hidden="true"></span>
+      <span class="tier__main">
+        <span class="tier__title">{{ title | escape }}
+          {%- if saved > 0 -%} <span class="tier__save" data-deal-save>{{ 'products.deal_save_amount_html' | t: amount: saved_html }}</span>{%- endif -%}
+        </span>
+        {%- if sub != blank -%}<span class="tier__sub">{{ sub }}</span>{%- endif -%}
+      </span>
+      <span class="tier__price">
+        <strong data-deal-price>{{ pay | money }}</strong>
+        <s class="muted" data-deal-full{% if saved <= 0 %} hidden{% endif %}>{{ full | money }}</s>
+      </span>
+      {%- if s[k_badge] != blank -%}<span class="tier__badge">{{ s[k_badge] | escape }}</span>{%- endif -%}
+      {%- if s[k_gift] != blank -%}<span class="tier__gift">{% render 'icon', name: 'gift' %} {{ s[k_gift] | escape }}</span>{%- endif -%}
+    </label>
+  {%- endfor -%}
+</fieldset>

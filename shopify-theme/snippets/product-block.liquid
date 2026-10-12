@@ -1,0 +1,297 @@
+{%- comment -%}
+  One block of the product page's buy box (sections/main-product.liquid, sections/featured-product.liquid).
+  {% render 'product-block', block: block, type: block.type, product: product, section: section, current: current, form_id: form_id, page_data: page_data, heading_tag: 'h1' %}
+  Without blocks (a section saved before they existed) the section renders a default list with `defaults: true`
+  and no block; every setting then falls back to Theme settings or what AdSpy Pro Launch wrote on the product.
+{%- endcomment -%}
+{%- assign s = block.settings -%}
+{%- case type -%}
+  {%- when 'rating' -%}
+    {%- comment -%}
+      Stars and count: the review app's (the standard reviews.rating / reviews.rating_count metafields that
+      Judge.me, Loox, Okendo and others keep up to date), else the owner's own numbers, else the supplier's
+      reviews Launch added, which say they're the supplier's.
+    {%- endcomment -%}
+    {%- liquid
+      assign r_value = 0
+      assign r_count = 0
+      assign r_supplier = false
+      assign app_rating = product.metafields.reviews.rating.value
+      if app_rating != blank
+        assign r_value = app_rating.rating | times: 1.0 | round: 1
+        assign r_count = product.metafields.reviews.rating_count.value | default: 0
+      elsif s.rating != blank
+        assign r_value = s.rating | replace: ',', '.' | times: 1.0 | at_most: 5 | round: 1
+        assign r_count = s.count | default: 0
+      else
+        assign sup = product.metafields.adspy.reviews.value
+        if sup.average > 0
+          assign r_value = sup.average
+          assign r_count = sup.total | default: 0
+          assign r_supplier = true
+        endif
+      endif
+    -%}
+    {%- if r_value > 0 -%}
+      <a class="rating-line" href="#reviews" data-scroll-reviews {{ block.shopify_attributes }}>
+        {% render 'stars', rating: r_value %}
+        <strong>{{ r_value }}/5</strong>
+        {%- if r_count > 0 -%}
+          <span class="muted">
+            {%- if r_supplier -%}{{ 'products.rating_count_supplier' | t: count: r_count }}{%- else -%}({{ 'products.rating_count' | t: count: r_count }}){%- endif -%}
+          </span>
+        {%- endif -%}
+      </a>
+    {%- endif -%}
+
+  {%- when 'review_quote' -%}
+    {%- if s.text != blank -%}
+      <figure class="quote-card" {{ block.shopify_attributes }}>
+        {%- if s.image != blank -%}
+          {{ s.image | image_url: width: 112, height: 112, crop: 'center' | image_tag: class: 'quote-card__avatar', loading: 'lazy', alt: s.name, width: 56, height: 56 }}
+        {%- endif -%}
+        <div>
+          <figcaption class="quote-card__head">
+            {%- if s.name != blank -%}<strong>{{ s.name | escape }}</strong>{%- endif -%}
+            {% render 'stars', rating: s.rating %}
+          </figcaption>
+          <blockquote class="quote-card__text">“{{ s.text | escape }}”</blockquote>
+        </div>
+      </figure>
+    {%- endif -%}
+
+  {%- when 'title' -%}
+    <{{ heading_tag | default: 'h1' }} class="h2 product__title" {{ block.shopify_attributes }}>{{ product.title | escape }}</{{ heading_tag | default: 'h1' }}>
+
+  {%- when 'subtitle' -%}
+    {%- assign line = s.text | default: page_data.subtitle -%}
+    {%- if line != blank -%}<p class="product__subtitle" {{ block.shopify_attributes }}>{{ line | escape }}</p>{%- endif -%}
+
+  {%- when 'price' -%}
+    <div data-price-wrap {{ block.shopify_attributes }}>{% render 'price', product: product, variant: current %}</div>
+
+  {%- when 'benefits' -%}
+    {%- liquid
+      if s.lines != blank
+        assign lines = s.lines | newline_to_br | split: '<br />'
+      else
+        assign lines = page_data.benefits
+      endif
+    -%}
+    {%- if lines.size > 0 -%}
+      <ul class="ticks" role="list" {{ block.shopify_attributes }}>
+        {%- for line in lines limit: 6 -%}
+          {%- assign text = line | strip -%}
+          {%- if text == blank -%}{%- continue -%}{%- endif -%}
+          {%- assign parts = text | split: ' – ' -%}
+          <li>
+            {% render 'icon', name: 'check' %}
+            <span>{%- if parts.size > 1 -%}<strong>{{ parts[0] | escape }}</strong> – {{ text | remove_first: parts[0] | remove_first: ' – ' | escape }}{%- else -%}{{ text | escape }}{%- endif -%}</span>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+
+  {%- when 'urgency' -%}
+    {%- comment -%}
+      Offer line with an optional countdown to the owner's real end date, and the chosen variant's real
+      stock when Shopify tracks it: "Only 4 left" at or below the threshold, "In stock" above it.
+    {%- endcomment -%}
+    {%- liquid
+      assign threshold = s.stock_below | default: 0
+      if defaults
+        assign threshold = 0
+      endif
+      assign tracked = false
+      if current.inventory_management == 'shopify' and current.inventory_policy == 'deny'
+        assign tracked = true
+      endif
+    -%}
+    {%- if s.offer != blank or s.end_date != blank or threshold > 0 or s.show_in_stock -%}
+      <div class="offer-box" data-offer-box {{ block.shopify_attributes }}>
+        {%- if s.offer != blank -%}<p class="offer-box__line">{{ s.offer | escape }}</p>{%- endif -%}
+        {%- if s.end_date != blank -%}
+          <p class="sale-timer" data-sale-timer data-end="{{ s.end_date | strip }}T23:59:59{{ 'now' | date: '%z' | slice: 0, 3 }}:{{ 'now' | date: '%z' | slice: 3, 2 }}" hidden>
+            {% render 'icon', name: 'clock' %}
+            <span>{{ 'products.sale_ends_html' | t: time: '<strong data-sale-time></strong>' }}</span>
+          </p>
+        {%- endif -%}
+        <p class="stock" data-stock-line data-threshold="{{ threshold }}" data-in-stock="{{ s.show_in_stock }}"
+          {%- unless current.available %} hidden{% endunless %}>
+          {%- if tracked and threshold > 0 and current.inventory_quantity > 0 and current.inventory_quantity <= threshold -%}
+            <span class="stock__dot stock__dot--low"></span><span data-stock-text>{{ 'products.stock_low' | t: count: current.inventory_quantity }}</span>
+          {%- elsif s.show_in_stock and current.available -%}
+            <span class="stock__dot"></span><span data-stock-text>{{ 'products.in_stock' | t }}</span>
+          {%- endif -%}
+        </p>
+        {%- comment -%} Stock per variant, only where it's at or below the threshold (theme.js reads it on a variant change). {%- endcomment -%}
+        <script type="application/json" data-stock>
+          { {%- for v in product.variants -%}"{{ v.id }}":{% if v.inventory_management == 'shopify' and v.inventory_policy == 'deny' and v.inventory_quantity > 0 and v.inventory_quantity <= threshold %}{{ v.inventory_quantity }}{% else %}null{% endif %}{% unless forloop.last %},{% endunless %}{%- endfor -%} }
+        </script>
+        <template data-stock-strings><span data-low>{{ 'products.stock_low' | t: count: '[count]' }}</span><span data-in>{{ 'products.in_stock' | t }}</span></template>
+      </div>
+    {%- endif -%}
+
+  {%- when 'variant_picker' -%}
+    {%- unless product.has_only_default_variant -%}
+      <div class="variant-picker" {{ block.shopify_attributes }}>
+        {%- for option in product.options_with_values -%}
+          {%- if s.style == 'dropdown' -%}
+            <label class="field">
+              <span class="field__label">{{ option.name | escape }}</span>
+              <select class="select" data-option-index="{{ forloop.index0 }}">
+                {%- for value in option.values -%}
+                  <option value="{{ value | escape }}"{% if option.selected_value == value %} selected{% endif %}>{{ value | escape }}</option>
+                {%- endfor -%}
+              </select>
+            </label>
+          {%- else -%}
+            <fieldset class="pills" data-option-index="{{ forloop.index0 }}">
+              <legend class="field__label">{{ option.name | escape }}: <span class="muted" data-option-value>{{ option.selected_value | escape }}</span></legend>
+              {%- assign option_index = forloop.index0 -%}
+              {%- for value in option.values -%}
+                <label class="pill">
+                  <input type="radio" name="{{ section.id }}-option-{{ option_index }}" value="{{ value | escape }}"{% if option.selected_value == value %} checked{% endif %}>
+                  <span>{{ value | escape }}</span>
+                </label>
+              {%- endfor -%}
+            </fieldset>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    {%- endunless -%}
+
+  {%- when 'bundles' -%}
+    {% render 'product-bundles', block: block, section: section, current: current %}
+
+  {%- when 'buy_buttons' -%}
+    {%- liquid
+      assign show_qty = s.show_quantity
+      assign show_checkout = s.show_dynamic_checkout
+      if defaults
+        assign show_qty = true
+        assign show_checkout = section.settings.show_dynamic_checkout
+      endif
+    -%}
+    <div class="buy" {{ block.shopify_attributes }}>
+      {%- form 'product', product, id: form_id, class: 'product-form', data-product-form: '' -%}
+        <input type="hidden" name="id" value="{{ current.id }}" data-variant-id>
+        <div class="product-form__row">
+          <div class="qty{% unless show_qty %} visually-hidden{% endunless %}" data-qty>
+            <button type="button" class="qty__btn" data-qty-change="-1" aria-label="{{ 'cart.decrease' | t }}">{% render 'icon', name: 'minus' %}</button>
+            <input class="qty__input" type="number" name="quantity" min="1" value="1" aria-label="{{ 'cart.quantity' | t }}">
+            <button type="button" class="qty__btn" data-qty-change="1" aria-label="{{ 'cart.increase' | t }}">{% render 'icon', name: 'plus' %}</button>
+          </div>
+          <button type="submit" name="add" class="btn btn--large btn--grow btn--buy" data-add-button{% unless current.available %} disabled{% endunless %}>
+            {%- if current.available -%}{{ 'products.add_to_cart' | t }}{%- else -%}{{ 'products.sold_out' | t }}{%- endif -%}
+          </button>
+        </div>
+        {%- if show_checkout -%}{{ form | payment_button }}{%- endif -%}
+        <p class="form-error" data-form-error hidden></p>
+      {%- endform -%}
+    </div>
+
+  {%- when 'upsell' -%}
+    {%- assign add_on = s.product -%}
+    {%- assign add_variant = add_on.selected_or_first_available_variant -%}
+    {%- if add_on != blank and add_on.id != product.id and add_variant.available -%}
+      <div class="addon" {{ block.shopify_attributes }}>
+        {%- if add_on.featured_media -%}{{ add_on.featured_media | image_url: width: 128 | image_tag: loading: 'lazy', alt: '', width: 56, height: 56 }}{%- endif -%}
+        <div class="addon__info">
+          <a href="{{ add_on.url }}" class="addon__title">{{ s.label | default: add_on.title | escape }}</a>
+          <span class="addon__price">{{ add_variant.price | money }}{% if add_variant.compare_at_price > add_variant.price %} <s class="muted">{{ add_variant.compare_at_price | money }}</s>{% endif %}</span>
+        </div>
+        <button type="button" class="btn btn--small" data-upsell-add="{{ add_variant.id }}">{% render 'icon', name: 'plus' %} {{ 'products.add' | t }}</button>
+      </div>
+    {%- endif -%}
+
+  {%- when 'gift' -%}
+    {%- if s.title != blank -%}
+      <div class="gift-card" {{ block.shopify_attributes }}>
+        {%- if s.image != blank -%}
+          {{ s.image | image_url: width: 128 | image_tag: loading: 'lazy', alt: '', width: 56, height: 56 }}
+        {%- else -%}
+          <span class="gift-card__icon">{% render 'icon', name: 'gift' %}</span>
+        {%- endif -%}
+        <div>
+          <strong>{{ s.title | escape }}</strong>
+          {%- if s.text != blank -%}<p class="small muted">{{ s.text | escape }}</p>{%- endif -%}
+        </div>
+      </div>
+    {%- endif -%}
+
+  {%- when 'guarantee' -%}
+    {%- assign days = s.days | default: settings.guarantee_days | default: 0 -%}
+    {%- if days > 0 -%}
+      <div class="seal-card" {{ block.shopify_attributes }}>
+        <span class="seal" aria-hidden="true"><strong>{{ days }}</strong><span>{{ 'products.guarantee_seal' | t }}</span></span>
+        <div>
+          <strong class="seal-card__title">{%- if s.title != blank -%}{{ s.title | escape }}{%- else -%}{{ 'products.guarantee_title' | t: days: days }}{%- endif -%}</strong>
+          <p class="small muted">{%- if s.text != blank -%}{{ s.text | escape }}{%- else -%}{{ 'products.guarantee_text' | t: days: days }}{%- endif -%}</p>
+        </div>
+      </div>
+    {%- endif -%}
+
+  {%- when 'trust_icons' -%}
+    {%- liquid
+      assign t1 = s.text_1
+      assign t2 = s.text_2
+      assign t3 = s.text_3
+      if defaults or t1 == blank and t2 == blank and t3 == blank
+        assign t1 = settings.trust_line_1
+        assign t2 = settings.trust_line_2
+        assign t3 = settings.trust_line_3
+      endif
+      assign texts = t1 | append: '|||' | append: t2 | append: '|||' | append: t3 | split: '|||'
+    -%}
+    {%- capture icon_list -%}{{ s.icon_1 | default: 'truck' }},{{ s.icon_2 | default: 'return' }},{{ s.icon_3 | default: 'lock' }}{%- endcapture -%}
+    {%- assign icons = icon_list | split: ',' -%}
+    {%- if t1 != blank or t2 != blank or t3 != blank -%}
+      <ul class="trust-icons" role="list" {{ block.shopify_attributes }}>
+        {%- for text in texts -%}
+          {%- if text != blank -%}<li><span class="trust-icons__icon">{% render 'icon', name: icons[forloop.index0] %}</span><span>{{ text | escape }}</span></li>{%- endif -%}
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+
+  {%- when 'payment_icons' -%}
+    {%- if shop.enabled_payment_types.size > 0 -%}
+      <ul class="pay-icons pay-icons--product" role="list" aria-label="{{ 'cart.payment_methods' | t }}" {{ block.shopify_attributes }}>
+        {%- for pay_type in shop.enabled_payment_types -%}<li>{{ pay_type | payment_type_svg_tag }}</li>{%- endfor -%}
+      </ul>
+    {%- endif -%}
+
+  {%- when 'delivery' -%}
+    {%- if settings.delivery_max_days > 0 -%}
+      <p class="cart-eta delivery-line" data-eta data-min="{{ settings.delivery_min_days | default: settings.delivery_max_days }}" data-max="{{ settings.delivery_max_days }}" hidden {{ block.shopify_attributes }}>
+        {% render 'icon', name: 'truck' %}
+        <span>{{ 'cart.delivery_eta_html' | t: dates: '<strong data-eta-dates></strong>' }}</span>
+      </p>
+    {%- endif -%}
+
+  {%- when 'collapsible_tab' -%}
+    {%- if s.heading != blank -%}
+      <details class="accordion__item tab"{% if s.open %} open{% endif %} {{ block.shopify_attributes }}>
+        <summary><span class="tab__title">{%- if s.icon != blank and s.icon != 'none' -%}{% render 'icon', name: s.icon %}{%- endif -%}{{ s.heading | escape }}</span> {% render 'icon', name: 'plus' %}</summary>
+        <div class="accordion__body rte">{{ s.content }}{{ s.page.content }}</div>
+      </details>
+    {%- endif -%}
+
+  {%- when 'description' -%}
+    {%- if product.description != blank and section.settings.show_description != false -%}
+      {%- if s.collapsible or defaults -%}
+        <details class="accordion__item tab"{% if s.open or defaults %} open{% endif %} {{ block.shopify_attributes }}>
+          <summary><span class="tab__title">{{ 'products.description' | t }}</span> {% render 'icon', name: 'plus' %}</summary>
+          <div class="accordion__body rte">{{ product.description }}</div>
+        </details>
+      {%- else -%}
+        <div class="rte product__description" {{ block.shopify_attributes }}>{{ product.description }}</div>
+      {%- endif -%}
+    {%- endif -%}
+
+  {%- when 'text' -%}
+    {%- if s.text != blank -%}<div class="rte" {{ block.shopify_attributes }}>{{ s.text }}</div>{%- endif -%}
+
+  {%- when 'custom_liquid' -%}
+    <div {{ block.shopify_attributes }}>{{ s.custom_liquid }}</div>
+{%- endcase -%}

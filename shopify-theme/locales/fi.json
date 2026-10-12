@@ -39,9 +39,31 @@
       "one": "{{ count }} kpl",
       "other": "{{ count }} kpl"
     },
-    "deal_save": "Säästä {{ percent }} %",
     "sale_ends_html": "Ale päättyy {{ time }} kuluttua",
-    "deal_popular": "Suosituin"
+    "rating_count": {
+      "one": "{{ count }} arvostelu",
+      "other": "{{ count }} arvostelua"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} arvostelu toimittajallamme",
+      "other": "{{ count }} arvostelua toimittajallamme"
+    },
+    "deal_save_amount_html": "Säästä {{ amount }}",
+    "deal_unit_html": "{{ price }} / kpl",
+    "stock_low": "Vain {{ count }} jäljellä",
+    "in_stock": "Varastossa",
+    "guarantee_seal": "päivää",
+    "add": "Lisää",
+    "verified": "Vahvistettu ostos",
+    "reviews_based_on": {
+      "one": "{{ count }} arvostelun perusteella",
+      "other": "{{ count }} arvostelun perusteella"
+    },
+    "reviews_empty_editor": "Lisää asiakkaidesi arvostelut tähän: Asiakasarvostelut → Lisää lohko → Arvostelu.",
+    "compare_others": "Muut",
+    "compare_yes": "Kyllä",
+    "compare_partly": "Osittain",
+    "compare_no": "Ei"
   },
   "cart": {
     "title": "Ostoskorisi",
@@ -61,7 +83,8 @@
     "delivery_eta_html": "Arvioitu toimitus: {{ dates }}",
     "add_another": "Lisää vielä yksi – {{ price }}",
     "payment_methods": "Maksutavat",
-    "upsell_heading": "Saatat pitää myös näistä"
+    "upsell_heading": "Saatat pitää myös näistä",
+    "you_save": "Säästät"
   },
   "collections": {
     "view_all": "Näytä kaikki",
