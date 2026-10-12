@@ -351,6 +351,8 @@ textarea.input { min-height: 120px; }
 
 .offer-box { display: grid; gap: 8px; padding: 14px 16px; border: 1.5px dashed color-mix(in srgb, var(--c-sale) 55%, var(--c-border)); border-radius: var(--radius); background: color-mix(in srgb, var(--c-sale) 6%, var(--c-bg)); }
 .offer-box p { margin: 0; }
+/* Only the stock line: no box around it. */
+.offer-box:not(:has(.offer-box__line, .sale-timer)) { padding: 0; border: 0; background: none; }
 .offer-box__line { font-weight: 700; }
 .offer-box .sale-timer { margin: 0; }
 .stock { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: .95rem; }

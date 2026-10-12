@@ -668,6 +668,10 @@ export default defineSchema({
     reviewsUrl: v.optional(v.string()),
     reviews: v.optional(v.any()),
     reviewsNote: v.optional(v.string()),
+    // Bundle deals on our theme's product page: % off for 1, 2 and 3 items, set only once the matching
+    // automatic discounts exist in Shopify (launchRun.ts); or why there are none.
+    bundleOff: v.optional(v.array(v.number())),
+    bundlesNote: v.optional(v.string()),
     // A relaunch that replaces this earlier launch (its theme and row go once this one is ready).
     replacesLaunchId: v.optional(v.id("launches")),
   })

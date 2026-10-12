@@ -91,7 +91,8 @@
       "settings": {
         "show_summary": true,
         "layout": "slider",
-        "scheme": "surface"
+        "scheme": "surface",
+        "heading": ""
       }
     },
     "reviews": {
@@ -104,7 +105,8 @@
       "type": "faq",
       "settings": {
         "product_questions": true,
-        "scheme": "surface"
+        "scheme": "surface",
+        "heading": ""
       }
     }
   },

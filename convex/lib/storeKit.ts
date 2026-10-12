@@ -36,7 +36,83 @@ export type StoreCopy = {
     contact: { title: string; intro: string };
   };
   menu: { home: string; shop: string; about: string; faq: string; contact: string; shipping: string; search: string };
+  /** Our theme's product page (templates/product.json); written in its own request, so it can be missing. */
+  productPage?: ProductPageCopy;
 };
+
+/** The product page's own copy: ticks, bundle cards, image-with-text rows, comparison table and tabs. */
+export type ProductPageCopy = {
+  ticks: string[];
+  offer: string;
+  bundles: { heading: string; tiers: { title: string; subtitle: string }[]; popular: string; best: string };
+  sections: { eyebrow: string; heading: string; text: string; points: string[] }[];
+  comparison: { heading: string; others: string; rows: { feature: string; us: Mark; others: Mark }[] };
+  tabs: { heading: string; text: string }[];
+  button: string;
+  reviewsHeading: string;
+};
+export type Mark = "yes" | "partly" | "no";
+const MARKS = ["yes", "partly", "no"] as const;
+
+/** % off for 1, 2 and 3 items: the bundle cards and the automatic discounts Launch creates for them. */
+export const BUNDLE_OFF = [0, 15, 25] as const;
+
+export function productPageGuide(off: readonly number[] = BUNDLE_OFF): string {
+  return (
+    "Write the product page's extra copy: ticks (4 benefit lines, each “Short bold part – detail”, max 70 characters), " +
+    `bundles (heading 2–4 words like “Bundle & save”; tiers: exactly 3, for 1, 2 and 3 items, which cost ${off.map((o) => `${o}%`).join(", ")} less; ` +
+    "each with a title of 1–3 words (e.g. “1 fountain”, “2 fountains”) and a subtitle of max 40 characters, where [unit] stands for the price per item " +
+    "(e.g. “Only [unit] each”, “One for the bedroom”); popular: the badge for the 2-item deal (“Most popular”), best: for the 3-item deal (“Best value”)), " +
+    `offer (one line about the real bundle saving: up to ${Math.max(...off)}% off when buying more; no dates or scarcity), ` +
+    "sections (3 image-with-text rows: first the problem the product solves, then how it helps, then a detail buyers care about; " +
+    "eyebrow 1–3 words, heading max 8 words, text 1–2 sentences, 3 short points), " +
+    "comparison (heading max 6 words; others: what buyers would otherwise use, in general, e.g. “A water bowl” — never a brand; " +
+    "4–5 rows of features from the facts, each with us and others as yes, partly or no; use partly or no only when the facts support it), " +
+    "tabs (2–3 collapsible tabs for the product page, e.g. materials and specs, how to use and care; heading 1–3 words, text 2–4 sentences from the facts only), " +
+    "button (2–3 words that take the reader back to the buy button) and reviewsHeading (max 5 words, for customer reviews). " +
+    "Only facts from the product information; no invented numbers, results, reviews, awards or urgency."
+  );
+}
+
+/** Lengths, counts and the claim rules on the product page copy; null when there's nothing usable. */
+export function cleanProductPage(raw: unknown): ProductPageCopy | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Partial<Record<keyof ProductPageCopy, unknown>> & Record<string, unknown>;
+  const s = (v: unknown, n: number) => scrubClaims(cut(v, n * 2)).text.slice(0, n);
+  const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+  const b = (r.bundles ?? {}) as { heading?: unknown; tiers?: unknown; popular?: unknown; best?: unknown };
+  const cmp = (r.comparison ?? {}) as { heading?: unknown; others?: unknown; rows?: unknown };
+  const page: ProductPageCopy = {
+    ticks: arr<unknown>(r.ticks).map((x) => s(x, 90)).filter(Boolean).slice(0, 5),
+    offer: s(r.offer, 80),
+    bundles: {
+      heading: s(b.heading, 40),
+      tiers: arr<{ title?: unknown; subtitle?: unknown }>(b.tiers).slice(0, 3).map((t) => ({ title: s(t?.title, 30), subtitle: s(t?.subtitle, 50) })),
+      popular: s(b.popular, 24),
+      best: s(b.best, 24),
+    },
+    sections: arr<{ eyebrow?: unknown; heading?: unknown; text?: unknown; points?: unknown }>(r.sections)
+      .map((x) => ({ eyebrow: s(x?.eyebrow, 40), heading: s(x?.heading, 80), text: s(x?.text, 300), points: arr<unknown>(x?.points).map((p) => s(p, 70)).filter(Boolean).slice(0, 4) }))
+      .filter((x) => x.heading && x.text)
+      .slice(0, 3),
+    comparison: {
+      heading: s(cmp.heading, 60),
+      others: s(cmp.others, 30),
+      rows: arr<{ feature?: unknown; us?: unknown; others?: unknown }>(cmp.rows)
+        .map((x) => ({ feature: s(x?.feature, 60), us: pick(String(x?.us ?? "").toLowerCase(), MARKS, "yes"), others: pick(String(x?.others ?? "").toLowerCase(), MARKS, "no") }))
+        .filter((x) => x.feature)
+        .slice(0, 6),
+    },
+    tabs: arr<{ heading?: unknown; text?: unknown }>(r.tabs)
+      .map((x) => ({ heading: s(x?.heading, 40), text: s(x?.text, 600) }))
+      .filter((x) => x.heading && x.text)
+      .slice(0, 3),
+    button: s(r.button, 30),
+    reviewsHeading: s(r.reviewsHeading, 50),
+  };
+  const empty = !page.ticks.length && !page.sections.length && !page.comparison.rows.length && !page.tabs.length && !page.bundles.tiers.length;
+  return empty ? null : page;
+}
 
 export function storeFacts(f: StoreFacts): string {
   return [
@@ -210,6 +286,8 @@ export type ThemeInput = {
   copy: StoreCopy;
   product: Pick<LaunchCopy, "title">;
   facts: StoreFacts;
+  /** % off for 1, 2 and 3 items when Launch created the matching automatic discounts; no bundle cards without. */
+  bundleOff?: number[];
 };
 
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
@@ -307,6 +385,7 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
   return {
     "config/settings_data.json": json(settings),
     "templates/index.json": json({ sections: Object.fromEntries(order.map((k) => [k, sections[k]])), order }),
+    "templates/product.json": json(productTemplate(t)),
     "sections/header-group.json": json({
       type: "header",
       name: "Header",
@@ -328,6 +407,103 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
       order: ["footer"],
     }),
   };
+}
+
+type Block = { type: string; settings: Record<string, unknown> };
+const blockList = (list: [string, Block | null][]) => {
+  const kept = list.filter((e): e is [string, Block] => e[1] !== null);
+  return { blocks: Object.fromEntries(kept), block_order: kept.map(([k]) => k) };
+};
+
+/**
+ * The product page (sections/main-product.liquid's blocks and the sections under it), like the stores
+ * selling with Meta ads: stars, ticks, offer and stock, bundle cards (only with Launch's discounts),
+ * guarantee, trust icons and tabs; then image-with-text rows, a comparison table, reviews and FAQ.
+ */
+export function productTemplate(t: ThemeInput) {
+  const pp = t.copy.productPage;
+  const off = t.bundleOff && t.bundleOff.length === 3 && t.bundleOff.some((o) => o > 0) ? t.bundleOff : null;
+  const tier = (i: number) => pp?.bundles.tiers[i];
+  const bundles: Block | null = off
+    ? {
+        type: "bundles",
+        settings: {
+          heading: pp?.bundles.heading ?? "",
+          preselect: "2",
+          unit_price: true,
+          ...Object.fromEntries(
+            [0, 1, 2].flatMap((i) => [
+              [`tier${i + 1}_qty`, i + 1],
+              [`tier${i + 1}_title`, tier(i)?.title ?? ""],
+              [`tier${i + 1}_subtitle`, tier(i)?.subtitle ?? ""],
+              [`tier${i + 1}_off`, off[i]],
+              [`tier${i + 1}_badge`, i === 1 ? pp?.bundles.popular ?? "" : i === 2 ? pp?.bundles.best ?? "" : ""],
+              [`tier${i + 1}_gift`, ""],
+            ]),
+          ),
+        },
+      }
+    : null;
+  const tabs = (pp?.tabs ?? []).map((x, i) => [`tab${i + 1}`, { type: "collapsible_tab", settings: { heading: x.heading, icon: ["leaf", "check", "sparkle"][i] ?? "none", content: `<p>${esc(x.text)}</p>`, open: false } }] as [string, Block]);
+  const main = {
+    type: "main-product",
+    settings: { sticky_bar: true },
+    ...blockList([
+      ["rating", { type: "rating", settings: {} }],
+      ["title", { type: "title", settings: {} }],
+      ["subtitle", { type: "subtitle", settings: {} }],
+      ["price", { type: "price", settings: {} }],
+      ["benefits", { type: "benefits", settings: { lines: (pp?.ticks ?? []).join("\n") } }],
+      ["urgency", { type: "urgency", settings: { offer: off ? pp?.offer ?? "" : "", stock_below: 10, show_in_stock: true } }],
+      ["variant_picker", { type: "variant_picker", settings: { style: "buttons" } }],
+      ["bundles", bundles],
+      ["buy_buttons", { type: "buy_buttons", settings: { show_quantity: !off, show_dynamic_checkout: true } }],
+      ["guarantee", { type: "guarantee", settings: {} }],
+      ["trust_icons", { type: "trust_icons", settings: {} }],
+      ["payment_icons", { type: "payment_icons", settings: {} }],
+      ["delivery", { type: "delivery", settings: {} }],
+      ["description", { type: "description", settings: { collapsible: true, open: false } }],
+      ...tabs,
+    ]),
+  };
+
+  const style = STORE_STYLES[t.style];
+  const soft = style.schemes.story === "surface" ? "base" : "surface";
+  const rows = (pp?.sections ?? []).map((x, i) => ({
+    type: "image-with-text",
+    settings: {
+      image_index: i + 2,
+      image_right: i % 2 === 1,
+      eyebrow: x.eyebrow,
+      heading: x.heading,
+      text: `<p>${esc(x.text)}</p>`,
+      points: x.points.join("\n"),
+      button_label: i === 0 ? "" : pp?.button ?? "",
+      button_solid: true,
+      scheme: i % 2 === 0 ? "base" : soft,
+    },
+  }));
+  const sections: Record<string, unknown> = { main };
+  const order = ["main"];
+  const add = (key: string, section: unknown) => {
+    sections[key] = section;
+    order.push(key);
+  };
+  if (rows[0]) add("problem", rows[0]);
+  if (pp && pp.comparison.rows.length >= 3) {
+    add("comparison", {
+      type: "comparison",
+      settings: { heading: pp.comparison.heading, us_label: t.brandName, them_1: pp.comparison.others, button_label: pp.button, scheme: soft },
+      ...blockList(pp.comparison.rows.map((r, i) => [`row${i + 1}`, { type: "row", settings: { feature: r.feature, us: r.us, them_1: r.others } }])),
+    });
+  }
+  rows.slice(1).forEach((row, i) => add(`row${i + 2}`, row));
+  // The owner's own reviews (hidden until they add some), then the supplier's when Launch added them.
+  add("testimonials", { type: "testimonials", settings: { heading: pp?.reviewsHeading ?? "", show_summary: true, layout: "slider", scheme: "surface" } });
+  add("reviews", { type: "reviews", settings: { scheme: "base" } });
+  add("guarantee", { type: "guarantee", settings: { button_label: pp?.button ?? "", scheme: "surface" } });
+  add("faq", { type: "faq", settings: { heading: t.copy.faq.heading, product_questions: true, scheme: "base" } });
+  return { sections, order };
 }
 
 /** Every file of the store's theme: the bundled theme with this store's settings and pages on top. */

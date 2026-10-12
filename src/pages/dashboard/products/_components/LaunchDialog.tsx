@@ -205,6 +205,13 @@ export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAg
           <GoLive l={l} />
           {l.error ? <p className="text-sm text-bad">{l.error}</p> : null}
           {l.reviewsUrl ? <ReviewsResult reviews={l.reviews as SupplierReviews | undefined} note={l.reviewsNote} /> : null}
+          {l.bundleOff ? (
+            <p className="text-xs text-muted-foreground">
+              Bundle deals on the product page: {l.bundleOff.slice(1).map((off, i) => `${i + 2} items −${off}%`).join(", ")}, with matching automatic discounts in Shopify.
+            </p>
+          ) : l.bundlesNote ? (
+            <p className="text-xs text-muted-foreground">{l.bundlesNote}</p>
+          ) : null}
           <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm">Before you run ads, check that the store can take real orders.</p>
             <StoreCheck variant="default" label="Is my store ready to sell?" />
