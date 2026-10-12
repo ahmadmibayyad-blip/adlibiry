@@ -83,6 +83,17 @@ describe("storefront theme", () => {
     for (const key of Object.keys(STORE_STYLES.fresh.settings)) expect(ids).toContain(key);
   });
 
+  it("keeps setting labels within Shopify's 70 characters (a longer one makes Shopify drop the section, and the templates using it)", () => {
+    for (const [path, src] of Object.entries(THEME_FILES)) {
+      if (!path.startsWith("sections/") || !src.includes("{% schema %}")) continue;
+      const schema = sectionSchema(path.slice("sections/".length, -".liquid".length));
+      for (const s of [...(schema.settings ?? []), ...(schema.blocks ?? []).flatMap((b) => b.settings ?? [])]) {
+        const label = (s as { label?: string }).label ?? "";
+        expect(label.length, `${path}: "${label}"`).toBeLessThanOrEqual(70);
+      }
+    }
+  });
+
   it("has every translation key in every language", () => {
     const keys = (o: Record<string, unknown>, p = ""): string[] =>
       Object.entries(o).flatMap(([k, v]) => (v && typeof v === "object" ? keys(v as Record<string, unknown>, `${p}${k}.`) : [`${p}${k}`]));
