@@ -96,4 +96,12 @@ describe("Offer Search", () => {
     await expect(user.action(api.offerSearch.start, { offer: "percent", country: "NO" })).rejects.toThrow(/Free accounts get 3 offer searches a day/);
     await expect(user.action(api.offerSearch.start, { country: "XX", offer: "bxgy" })).rejects.toThrow(/listed countries/);
   });
+
+  it("says so when the Apify account has reached its monthly limit", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    vi.stubGlobal("fetch", vi.fn(async () => json({ error: { type: "platform-feature-disabled", message: "Monthly usage hard limit exceeded" } }, 403)));
+    const { user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
+    expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ status: "failed", error: expect.stringContaining("this month's search credit") });
+  });
 });
