@@ -537,6 +537,34 @@
     "faq": "Kysymykset ja vastaukset",
     "track_label": "Seurantanumero",
     "track_button": "Seuraa tilaustani",
-    "track_help": "Löydät seurantanumeron lähetysvahvistuksesta. Tilausvahvistuksen linkistä näet myös tilauksesi tilan."
+    "track_help": "Löydät seurantanumeron lähetysvahvistuksesta. Tilausvahvistuksen linkistä näet myös tilauksesi tilan.",
+    "rating_count": {
+      "one": "{{ count }} arvostelu",
+      "other": "{{ count }} arvostelua"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} arvostelu toimittajallamme",
+      "other": "{{ count }} arvostelua toimittajallamme"
+    },
+    "deals_heading": "Osta enemmän, säästä enemmän",
+    "deal_items": {
+      "one": "{{ count }} kpl",
+      "other": "{{ count }} kpl"
+    },
+    "deal_save_html": "Säästä {{ amount }}",
+    "deal_unit_html": "{{ price }} / kpl",
+    "guarantee_title": "{{ days }} päivän rahat takaisin -takuu",
+    "guarantee_text": "Etkö ole tyytyväinen? Palauta tuote {{ days }} päivän sisällä ja saat rahasi takaisin.",
+    "guarantee_seal": "päivää",
+    "verified": "Vahvistettu ostos",
+    "reviews_based_on": {
+      "one": "{{ count }} arvostelun perusteella",
+      "other": "{{ count }} arvostelun perusteella"
+    },
+    "reviews_empty_editor": "Lisää asiakkaidesi arvostelut tähän: Asiakasarvostelut → Lisää lohko → Arvostelu.",
+    "compare_others": "Muut",
+    "compare_yes": "Kyllä",
+    "compare_partly": "Osittain",
+    "compare_no": "Ei"
   }
 }

@@ -1,0 +1,88 @@
+{%- comment -%} AdSpy Pro: "Us vs others", rows of features with yes / partly / no, our column highlighted. Hidden without rows. {%- endcomment -%}
+{%- if section.blocks.size > 0 -%}
+  {%- liquid
+    assign us = section.settings.us_label | default: shop.name
+    assign columns = 1
+    if section.settings.them_2 != blank
+      assign columns = 2
+    endif
+  -%}
+  <style>
+    .adspy-compare { max-width: 82rem; margin: 3rem auto 0; display: grid; border: .1rem solid rgba(var(--color-foreground), .12); border-radius: var(--text-boxes-radius, .8rem); overflow: hidden; background: rgb(var(--color-background)); }
+    .adspy-compare__row { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat({{ columns | plus: 1 }}, minmax(7rem, 1fr)); align-items: center; border-top: .1rem solid rgba(var(--color-foreground), .12); }
+    .adspy-compare__row:first-child { border-top: 0; font-weight: 700; font-size: 1.4rem; }
+    .adspy-compare__row > span { padding: 1.4rem 1.2rem; text-align: center; display: grid; place-items: center; min-height: 100%; }
+    .adspy-compare__row > span:first-child { text-align: left; place-items: center start; font-weight: 600; }
+    .adspy-compare__us { background: rgba(var(--color-button), .1); }
+    .adspy-compare__row:first-child .adspy-compare__us { background: rgb(var(--color-button)); color: rgb(var(--color-button-text)); }
+    .adspy-mark { display: grid; place-items: center; width: 2.8rem; height: 2.8rem; border-radius: 50%; font-weight: 800; font-size: 1.4rem; }
+    .adspy-mark--yes { background: #16a34a; color: #fff; }
+    .adspy-mark--partly { background: #f59e0b; color: #fff; }
+    .adspy-mark--no { background: rgba(var(--color-foreground), .12); color: rgba(var(--color-foreground), .6); }
+  </style>
+  <div class="color-{{ section.settings.color_scheme }} gradient">
+    <div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px; text-align: center;">
+      <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+      <div class="adspy-compare">
+        <div class="adspy-compare__row">
+          <span></span>
+          <span class="adspy-compare__us">{{ us | escape }}</span>
+          <span>{%- if section.settings.them_1 != blank -%}{{ section.settings.them_1 | escape }}{%- else -%}{{ 'adspy.compare_others' | t }}{%- endif -%}</span>
+          {%- if columns > 1 -%}<span>{{ section.settings.them_2 | escape }}</span>{%- endif -%}
+        </div>
+        {%- for block in section.blocks -%}
+          <div class="adspy-compare__row" {{ block.shopify_attributes }}>
+            <span>{{ block.settings.feature | escape }}</span>
+            {%- assign marks = block.settings.us | append: ',' | append: block.settings.them_1 -%}
+            {%- if columns > 1 -%}{%- assign marks = marks | append: ',' | append: block.settings.them_2 -%}{%- endif -%}
+            {%- assign marks = marks | split: ',' -%}
+            {%- for mark in marks -%}
+              <span{% if forloop.first %} class="adspy-compare__us"{% endif %}>
+                {%- case mark -%}
+                  {%- when 'yes' -%}<span class="adspy-mark adspy-mark--yes" role="img" aria-label="{{ 'adspy.compare_yes' | t }}">✓</span>
+                  {%- when 'partly' -%}<span class="adspy-mark adspy-mark--partly" role="img" aria-label="{{ 'adspy.compare_partly' | t }}">–</span>
+                  {%- else -%}<span class="adspy-mark adspy-mark--no" role="img" aria-label="{{ 'adspy.compare_no' | t }}">✕</span>
+                {%- endcase -%}
+              </span>
+            {%- endfor -%}
+          </div>
+        {%- endfor -%}
+      </div>
+      {%- if section.settings.button_label != blank -%}
+        <a href="{{ section.settings.button_link | default: '#MainContent' }}" class="button" style="margin-top: 2.4rem;">{{ section.settings.button_label | escape }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Comparison table",
+  "max_blocks": 10,
+  "settings": [
+    { "type": "paragraph", "content": "Compare with alternatives in general (“Others”, “A water bowl”), and only with facts about the products." },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Why choose us" },
+    { "type": "text", "id": "us_label", "label": "Our column", "info": "Empty: the store name." },
+    { "type": "text", "id": "them_1", "label": "Other column", "info": "Empty: “Others”." },
+    { "type": "text", "id": "them_2", "label": "Second other column (optional)" },
+    { "type": "text", "id": "button_label", "label": "Button label" },
+    { "type": "url", "id": "button_link", "label": "Button link", "info": "Empty: back to the top of the page." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "scheme-2" },
+    { "type": "range", "id": "padding_top", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Top padding", "default": 48 },
+    { "type": "range", "id": "padding_bottom", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Bottom padding", "default": 48 }
+  ],
+  "blocks": [
+    {
+      "type": "row",
+      "name": "Row",
+      "settings": [
+        { "type": "text", "id": "feature", "label": "Feature", "default": "Easy to clean" },
+        { "type": "select", "id": "us", "label": "Us", "default": "yes", "options": [{ "value": "yes", "label": "Yes" }, { "value": "partly", "label": "Partly" }, { "value": "no", "label": "No" }] },
+        { "type": "select", "id": "them_1", "label": "Other column", "default": "no", "options": [{ "value": "yes", "label": "Yes" }, { "value": "partly", "label": "Partly" }, { "value": "no", "label": "No" }] },
+        { "type": "select", "id": "them_2", "label": "Second other column", "default": "no", "options": [{ "value": "yes", "label": "Yes" }, { "value": "partly", "label": "Partly" }, { "value": "no", "label": "No" }] }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Comparison table", "blocks": [{ "type": "row" }, { "type": "row" }, { "type": "row" }] }]
+}
+{% endschema %}

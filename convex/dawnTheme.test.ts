@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DAWN_BINARY, DAWN_FILES } from "./lib/dawnFiles.generated";
 import { DAWN_FONTS, dawnOverrides, dawnThemeFiles } from "./lib/dawnTheme";
-import { cleanStore, type StoreCopy, type ThemeInput } from "./lib/storeKit";
+import { BUNDLE_OFF, cleanProductPage, cleanStore, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLE_IDS } from "./lib/storeStyles";
 import { zipFiles } from "./lib/zip";
 import { readDawn } from "../scripts/build-theme.mjs";
@@ -103,7 +103,7 @@ describe("Dawn theme", () => {
     expect(JSON.parse(files["sections/header-group.json"]).sections.header.settings.menu).toBe("adspy-main");
     // Our product page additions sit right after Dawn's buy box.
     const product = JSON.parse(files["templates/product.json"]);
-    expect(product.order.slice(0, 3)).toEqual(["main", "adspy_reviews", "adspy_faq"]);
+    expect(product.order.slice(0, 4)).toEqual(["main", "adspy_testimonials", "adspy_reviews", "adspy_faq"]);
     expect(product.sections.main.block_order).toContain("adspy_benefits");
     // Dawn's multicolumn shows a "Button label" button unless the label is blanked.
     expect(home.sections.benefits.settings.button_label).toBe("");
@@ -111,6 +111,58 @@ describe("Dawn theme", () => {
     // Liquid settings only see global objects: the home page finds its product by handle.
     expect(home.sections.product.blocks.benefits.settings.custom_liquid).toContain("assign p = all_products['rank-ryg']");
     expect(product.sections.main.blocks.adspy_benefits.settings.custom_liquid).toContain("assign p = product");
+  });
+
+  it("builds Dawn's product page like the stores selling with ads, with bundle deals only when the discounts exist", () => {
+    const productPage = cleanProductPage({
+      ticks: ["Rank ryg – uden at tænke over det", "Blød polstring"],
+      offer: "Spar op til 25 % når du køber flere",
+      bundles: { heading: "Køb flere", tiers: [{ title: "1 stk.", subtitle: "" }, { title: "2 stk.", subtitle: "Kun [unit] pr. stk." }, { title: "3 stk.", subtitle: "" }], popular: "Mest populær", best: "Bedste pris" },
+      sections: [
+        { eyebrow: "Problemet", heading: "Ondt i nakken?", text: "Mange sidder krumbøjede.", points: ["Træt ryg"] },
+        { eyebrow: "Løsningen", heading: "Blid støtte", text: "Remmene minder dig om det.", points: [] },
+      ],
+      comparison: { heading: "Hvorfor os", others: "Almindelig bandage", rows: [{ feature: "Justerbar", us: "yes", others: "partly" }, { feature: "Usynlig", us: "yes", others: "no" }, { feature: "Åndbar", us: "yes", others: "no" }] },
+      tabs: [{ heading: "Materialer", text: "Neopren <og> nylon." }],
+      button: "Bestil nu",
+      reviewsHeading: "Det siger kunderne",
+    })!;
+    const withDeals = JSON.parse(dawnOverrides({ ...input(), copy: { ...copy, productPage }, bundleOff: [...BUNDLE_OFF], aiPhotos: 1 })["templates/product.json"]) as { sections: Record<string, SectionJson>; order: string[] };
+    checkSections(withDeals.sections, withDeals.order, "product.json with deals");
+    const main = withDeals.sections.main;
+    expect(main.block_order).toEqual([
+      "adspy_rating", "title", "price", "adspy_benefits", "adspy_offer", "adspy_stock", "variant_picker", "adspy_bundles", "buy_buttons",
+      "adspy_guarantee", "adspy_trust", "description", "adspy_tab1", "share",
+    ]);
+    // The deal sets the quantity, so Dawn's quantity selector goes.
+    expect(main.blocks?.quantity_selector).toBeUndefined();
+    expect(main.blocks?.adspy_bundles.settings).toMatchObject({ tier2_off: 15, tier3_off: 25, tier2_badge: "Mest populær", tier2_subtitle: "Kun [unit] pr. stk." });
+    expect(main.blocks?.adspy_guarantee.settings).toMatchObject({ days: 30 });
+    expect(main.blocks?.adspy_benefits.settings?.custom_liquid).toContain("<strong>Rank ryg</strong> – uden at tænke over det");
+    expect(main.blocks?.adspy_tab1.settings?.content).toBe("<p>Neopren &lt;og&gt; nylon.</p>");
+    expect(withDeals.order).toEqual(["main", "adspy_problem", "adspy_comparison", "adspy_row2", "adspy_testimonials", "adspy_reviews", "adspy_faq", "disclosures", "related-products"]);
+    // Rows show the AI photo (the 2nd photo), the comparison names our store.
+    expect(withDeals.sections.adspy_problem.settings).toMatchObject({ image_index: 2, heading: "Ondt i nakken?" });
+    expect(withDeals.sections.adspy_comparison.settings).toMatchObject({ us_label: "Rank Ryg", them_1: "Almindelig bandage" });
+
+    // Without Launch's discounts: no deals and no offer line, Dawn's quantity selector stays.
+    const plain = JSON.parse(dawnOverrides({ ...input(), copy: { ...copy, productPage } })["templates/product.json"]) as { sections: Record<string, SectionJson> };
+    checkSections(plain.sections, Object.keys(plain.sections), "product.json without deals");
+    expect(plain.sections.main.block_order).toContain("quantity_selector");
+    expect(plain.sections.main.block_order).not.toContain("adspy_bundles");
+    expect(plain.sections.main.block_order).not.toContain("adspy_offer");
+    expect(plain.sections.adspy_problem.settings).toMatchObject({ image_index: 1 });
+  });
+
+  it("keeps our sections' setting labels within Shopify's 70 characters", () => {
+    for (const [path, src] of Object.entries(DAWN_FILES)) {
+      if (!/^sections\/(adspy-|main-product)/.test(path)) continue;
+      const schema = JSON.parse(src.split("{% schema %}")[1].split("{% endschema %}")[0]) as { settings?: { label?: string }[]; blocks?: { settings?: { label?: string }[] }[] };
+      for (const st of [...(schema.settings ?? []), ...(schema.blocks ?? []).flatMap((b) => b.settings ?? [])]) {
+        const label = st.label ?? "";
+        if (!label.startsWith("t:")) expect(label.length, `${path}: "${label}"`).toBeLessThanOrEqual(70);
+      }
+    }
   });
 
   it("has an order tracking page for the page Launch creates", () => {
@@ -129,7 +181,7 @@ describe("Dawn theme", () => {
 
   it("has the AdSpy strings in every language our launches write", () => {
     const used = new Set(
-      [...Object.entries(DAWN_FILES).filter(([p]) => p.startsWith("sections/adspy-") || p === "templates/page.track.json").map(([, s]) => s).join("\n").matchAll(/'(adspy\.[a-z_]+)' \| t\b/g)].map((m) => m[1].split(".")[1]),
+      [...Object.entries(DAWN_FILES).filter(([p]) => p.startsWith("sections/adspy-") || p.startsWith("snippets/adspy-") || p === "templates/page.track.json").map(([, s]) => s).join("\n").matchAll(/'(adspy\.[a-z_]+)' \| t\b/g)].map((m) => m[1].split(".")[1]),
     );
     expect(used.size).toBeGreaterThan(4);
     for (const loc of ["en.default", "da", "de", "es", "fi", "fr", "it", "nb", "nl", "pl", "pt-BR", "pt-PT", "sv"]) {

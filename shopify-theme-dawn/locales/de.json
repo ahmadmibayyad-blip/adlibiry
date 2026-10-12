@@ -537,6 +537,34 @@
     "faq": "Fragen & Antworten",
     "track_label": "Sendungsnummer",
     "track_button": "Bestellung verfolgen",
-    "track_help": "Die Sendungsnummer findest du in der Versandbestätigung per E-Mail. Der Link in deiner Bestellbestätigung zeigt auch den Status deiner Bestellung."
+    "track_help": "Die Sendungsnummer findest du in der Versandbestätigung per E-Mail. Der Link in deiner Bestellbestätigung zeigt auch den Status deiner Bestellung.",
+    "rating_count": {
+      "one": "{{ count }} Bewertung",
+      "other": "{{ count }} Bewertungen"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} Bewertung bei unserem Lieferanten",
+      "other": "{{ count }} Bewertungen bei unserem Lieferanten"
+    },
+    "deals_heading": "Mehr kaufen, mehr sparen",
+    "deal_items": {
+      "one": "{{ count }} Stück",
+      "other": "{{ count }} Stück"
+    },
+    "deal_save_html": "Spare {{ amount }}",
+    "deal_unit_html": "{{ price }} pro Stück",
+    "guarantee_title": "{{ days }} Tage Geld-zurück-Garantie",
+    "guarantee_text": "Nicht zufrieden? Schick es innerhalb von {{ days }} Tagen zurück und erhalte dein Geld zurück.",
+    "guarantee_seal": "Tage",
+    "verified": "Verifizierter Kauf",
+    "reviews_based_on": {
+      "one": "Basierend auf {{ count }} Bewertung",
+      "other": "Basierend auf {{ count }} Bewertungen"
+    },
+    "reviews_empty_editor": "Füge hier die Bewertungen deiner Kunden hinzu: Kundenbewertungen → Block hinzufügen → Bewertung.",
+    "compare_others": "Andere",
+    "compare_yes": "Ja",
+    "compare_partly": "Teilweise",
+    "compare_no": "Nein"
   }
 }

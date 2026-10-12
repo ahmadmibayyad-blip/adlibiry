@@ -26,7 +26,7 @@
     .adspy-review figcaption { font-size: 1.3rem; color: rgba(var(--color-foreground), .7); }
   </style>
   {%- capture star -%}<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>{%- endcapture -%}
-  <div class="color-{{ section.settings.color_scheme }} gradient">
+  <div class="color-{{ section.settings.color_scheme }} gradient adspy-js-reviews" id="adspy-supplier-reviews">
     <div class="adspy-reviews page-width section-{{ section.id }}-padding" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
       <h2 class="h2">{{ 'adspy.reviews_heading' | t }}</h2>
       {%- assign filled = reviews.average | round -%}

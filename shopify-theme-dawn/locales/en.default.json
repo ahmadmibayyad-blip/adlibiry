@@ -537,6 +537,34 @@
     "faq": "Questions & answers",
     "track_label": "Tracking number",
     "track_button": "Track my order",
-    "track_help": "You'll find the tracking number in your shipping confirmation email. The link in your order confirmation email also shows your order's status."
+    "track_help": "You'll find the tracking number in your shipping confirmation email. The link in your order confirmation email also shows your order's status.",
+    "rating_count": {
+      "one": "{{ count }} review",
+      "other": "{{ count }} reviews"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} review at our supplier",
+      "other": "{{ count }} reviews at our supplier"
+    },
+    "deals_heading": "Buy more, save more",
+    "deal_items": {
+      "one": "{{ count }} item",
+      "other": "{{ count }} items"
+    },
+    "deal_save_html": "Save {{ amount }}",
+    "deal_unit_html": "{{ price }} each",
+    "guarantee_title": "{{ days }}-day money-back guarantee",
+    "guarantee_text": "Not happy with it? Send it back within {{ days }} days and get your money back.",
+    "guarantee_seal": "days",
+    "verified": "Verified purchase",
+    "reviews_based_on": {
+      "one": "Based on {{ count }} review",
+      "other": "Based on {{ count }} reviews"
+    },
+    "reviews_empty_editor": "Add your customers' reviews here: Customer reviews → Add block → Review.",
+    "compare_others": "Others",
+    "compare_yes": "Yes",
+    "compare_partly": "Partly",
+    "compare_no": "No"
   }
 }

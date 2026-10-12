@@ -549,6 +549,34 @@
     "faq": "Perguntas e respostas",
     "track_label": "Código de rastreio",
     "track_button": "Rastrear meu pedido",
-    "track_help": "O código de rastreio está no e-mail de confirmação de envio. O link na confirmação do pedido também mostra o status do pedido."
+    "track_help": "O código de rastreio está no e-mail de confirmação de envio. O link na confirmação do pedido também mostra o status do pedido.",
+    "rating_count": {
+      "one": "{{ count }} avaliação",
+      "other": "{{ count }} avaliações"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} avaliação no nosso fornecedor",
+      "other": "{{ count }} avaliações no nosso fornecedor"
+    },
+    "deals_heading": "Compre mais, economize mais",
+    "deal_items": {
+      "one": "{{ count }} unidade",
+      "other": "{{ count }} unidades"
+    },
+    "deal_save_html": "Economize {{ amount }}",
+    "deal_unit_html": "{{ price }} cada",
+    "guarantee_title": "Garantia de {{ days }} dias ou seu dinheiro de volta",
+    "guarantee_text": "Não gostou? Devolva em até {{ days }} dias e receba seu dinheiro de volta.",
+    "guarantee_seal": "dias",
+    "verified": "Compra verificada",
+    "reviews_based_on": {
+      "one": "Com base em {{ count }} avaliação",
+      "other": "Com base em {{ count }} avaliações"
+    },
+    "reviews_empty_editor": "Adicione aqui as avaliações dos seus clientes: Avaliações de clientes → Adicionar bloco → Avaliação.",
+    "compare_others": "Outros",
+    "compare_yes": "Sim",
+    "compare_partly": "Em parte",
+    "compare_no": "Não"
   }
 }

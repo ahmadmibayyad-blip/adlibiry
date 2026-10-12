@@ -537,6 +537,34 @@
     "faq": "Vragen en antwoorden",
     "track_label": "Trackingnummer",
     "track_button": "Volg mijn bestelling",
-    "track_help": "Je vindt het trackingnummer in de verzendbevestiging per e-mail. De link in je orderbevestiging toont ook de status van je bestelling."
+    "track_help": "Je vindt het trackingnummer in de verzendbevestiging per e-mail. De link in je orderbevestiging toont ook de status van je bestelling.",
+    "rating_count": {
+      "one": "{{ count }} review",
+      "other": "{{ count }} reviews"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} review bij onze leverancier",
+      "other": "{{ count }} reviews bij onze leverancier"
+    },
+    "deals_heading": "Meer kopen, meer besparen",
+    "deal_items": {
+      "one": "{{ count }} stuk",
+      "other": "{{ count }} stuks"
+    },
+    "deal_save_html": "Bespaar {{ amount }}",
+    "deal_unit_html": "{{ price }} per stuk",
+    "guarantee_title": "{{ days }} dagen geld-terug-garantie",
+    "guarantee_text": "Niet tevreden? Stuur het binnen {{ days }} dagen terug en krijg je geld terug.",
+    "guarantee_seal": "dagen",
+    "verified": "Geverifieerde aankoop",
+    "reviews_based_on": {
+      "one": "Op basis van {{ count }} review",
+      "other": "Op basis van {{ count }} reviews"
+    },
+    "reviews_empty_editor": "Voeg hier de reviews van je klanten toe: Klantreviews → Blok toevoegen → Review.",
+    "compare_others": "Anderen",
+    "compare_yes": "Ja",
+    "compare_partly": "Deels",
+    "compare_no": "Nee"
   }
 }

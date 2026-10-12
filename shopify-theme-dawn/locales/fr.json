@@ -549,6 +549,34 @@
     "faq": "Questions et réponses",
     "track_label": "Numéro de suivi",
     "track_button": "Suivre ma commande",
-    "track_help": "Vous trouverez le numéro de suivi dans l'e-mail de confirmation d'expédition. Le lien de votre confirmation de commande indique aussi son statut."
+    "track_help": "Vous trouverez le numéro de suivi dans l'e-mail de confirmation d'expédition. Le lien de votre confirmation de commande indique aussi son statut.",
+    "rating_count": {
+      "one": "{{ count }} avis",
+      "other": "{{ count }} avis"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} avis chez notre fournisseur",
+      "other": "{{ count }} avis chez notre fournisseur"
+    },
+    "deals_heading": "Achetez plus, économisez plus",
+    "deal_items": {
+      "one": "{{ count }} article",
+      "other": "{{ count }} articles"
+    },
+    "deal_save_html": "Économisez {{ amount }}",
+    "deal_unit_html": "{{ price }} l'unité",
+    "guarantee_title": "Satisfait ou remboursé {{ days }} jours",
+    "guarantee_text": "Pas convaincu ? Renvoyez-le sous {{ days }} jours et vous serez remboursé.",
+    "guarantee_seal": "jours",
+    "verified": "Achat vérifié",
+    "reviews_based_on": {
+      "one": "Basé sur {{ count }} avis",
+      "other": "Basé sur {{ count }} avis"
+    },
+    "reviews_empty_editor": "Ajoutez ici les avis de vos clients : Avis clients → Ajouter un bloc → Avis.",
+    "compare_others": "Autres",
+    "compare_yes": "Oui",
+    "compare_partly": "En partie",
+    "compare_no": "Non"
   }
 }

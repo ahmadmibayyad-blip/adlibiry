@@ -210,6 +210,13 @@
                   </p>
                 {%- when 'custom_liquid' -%}
                   {{ block.settings.custom_liquid }}
+                {%- comment -%} AdSpy Pro blocks: stars with the supplier's reviews, bundle deals, guarantee seal. {%- endcomment -%}
+                {%- when 'adspy_rating' -%}
+                  {% render 'adspy-rating', block: block, product: product %}
+                {%- when 'adspy_bundles' -%}
+                  {% render 'adspy-bundles', block: block, product: product, product_form_id: product_form_id %}
+                {%- when 'adspy_guarantee' -%}
+                  {% render 'adspy-guarantee', block: block %}
                 {%- when 'collapsible_tab' -%}
                   <div class="product__accordion accordion quick-add-hidden" {{ block.shopify_attributes }}>
                     <details id="Details-{{ block.id }}-{{ section.id }}">
@@ -761,6 +768,228 @@
   "blocks": [
     {
       "type": "@app"
+    },
+    {
+      "type": "adspy_rating",
+      "name": "Stars (with supplier reviews)",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Your review app's rating; without one, the numbers below, or else the supplier's reviews added by AdSpy Pro Launch, labelled as the supplier's."
+        },
+        {
+          "type": "text",
+          "id": "rating",
+          "label": "Your rating (e.g. 4.8)",
+          "info": "Only your real average rating."
+        },
+        {
+          "type": "number",
+          "id": "count",
+          "label": "Your number of reviews",
+          "info": "Only your real number of reviews."
+        }
+      ]
+    },
+    {
+      "type": "adspy_bundles",
+      "name": "Bundle deals",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Shopify only charges these prices with a matching automatic discount (Discounts → Amount off products, minimum quantity, same %). AdSpy Pro Launch creates it. Leave out the Quantity selector block: the chosen deal sets the quantity."
+        },
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading"
+        },
+        {
+          "type": "select",
+          "id": "preselect",
+          "label": "Chosen at first",
+          "default": "2",
+          "options": [
+            {
+              "value": "1",
+              "label": "Deal 1"
+            },
+            {
+              "value": "2",
+              "label": "Deal 2"
+            },
+            {
+              "value": "3",
+              "label": "Deal 3"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "unit_price",
+          "label": "Show the price per item",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Deal 1"
+        },
+        {
+          "type": "range",
+          "id": "tier1_qty",
+          "label": "Items",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "default": 1
+        },
+        {
+          "type": "text",
+          "id": "tier1_title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "tier1_subtitle",
+          "label": "Text under the title",
+          "info": "[unit] shows the price per item."
+        },
+        {
+          "type": "range",
+          "id": "tier1_off",
+          "label": "Discount",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "%",
+          "default": 0
+        },
+        {
+          "type": "text",
+          "id": "tier1_badge",
+          "label": "Badge"
+        },
+        {
+          "type": "text",
+          "id": "tier1_gift",
+          "label": "Free gift line"
+        },
+        {
+          "type": "header",
+          "content": "Deal 2"
+        },
+        {
+          "type": "range",
+          "id": "tier2_qty",
+          "label": "Items (0 hides the deal)",
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "default": 2
+        },
+        {
+          "type": "text",
+          "id": "tier2_title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "tier2_subtitle",
+          "label": "Text under the title",
+          "info": "[unit] shows the price per item."
+        },
+        {
+          "type": "range",
+          "id": "tier2_off",
+          "label": "Discount",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "%",
+          "default": 15
+        },
+        {
+          "type": "text",
+          "id": "tier2_badge",
+          "label": "Badge",
+          "default": "Most popular"
+        },
+        {
+          "type": "text",
+          "id": "tier2_gift",
+          "label": "Free gift line"
+        },
+        {
+          "type": "header",
+          "content": "Deal 3"
+        },
+        {
+          "type": "range",
+          "id": "tier3_qty",
+          "label": "Items (0 hides the deal)",
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "default": 3
+        },
+        {
+          "type": "text",
+          "id": "tier3_title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "tier3_subtitle",
+          "label": "Text under the title",
+          "info": "[unit] shows the price per item."
+        },
+        {
+          "type": "range",
+          "id": "tier3_off",
+          "label": "Discount",
+          "min": 0,
+          "max": 80,
+          "step": 1,
+          "unit": "%",
+          "default": 25
+        },
+        {
+          "type": "text",
+          "id": "tier3_badge",
+          "label": "Badge",
+          "default": "Best value"
+        },
+        {
+          "type": "text",
+          "id": "tier3_gift",
+          "label": "Free gift line"
+        }
+      ]
+    },
+    {
+      "type": "adspy_guarantee",
+      "name": "Guarantee seal",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "number",
+          "id": "days",
+          "label": "Days",
+          "default": 30
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title"
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "label": "Text"
+        }
+      ]
     },
     {
       "type": "text",
