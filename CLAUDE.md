@@ -56,6 +56,8 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   Project "Default Environment Variables" don't reach the existing production deployment.
 - Never ask for API keys, client secrets or tokens in chat. Tell the user where to set them.
 - Claude API calls go through `claudeClient()` in `convex/lib/claudeClient.ts` (it adds the workspace header).
+- With `KIMI_API_KEY` set (optional `KIMI_MODEL`, default `kimi-k2.6`), a Claude call that fails for billing, overload, rate limits
+  or an outage is answered by Kimi instead (`convex/lib/kimiFallback.ts`). Calls with tools or streaming stay on Claude.
 
 ## Billing (Stripe)
 
