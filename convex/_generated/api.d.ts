@@ -104,6 +104,7 @@ import type * as nicheReport from "../nicheReport.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pipispy from "../pipispy.js";
 import type * as notifications from "../notifications.js";
+import type * as offerSearch from "../offerSearch.js";
 import type * as priceFetch from "../priceFetch.js";
 import type * as proPlan from "../proPlan.js";
 import type * as productImages from "../productImages.js";
@@ -240,6 +241,7 @@ declare const fullApi: ApiFromModules<{
   onboarding: typeof onboarding;
   pipispy: typeof pipispy;
   notifications: typeof notifications;
+  offerSearch: typeof offerSearch;
   priceFetch: typeof priceFetch;
   proPlan: typeof proPlan;
   productImages: typeof productImages;

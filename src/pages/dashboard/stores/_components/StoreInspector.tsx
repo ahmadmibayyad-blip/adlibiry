@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Bookmark, BookmarkCheck, ExternalLink, Palette, Puzzle, Radar, Radio } from "lucide-react";
 import { toast } from "sonner";
@@ -147,6 +148,25 @@ export default function StoreInspector() {
       setBusy(false);
     }
   };
+
+  // Offer Search's "Teardown" links here with ?inspect=<store link>: inspect it once.
+  const [params, setParams] = useSearchParams();
+  const linked = params.get("inspect");
+  const started = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linked || started.current === linked) return;
+    started.current = linked;
+    setUrl(linked);
+    void run(linked);
+    setParams(
+      (p) => {
+        p.delete("inspect");
+        return p;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per linked store
+  }, [linked]);
 
   return (
     <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-3">

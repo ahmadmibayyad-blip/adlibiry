@@ -94,7 +94,7 @@ async function startRun(
   keyword: string,
   maxAds: number,
   webhookToken: string,
-  url?: string,
+  url?: string | string[],
 ): Promise<StartResult> {
   const token = process.env.APIFY_TOKEN;
   if (!token) throw new Error("APIFY_TOKEN is not set. Add it in the Convex dashboard → Settings → Environment Variables.");
@@ -111,9 +111,9 @@ async function startRun(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      urls: [{ url: url ?? adLibraryUrl(country, keyword) }],
+      urls: (Array.isArray(url) ? url : [url ?? adLibraryUrl(country, keyword)]).map((u) => ({ url: u })),
       count: maxAds,
-      limitPerSource: maxAds,
+      limitPerSource: Array.isArray(url) && url.length > 1 ? Math.ceil(maxAds / url.length) : maxAds,
       "scrapePageAds.activeStatus": "active",
     }),
   });
@@ -184,11 +184,15 @@ export const startTrackedRun = internalAction({
     niche: v.string(),
     maxAds: v.number(),
     url: v.optional(v.string()),
+    /** Several Ad Library searches in one run (Offer Search), instead of `url`. */
+    urls: v.optional(v.array(v.string())),
     trigger: v.optional(v.string()),
     productId: v.optional(v.id("products")),
+    /** The run's webhook token, when the caller needs to know it (Offer Search). */
+    token: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<StartResult> => {
-    const token = newToken();
+    const token = args.token ?? newToken();
     await ctx.runMutation(internal.apify.createRun, {
       token,
       country: args.country.toUpperCase(),
@@ -199,7 +203,7 @@ export const startTrackedRun = internalAction({
       ...(args.productId ? { productId: args.productId } : {}),
     });
     try {
-      const run = await startRun(args.country, args.keyword, args.maxAds, token, args.url);
+      const run = await startRun(args.country, args.keyword, args.maxAds, token, args.urls?.length ? args.urls : args.url);
       await ctx.runMutation(internal.apify.setRunInfo, { token, runId: run.runId, status: "started" });
       return run;
     } catch (e) {
@@ -217,6 +221,7 @@ export const handleWebhook = internalAction({
     if (!run || run.status === "imported") return { ok: false };
     if (args.eventType === "ACTOR.RUN.FAILED" || !args.datasetId) {
       await ctx.runMutation(internal.apify.setRunInfo, { token: args.token, status: "failed", result: args.eventType ?? "no dataset" });
+      if (run.trigger === "offer") await ctx.runMutation(internal.offerSearch.finished, { runToken: args.token, error: "The search didn't finish. Please try again." });
       return { ok: true };
     }
     let result: ImportResult;
@@ -234,6 +239,8 @@ export const handleWebhook = internalAction({
       });
       return { ok: false };
     }
+    // Offer Search groups the same ads by store for the user who searched.
+    if (run.trigger === "offer") await ctx.runAction(internal.offerSearch.finish, { runToken: args.token, datasetId: args.datasetId });
     // No ads saved and errors (the dataset request failed, or the actor only
     // wrote an error row) is a failure, not an import.
     const failed = result.created + result.updated === 0 && result.errors.length > 0;
