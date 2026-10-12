@@ -94,11 +94,14 @@ export function dawnOverrides(t: ThemeInput): Record<string, string> {
         },
       }
     : {};
-  // Benefit lines from the product page's copy (adspy.page metafield), inside the buy box.
-  const benefitsLiquid =
-    "{%- assign d = product.metafields.adspy.page.value -%}{%- if d.benefits.size > 0 -%}" +
+  // Benefit lines from the product page's copy (adspy.page metafield), inside the buy box. Liquid
+  // settings only see global objects (not `section` or the section's variables), so the home page's
+  // featured product is looked up by handle; product pages use the page's `product`.
+  const benefitsLiquid = (productExpr: string) =>
+    `{%- assign p = ${productExpr} -%}{%- assign d = p.metafields.adspy.page.value -%}{%- if d.benefits.size > 0 -%}` +
     '<ul style="list-style:none;padding:0;margin:0;display:grid;gap:.6rem">{%- for b in d.benefits limit: 4 -%}' +
     '<li style="display:flex;gap:.8rem"><span aria-hidden="true">✓</span><span>{{ b | escape }}</span></li>{%- endfor -%}</ul>{%- endif -%}';
+  const handle = t.productHandle.replace(/[^a-z0-9-]/gi, "");
 
   const sections: Record<string, unknown> = {
     hero: {
@@ -117,7 +120,7 @@ export function dawnOverrides(t: ThemeInput): Record<string, string> {
       blocks: {
         title: { type: "title", settings: { heading_size: "h1" } },
         price: { type: "price" },
-        benefits: { type: "custom_liquid", settings: { custom_liquid: benefitsLiquid } },
+        benefits: { type: "custom_liquid", settings: { custom_liquid: benefitsLiquid(`all_products['${handle}']`) } },
         variant_picker: { type: "variant_picker", settings: { picker_type: "button", swatch_shape: "circle" } },
         quantity_selector: { type: "quantity_selector" },
         buy_buttons: { type: "buy_buttons", settings: { show_dynamic_checkout: true, show_gift_card_recipient: false } },
@@ -127,12 +130,12 @@ export function dawnOverrides(t: ThemeInput): Record<string, string> {
     },
     benefits: {
       type: "multicolumn",
-      settings: { title: c.benefits.heading, heading_size: "h1", columns_desktop: Math.min(4, Math.max(2, c.benefits.items.length)), column_alignment: "center", background_style: style.benefitsLayout === "cards" ? "primary" : "none", color_scheme: SCHEME[sc.benefits], columns_mobile: "1", swipe_on_mobile: false, padding_top: 48, padding_bottom: 48 },
+      settings: { title: c.benefits.heading, heading_size: "h1", columns_desktop: Math.min(4, Math.max(2, c.benefits.items.length)), column_alignment: "center", background_style: style.benefitsLayout === "cards" ? "primary" : "none", color_scheme: SCHEME[sc.benefits], columns_mobile: "1", swipe_on_mobile: false, button_label: "", padding_top: 48, padding_bottom: 48 },
       ...keyed("b", c.benefits.items, (b) => ({ type: "column", settings: { title: b.title, text: `<p>${esc(b.text)}</p>` } })),
     },
     steps: {
       type: "multicolumn",
-      settings: { title: c.steps.heading, heading_size: "h1", columns_desktop: Math.min(4, Math.max(2, c.steps.items.length)), column_alignment: "left", background_style: "none", color_scheme: SCHEME[sc.steps], columns_mobile: "1", swipe_on_mobile: false, padding_top: 48, padding_bottom: 48 },
+      settings: { title: c.steps.heading, heading_size: "h1", columns_desktop: Math.min(4, Math.max(2, c.steps.items.length)), column_alignment: "left", background_style: "none", color_scheme: SCHEME[sc.steps], columns_mobile: "1", swipe_on_mobile: false, button_label: "", padding_top: 48, padding_bottom: 48 },
       ...keyed("s", c.steps.items, (x) => ({ type: "column", settings: { title: x.title, text: `<p>${esc(x.text)}</p>` } })),
     },
     story: {
@@ -177,7 +180,7 @@ export function dawnOverrides(t: ThemeInput): Record<string, string> {
   };
   const main = productTemplate.sections.main;
   if (main?.blocks && main.block_order) {
-    main.blocks.adspy_benefits = { type: "custom_liquid", settings: { custom_liquid: benefitsLiquid } };
+    main.blocks.adspy_benefits = { type: "custom_liquid", settings: { custom_liquid: benefitsLiquid("product") } };
     if (trustBlock.trust) main.blocks.adspy_trust = trustBlock.trust;
     const at = main.block_order.indexOf("price");
     main.block_order.splice(at < 0 ? 0 : at + 1, 0, "adspy_benefits");
