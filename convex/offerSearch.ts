@@ -113,8 +113,14 @@ export const start = action({
         trigger: "offer",
       });
     } catch (e) {
-      await ctx.runMutation(internal.offerSearch.finished, { runToken, error: "The search couldn't start. Please try again in a minute." });
-      console.error("Offer search: Apify run didn't start", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      // Apify's account limit (its monthly usage limit, or no credit left) won't pass in a minute.
+      const accountLimit = /hard limit|usage limit|platform-feature-disabled|insufficient|credit/i.test(msg);
+      await ctx.runMutation(internal.offerSearch.finished, {
+        runToken,
+        error: accountLimit ? "Offer Search has used this month's search credit. It's back once the account is topped up." : "The search couldn't start. Please try again in a minute.",
+      });
+      console.error("Offer search: Apify run didn't start", msg.slice(0, 300));
       return { id, cached: false };
     }
     // If Apify's webhook never comes, look at the run ourselves.
