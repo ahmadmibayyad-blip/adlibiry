@@ -6,10 +6,13 @@ import { stableToken } from "./lib/authIdentity";
 import { effectivePlan } from "./lib/billing";
 import { productUrl } from "./lib/productImport";
 import { firstProductPath, inspectHtml, mergeInspections, type Inspection } from "./lib/storeInspect";
+import { productJsPath, teardownProductPage, type Teardown } from "./lib/storeTeardown";
 import { FREE_WATCHED_STORES, PRO_WATCHED_STORES } from "./stores";
 
-// Store Inspector: paste a store's link, see its theme and apps (lib/storeInspect.ts),
-// and add it to the store watchlist. Results are cached per store for 12 hours.
+// Store Inspector: paste a store's link, see its theme and apps (lib/storeInspect.ts) and a
+// teardown of its main product page (lib/storeTeardown.ts: bundle tiers, reviews, price,
+// conversion features, section order), and add it to the store watchlist.
+// Results are cached per store for 12 hours.
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36";
 const CACHE_MS = 12 * 3_600_000;
@@ -23,6 +26,18 @@ async function page(url: string): Promise<string | null> {
     return (await res.text()).slice(0, 3_000_000);
   } catch {
     return null;
+  }
+}
+
+/** /products/<handle>.js: the product's prices and variants as JSON. */
+async function productJson(url: string): Promise<unknown> {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" }, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return undefined;
+    const text = await res.text();
+    return text.length < 2_000_000 ? (JSON.parse(text) as unknown) : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -43,7 +58,9 @@ export const before = internalQuery({
       .withIndex("by_user", (q) => q.eq("userId", user._id).gt("inspectedAt", since))
       .take(limit);
     const cached = await ctx.db.query("storeInspections").withIndex("by_host", (q) => q.eq("host", args.host)).order("desc").first();
-    const fresh = cached && Date.now() - Date.parse(cached.inspectedAt) < CACHE_MS ? (cached.result as Inspection) : null;
+    // Results from before the teardown existed are read again.
+    const result = cached?.result as Inspection | undefined;
+    const fresh = cached && result && result.teardown !== undefined && Date.now() - Date.parse(cached.inspectedAt) < CACHE_MS ? result : null;
     return { userId: user._id, used: today.length, limit, fresh };
   },
 });
@@ -76,15 +93,26 @@ export const inspect = action({
       // The link they pasted, the home page and one product page: apps often load on only some pages.
       const origin = `${u.protocol}//${u.host}`;
       const urls = [...new Set([u.toString(), `${origin}/`])];
-      const pages = (await Promise.all(urls.map(page))).filter((h): h is string => !!h);
+      const fetched = await Promise.all(urls.map(page));
+      const pages = fetched.filter((h): h is string => !!h);
       if (!pages.length) throw new ConvexError({ code: "UNREACHABLE", message: `We couldn't open ${host}. Check the address and try again.` });
-      const productPath = pages.map(firstProductPath).find(Boolean);
-      if (productPath && !urls.some((x) => x.includes("/products/"))) {
-        const p = await page(`${origin}${productPath}`);
-        if (p) pages.push(p);
+      // The store's main product: the pasted product page, else the first product the home page links to.
+      let productPath = u.pathname.includes("/products/") && fetched[0] ? u.pathname : undefined;
+      let productHtml = productPath ? fetched[0] : null;
+      if (!productPath) {
+        productPath = pages.map(firstProductPath).find(Boolean);
+        productHtml = productPath ? await page(`${origin}${productPath}`) : null;
+        if (productHtml) pages.push(productHtml);
       }
       result = mergeInspections(pages.map(inspectHtml));
       if (!result.shopify) throw new ConvexError({ code: "NOT_SHOPIFY", message: `${host} doesn't look like a Shopify store. The Inspector reads Shopify stores only.` });
+      let teardown: Teardown | null = null;
+      if (productPath && productHtml) {
+        const jsPath = productJsPath(productPath);
+        const json = jsPath ? await productJson(`${origin}${jsPath}`) : undefined;
+        teardown = teardownProductPage(productHtml, productPath, json, inspectHtml(productHtml).currency ?? result.currency);
+      }
+      result = { ...result, teardown };
     }
     const id = await ctx.runMutation(internal.storeInspector.save, { userId: pre.userId, host, url: `https://${host}`, result });
     return { id, host, result };
