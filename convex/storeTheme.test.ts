@@ -410,6 +410,59 @@ describe("Launch → Full store", () => {
     ).rejects.toThrow(/Reconnect your Shopify store/);
   });
 
+  it("makes room for the theme when the store has Shopify's 20, by removing the replaced launch's theme", async () => {
+    const calls: string[] = [];
+    let full = true;
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("anthropic.com")) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        const isPage = String(body.messages[0].content).includes("product page's extra copy");
+        const isStore = !isPage && String(body.system).includes("rest of a one-product dropshipping store");
+        return json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text: JSON.stringify(isPage ? productPage : isStore ? { ...storeCopy, trust: [storeCopy.trust[0]] } : productCopy) }], usage: { input_tokens: 1, output_tokens: 1 } });
+      }
+      const body = JSON.parse(String(init?.body));
+      const q: string = body.query;
+      calls.push(q.includes("themeDelete") ? `themeDelete ${body.variables.id}` : q.slice(0, 30));
+      if (q.includes("productSet")) return json({ data: { productSet: { product: { id: "gid://shopify/Product/9", handle: "rank-ryg" }, userErrors: [] } } });
+      if (q.includes("pageCreate")) return json({ data: { pageCreate: { page: { id: `gid://shopify/Page/${body.variables.page.handle}`, handle: body.variables.page.handle }, userErrors: [] } } });
+      if (q.includes("menus(")) return json({ data: { menus: { nodes: [] } } });
+      if (q.includes("pageUpdate")) return json({ data: { pageUpdate: { page: { id: body.variables.id, handle: "p" }, userErrors: [] } } });
+      if (q.includes("discountAutomaticDelete")) return json({ data: { discountAutomaticDelete: { deletedAutomaticDiscountId: body.variables.id, userErrors: [] } } });
+      if (q.includes("menuCreate")) return json({ data: { menuCreate: { menu: { id: "gid://shopify/Menu/6" }, userErrors: [] } } });
+      if (q.includes("discountAutomaticBasicCreate")) return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: { id: "gid://shopify/DiscountAutomaticNode/1" }, userErrors: [] } } });
+      if (q.includes("themeCreate")) {
+        return full
+          ? json({ data: { themeCreate: { theme: null, userErrors: [{ field: ["source"], message: "A shop may only have 20 themes" }] } } })
+          : json({ data: { themeCreate: { theme: { id: "gid://shopify/OnlineStoreTheme/78", processing: false }, userErrors: [] } } });
+      }
+      if (q.includes("theme(id")) {
+        if (body.variables.id === "gid://shopify/OnlineStoreTheme/70") return json({ data: { theme: { id: body.variables.id, role: "UNPUBLISHED" } } });
+        return json({ data: { theme: { id: body.variables.id, processing: false, processingFailed: false } } });
+      }
+      if (q.includes("themeDelete")) {
+        full = false;
+        return json({ data: { themeDelete: { deletedThemeId: body.variables.id, userErrors: [] } } });
+      }
+      return json({ errors: [{ message: `unexpected ${q.slice(0, 40)}` }] });
+    }));
+    const { t, productId, user } = await setup();
+    const facts = { shippingTime: "5–8 hverdage", returnDays: 30 };
+    // Without a launch to replace: a clear way out.
+    const first = await user.mutation(api.launch.start, { productId, language: "Danish", tone: "friendly", publish: "DRAFT", mode: "store", style: "nordic", brandName: "Rank Ryg", facts });
+    await settle(t);
+    expect((await user.query(api.launch.get, { launchId: first.launchId }))?.error).toContain("maximum of 20 themes");
+
+    // A relaunch that replaces a launch: its theme goes first, then the new one installs.
+    await t.run((ctx) => ctx.db.patch("launches", first.launchId, { status: "published", themeId: "gid://shopify/OnlineStoreTheme/70" }));
+    const again = await user.mutation(api.launch.relaunch, { launchId: first.launchId, replaceOld: true });
+    await settle(t);
+    expect(await user.query(api.launch.get, { launchId: again.launchId })).toMatchObject({ status: "published", themeId: "gid://shopify/OnlineStoreTheme/78" });
+    expect(calls).toContain("themeDelete gid://shopify/OnlineStoreTheme/70");
+    expect(await t.run((ctx) => ctx.db.get("launches", first.launchId))).toBeNull();
+  });
+
   it("writes the store, creates the product, pages and menus, and installs the theme unpublished", async () => {
     // Structured output only returns icons from the list.
     const validStore = { ...storeCopy, trust: [storeCopy.trust[0]], benefits: { ...storeCopy.benefits, items: [storeCopy.benefits.items[0]] } };
