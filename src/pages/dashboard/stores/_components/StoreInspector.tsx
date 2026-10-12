@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import StoreTeardown from "./StoreTeardown.tsx";
 
 // Store Inspector (convex/storeInspector.ts): paste a Shopify store's link and
-// see its theme, apps and ad pixels; then add it to the watchlist.
+// see its theme, apps, ad pixels and a teardown of its main product page; then add it to the watchlist.
 
 type Shown = { id: Id<"storeInspections">; host: string; result: Inspection };
 
@@ -113,6 +114,13 @@ function Result({ shown, tracked }: { shown: Shown; tracked: boolean }) {
           </p>
         </section>
       </div>
+      {r.teardown ? (
+        <StoreTeardown teardown={r.teardown} host={host} />
+      ) : r.teardown === undefined ? (
+        <p className="text-xs text-muted-foreground border-t border-border pt-3">Inspect the store again to see a teardown of its main product page.</p>
+      ) : (
+        <p className="text-xs text-muted-foreground border-t border-border pt-3">We couldn't find a product page to tear down. Paste a product link to inspect one.</p>
+      )}
     </div>
   );
 }
@@ -145,7 +153,7 @@ export default function StoreInspector() {
       <div className="flex items-center gap-2">
         <Radar className="w-4 h-4 text-primary" />
         <h2 className="font-semibold text-sm">Store Inspector</h2>
-        <span className="text-xs text-muted-foreground">See which theme, apps and ad pixels any Shopify store runs</span>
+        <span className="text-xs text-muted-foreground">See which theme, apps and ad pixels any Shopify store runs, and how its product page sells</span>
       </div>
       <form
         className="flex gap-2"

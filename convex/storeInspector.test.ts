@@ -14,7 +14,9 @@ Shopify.theme = {"name":"Ekohem DK","schema_name":"Cello","schema_version":"3.0.
 <!-- BEGIN app block: shopify://apps/kaching-bundles/blocks/app-embed-block/1 -->
 <a href="/products/bivoks-brodpose">Bread bag</a>`;
 const productHtml = `<script src="https://cdn.shopify.com/s/x.js"></script>
-<script src="https://cdn.shopify.com/extensions/019f6fd3-453f-7868-9402-ee98143404d9/klarna-on-site-messaging-34/assets/k.js"></script>`;
+<script>Shopify.currency = {"active":"DKK","rate":"1.0"};</script>
+<script src="https://cdn.shopify.com/extensions/019f6fd3-453f-7868-9402-ee98143404d9/klarna-on-site-messaging-34/assets/k.js"></script>
+<script class="kaching-bundles-deal-block-settings" type="application/json">{"preselectedDealBarId":"b","dealBars":[{"id":"a","title":"Køb 1","quantity":1,"dealBarType":"quantity-break","discountType":"default"},{"id":"b","title":"Køb 2","quantity":2,"badgeText":"Mest populær","dealBarType":"quantity-break","discountType":"percentage","discountValue":10}]}</script>`;
 
 async function setup(plan: "free" | "pro" = "pro") {
   const t = convexTest(schema, modules);
@@ -34,6 +36,7 @@ describe("Store Inspector", () => {
       fetched.push(url);
       if (url === "https://ekohemshop.dk/") return new Response(homeHtml);
       if (url === "https://ekohemshop.dk/products/bivoks-brodpose") return new Response(productHtml);
+      if (url === "https://ekohemshop.dk/products/bivoks-brodpose.js") return new Response(JSON.stringify({ id: 1, title: "Bivoks brødpose", price: 14900, compare_at_price: 29900, variants: [] }));
       return new Response("", { status: 404 });
     }));
     const { t, user } = await setup();
@@ -41,7 +44,14 @@ describe("Store Inspector", () => {
     expect(r.host).toBe("ekohemshop.dk");
     expect(r.result.theme).toMatchObject({ schemaName: "Cello", version: "3.0.2" });
     expect(r.result.apps.map((a) => a.name)).toEqual(["Kaching Bundles", "Klarna On-site Messaging"]);
-    expect(fetched).toEqual(["https://ekohemshop.dk/", "https://ekohemshop.dk/products/bivoks-brodpose"]);
+    expect(fetched).toEqual(["https://ekohemshop.dk/", "https://ekohemshop.dk/products/bivoks-brodpose", "https://ekohemshop.dk/products/bivoks-brodpose.js"]);
+    // The main product's teardown: its price from /products/<handle>.js and its bundle tiers.
+    expect(r.result.teardown).toMatchObject({
+      productPath: "/products/bivoks-brodpose",
+      productTitle: "Bivoks brødpose",
+      price: { price: 149, compareAt: 299, percentOff: 50, currency: "DKK" },
+      bundle: { app: "Kaching Bundles", tiers: [{ title: "Køb 1" }, { title: "Køb 2", badge: "Mest populær", percentOff: 10 }] },
+    });
 
     // Within 12 hours the same store comes from the cache.
     fetched.length = 0;

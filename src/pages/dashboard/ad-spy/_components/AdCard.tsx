@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useMutation, useQuery, Authenticated } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import { Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layers, Calendar, Copy, Zap, ExternalLink, X, TrendingUp } from "lucide-react";
+import { offerTags } from "@/convex/lib/offerTags.ts";
+import { Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layers, Calendar, Copy, Zap, ExternalLink, X, TrendingUp, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
@@ -86,6 +87,8 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
   const moreCountries = (ad.countries?.length ?? 0) - countries.length;
   const domain = domainOf(ad.landingPageUrl);
   const text = ad.bodyText || ad.headline;
+  // Offer chips ("Buy 2 get 1", "50% off", "Free shipping") read from the ad's own words.
+  const offers = useMemo(() => offerTags([ad.headline, ad.bodyText].filter(Boolean).join("\n")).slice(0, 3), [ad.headline, ad.bodyText]);
 
   return (
     <div
@@ -241,6 +244,20 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
       {/* Copy */}
       <div className="px-3 pt-2.5">
         <p className="text-xs leading-snug line-clamp-2 min-h-[2.1rem]">{text}</p>
+        {offers.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {offers.map((o) => (
+              <span
+                key={o.label}
+                title={`The ad says: “${o.match}”`}
+                className="inline-flex items-center gap-1 max-w-full truncate rounded-md border border-primary/30 bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0.5"
+              >
+                <Tag className="w-2.5 h-2.5 shrink-0" />
+                {o.label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Metrics */}

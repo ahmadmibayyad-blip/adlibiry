@@ -4,6 +4,8 @@
 // (cdn.shopify.com/extensions/<id>/<name>-<version>), app script hosts and ad
 // pixels. Pure and unit tested.
 
+import type { Teardown } from "./storeTeardown";
+
 export type AppCategory =
   | "Bundles & upsells"
   | "Cart"
@@ -54,6 +56,8 @@ export type Inspection = {
   theme?: InspectedTheme;
   apps: InspectedApp[];
   pixels: string[];
+  /** The main product page's teardown (lib/storeTeardown.ts); null when no product page could be read. */
+  teardown?: Teardown | null;
 };
 
 type AppInfo = { name: string; category: AppCategory; handle?: string };
