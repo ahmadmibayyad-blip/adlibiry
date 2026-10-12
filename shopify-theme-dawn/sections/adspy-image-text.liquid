@@ -1,0 +1,70 @@
+{%- comment -%}
+  AdSpy Pro: a product photo beside a heading, text and ticked points. The photo: the one picked, else the
+  product's photo number N (the product of the page, or the one picked).
+{%- endcomment -%}
+{%- liquid
+  assign p = section.settings.product | default: product
+  assign img = section.settings.image
+  if img == blank and p != blank
+    assign index = section.settings.image_index | default: 1 | minus: 1
+    assign img = p.media[index] | default: p.featured_media
+  endif
+  assign points = section.settings.points | newline_to_br | split: '<br />'
+-%}
+<style>
+  .adspy-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem 6rem; align-items: center; }
+  .adspy-split--reverse .adspy-split__media { order: 2; }
+  .adspy-split__media img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--media-radius, 1.2rem); }
+  .adspy-split__eyebrow { margin: 0 0 1rem; font-size: 1.2rem; font-weight: 700; letter-spacing: .15rem; text-transform: uppercase; color: rgb(var(--color-button)); }
+  .adspy-split__points { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1rem; }
+  .adspy-split__points li { display: flex; gap: 1rem; font-size: 1.6rem; }
+  .adspy-split__points li::before { content: "✓"; color: rgb(var(--color-button)); font-weight: 800; }
+  .adspy-split .button { margin-top: 2.4rem; }
+  @media screen and (max-width: 749px) { .adspy-split { grid-template-columns: minmax(0, 1fr); } .adspy-split--reverse .adspy-split__media { order: 0; } }
+</style>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+  <div class="page-width adspy-split{% if section.settings.image_right %} adspy-split--reverse{% endif %}" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+    <div class="adspy-split__media">
+      {%- if img != blank -%}
+        {{ img | image_url: width: 1200 | image_tag: loading: 'lazy', widths: '500, 800, 1200', sizes: '(min-width: 750px) 50vw, 100vw', alt: section.settings.heading }}
+      {%- else -%}
+        {{ 'image' | placeholder_svg_tag: 'placeholder-svg' }}
+      {%- endif -%}
+    </div>
+    <div>
+      {%- if section.settings.eyebrow != blank -%}<p class="adspy-split__eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
+      <h2 class="h1">{{ section.settings.heading | escape }}</h2>
+      <div class="rte">{{ section.settings.text }}</div>
+      {%- if section.settings.points != blank -%}
+        <ul class="adspy-split__points">
+          {%- for point in points -%}{%- assign text = point | strip -%}{%- if text != blank -%}<li>{{ text | escape }}</li>{%- endif -%}{%- endfor -%}
+        </ul>
+      {%- endif -%}
+      {%- if section.settings.button_label != blank -%}
+        <a href="{{ section.settings.button_link | default: '#MainContent' }}" class="button">{{ section.settings.button_label | escape }}</a>
+      {%- endif -%}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Product photo with text",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "product", "id": "product", "label": "Or a product's photo", "info": "Empty on product pages: that product." },
+    { "type": "range", "id": "image_index", "label": "Which of the product's photos", "min": 1, "max": 10, "step": 1, "default": 2 },
+    { "type": "checkbox", "id": "image_right", "label": "Image on the right", "default": false },
+    { "type": "text", "id": "eyebrow", "label": "Small text above the heading" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Made for every day" },
+    { "type": "richtext", "id": "text", "label": "Text" },
+    { "type": "textarea", "id": "points", "label": "Ticked points, one per line" },
+    { "type": "text", "id": "button_label", "label": "Button label" },
+    { "type": "url", "id": "button_link", "label": "Button link", "info": "Empty: back to the top of the page." },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "scheme-1" },
+    { "type": "range", "id": "padding_top", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Top padding", "default": 48 },
+    { "type": "range", "id": "padding_bottom", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Bottom padding", "default": 48 }
+  ],
+  "presets": [{ "name": "Product photo with text" }]
+}
+{% endschema %}

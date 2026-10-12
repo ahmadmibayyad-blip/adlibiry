@@ -561,6 +561,34 @@
     "faq": "Pytania i odpowiedzi",
     "track_label": "Numer przesyłki",
     "track_button": "Śledź zamówienie",
-    "track_help": "Numer przesyłki znajdziesz w e-mailu z potwierdzeniem wysyłki. Link w potwierdzeniu zamówienia też pokazuje jego status."
+    "track_help": "Numer przesyłki znajdziesz w e-mailu z potwierdzeniem wysyłki. Link w potwierdzeniu zamówienia też pokazuje jego status.",
+    "rating_count": {
+      "one": "{{ count }} opinia",
+      "other": "{{ count }} opinii"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} opinia u naszego dostawcy",
+      "other": "{{ count }} opinii u naszego dostawcy"
+    },
+    "deals_heading": "Kup więcej, zaoszczędź więcej",
+    "deal_items": {
+      "one": "{{ count }} szt.",
+      "other": "{{ count }} szt."
+    },
+    "deal_save_html": "Oszczędzasz {{ amount }}",
+    "deal_unit_html": "{{ price }} / szt.",
+    "guarantee_title": "{{ days }} dni gwarancji zwrotu pieniędzy",
+    "guarantee_text": "Nie jesteś zadowolony? Odeślij produkt w ciągu {{ days }} dni, a zwrócimy pieniądze.",
+    "guarantee_seal": "dni",
+    "verified": "Zweryfikowany zakup",
+    "reviews_based_on": {
+      "one": "Na podstawie {{ count }} opinii",
+      "other": "Na podstawie {{ count }} opinii"
+    },
+    "reviews_empty_editor": "Dodaj tutaj opinie swoich klientów: Opinie klientów → Dodaj blok → Opinia.",
+    "compare_others": "Inne",
+    "compare_yes": "Tak",
+    "compare_partly": "Częściowo",
+    "compare_no": "Nie"
   }
 }

@@ -1,0 +1,49 @@
+{%- comment -%}
+  AdSpy Pro: stars and count above the product title. The review app's (the standard reviews.rating and
+  reviews.rating_count metafields), else the owner's own numbers, else the supplier's reviews AdSpy Pro
+  Launch added, which say they're the supplier's. Links to the reviews further down the page.
+  {% render 'adspy-rating', block: block, product: product %}
+{%- endcomment -%}
+{%- liquid
+  assign s = block.settings
+  assign r_value = 0
+  assign r_count = 0
+  assign r_supplier = false
+  assign app_rating = product.metafields.reviews.rating.value
+  if app_rating != blank
+    assign r_value = app_rating.rating | times: 1.0 | round: 1
+    assign r_count = product.metafields.reviews.rating_count.value | default: 0
+  elsif s.rating != blank
+    assign r_value = s.rating | replace: ',', '.' | times: 1.0 | at_most: 5 | round: 1
+    assign r_count = s.count | default: 0
+  else
+    assign sup = product.metafields.adspy.reviews.value
+    if sup.average > 0
+      assign r_value = sup.average
+      assign r_count = sup.total | default: 0
+      assign r_supplier = true
+    endif
+  endif
+  assign filled = r_value | round
+-%}
+{%- if r_value > 0 -%}
+  <a href="#adspy-reviews" class="adspy-rating-line" onclick="var t=document.querySelector('.adspy-js-reviews');if(t){event.preventDefault();t.scrollIntoView({behavior:'smooth'});}" {{ block.shopify_attributes }}>
+    <span class="adspy-rating-line__stars" role="img" aria-label="{{ 'adspy.rating' | t: rating: r_value }}">
+      {%- for i in (1..5) -%}<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"{% if i > filled %} class="is-off"{% endif %}><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>{%- endfor -%}
+    </span>
+    <strong>{{ r_value }}/5</strong>
+    {%- if r_count > 0 -%}
+      <span class="adspy-rating-line__count">
+        {%- if r_supplier -%}{{ 'adspy.rating_count_supplier' | t: count: r_count }}{%- else -%}({{ 'adspy.rating_count' | t: count: r_count }}){%- endif -%}
+      </span>
+    {%- endif -%}
+  </a>
+  <style>
+    .adspy-rating-line { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .4rem .8rem; margin: 0 0 .4rem; font-size: 1.4rem; color: rgb(var(--color-foreground)); text-decoration: none; }
+    .adspy-rating-line__stars { display: inline-flex; gap: .2rem; color: #f5a524; }
+    .adspy-rating-line__stars svg { width: 1.8rem; height: 1.8rem; fill: currentColor; }
+    .adspy-rating-line__stars .is-off { opacity: .25; }
+    .adspy-rating-line__count { color: rgba(var(--color-foreground), .7); }
+    .adspy-rating-line:hover .adspy-rating-line__count { text-decoration: underline; }
+  </style>
+{%- endif -%}

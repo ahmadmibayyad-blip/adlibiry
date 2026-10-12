@@ -549,6 +549,34 @@
     "faq": "Domande e risposte",
     "track_label": "Numero di tracciamento",
     "track_button": "Traccia il mio ordine",
-    "track_help": "Trovi il numero di tracciamento nell'email di conferma della spedizione. Il link nella conferma d'ordine mostra anche lo stato dell'ordine."
+    "track_help": "Trovi il numero di tracciamento nell'email di conferma della spedizione. Il link nella conferma d'ordine mostra anche lo stato dell'ordine.",
+    "rating_count": {
+      "one": "{{ count }} recensione",
+      "other": "{{ count }} recensioni"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} recensione presso il nostro fornitore",
+      "other": "{{ count }} recensioni presso il nostro fornitore"
+    },
+    "deals_heading": "Compra di più, risparmia di più",
+    "deal_items": {
+      "one": "{{ count }} pezzo",
+      "other": "{{ count }} pezzi"
+    },
+    "deal_save_html": "Risparmi {{ amount }}",
+    "deal_unit_html": "{{ price }} cad.",
+    "guarantee_title": "Garanzia soddisfatti o rimborsati di {{ days }} giorni",
+    "guarantee_text": "Non ti convince? Rimandacelo entro {{ days }} giorni e ti rimborsiamo.",
+    "guarantee_seal": "giorni",
+    "verified": "Acquisto verificato",
+    "reviews_based_on": {
+      "one": "Basato su {{ count }} recensione",
+      "other": "Basato su {{ count }} recensioni"
+    },
+    "reviews_empty_editor": "Aggiungi qui le recensioni dei tuoi clienti: Recensioni clienti → Aggiungi blocco → Recensione.",
+    "compare_others": "Altri",
+    "compare_yes": "Sì",
+    "compare_partly": "In parte",
+    "compare_no": "No"
   }
 }

@@ -1,0 +1,141 @@
+{%- comment -%}
+  AdSpy Pro: bundle deals in Dawn's product page (the "Bundle deals" block of main-product). Up to three
+  cards; the chosen one sets the quantity through a hidden quantity field of the product form, so the
+  Quantity selector block is left out. The prices are only what the checkout charges with a matching
+  automatic discount in Shopify, which AdSpy Pro Launch creates. [unit] in a subtitle is the price per item.
+  {% render 'adspy-bundles', block: block, product: product, product_form_id: product_form_id %}
+{%- endcomment -%}
+{%- liquid
+  assign s = block.settings
+  assign current = product.selected_or_first_available_variant
+  assign unit_was = current.price
+  if current.compare_at_price > current.price
+    assign unit_was = current.compare_at_price
+  endif
+  assign preselect = s.preselect | default: '2' | plus: 0
+  assign chosen_qty = 1
+-%}
+<style>
+  .adspy-tiers { border: 0; margin: 0 0 1.5rem; padding: 0; display: grid; gap: 1.2rem; }
+  .adspy-tiers__head { display: flex; align-items: center; gap: 1.2rem; width: 100%; padding: 0; margin-bottom: 1rem; font-weight: 700; font-size: 1.3rem; letter-spacing: .08rem; text-transform: uppercase; }
+  .adspy-tiers__head::before, .adspy-tiers__head::after { content: ""; flex: 1; border-top: .15rem solid rgba(var(--color-foreground), .15); }
+  .adspy-tier { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .4rem 1.4rem; padding: 1.6rem 1.8rem; border: .2rem solid rgba(var(--color-foreground), .15); border-radius: var(--inputs-radius-outset, 1.2rem); cursor: pointer; }
+  .adspy-tier--badged { margin-top: .8rem; }
+  .adspy-tier:has(input:checked) { border-color: rgb(var(--color-button)); background: rgba(var(--color-button), .07); }
+  .adspy-tier input { position: absolute; opacity: 0; pointer-events: none; }
+  .adspy-tier__radio { width: 2.2rem; height: 2.2rem; border: .2rem solid rgba(var(--color-foreground), .3); border-radius: 50%; display: grid; place-items: center; }
+  .adspy-tier:has(input:checked) .adspy-tier__radio { border-color: rgb(var(--color-button)); }
+  .adspy-tier:has(input:checked) .adspy-tier__radio::after { content: ""; width: 1rem; height: 1rem; border-radius: 50%; background: rgb(var(--color-button)); }
+  .adspy-tier input:focus-visible ~ .adspy-tier__radio { outline: .2rem solid rgb(var(--color-button)); outline-offset: .3rem; }
+  .adspy-tier__main { display: grid; gap: .2rem; min-width: 0; }
+  .adspy-tier__title { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; font-weight: 700; font-size: 1.6rem; line-height: 1.25; }
+  .adspy-tier__save { display: inline-block; padding: .3rem .9rem; border-radius: 4rem; background: #c2410c; color: #fff; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; }
+  .adspy-tier__sub { font-size: 1.3rem; color: rgba(var(--color-foreground), .7); }
+  .adspy-tier__price { display: grid; justify-items: end; line-height: 1.25; }
+  .adspy-tier__price strong { font-size: 1.7rem; }
+  .adspy-tier__price s { font-size: 1.3rem; color: rgba(var(--color-foreground), .6); }
+  .adspy-tier__badge { position: absolute; top: -1.2rem; right: 1.6rem; padding: .3rem 1.2rem; border-radius: 4rem; background: rgb(var(--color-button)); color: rgb(var(--color-button-text)); font-size: 1.1rem; font-weight: 800; letter-spacing: .05rem; text-transform: uppercase; white-space: nowrap; }
+  .adspy-tier__gift { grid-column: 1 / -1; margin: .8rem -1.8rem -1.6rem; padding: .9rem 1.8rem; background: rgba(var(--color-button), .14); font-size: 1.3rem; font-weight: 700; }
+</style>
+<fieldset class="adspy-tiers" data-adspy-deals data-money-format="{{ shop.money_format | escape }}" {{ block.shopify_attributes }}>
+  <legend class="adspy-tiers__head"><span>{%- if s.heading != blank -%}{{ s.heading | escape }}{%- else -%}{{ 'adspy.deals_heading' | t }}{%- endif -%}</span></legend>
+  {%- for i in (1..3) -%}
+    {%- liquid
+      assign k_qty = 'tier' | append: i | append: '_qty'
+      assign k_title = 'tier' | append: i | append: '_title'
+      assign k_sub = 'tier' | append: i | append: '_subtitle'
+      assign k_off = 'tier' | append: i | append: '_off'
+      assign k_badge = 'tier' | append: i | append: '_badge'
+      assign k_gift = 'tier' | append: i | append: '_gift'
+      assign qty = s[k_qty] | plus: 0
+      if qty < 1
+        continue
+      endif
+      assign off = s[k_off] | plus: 0
+      assign full = unit_was | times: qty
+      assign pay = 100 | minus: off | times: current.price | times: qty | divided_by: 100
+      assign saved = full | minus: pay
+      assign saved_money = saved | money
+      assign saved_html = '<span data-deal-saved>' | append: saved_money | append: '</span>'
+      assign per_item = pay | divided_by: qty | money
+      assign unit_html = '<span data-deal-unit>' | append: per_item | append: '</span>'
+      assign title = s[k_title]
+      if title == blank
+        assign title = 'adspy.deal_items' | t: count: qty
+      endif
+      assign sub = s[k_sub] | escape | replace: '[unit]', unit_html
+      if sub == blank and s.unit_price and qty > 1
+        assign sub = 'adspy.deal_unit_html' | t: price: unit_html
+      endif
+      if i == preselect
+        assign chosen_qty = qty
+      endif
+    -%}
+    <label class="adspy-tier{% if s[k_badge] != blank %} adspy-tier--badged{% endif %}">
+      <input type="radio" name="adspy-deal-{{ block.id }}" value="{{ qty }}" data-deal-qty="{{ qty }}" data-deal-off="{{ off }}"{% if i == preselect %} checked{% endif %}>
+      <span class="adspy-tier__radio" aria-hidden="true"></span>
+      <span class="adspy-tier__main">
+        <span class="adspy-tier__title">{{ title | escape }}
+          <span class="adspy-tier__save" data-deal-save{% if saved <= 0 %} hidden{% endif %}>{{ 'adspy.deal_save_html' | t: amount: saved_html }}</span>
+        </span>
+        {%- if sub != blank -%}<span class="adspy-tier__sub">{{ sub }}</span>{%- endif -%}
+      </span>
+      <span class="adspy-tier__price">
+        <strong data-deal-price>{{ pay | money }}</strong>
+        <s data-deal-full{% if saved <= 0 %} hidden{% endif %}>{{ full | money }}</s>
+      </span>
+      {%- if s[k_badge] != blank -%}<span class="adspy-tier__badge">{{ s[k_badge] | escape }}</span>{%- endif -%}
+      {%- if s[k_gift] != blank -%}<span class="adspy-tier__gift">🎁 {{ s[k_gift] | escape }}</span>{%- endif -%}
+    </label>
+  {%- endfor -%}
+  <input type="hidden" name="quantity" value="{{ chosen_qty }}" form="{{ product_form_id }}" data-deal-quantity>
+</fieldset>
+<script>
+  (() => {
+    if (window.adspyDeals) return;
+    window.adspyDeals = true;
+    const money = (cents, format) => {
+      const value = Number(cents) / 100;
+      const fixed = (n, d, t, c) => { const [w, f] = n.toFixed(d).split('.'); return w.replace(/\B(?=(\d{3})+(?!\d))/g, t) + (f ? c + f : ''); };
+      return (format || '{% raw %}{{amount}}{% endraw %}').replace(/\{\{\s*(\w+)\s*\}\}/, (_, key) => {
+        switch (key) {
+          case 'amount_no_decimals': return fixed(value, 0, ',', '.');
+          case 'amount_with_comma_separator': return fixed(value, 2, '.', ',');
+          case 'amount_no_decimals_with_comma_separator': return fixed(value, 0, '.', ',');
+          case 'amount_with_apostrophe_separator': return fixed(value, 2, "'", '.');
+          case 'amount_with_space_separator': return fixed(value, 2, ' ', ',');
+          default: return fixed(value, 2, ',', '.');
+        }
+      });
+    };
+    document.addEventListener('change', (e) => {
+      const input = e.target.closest('[data-deal-qty]');
+      if (!input) return;
+      const deals = input.closest('[data-adspy-deals]');
+      deals.querySelector('[data-deal-quantity]').value = input.dataset.dealQty;
+    });
+    // Prices follow the chosen variant (Dawn publishes its variant changes).
+    if (typeof subscribe === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
+      subscribe(PUB_SUB_EVENTS.variantChange, (event) => {
+        const variant = event.data && event.data.variant;
+        if (!variant) return;
+        const was = Math.max(variant.compare_at_price || 0, variant.price);
+        document.querySelectorAll('[data-adspy-deals]').forEach((deals) => {
+          const format = deals.dataset.moneyFormat;
+          deals.querySelectorAll('[data-deal-qty]').forEach((radio) => {
+            const tier = radio.closest('label');
+            const qty = Number(radio.dataset.dealQty);
+            const pay = Math.floor(((100 - Number(radio.dataset.dealOff || 0)) * variant.price * qty) / 100);
+            const saved = was * qty - pay;
+            const set = (sel, text) => tier.querySelectorAll(sel).forEach((el) => { el.textContent = text; });
+            set('[data-deal-price]', money(pay, format));
+            set('[data-deal-full]', money(was * qty, format));
+            set('[data-deal-unit]', money(Math.floor(pay / qty), format));
+            set('[data-deal-saved]', money(saved, format));
+            tier.querySelectorAll('[data-deal-full], [data-deal-save]').forEach((el) => { el.hidden = saved <= 0; });
+          });
+        });
+      });
+    }
+  })();
+</script>

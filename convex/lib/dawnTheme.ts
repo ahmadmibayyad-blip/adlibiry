@@ -173,26 +173,7 @@ export function dawnOverrides(t: ThemeInput): Record<string, string> {
     return true;
   });
 
-  // Dawn's product page plus our benefit lines, trust lines, supplier reviews and the product's questions.
-  const productTemplate = JSON.parse(DAWN_FILES["templates/product.json"]) as {
-    sections: Record<string, { type: string; blocks?: Record<string, unknown>; block_order?: string[] }>;
-    order: string[];
-  };
-  const main = productTemplate.sections.main;
-  if (main?.blocks && main.block_order) {
-    main.blocks.adspy_benefits = { type: "custom_liquid", settings: { custom_liquid: benefitsLiquid("product") } };
-    if (trustBlock.trust) main.blocks.adspy_trust = trustBlock.trust;
-    const at = main.block_order.indexOf("price");
-    main.block_order.splice(at < 0 ? 0 : at + 1, 0, "adspy_benefits");
-    if (trustBlock.trust) {
-      const buy = main.block_order.indexOf("buy_buttons");
-      main.block_order.splice(buy < 0 ? main.block_order.length : buy + 1, 0, "adspy_trust");
-    }
-  }
-  productTemplate.sections.adspy_reviews = { type: "adspy-reviews" };
-  productTemplate.sections.adspy_faq = { type: "adspy-product-faq" };
-  const mainAt = productTemplate.order.indexOf("main");
-  productTemplate.order.splice(mainAt + 1, 0, "adspy_reviews", "adspy_faq");
+  const productTemplate = dawnProductTemplate(t, trustBlock.trust, benefitsLiquid("product"));
 
   return {
     "config/settings_data.json": json(dawnSettings(t)),
@@ -238,4 +219,118 @@ const fromBase64 = (b64: string) => Uint8Array.from(atob(b64), (ch) => ch.charCo
 export function dawnThemeFiles(t: ThemeInput): Record<string, string | Uint8Array> {
   const binary = Object.fromEntries(Object.entries(DAWN_BINARY).map(([path, b64]) => [path, fromBase64(b64)]));
   return { ...DAWN_FILES, ...binary, ...dawnOverrides(t) };
+}
+
+type DawnSection = { type: string; settings?: Record<string, unknown>; blocks?: Record<string, unknown>; block_order?: string[] };
+
+/**
+ * Dawn's product page, like the stores selling with ads: stars, title, price, ticks, offer line and real
+ * stock, variant buttons, bundle deals (only with Launch's discounts; they replace the quantity selector),
+ * buy buttons, guarantee seal, trust icons and tabs; then photo-with-text rows, a comparison table, the
+ * owner's own reviews, the supplier's reviews and the product's questions.
+ */
+export function dawnProductTemplate(t: ThemeInput, trust: unknown, benefitsLiquid: string) {
+  const tpl = JSON.parse(DAWN_FILES["templates/product.json"]) as { sections: Record<string, DawnSection>; order: string[] };
+  const pp = t.copy.productPage;
+  const off = t.bundleOff && t.bundleOff.length === 3 && t.bundleOff.some((o) => o > 0) ? t.bundleOff : null;
+  const main = tpl.sections.main;
+  const blocks = (main.blocks ?? {}) as Record<string, unknown>;
+  // Ticks: "Bold part – detail" from the product page copy, else the product's benefit lines.
+  const ticks = pp?.ticks.length
+    ? '<ul style="list-style:none;padding:0;margin:0;display:grid;gap:.8rem">' +
+      pp.ticks
+        .map((x) => {
+          const [bold, ...rest] = x.split(" – ");
+          return `<li style="display:flex;gap:.8rem"><span aria-hidden="true">✓</span><span>${rest.length ? `<strong>${esc(bold)}</strong> – ${esc(rest.join(" – "))}` : esc(x)}</span></li>`;
+        })
+        .join("") +
+      "</ul>"
+    : benefitsLiquid;
+  const tier = (i: number) => pp?.bundles.tiers[i];
+  Object.assign(blocks, {
+    adspy_rating: { type: "adspy_rating", settings: {} },
+    adspy_benefits: { type: "custom_liquid", settings: { custom_liquid: ticks } },
+    ...(off && pp?.offer ? { adspy_offer: { type: "text", settings: { text: `<strong>${esc(pp.offer)}</strong>`, text_style: "body" } } } : {}),
+    adspy_stock: { type: "inventory", settings: { text_style: "body", inventory_threshold: 10, show_inventory_quantity: true } },
+    ...(off
+      ? {
+          adspy_bundles: {
+            type: "adspy_bundles",
+            settings: {
+              heading: pp?.bundles.heading ?? "",
+              preselect: "2",
+              unit_price: true,
+              ...Object.fromEntries(
+                [0, 1, 2].flatMap((i) => [
+                  [`tier${i + 1}_qty`, i + 1],
+                  [`tier${i + 1}_title`, tier(i)?.title ?? ""],
+                  [`tier${i + 1}_subtitle`, tier(i)?.subtitle ?? ""],
+                  [`tier${i + 1}_off`, off[i]],
+                  [`tier${i + 1}_badge`, i === 1 ? pp?.bundles.popular ?? "" : i === 2 ? pp?.bundles.best ?? "" : ""],
+                  [`tier${i + 1}_gift`, ""],
+                ]),
+              ),
+            },
+          },
+        }
+      : {}),
+    adspy_guarantee: { type: "adspy_guarantee", settings: { days: t.facts.returnDays > 0 ? t.facts.returnDays : 0, title: "", text: "" } },
+    ...(trust ? { adspy_trust: trust } : {}),
+    ...Object.fromEntries((pp?.tabs ?? []).map((x, i) => [`adspy_tab${i + 1}`, { type: "collapsible_tab", settings: { heading: x.heading, icon: ["box", "check_mark", "clipboard"][i] ?? "check_mark", content: `<p>${esc(x.text)}</p>` } }])),
+  });
+  delete blocks.vendor;
+  main.blocks = blocks;
+  main.block_order = [
+    "adspy_rating",
+    "title",
+    "price",
+    "adspy_benefits",
+    ...(blocks.adspy_offer ? ["adspy_offer"] : []),
+    "adspy_stock",
+    "variant_picker",
+    ...(off ? ["adspy_bundles"] : ["quantity_selector"]),
+    "buy_buttons",
+    "adspy_guarantee",
+    ...(trust ? ["adspy_trust"] : []),
+    "description",
+    ...(pp?.tabs ?? []).map((_, i) => `adspy_tab${i + 1}`),
+    "share",
+  ].filter((k) => k in blocks);
+  if (!off) delete blocks.adspy_bundles;
+  else delete blocks.quantity_selector;
+
+  // Under the buy box. Rows show the AI photos (2nd photo on), else the main photo.
+  const ai = t.aiPhotos ?? 0;
+  const rows: DawnSection[] = (pp?.sections ?? []).map((x, i) => ({
+    type: "adspy-image-text",
+    settings: {
+      image_index: ai > 0 ? 2 + (i % ai) : 1,
+      image_right: i % 2 === 1,
+      eyebrow: x.eyebrow,
+      heading: x.heading,
+      text: `<p>${esc(x.text)}</p>`,
+      points: x.points.join("\n"),
+      button_label: i === 0 ? "" : pp?.button ?? "",
+      color_scheme: i % 2 === 0 ? "scheme-1" : "scheme-2",
+      padding_top: 48,
+      padding_bottom: 48,
+    },
+  }));
+  const after: [string, DawnSection][] = [];
+  if (rows[0]) after.push(["adspy_problem", rows[0]]);
+  if (pp && pp.comparison.rows.length >= 3) {
+    after.push(["adspy_comparison", {
+      type: "adspy-comparison",
+      settings: { heading: pp.comparison.heading, us_label: t.brandName, them_1: pp.comparison.others, button_label: pp.button, color_scheme: "scheme-2", padding_top: 48, padding_bottom: 48 },
+      ...keyed("row", pp.comparison.rows, (r) => ({ type: "row", settings: { feature: r.feature, us: r.us, them_1: r.others } })),
+    }]);
+  }
+  rows.slice(1).forEach((row, i) => after.push([`adspy_row${i + 2}`, row]));
+  after.push(["adspy_testimonials", { type: "adspy-testimonials", settings: { heading: pp?.reviewsHeading ?? "", color_scheme: "scheme-2", padding_top: 48, padding_bottom: 48 } }]);
+  after.push(["adspy_reviews", { type: "adspy-reviews" }]);
+  after.push(["adspy_faq", { type: "adspy-product-faq" }]);
+  for (const [key, section] of after) tpl.sections[key] = section;
+  const mainAt = tpl.order.indexOf("main");
+  tpl.order.splice(mainAt + 1, 0, ...after.map(([k]) => k));
+  return tpl;
 }

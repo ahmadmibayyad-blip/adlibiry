@@ -1,0 +1,21 @@
+{%- comment -%}
+  AdSpy Pro: a money-back guarantee seal in Dawn's product page (the "Guarantee" block). Hidden at 0 days.
+  {% render 'adspy-guarantee', block: block %}
+{%- endcomment -%}
+{%- assign days = block.settings.days | default: 0 -%}
+{%- if days > 0 -%}
+  <div class="adspy-seal-card" {{ block.shopify_attributes }}>
+    <span class="adspy-seal" aria-hidden="true"><strong>{{ days }}</strong><span>{{ 'adspy.guarantee_seal' | t }}</span></span>
+    <div>
+      <strong>{%- if block.settings.title != blank -%}{{ block.settings.title | escape }}{%- else -%}{{ 'adspy.guarantee_title' | t: days: days }}{%- endif -%}</strong>
+      <p>{%- if block.settings.text != blank -%}{{ block.settings.text | escape }}{%- else -%}{{ 'adspy.guarantee_text' | t: days: days }}{%- endif -%}</p>
+    </div>
+  </div>
+  <style>
+    .adspy-seal-card { display: flex; align-items: center; gap: 1.6rem; margin: 1.5rem 0; padding: 1.4rem 1.6rem; border: .1rem solid rgba(var(--color-foreground), .15); border-radius: var(--text-boxes-radius, .8rem); }
+    .adspy-seal-card p { margin: .2rem 0 0; font-size: 1.3rem; line-height: 1.5; color: rgba(var(--color-foreground), .75); }
+    .adspy-seal { display: grid; place-content: center; text-align: center; width: 6.4rem; height: 6.4rem; flex-shrink: 0; border-radius: 50%; background: rgb(var(--color-button)); color: rgb(var(--color-button-text)); box-shadow: 0 0 0 .4rem rgb(var(--color-background)), 0 0 0 .6rem rgb(var(--color-button)); line-height: 1; }
+    .adspy-seal strong { font-size: 2.2rem; }
+    .adspy-seal span { font-size: .9rem; font-weight: 800; letter-spacing: .1rem; text-transform: uppercase; margin-top: .2rem; }
+  </style>
+{%- endif -%}

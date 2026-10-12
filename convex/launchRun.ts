@@ -230,9 +230,8 @@ export const run = internalAction({
             }
           }
         };
-        // Our theme's product page sections; Dawn has its own product page.
+        // The product page's own copy (bundle cards, image rows, comparison table, tabs), for both themes.
         const writeProductPage = async (): Promise<unknown> => {
-          if (launch.baseTheme === "dawn") return null;
           try {
             const message = await claudeClient().messages.parse({
               model: MODEL,
@@ -345,10 +344,8 @@ export const run = internalAction({
 
       // 3. Full store: bundle discounts, pages, menus, then the theme.
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", shopifyProductId: created.id, productHandle: created.handle, step: "pages" });
-      if (launch.baseTheme !== "dawn") {
-        const deals = await bundleDiscounts(store.shopDomain, token, created.id, BUNDLE_OFF, bundleTitles(storeCopy.productPage, BUNDLE_OFF.length), previousDiscountIds);
-        await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", ...deals });
-      }
+      const deals = await bundleDiscounts(store.shopDomain, token, created.id, BUNDLE_OFF, bundleTitles(storeCopy.productPage, BUNDLE_OFF.length), previousDiscountIds);
+      await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", ...deals });
       const pageList = storePages(storeCopy, facts, launch.language);
       const pages = await upsertPages(store.shopDomain, token, pageList, store);
       await ctx.runMutation(internal.launch.saveStorePages, { userId: launch.userId, pages: Object.fromEntries(Object.entries(pages).map(([k, p]) => [k, p.id])) });

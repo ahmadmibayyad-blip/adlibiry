@@ -537,6 +537,34 @@
     "faq": "Frågor och svar",
     "track_label": "Spårningsnummer",
     "track_button": "Spåra min order",
-    "track_help": "Du hittar spårningsnumret i mejlet om att ordern har skickats. Länken i orderbekräftelsen visar också orderns status."
+    "track_help": "Du hittar spårningsnumret i mejlet om att ordern har skickats. Länken i orderbekräftelsen visar också orderns status.",
+    "rating_count": {
+      "one": "{{ count }} recension",
+      "other": "{{ count }} recensioner"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} recension hos vår leverantör",
+      "other": "{{ count }} recensioner hos vår leverantör"
+    },
+    "deals_heading": "Köp fler, spara mer",
+    "deal_items": {
+      "one": "{{ count }} st",
+      "other": "{{ count }} st"
+    },
+    "deal_save_html": "Spara {{ amount }}",
+    "deal_unit_html": "{{ price }} per st.",
+    "guarantee_title": "{{ days }} dagars pengarna-tillbaka-garanti",
+    "guarantee_text": "Inte nöjd? Skicka tillbaka den inom {{ days }} dagar och få pengarna tillbaka.",
+    "guarantee_seal": "dagar",
+    "verified": "Verifierat köp",
+    "reviews_based_on": {
+      "one": "Baserat på {{ count }} recension",
+      "other": "Baserat på {{ count }} recensioner"
+    },
+    "reviews_empty_editor": "Lägg till dina kunders recensioner här: Kundrecensioner → Lägg till block → Recension.",
+    "compare_others": "Andra",
+    "compare_yes": "Ja",
+    "compare_partly": "Delvis",
+    "compare_no": "Nej"
   }
 }

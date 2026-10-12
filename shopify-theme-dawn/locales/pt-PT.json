@@ -549,6 +549,34 @@
     "faq": "Perguntas e respostas",
     "track_label": "Número de seguimento",
     "track_button": "Seguir a minha encomenda",
-    "track_help": "Encontra o número de seguimento no e-mail de confirmação de envio. A ligação na confirmação da encomenda também mostra o estado da encomenda."
+    "track_help": "Encontra o número de seguimento no e-mail de confirmação de envio. A ligação na confirmação da encomenda também mostra o estado da encomenda.",
+    "rating_count": {
+      "one": "{{ count }} avaliação",
+      "other": "{{ count }} avaliações"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} avaliação no nosso fornecedor",
+      "other": "{{ count }} avaliações no nosso fornecedor"
+    },
+    "deals_heading": "Compre mais, poupe mais",
+    "deal_items": {
+      "one": "{{ count }} unidade",
+      "other": "{{ count }} unidades"
+    },
+    "deal_save_html": "Poupe {{ amount }}",
+    "deal_unit_html": "{{ price }} cada",
+    "guarantee_title": "Garantia de devolução do dinheiro de {{ days }} dias",
+    "guarantee_text": "Não ficou satisfeito? Devolva no prazo de {{ days }} dias e receba o seu dinheiro de volta.",
+    "guarantee_seal": "dias",
+    "verified": "Compra verificada",
+    "reviews_based_on": {
+      "one": "Com base em {{ count }} avaliação",
+      "other": "Com base em {{ count }} avaliações"
+    },
+    "reviews_empty_editor": "Adicione aqui as avaliações dos seus clientes: Avaliações de clientes → Adicionar bloco → Avaliação.",
+    "compare_others": "Outros",
+    "compare_yes": "Sim",
+    "compare_partly": "Em parte",
+    "compare_no": "Não"
   }
 }

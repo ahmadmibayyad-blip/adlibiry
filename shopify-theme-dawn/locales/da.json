@@ -537,6 +537,34 @@
     "faq": "Spørgsmål og svar",
     "track_label": "Trackingnummer",
     "track_button": "Spor min ordre",
-    "track_help": "Du finder trackingnummeret i mailen om afsendelse. Linket i din ordrebekræftelse viser også din ordres status."
+    "track_help": "Du finder trackingnummeret i mailen om afsendelse. Linket i din ordrebekræftelse viser også din ordres status.",
+    "rating_count": {
+      "one": "{{ count }} anmeldelse",
+      "other": "{{ count }} anmeldelser"
+    },
+    "rating_count_supplier": {
+      "one": "{{ count }} anmeldelse hos vores leverandør",
+      "other": "{{ count }} anmeldelser hos vores leverandør"
+    },
+    "deals_heading": "Køb flere, spar mere",
+    "deal_items": {
+      "one": "{{ count }} stk.",
+      "other": "{{ count }} stk."
+    },
+    "deal_save_html": "Spar {{ amount }}",
+    "deal_unit_html": "{{ price }} pr. stk.",
+    "guarantee_title": "{{ days }} dages pengene-tilbage-garanti",
+    "guarantee_text": "Ikke tilfreds? Send den retur inden for {{ days }} dage, og få pengene tilbage.",
+    "guarantee_seal": "dage",
+    "verified": "Verificeret køb",
+    "reviews_based_on": {
+      "one": "Baseret på {{ count }} anmeldelse",
+      "other": "Baseret på {{ count }} anmeldelser"
+    },
+    "reviews_empty_editor": "Tilføj dine kunders anmeldelser her: Kundeanmeldelser → Tilføj blok → Anmeldelse.",
+    "compare_others": "Andre",
+    "compare_yes": "Ja",
+    "compare_partly": "Delvist",
+    "compare_no": "Nej"
   }
 }
