@@ -600,6 +600,8 @@ export default defineSchema({
     url: v.string(),
     result: v.any(),         // lib/storeInspect.ts Inspection
     inspectedAt: v.string(), // ISO 8601 UTC
+    analysis: v.optional(v.any()), // lib/storeAnalysis.ts StoreAnalysis ("Analyze this store")
+    analyzedAt: v.optional(v.string()),
   })
     .index("by_user", ["userId", "inspectedAt"])
     .index("by_host", ["host", "inspectedAt"]),

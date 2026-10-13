@@ -7,6 +7,7 @@ import { effectivePlan } from "./lib/billing";
 import { productUrl } from "./lib/productImport";
 import { firstProductPath, inspectHtml, mergeInspections, type Inspection } from "./lib/storeInspect";
 import { productJsPath, teardownProductPage, type Teardown } from "./lib/storeTeardown";
+import type { StoreAd, StoreAnalysis } from "./lib/storeAnalysis";
 import { FREE_WATCHED_STORES, PRO_WATCHED_STORES } from "./stores";
 
 // Store Inspector: paste a store's link, see its theme and apps (lib/storeInspect.ts) and a
@@ -137,7 +138,7 @@ export const recent = query({
       const tracked = store
         ? !!(await ctx.db.query("trackedStores").withIndex("by_user_and_store", (q) => q.eq("userId", user._id).eq("storeId", store._id)).unique())
         : false;
-      out.push({ _id: r._id, host: r.host, inspectedAt: r.inspectedAt, result: r.result as Inspection, storeId: store?._id ?? null, tracked });
+      out.push({ _id: r._id, host: r.host, inspectedAt: r.inspectedAt, result: r.result as Inspection, analysis: (r.analysis as StoreAnalysis | undefined) ?? null, storeId: store?._id ?? null, tracked });
       if (out.length >= 12) break;
     }
     return out;
@@ -190,5 +191,31 @@ export const track = mutation({
     await ctx.db.insert("trackedStores", { userId: user._id, storeId: store._id, trackedAt: new Date().toISOString() });
     await ctx.scheduler.runAfter(0, internal.storeSales.checkOne, { storeId: store._id });
     return { storeId: store._id, tracked: true };
+  },
+});
+
+/** "Analyze this store" (ai.ts analyzeStore): the user's inspection and the store's ads AdSpy has. */
+export const forAnalysis = internalQuery({
+  args: { token: v.string(), inspectionId: v.id("storeInspections") },
+  handler: async (ctx, args) => {
+    const user = await userByToken(ctx, args.token);
+    const row = await ctx.db.get("storeInspections", args.inspectionId);
+    if (!user || !row || (row.userId !== user._id && user.role !== "admin")) return null;
+    const ads = await ctx.db.query("ads").withIndex("by_landing_host", (q) => q.eq("landingHost", row.host)).take(40);
+    const storeAds: StoreAd[] = ads.map((a) => ({
+      headline: a.headline ?? "",
+      body: a.bodyText ?? "",
+      daysRunning: a.daysRunning ?? 0,
+      ...(a.country ? { country: a.country } : {}),
+      ...(a.isActive !== undefined ? { isActive: a.isActive } : {}),
+    }));
+    return { host: row.host, result: row.result as Inspection, ads: storeAds };
+  },
+});
+
+export const saveAnalysis = internalMutation({
+  args: { inspectionId: v.id("storeInspections"), analysis: v.any() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch("storeInspections", args.inspectionId, { analysis: args.analysis, analyzedAt: new Date().toISOString() });
   },
 });

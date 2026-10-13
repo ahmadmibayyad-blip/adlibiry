@@ -86,4 +86,29 @@ describe("Store Inspector", () => {
     for (let i = 0; i < FREE_INSPECTIONS_PER_DAY; i++) await user.action(api.storeInspector.inspect, { url: `https://store${i}.dk` });
     await expect(user.action(api.storeInspector.inspect, { url: "https://one-more.dk" })).rejects.toThrow(/Free accounts can inspect/);
   });
+
+  it("analyzes an inspected store with AI, from its page and its ads, for its owner only", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    let prompt = "";
+    const answer = { verdict: "A buy-1-get-1 store on a free theme.", strengths: [{ point: "Bundles", evidence: "2 Kaching tiers" }], copy: ["Preselect the 2-pack"], beat: ["Real reviews"], weaknesses: ["No reviews shown"], warnings: [], missing: ["Browser-only review widgets"] };
+    vi.stubGlobal("fetch", vi.fn(async (_u: string | URL | Request, init?: RequestInit) => {
+      prompt = String(init?.body ?? "");
+      return new Response(JSON.stringify({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null, content: [{ type: "text", text: JSON.stringify(answer) }], usage: { input_tokens: 1, output_tokens: 1 } }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+    const { t, user } = await setup();
+    const inspectionId = await t.run(async (ctx) => {
+      const userId = (await ctx.db.query("users").first())!._id;
+      const inspectionId = await ctx.db.insert("storeInspections", { userId, host: "komforttid.dk", url: "https://komforttid.dk", inspectedAt: new Date().toISOString(), result: { shopify: true, apps: [], pixels: [], theme: { name: "Refresh", free: true } } });
+      await ctx.db.insert("ads", { source: "apify", advertiserName: "Komfort Tid", platform: "Facebook", country: "DK", niche: "Health", headline: "Køb 1 – Få 1 GRATIS (Kun i dag!)", bodyText: "", creativeUrl: "", landingPageUrl: "https://komforttid.dk/products/x", landingHost: "komforttid.dk", spendEstimate: "Unknown", likes: 0, views: "0", daysRunning: 168, aiScore: 50, targeting: { ageRange: "", gender: "All", interests: [] }, firstSeenAt: new Date().toISOString() });
+      await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" });
+      return inspectionId;
+    });
+    const other = t.withIdentity({ subject: "u2|s" });
+    const a = await user.action(api.ai.analyzeStore, { inspectionId });
+    expect(a).toMatchObject({ verdict: "A buy-1-get-1 store on a free theme.", copy: ["Preselect the 2-pack"] });
+    expect(prompt).toContain("Theme: Refresh");
+    expect(prompt).toContain("the longest running 168 days");
+    expect((await user.query(api.storeInspector.recent, {}))[0].analysis).toMatchObject({ verdict: a.verdict });
+    await expect(other.action(api.ai.analyzeStore, { inspectionId })).rejects.toThrow(/Inspect the store first/);
+  });
 });
