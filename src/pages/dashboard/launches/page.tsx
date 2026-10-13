@@ -46,6 +46,25 @@ function money(amount: number, currency?: string) {
   return amount.toFixed(2);
 }
 
+// The page a Store Inspector "Mirror" link asked for, kept for this tab until it can be used.
+const MIRROR_KEY = "adspy.launch.mirror";
+function savedMirror() {
+  try {
+    return sessionStorage.getItem(MIRROR_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+function saveMirror(url: string | null) {
+  try {
+    if (url) sessionStorage.setItem(MIRROR_KEY, url);
+    else sessionStorage.removeItem(MIRROR_KEY);
+  } catch {
+    /* storage blocked */
+  }
+}
+const hostOf = (url: string) => url.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0];
+
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -185,17 +204,24 @@ export default function LaunchesPage() {
   const [fromLink, setFromLink] = useState<{ _id: Id<"importedProducts">; imageUrl: string } | null>(null);
   // The page the launch copies the layout of (Mirror a page; Store Inspector links here with ?mirror=<product page>).
   const [mirror, setMirror] = useState("");
-  const [mirrorPage, setMirrorPage] = useState(() => params.get("mirror") ?? "");
+  const [mirrorPage, setMirrorPage] = useState(() => params.get("mirror") ?? savedMirror());
   const [mirrorProduct, setMirrorProduct] = useState("");
   const [mirroring, setMirroring] = useState(false);
   // On phones one form shows at a time; from md up both sit side by side.
-  const [tool, setTool] = useState<"link" | "mirror">(() => (params.get("mirror") ? "mirror" : "link"));
+  const [tool, setTool] = useState<"link" | "mirror">(() => (params.get("mirror") || savedMirror() ? "mirror" : "link"));
   const [shown, setShown] = useState(GROUPS_PER_PAGE);
   useEffect(() => {
     if (!params.has("mirror")) return;
+    saveMirror(params.get("mirror"));
     params.delete("mirror");
     setParams(params, { replace: true });
   }, [params, setParams]);
+  // Without a store or the plan the forms don't show: the page to mirror waits (and survives Shopify's OAuth round trip).
+  const canLaunch = !!quota?.store && !!quota.allowed;
+  const mirrorWaiting = !!quota && !canLaunch && !!mirrorPage.trim();
+  useEffect(() => {
+    if (canLaunch) saveMirror(null);
+  }, [canLaunch]);
   const failed = rows?.filter((l) => l.status === "failed") ?? [];
   const deleting = rows?.filter((l) => toDelete?.includes(l._id)) ?? [];
 
@@ -266,7 +292,42 @@ export default function LaunchesPage() {
         )}
       </div>
       <p className="text-sm text-muted-foreground mb-6">Products you launched to your Shopify store, with their ad kits. Launch more from any product page.</p>
-      {quota?.store && quota.allowed && (
+      {mirrorWaiting && quota && (
+        <div role="status" className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4 max-w-md space-y-3">
+          <p className="text-sm flex gap-2">
+            <CopyCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <span>
+              You were mirroring <strong className="break-all">{hostOf(mirrorPage)}</strong>:{" "}
+              {!quota.allowed
+                ? quota.store
+                  ? "upgrade to Pro to continue."
+                  : "connect your Shopify store and upgrade to Pro to continue."
+                : "connect your Shopify store to continue."}{" "}
+              We keep the page, so it's filled in when you're back.
+            </span>
+          </p>
+          {!quota.store && <ConnectShopify />}
+          <div className="flex items-center gap-2 flex-wrap">
+            {!quota.allowed && (
+              <Button asChild size="sm">
+                <Link to="/#pricing">See plans</Link>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setMirrorPage("");
+                saveMirror(null);
+              }}
+            >
+              Forget this page
+            </Button>
+          </div>
+        </div>
+      )}
+      {canLaunch && (
         <section aria-label="Start a launch" className="mb-8">
           <div className="md:hidden mb-3 grid grid-cols-2 rounded-lg border border-border p-1 text-sm" role="group" aria-label="How to launch">
             {(
@@ -385,7 +446,7 @@ export default function LaunchesPage() {
           }}
         />
       ) : null}
-      {quota && !quota.store && (
+      {quota && !quota.store && !mirrorWaiting && (
         <div className="mb-6 rounded-xl border border-dashed border-primary/20 bg-primary/10 p-4 max-w-sm space-y-3">
           <p className="text-sm">Connect your Shopify store to launch winning products as ready-made product pages.</p>
           <ConnectShopify />
@@ -394,7 +455,16 @@ export default function LaunchesPage() {
       <section aria-labelledby="your-launches">
         <div className="flex items-end justify-between gap-3 flex-wrap mb-3">
           <h2 id="your-launches" className="text-lg font-semibold">
-            Your launches{rows?.length ? <span className="ml-1.5 text-sm font-normal text-muted-foreground tabular-nums">{rows.length}</span> : null}
+            Your launches
+            {rows?.length ? (
+              <>
+                {/* Read as "Your launches, 20", shown as a count pill beside the heading. */}
+                <span className="sr-only">,</span>{" "}
+                <span className="ml-1 inline-flex items-center rounded-full bg-muted px-2 py-0.5 align-middle text-xs font-medium text-muted-foreground tabular-nums">
+                  {rows.length}
+                </span>
+              </>
+            ) : null}
           </h2>
           {failed.length ? (
             <button type="button" onClick={() => setToDelete(failed.map((l) => l._id))} className={ACTION}>
