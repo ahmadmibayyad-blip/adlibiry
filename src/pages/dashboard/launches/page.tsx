@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import AdKit from "@/pages/dashboard/products/_components/AdKit.tsx";
 import DeleteLaunches from "./_components/DeleteLaunches.tsx";
 import RelaunchDialog from "./_components/RelaunchDialog.tsx";
+import MakeLive from "./_components/MakeLive.tsx";
 import LaunchDialog from "@/pages/dashboard/products/_components/LaunchDialog.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -65,6 +66,18 @@ function saveMirror(url: string | null) {
 }
 const hostOf = (url: string) => url.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0];
 
+/** The title a launch row shows: the launch's own copy, else the product's. */
+const displayTitle = (l: LaunchRow) => ((l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "").trim();
+
+/** "Økologisk bivoks brødpose – 100 % bomuld" and "økologisk bivoks brødpose 100% bomuld" group together. */
+function groupKey(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[\p{P}\p{S}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -96,6 +109,7 @@ function Row({
   earlier,
   onAds,
   onRelaunch,
+  onMakeLive,
   onDelete,
 }: {
   l: LaunchRow;
@@ -104,9 +118,10 @@ function Row({
   earlier?: boolean;
   onAds: () => void;
   onRelaunch: () => void;
+  onMakeLive?: () => void;
   onDelete: () => void;
 }) {
-  const title = (l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "Product";
+  const title = displayTitle(l) || "Product";
   const busy = l.status === "generating" || l.status === "publishing";
   return (
     <li className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 p-3", earlier && "bg-muted/30")}>
@@ -140,6 +155,19 @@ function Row({
             <Megaphone className="w-3.5 h-3.5" />
             Ads
           </button>
+        ) : null}
+        {onMakeLive && l.status === "published" && l.mode === "store" && l.themeId && !l.themeLive ? (
+          l.step === "going-live" ? (
+            <span className={cn(ACTION, "text-muted-foreground hover:bg-transparent")}>
+              <Spinner className="w-3.5 h-3.5" />
+              Going live…
+            </span>
+          ) : (
+            <button type="button" onClick={onMakeLive} title="Make this store's theme the one your customers see" className={cn(ACTION, "border-primary/30 text-primary")}>
+              <CircleCheck className="w-3.5 h-3.5" />
+              Make live
+            </button>
+          )
         ) : null}
         {l.themePreviewUrl && (
           <a href={l.themePreviewUrl} target="_blank" rel="noopener noreferrer" className={ACTION}>
@@ -198,11 +226,13 @@ export default function LaunchesPage() {
   const [toDelete, setToDelete] = useState<Id<"launches">[] | null>(null);
   // A copy, not a lookup: a relaunch that replaces this launch removes its row while the dialog shows progress.
   const [relaunching, setRelaunching] = useState<Doc<"launches"> | null>(null);
+  const [goingLive, setGoingLive] = useState<Id<"launches"> | null>(null);
+  const goLiveLaunch = rows?.find((l) => l._id === goingLive);
   const importLink = useAction(api.productImport.importLink);
   const [link, setLink] = useState("");
   const [reading, setReading] = useState(false);
   const [fromLink, setFromLink] = useState<{ _id: Id<"importedProducts">; imageUrl: string } | null>(null);
-  // The page the launch copies the layout of (Mirror a page; Store Inspector links here with ?mirror=<product page>).
+  // The page the launch mirrors (Mirror a page; Store Inspector links here with ?mirror=<product page>).
   const [mirror, setMirror] = useState("");
   const [mirrorPage, setMirrorPage] = useState(() => params.get("mirror") ?? savedMirror());
   const [mirrorProduct, setMirrorProduct] = useState("");
@@ -236,11 +266,12 @@ export default function LaunchesPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- read the OAuth return message once
 
   // One group per product: the live launch first, then the newest; older ones fold away. The same
-  // product imported twice from a link is two records with one name, so the name groups them.
+  // product imported twice from a link is two records, often with slightly different titles, so
+  // the title the row shows (punctuation and case aside) groups them.
   const groups: LaunchRow[][] = [];
   const byProduct = new Map<string, LaunchRow[]>();
   for (const l of rows ?? []) {
-    const key = l.product?.title?.trim().toLowerCase() || l.productId;
+    const key = groupKey(displayTitle(l)) || l.productId;
     const g = byProduct.get(key);
     if (g) g.push(l);
     else {
@@ -258,6 +289,8 @@ export default function LaunchesPage() {
     showDomain: showDomain(l),
     onAds: () => setAdsFor(l._id),
     onRelaunch: () => setRelaunching(l),
+    // The theme goes live in the store that's connected now, so only its launches offer it.
+    onMakeLive: showDomain(l) ? undefined : () => setGoingLive(l._id),
     onDelete: () => setToDelete([l._id]),
   });
 
@@ -378,7 +411,7 @@ export default function LaunchesPage() {
                     <Elapsed />
                   </>
                 ) : (
-                  "Launch"
+                  "Read product"
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
@@ -512,6 +545,7 @@ export default function LaunchesPage() {
         )}
       </section>
       {relaunching ? <RelaunchDialog key={relaunching._id} launch={relaunching} aiPhotosReady={!!quota?.aiPhotosReady} onClose={() => setRelaunching(null)} /> : null}
+      {goLiveLaunch ? <MakeLive key={goLiveLaunch._id} launch={goLiveLaunch} open onOpenChange={(o) => !o && setGoingLive(null)} /> : null}
       {deleting.length ? <DeleteLaunches key={deleting.map((l) => l._id).join()} launches={deleting} open onOpenChange={(o) => !o && setToDelete(null)} /> : null}
       <Dialog open={!!adsLaunch} onOpenChange={(o) => !o && setAdsFor(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

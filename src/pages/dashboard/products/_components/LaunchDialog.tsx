@@ -154,12 +154,12 @@ function GoLive({ l }: { l: Doc<"launches"> }) {
   );
 }
 
-/** What "Copy a page's layout" took from the page, and what it left out. */
+/** What "Mirror a page" took from the page, and what it left out. */
 function MirrorResult({ mirror }: { mirror: PageMirror }) {
   return (
     <div className="rounded-lg border border-border p-3 space-y-2 text-sm">
       <p className="font-medium flex items-center gap-1.5">
-        <CopyCheck className="w-4 h-4 text-primary" /> Layout copied from {mirror.host}
+        <CopyCheck className="w-4 h-4 text-primary" /> Mirrored from {mirror.host}
       </p>
       {mirror.copied.length ? (
         <ul className="space-y-1 text-xs">
@@ -396,7 +396,7 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
   const [languageInput, setLanguage] = useState<string | null>(null);
   const [tone, setTone] = useState<(typeof TONES)[number][0]>("friendly");
   const [publishInput, setPublish] = useState<"DRAFT" | "ACTIVE" | null>(null);
-  // A single product page as a draft is the safe start; copying a page's layout needs Full store.
+  // A single product page as a draft is the safe start; mirroring a page needs Full store.
   const [mode, setMode] = useState<"page" | "store">(mirrorStart ? "store" : "page");
   // Full store's form comes in 3 steps (What, Look, Store facts); a product page needs only the first.
   const [step, setStep] = useState(1);
@@ -539,7 +539,7 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                   <ModeSwitch mode={mode} onChange={setMode} />
                   {mode === "page" && mirrorUrl.trim() ? (
                     <p className="text-xs text-warn -mt-2">
-                      Copying {mirrorUrl.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0]}'s layout needs Full store. Switch back to keep it; a single product page
+                      Mirroring {mirrorUrl.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0]}'s page needs Full store. Switch back to keep it; a single product page
                       launches without it.
                     </p>
                   ) : null}
@@ -581,7 +581,7 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                   <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
                   <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
                   <label className="block text-sm">
-                    <span className="font-medium flex items-center gap-1.5"><CopyCheck className="w-4 h-4 text-primary" /> Copy a page's layout</span>
+                    <span className="font-medium flex items-center gap-1.5"><CopyCheck className="w-4 h-4 text-primary" /> Mirror a page</span>
                     <Input
                       type="url"
                       value={mirrorUrl}
@@ -590,7 +590,7 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                       className="mt-1"
                     />
                     <span className="text-xs text-muted-foreground">
-                      Your product page gets that page's section order, bundle deals and buy-box extras. Never its text, photos or reviews: those are
+                      Copies that page's structure onto your product page: its section order, bundle deals and buy-box extras. Never its text, photos or reviews: those are
                       written and made for your product. Fake countdowns aren't copied.
                     </span>
                   </label>
@@ -745,9 +745,21 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                 {step >= lastStep ? (
                   <p className="text-xs text-muted-foreground text-center">
                     {prep.allowed.left === null ? "Unlimited launches" : `Uses 1 of your ${prep.allowed.left} launches left`}
-                    {mode === "store"
-                      ? " · installs as a new theme — your live store doesn't change"
-                      : publish === "ACTIVE"
+                    {mode === "store" ? (
+                      <>
+                        {" · installs as a new theme — your live store doesn't change · "}
+                        {/* Full store makes the product active by default; say so here, where it can be changed in one tap. */}
+                        <button
+                          type="button"
+                          onClick={() => setPublish(publish === "ACTIVE" ? "DRAFT" : "ACTIVE")}
+                          title={publish === "ACTIVE" ? "Save the product as a draft instead" : "Make the product visible in your store instead"}
+                          className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+                        >
+                          {publish === "ACTIVE" ? "product visible in your store (needed for the home page)" : "product saved as a draft"}
+                          <span className="sr-only"> (change)</span>
+                        </button>
+                      </>
+                    ) : publish === "ACTIVE"
                         ? " · published live"
                         : " · saved as a draft in Shopify"}
                   </p>
