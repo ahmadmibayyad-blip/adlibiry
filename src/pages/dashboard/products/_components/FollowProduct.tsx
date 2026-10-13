@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu.tsx";
 
 const THRESHOLDS = [70, 80, 90];
 const message = (e: unknown) => (e instanceof ConvexError ? (e.data as { message: string }).message : "Couldn't update the alert");
@@ -66,6 +67,42 @@ export default function FollowProduct({ productId }: { productId: Id<"products">
   return (
     <Authenticated>
       <FollowProductControls productId={productId} />
+    </Authenticated>
+  );
+}
+
+// The same follow toggle as a menu row (the phone action bar's More menu).
+function FollowMenuRow({ productId }: { productId: Id<"products"> }) {
+  const follow = useQuery(api.follows.productFollow, { productId });
+  const followProduct = useMutation(api.follows.followProduct);
+  const unfollow = useMutation(api.follows.unfollowProduct);
+  if (follow === undefined) return null;
+  return (
+    <DropdownMenuItem
+      onSelect={async () => {
+        try {
+          if (follow) {
+            await unfollow({ productId });
+            toast.success("Unfollowed");
+          } else {
+            await followProduct({ productId });
+            toast.success("Following. You'll get an alert when new ads appear for it.");
+          }
+        } catch (e) {
+          toast.error(message(e));
+        }
+      }}
+    >
+      {follow ? <BellRing className="w-4 h-4" /> : <BellPlus className="w-4 h-4" />}
+      {follow ? "Unfollow" : "Follow"}
+    </DropdownMenuItem>
+  );
+}
+
+export function FollowMenuItem({ productId }: { productId: Id<"products"> }) {
+  return (
+    <Authenticated>
+      <FollowMenuRow productId={productId} />
     </Authenticated>
   );
 }

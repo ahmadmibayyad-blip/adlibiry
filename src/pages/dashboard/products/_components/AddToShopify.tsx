@@ -13,9 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import ConnectShopify from "@/components/ConnectShopify.tsx";
 import ShopifyTokenForm from "@/components/ShopifyTokenForm.tsx";
 
-// One-click Shopify import (convex/shopifyImport.ts): adds the product to the
-// user's store as a draft. Without a connected store: connect, or download
-// a CSV for Shopify's Products → Import.
+// Quick add (convex/shopifyImport.ts): copies the product to the user's store
+// as a draft, as is, with no AI writing (Launch does that). Without a connected
+// store: connect, or download a CSV for Shopify's Products → Import.
+// `dialogOnly` drops the buttons so a menu elsewhere can open the dialog.
 
 const errorText = (e: unknown, fallback: string) =>
   e instanceof ConvexError && typeof (e.data as { message?: unknown })?.message === "string" ? (e.data as { message: string }).message : fallback;
@@ -36,11 +37,15 @@ function Connect({ onDone }: { onDone: () => void }) {
   return <ShopifyTokenForm onDone={onDone} />;
 }
 
-function AddButton({ product }: { product: Doc<"products"> }) {
+type Props = { product: Doc<"products">; dialogOnly?: boolean; open?: boolean; onOpenChange?: (open: boolean) => void };
+
+function AddButton({ product, dialogOnly, open: openProp, onOpenChange }: Props) {
   const shop = useQuery(api.shopifyImport.connection, {});
   const push = useAction(api.shopifyImport.pushProduct);
   const disconnect = useMutation(api.shopifyImport.disconnect);
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = onOpenChange ?? setOpenState;
   const [busy, setBusy] = useState(false);
 
   const add = async () => {
@@ -60,11 +65,13 @@ function AddButton({ product }: { product: Doc<"products"> }) {
 
   return (
     <>
-      <Button variant="outline" disabled={busy} onClick={() => (shop ? add() : setOpen(true))}>
-        {busy ? <Spinner /> : <ShoppingBag className="w-4 h-4 mr-2" />}
-        Add to Shopify
-      </Button>
-      {shop && (
+      {!dialogOnly && (
+        <Button variant="outline" disabled={busy} onClick={() => (shop ? add() : setOpen(true))}>
+          {busy ? <Spinner /> : <ShoppingBag className="w-4 h-4 mr-2" />}
+          Quick add to Shopify (no AI)
+        </Button>
+      )}
+      {shop && !dialogOnly && (
         <Button variant="ghost" size="icon" title="Shopify settings and CSV" onClick={() => setOpen(true)}>
           <Settings2 className="w-4 h-4" />
         </Button>
@@ -72,9 +79,10 @@ function AddButton({ product }: { product: Doc<"products"> }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add to Shopify</DialogTitle>
+            <DialogTitle>Quick add to Shopify</DialogTitle>
             <DialogDescription>
-              {shop ? `Connected to ${shop.shopName} (${shop.shopDomain}).` : "Connect your store once, then add products with one click. They arrive as drafts."}
+              Copies the product as it is, as a draft, without AI copy or pricing. Launch writes the full product page.{" "}
+              {shop ? `Connected to ${shop.shopName} (${shop.shopDomain}).` : "Connect your store once, then add products with one click."}
             </DialogDescription>
           </DialogHeader>
           {shop ? (
@@ -114,10 +122,10 @@ function AddButton({ product }: { product: Doc<"products"> }) {
   );
 }
 
-export default function AddToShopify({ product }: { product: Doc<"products"> }) {
+export default function AddToShopify(props: Props) {
   return (
     <Authenticated>
-      <AddButton product={product} />
+      <AddButton {...props} />
     </Authenticated>
   );
 }

@@ -2,10 +2,10 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
-import { motion } from "motion/react";
+import { motion, MotionConfig } from "motion/react";
 import { Area, AreaChart } from "recharts";
 import {
-  TrendingUp, TrendingDown, Bookmark, Zap, Trophy, ArrowRight, Package, Sparkles, Megaphone, Flame, ExternalLink,
+  TrendingUp, TrendingDown, Bookmark, Zap, Trophy, ArrowRight, Package, Sparkles, Megaphone, Flame,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
@@ -23,16 +23,13 @@ import { useAuth } from "@/hooks/use-auth.ts";
 import { toast } from "sonner";
 import ProductImage from "@/components/ProductImage.tsx";
 import { moneyCompact, price } from "@/lib/money.ts";
+import LaunchDialog from "./products/_components/LaunchDialog.tsx";
 
-// Home dashboard. The charts come from api.dashboard.overview, saved once a
-// day after the product pipeline; everything else is live.
+// Home dashboard: today's top winner and its next step first, then the
+// winners, then the rest. The charts come from api.dashboard.overview, saved
+// once a day after the product pipeline; everything else is live.
 
 const BRAND = "var(--chart-1)";
-const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4, delay },
-});
 const sum = (points: Point[]) => points.reduce((s, p) => s + p.value, 0);
 
 function greeting() {
@@ -59,7 +56,7 @@ function Change({ now, before }: { now: number; before: number }) {
   const pct = before ? Math.round(((now - before) / before) * 100) : 100;
   const up = pct >= 0;
   return (
-    <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-medium", up ? "text-primary" : "text-red-500")}>
+    <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-medium", up ? "text-primary" : "text-bad")}>
       {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
       {up ? "+" : ""}
       {pct}%
@@ -181,22 +178,14 @@ function HeroWinner({ product }: { product: Doc<"products"> | undefined | null }
               ))}
             </div>
           )}
-          <div className="flex flex-wrap gap-2 mt-auto pt-4">
-            <Button asChild size="sm" className="h-10 sm:h-8">
+          {/* Next step: launch it, or look closer first */}
+          <div className="flex flex-wrap gap-2 mt-auto pt-4 [&_button]:h-10 sm:[&_button]:h-9">
+            <LaunchDialog product={product} />
+            <Button asChild variant="outline" className="h-10 sm:h-9">
               <Link to={href}>
                 View product
                 <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="h-10 sm:h-8">
-              <a
-                href={`https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                Find supplier
-              </a>
             </Button>
           </div>
         </div>
@@ -211,7 +200,7 @@ function TrendingNow() {
     <div className="h-full bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold flex items-center gap-1.5">
-          <Flame className="w-4 h-4 text-orange-500" />
+          <Flame className="w-4 h-4 text-brand" />
           Trending now
         </h2>
         <Link to="/dashboard/research" className="flex items-center h-10 sm:h-auto text-xs text-primary hover:underline">
@@ -286,6 +275,10 @@ function TopNiches({ niches }: { niches: { niche: string; thisWeek: number; last
   );
 }
 
+// A swipeable row on phones, a grid from sm up.
+const ROW =
+  "flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-5 px-5 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 sm:overflow-visible";
+
 // The newest ads and products in AdSpy Pro, so an import shows up here first.
 function JustAdded() {
   const data = useQuery(api.dashboard.justAdded, {});
@@ -324,20 +317,30 @@ function JustAdded() {
         </Link>
       </div>
       {items === undefined ? (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-          {Array.from({ length: 3 }).map((_, i) => (tab === "ads" ? <AdCardSkeleton key={i} /> : <ProductCardSkeleton key={i} />))}
+        <div className={ROW}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={cn("shrink-0 sm:w-auto", tab === "ads" ? "w-64" : "w-40")}>
+              {tab === "ads" ? <AdCardSkeleton /> : <ProductCardSkeleton />}
+            </div>
+          ))}
         </div>
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nothing added yet.</p>
       ) : data && tab === "ads" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-          {data.ads.map((ad) => (
-            <AdCard key={ad._id} ad={ad} onClick={() => navigate(`/dashboard/ads/${ad._id}`)} />
+        <div className={ROW}>
+          {data.ads.slice(0, 6).map((ad) => (
+            <div key={ad._id} className="w-64 shrink-0 snap-start sm:w-auto">
+              <AdCard ad={ad} onClick={() => navigate(`/dashboard/ads/${ad._id}`)} />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-          {data?.products.map((p) => <ProductCard key={p._id} product={p} />)}
+        <div className={ROW}>
+          {data?.products.slice(0, 6).map((p) => (
+            <div key={p._id} className="w-40 shrink-0 snap-start sm:w-auto">
+              <ProductCard product={p} />
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -361,12 +364,8 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
     <div>
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-yellow-500" />
+          <Trophy className="w-5 h-5 text-warn" />
           <h2 className="text-lg font-bold">Today's winning products</h2>
-          <div className="flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full border border-primary/20">
-            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-            Live
-          </div>
         </div>
         <Link to={niche ? `/dashboard/winners?niche=${encodeURIComponent(niche)}` : "/dashboard/winners"} className="flex items-center gap-1 h-10 sm:h-auto text-sm text-primary hover:underline">
           View all
@@ -397,7 +396,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
 
       {items === undefined ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 4 }).map((_, i) => (
             <ProductCardSkeleton key={i} />
           ))}
         </div>
@@ -409,8 +408,15 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-          {items.map(({ product, isNewToday }) => (
-            <motion.div key={product._id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          {/* Four on phones and tablets (two rows), six on desktop */}
+          {items.slice(0, 6).map(({ product, isNewToday }, i) => (
+            <motion.div
+              key={product._id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className={cn(i >= 4 && "hidden lg:block")}
+            >
               <ProductCard product={product} isNewToday={isNewToday} />
             </motion.div>
           ))}
@@ -440,13 +446,64 @@ export default function DashboardHome() {
   const products = overview?.productsPerDay ?? [];
   const productsThisWeek = sum(products.slice(-7));
 
+  // Tiles still loading stay as skeletons; a 0 is hidden rather than shown.
+  const tiles = [
+    {
+      key: "products",
+      value: stats?.totalProducts,
+      node: (v: number | undefined) => (
+        <StatCard
+          icon={Package}
+          label="Products tracked"
+          value={v}
+          tint="bg-chart-2/10 text-chart-2"
+          spark={<Sparkline points={products} label="New products per day" />}
+          sub={productsThisWeek > 0 ? <span className="text-primary font-medium">+{compactNumber(productsThisWeek)} this week</span> : undefined}
+        />
+      ),
+    },
+    {
+      key: "winners",
+      value: summary === undefined ? undefined : summary.total || (stats?.winnersToday ?? 0),
+      node: (v: number | undefined) => (
+        <StatCard
+          icon={Trophy}
+          label="Winning products"
+          value={v}
+          tint="bg-warn/10 text-warn"
+          sub={summary?.newToday ? <span className="text-primary font-medium">{summary.newToday} new this round</span> : undefined}
+        />
+      ),
+    },
+    {
+      key: "ads",
+      value: overview === undefined ? undefined : adsThisWeek,
+      node: (v: number | undefined) => (
+        <StatCard
+          icon={Megaphone}
+          label="New ads this week"
+          value={v}
+          tint="bg-primary/10 text-primary"
+          spark={<Sparkline points={ads} label="New ads per day" />}
+          sub={<Change now={adsThisWeek} before={adsLastWeek} />}
+        />
+      ),
+    },
+    {
+      key: "saved",
+      value: stats?.savedCount,
+      node: (v: number | undefined) => <StatCard icon={Bookmark} label="Saved by you" value={v} tint="bg-brand/10 text-brand-ink" />,
+    },
+  ].filter((t) => t.value === undefined || t.value > 0);
+
   return (
+    <MotionConfig reducedMotion="user">
     <div className="p-5 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <motion.div {...fadeUp(0)} className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold mb-1">
-            {greeting()}, {user?.profile?.name?.split(" ")[0] ?? "there"} 👋
+            {greeting()}, {user?.profile?.name?.split(" ")[0] ?? "there"}
           </h1>
           <p className="text-muted-foreground text-sm">Here's what's winning today, refreshed daily from live ad and marketplace data.</p>
         </div>
@@ -463,51 +520,58 @@ export default function DashboardHome() {
             Ask AI
           </Button>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Stats */}
-      <motion.div {...fadeUp(0.05)} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={Package}
-          label="Products tracked"
-          value={stats?.totalProducts}
-          tint="bg-blue-500/10 text-blue-500"
-          spark={<Sparkline points={products} label="New products per day" />}
-          sub={productsThisWeek > 0 ? <span className="text-primary font-medium">+{compactNumber(productsThisWeek)} this week</span> : undefined}
-        />
-        <StatCard
-          icon={Trophy}
-          label="Winning products"
-          value={summary === undefined ? undefined : summary.total || (stats?.winnersToday ?? 0)}
-          tint="bg-yellow-500/10 text-yellow-600"
-          sub={summary?.newToday ? <span className="text-primary font-medium">{summary.newToday} new this round</span> : undefined}
-        />
-        <StatCard
-          icon={Megaphone}
-          label="New ads this week"
-          value={overview === undefined ? undefined : adsThisWeek}
-          tint="bg-primary/10 text-primary"
-          spark={<Sparkline points={ads} label="New ads per day" />}
-          sub={<Change now={adsThisWeek} before={adsLastWeek} />}
-        />
-        <StatCard icon={Bookmark} label="Saved by you" value={stats?.savedCount} tint="bg-purple-500/10 text-purple-500" />
-      </motion.div>
-
-      {/* Newest imports */}
-      <motion.div {...fadeUp(0.08)}>
-        <JustAdded />
-      </motion.div>
-
-      {/* Top winner + trending keywords */}
-      <motion.div {...fadeUp(0.1)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Top winner + trending keywords (trends sit lower on phones) */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+      >
         <div className="lg:col-span-2">
           <HeroWinner product={top === undefined ? undefined : (top[0] ?? null)} />
         </div>
-        <TrendingNow />
+        <div className="hidden sm:block">
+          <TrendingNow />
+        </div>
       </motion.div>
 
+      {/* Stats: refreshed with the daily update, so no "live" claim */}
+      {tiles.length > 0 && (
+        <section aria-labelledby="home-stats">
+          <div className="flex items-baseline justify-between mb-2">
+            <h2 id="home-stats" className="sr-only">At a glance</h2>
+            <span className="ml-auto text-[11px] text-muted-foreground">Updated daily</span>
+          </div>
+          <div className={cn("grid grid-cols-2 gap-4", tiles.length === 3 ? "lg:grid-cols-3" : tiles.length >= 4 && "lg:grid-cols-4")}>
+            {tiles.map((t) => (
+              <div key={t.key}>{t.node(t.value)}</div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Winners */}
+      <WinnersGrid fallback={top} />
+
+      {/* Newest imports */}
+      <JustAdded />
+
+      {/* Phones skip the trends list, chart and niches; trends are one tap away */}
+      <Link
+        to="/dashboard/research"
+        className="sm:hidden flex items-center justify-between h-12 px-4 rounded-xl border border-border bg-card text-sm font-medium"
+      >
+        <span className="flex items-center gap-2">
+          <Flame className="w-4 h-4 text-brand" />
+          Trending keywords
+        </span>
+        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+      </Link>
+
       {/* New ads chart + niches */}
-      <motion.div {...fadeUp(0.15)} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="hidden sm:grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 [&>div]:h-full [&>div]:rounded-2xl [&>div]:p-5 [&>div]:shadow-sm">
           <ChartCard
             title="New ads found, last 30 days"
@@ -519,12 +583,8 @@ export default function DashboardHome() {
           </ChartCard>
         </div>
         <TopNiches niches={overview === undefined ? undefined : (overview?.topNiches ?? [])} />
-      </motion.div>
-
-      {/* Winners */}
-      <motion.div {...fadeUp(0.2)}>
-        <WinnersGrid fallback={top} />
-      </motion.div>
+      </div>
     </div>
+    </MotionConfig>
   );
 }
