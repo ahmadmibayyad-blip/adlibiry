@@ -17,7 +17,7 @@ export const STORE_ANALYSIS_SYSTEM = [
   "- weaknesses: 2–5 gaps or friction points in their store.",
   "- warnings: claims or tactics that look misleading or risky (e.g. an \"ends today\" offer that has run for months, review numbers that can't be checked, fake scarcity). Say they shouldn't be copied. Empty if none.",
   "- missing: what AdSpy couldn't see that would change the analysis (e.g. reviews that load in the browser, the checkout).",
-  "Rules: only use the evidence; never invent sales, revenue, traffic, conversion rates or review numbers. Say \"the page shows\" for numbers the store displays. Short, concrete sentences.",
+  "Rules: only use the evidence; never invent sales, revenue, traffic, conversion rates or review numbers. Say \"the page shows\" for numbers the store displays. Quoted page text is shortened by AdSpy (…), so don't judge the store's copy by where a quote ends. Short, concrete sentences.",
 ].join("\n");
 
 export type StoreAnalysis = {
@@ -65,7 +65,7 @@ export function storeEvidence(host: string, r: Inspection, ads: StoreAd[] = []):
         );
       }
     } else lines.push("Bundle offer: none found in the page's HTML");
-    if (t.features.length) lines.push(`Conversion features: ${t.features.map((f) => (f.evidence ? `${f.label} ("${f.evidence.slice(0, 80)}")` : f.label)).join("; ")}`);
+    if (t.features.length) lines.push(`Conversion features: ${t.features.map((f) => (f.evidence ? `${f.label} ("${f.evidence.length > 80 ? `${f.evidence.slice(0, 80)}…` : f.evidence}")` : f.label)).join("; ")}`);
     if (t.sections.length) lines.push(`Page sections, top to bottom: ${t.sections.map((s) => s.label).join(" → ")}`);
   } else lines.push("", "Product page: couldn't be read.");
 
