@@ -84,3 +84,117 @@ export const wanderHtml = `<div class="oke-sr-count"><span class="oke-sr-count-n
 export const allthemmaMetafieldHtml = `<script>var okendoProductReviewCount = null
   try { MetafieldReviews = {"rating":{"scale_min":"1.0","scale_max":"5.0","value":"4.77"},"rating_count":66};
   } catch (e) {}</script>`;
+
+// Saved 2026-10-13.
+
+/**
+ * matrix-nutrition.co.uk/products/kong-sleep-aid: the Vitals app embed. The volume discount itself isn't
+ * in the page; the embed carries what the widget needs to fetch it (shop id, cache key, offer types).
+ */
+export const matrixVitalsHtml = `<html><head><script>var Shopify = Shopify || {};
+Shopify.shop = "matrix-nutrition.myshopify.com";
+Shopify.locale = "en";
+Shopify.currency = {"active":"GBP","rate":"1.0"};
+Shopify.country = "GB";</script>
+<!-- BEGIN app block: shopify://apps/vitals/blocks/app-embed/aeb48102-2a5a-4f39-bdbd-d8d49f4e20b8 --><link rel="preconnect" href="https://appsolve.io/" /><script data-ver="68" id="vtlsAebData" class="notranslate">window.vtlsLiquidData = window.vtlsLiquidData || {};window.vtlsLiquidData.buildId = 83577;window.vtlsLiquidData.apiHosts = {
+	...window.vtlsLiquidData.apiHosts,
+	"1": "https://appsolve.io"
+};window.vtlsLiquidData.ubOfferTypes={"1":[1,2,6],"2":[1,2,6]};window.vtlsLiquidData.shopInfo={id:56358109371,domain:"www.matrix-nutrition.co.uk",shopifyDomain:"matrix-nutrition.myshopify.com",primaryLocaleIsoCode: "en",defaultCurrency:"GBP"};window.vtlsLiquidData.product = {"id": 7541618114778,"available": true,"title": "Kong Sleep Aid","handle": "kong-sleep-aid"};window.vtlsLiquidData.cacheKeys = [0,1762852506,0,1791838731,1646389186,0,1791838732,0,0 ];</script><!-- END app block -->
+</head><body><div id="shopify-section-template--1__main" class="shopify-section"><h1>Kong Sleep Aid</h1></div></body></html>`;
+
+export const matrixProduct = { id: 7541618114778, title: "Kong Sleep Aid", price: 1499, compare_at_price: null, variants: [{ id: 42395218968794, price: 1499, compare_at_price: null, available: true }] };
+
+/** appsolve.io/bundle/api/v2/sf/ub/pp/…/7541618114778.json for that page: a radio list with a ribbon on tier 2 (styling keys dropped). */
+export const matrixVitalsOffers = {
+  productBundle: null,
+  volumeDiscount: {
+    vd: {
+      id: 900504, name: "Buy more, save more!", title: "Buy more, save more!", type: "fixed", applicationType: "percent",
+      tiersWithGifts: [
+        { giftGroups: [], discountType: "full_price", tierQuantity: "1", discountValue: "0" },
+        { giftGroups: [], discountType: "percent", tierQuantity: "2", discountValue: "15" },
+        { giftGroups: [], discountType: "percent", tierQuantity: "3", discountValue: "20" },
+        { giftGroups: [], discountType: "percent", tierQuantity: "4", discountValue: "30" },
+      ],
+      highlightTier: 2, highlightTierLabel: "MOST POPULAR", preselectHighlightedTier: false,
+      discountFormatText: "Buy {{ quantity }} with {{ discount_amount }} off", discountFormatTextTierZero: "Buy {{ quantity }} for {{ price_each }}",
+      discountFormatTierLabels: [
+        { badge: "", label: "", title: "Buy {{ quantity }} for {{ price_each }}", subtitle: "" },
+        { badge: "Save: {{ discount_total }}", label: "MOST POPULAR", title: "Buy {{ quantity }} with {{ discount_amount }} off", subtitle: "" },
+        { badge: "Save: {{ discount_total }}", label: "", title: "Buy {{ quantity }} with {{ discount_amount }} off", subtitle: "" },
+        { badge: "Save: {{ discount_total }}", label: "", title: "Buy {{ quantity }} with {{ discount_amount }} off", subtitle: "" },
+      ],
+    },
+  },
+  bogo: null,
+  relatedProducts: null,
+  productAddOn: null,
+  clickAtc: { enabled: true },
+};
+
+/** abundanthealth4u.com, labels for sample vials: Vitals' table layout ("Buy 10 - 19 / 20 - 29 / 30+") with tier 2 selected. */
+export const abundantVitalsOffers = {
+  productBundle: null,
+  volumeDiscount: {
+    vd: {
+      id: 1231542, title: "Buy more, save more!", type: "percent", applicationType: "full_price",
+      tiersWithGifts: [
+        { giftGroups: [], addOnGroups: [], discountType: "percent", tierQuantity: "10", discountValue: "10", selectedByDefault: false },
+        { giftGroups: [], addOnGroups: [], discountType: "percent", tierQuantity: "20", discountValue: "20", selectedByDefault: true },
+        { giftGroups: [], addOnGroups: [], discountType: "percent", tierQuantity: "30", discountValue: "30", selectedByDefault: false },
+      ],
+      highlightTier: null, highlightTierLabel: null, preselectHighlightedTier: false, discountFormatText: null,
+      discountFormatTierLabels: [
+        { badge: "", label: "", title: "Buy {{ quantity_interval }}", subtitle: "" },
+        { badge: "", label: "", title: "Buy {{ quantity_interval }}", subtitle: "" },
+        { badge: "", label: "", title: "Buy {{ quantity_interval }}", subtitle: "" },
+      ],
+    },
+  },
+};
+
+/**
+ * ryyook.myshopify.com/products/streetwear-cap (a Debutify 8 demo store): the quantity-break widget's
+ * settings and blocks as the theme prints them, the free products cut to the keys we read. Breaks 2 and 3
+ * come with a free product; the theme adds the single-unit option itself.
+ */
+export const ryyookDebutifyHtml = `<script>Shopify.currency = {"active":"DKK","rate":"6.825024"};</script>
+<script>
+  Debutify.widgets['qty-breaks'] = {"enable_quantity_breaks":true,"heading":"Quantity breaks","enable_single_quantity":true,"single_quantity_text":"Buy {COUNT}","single_quantity_subtext":"Standard price","multiple_quantity_text":"Buy {COUNT}","multiple_quantity_subtext":"You have saved {SAVED_AMOUNT}","enable_variant_selector":true,"text":"Add {count} more item to unlock {discount} off","highest_discount_text":"Highest discount applied!"};</script>
+<script>
+    Debutify.widgets['qty-breaks']['product_break'] = [];
+    Debutify.widgets['qty-breaks']['cart_break'] = [];
+  </script><div id="shopify-block-AVWdDMzF1NXdxWkdaO__dbtfy_product_qty_breaks_R8wzeV" class="shopify-block"><script>
+  Debutify.widgets['qty-breaks']['product_break'].push({"product_break_layout_type":"layout-4","product_break_enable_grid":true,"enable_quantity_badge":false,"product_break_visibility":"all","product_break_collection":"","product_break_types":"","product_break_tags":"","product_break_product":""});
+</script><div id="shopify-block-AbVpFZVJJWmdVTmx5c__dbtfy_product_qty_break_MaxXpC" class="shopify-block"><script>
+  var qtyarr = Debutify.widgets['qty-breaks']['product_break']
+  var qtylastElement = qtyarr.pop();
+  if(qtylastElement.breaks === undefined) {
+    qtylastElement.breaks = [];
+  }
+  var block_setting = {"heading":"","product_break_range":2,"title":"Buy 2","subtitle":"","product_break_badge_style":"most_popular","badge_title":"POPULAR","product_break_free_product":"cargo-pants","product_break_free_product_quantity":1,"product_break_discount_code":"10OFF","product_break_discount_amount":"10","product_break_discount_type":"%","product_break_tag_1":""};
+    block_setting.free_product = {"id":8941240582167,"title":"Cargo Pants","handle":"cargo-pants","description":"\\u003cp\\u003eUpgrade your streetwear wardrobe with our Cargo Pants.\\u003c\\/p\\u003e","type":"Pants","price":67568,"available":true};
+    block_setting.money_guarantee_product = {"error":"json not allowed for this object"};
+  qtylastElement.breaks.push(block_setting);
+  Debutify.widgets['qty-breaks']['product_break'].push(qtylastElement);
+</script></div>
+<div id="shopify-block-AdEtVcVVvUlNLbEMxa__dbtfy_product_qty_break_JdXLVj" class="shopify-block"><script>
+  var qtyarr = Debutify.widgets['qty-breaks']['product_break']
+  var qtylastElement = qtyarr.pop();
+  var block_setting = {"heading":"","product_break_range":3,"title":"Buy 3","subtitle":"","product_break_badge_style":"simple","badge_title":"","product_break_free_product":"baggy-jeans","product_break_free_product_quantity":1,"product_break_discount_code":"20OFF","product_break_discount_amount":"20","product_break_discount_type":"%","product_break_tag_1":""};
+    block_setting.free_product = {"id":8941240647703,"title":"Baggy Jeans","handle":"baggy-jeans","type":"Bodysuits","price":67568,"available":true};
+  qtylastElement.breaks.push(block_setting);
+  Debutify.widgets['qty-breaks']['product_break'].push(qtylastElement);
+</script></div>
+</div>
+<div id="shopify-block-AMmhsNUR0RHFkaFpGR__product_quantity_breaks_H9h7Bz" class="shopify-block"><dbtfy-product-quantity-break
+  data-current-variant="45497828147223"
+  data-current-variant-price="45045"
+  data-form-data
+>
+  <script type="application/json" data-quantity-break-product>{"id":8941241139223,"title":"Streetwear Cap","handle":"streetwear-cap","type":"Caps","tags":["cap","streetwear"],"price":45045}</script>
+    <script type="application/json" data-quantity-break-collection>[{"id":490314891287,"handle":"womens-collection","title":"Women's Collection"},{"id":490314924055,"handle":"accessories","title":"Accessories"}]</script>
+</dbtfy-product-quantity-break>
+<script src="//ryyook.myshopify.com/cdn/shop/t/2/assets/dbtfy-product-quantity-break.js?v=66390802759606521681789359346" defer="defer"></script></div>`;
+
+export const ryyookProduct = { id: 8941241139223, title: "Streetwear Cap", handle: "streetwear-cap", price: 45045, compare_at_price: null, variants: [{ id: 45497828147223, price: 45045, compare_at_price: null, available: true }] };

@@ -1,7 +1,8 @@
 // Store Teardown (Store Inspector, convex/storeInspector.ts): what a Shopify
 // product page shows a shopper, read from its plain HTML and /products/<handle>.js:
 // bundle / quantity-break tiers (Kaching Bundles' embedded settings JSON, Upsell
-// Koala's server-rendered tiers), the review widget's rating and count, price vs
+// Koala's server-rendered tiers, Debutify's quantity-break settings, Vitals' volume
+// discount from its offers JSON), the review widget's rating and count, price vs
 // compare-at, conversion features and the order of the page's sections.
 // Everything here is what the page *shows*; none of it is verified. Pure and unit tested.
 
@@ -243,6 +244,228 @@ export function koalaBundle(html: string): BundleOffer | undefined {
   return tiers.length ? { app: "Upsell Koala", tiers } : undefined;
 }
 
+const parseJson = (s: string | undefined): unknown => {
+  if (!s) return undefined;
+  try {
+    return JSON.parse(s) as unknown;
+  } catch {
+    return undefined;
+  }
+};
+
+/** The JSON object literal that starts at s[start] ("{"), read up to its matching brace. */
+function jsonObjectAt(s: string, start: number): unknown {
+  if (s[start] !== "{") return undefined;
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < s.length && i < start + 200_000; i++) {
+    const c = s[i];
+    if (inString) {
+      if (c === "\\") i++;
+      else if (c === '"') inString = false;
+    } else if (c === '"') inString = true;
+    else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return parseJson(s.slice(start, i + 1));
+  }
+  return undefined;
+}
+
+const asRecord = (v: unknown): Record<string, unknown> | undefined =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+
+const asList = (v: unknown): Record<string, unknown>[] =>
+  Array.isArray(v) ? v.map(asRecord).filter((x): x is Record<string, unknown> => !!x) : [];
+
+/** Fills {{ name }} / {NAME} placeholders we know; a line with one we can't fill is left out. */
+function fillTemplate(v: unknown, values: Record<string, string | undefined>): string | undefined {
+  const s = clean(v);
+  if (!s) return undefined;
+  const out = s
+    .replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k: string) => values[k.toLowerCase()] ?? m)
+    .replace(/\{(\w+)\}/g, (m, k: string) => values[k.toLowerCase()] ?? m);
+  return /\{\{?\s*\w+\s*\}?\}/.test(out) ? undefined : out;
+}
+
+/**
+ * Vitals keeps a product's offers (volume discounts, bundles…) on its own server and loads them in the
+ * browser; the page only carries what's needed to ask for them (its app embed's vtlsLiquidData). This is
+ * the plain JSON URL the widget reads, when the store has a volume discount set up (ubOfferTypes["2"]).
+ */
+export function vitalsOffersUrl(html: string, productId?: number): string | undefined {
+  if (!html.includes("vtlsLiquidData")) return undefined;
+  const m = html.match(/vtlsLiquidData\.ubOfferTypes\s*=\s*(?=\{)/);
+  const types = m ? asRecord(jsonObjectAt(html, (m.index ?? 0) + m[0].length)) : undefined;
+  if (!types?.["2"]) return undefined;
+  const shop = html.match(/vtlsLiquidData\.shopInfo\s*=\s*\{\s*id:\s*(\d+)/)?.[1];
+  const cacheKey = html.match(/vtlsLiquidData\.cacheKeys\s*=\s*\[([^\]]*)\]/)?.[1].split(",")[3]?.trim();
+  const id = productId ?? num(html.match(/vtlsLiquidData\.product\s*=\s*\{\s*"id":\s*(\d+)/)?.[1]);
+  if (!shop || !cacheKey || !/^\d+$/.test(cacheKey) || !id) return undefined;
+  const locale = html.match(/Shopify\.locale\s*=\s*"([a-zA-Z]{2,3}(?:-[a-zA-Z]{2,4})?)"/)?.[1] ?? "en";
+  const country = html.match(/Shopify\.country\s*=\s*"([A-Z]{2})"/)?.[1] ?? "US";
+  return `https://appsolve.io/bundle/api/v2/sf/ub/pp/${shop}/${locale}/${cacheKey}/${country}/${id}.json`;
+}
+
+/** Vitals' volume discount for the product, from the offers JSON at vitalsOffersUrl(). */
+export function vitalsBundle(offers: unknown, unitPrice?: number): BundleOffer | undefined {
+  const vd = asRecord(asRecord(asRecord(offers)?.volumeDiscount)?.vd);
+  if (!vd) return undefined;
+  const raw = asList(vd.tiersWithGifts).filter((t) => (num(t.tierQuantity) ?? 0) > 0);
+  if (!raw.length) return undefined;
+  // Vitals sorts tiers by quantity and shows ranges like "10 - 19" and "30+".
+  const order = raw.map((t, i) => ({ t, i })).sort((a, b) => num(a.t.tierQuantity)! - num(b.t.tierQuantity)!);
+  const formats = Array.isArray(vd.discountFormatTierLabels) ? (vd.discountFormatTierLabels as unknown[]) : [];
+  const highlight = num(vd.highlightTier);
+  const tiers = order.slice(0, 8).map(({ t, i }, k): BundleTier => {
+    const quantity = num(t.tierQuantity)!;
+    const next = num(order[k + 1]?.t.tierQuantity);
+    const interval = next === undefined ? `${quantity}+` : next - 1 > quantity ? `${quantity} - ${next - 1}` : `${quantity}`;
+    const type = typeof t.discountType === "string" ? t.discountType : "percent";
+    const value = num(t.discountValue) ?? 0;
+    let deal: TierDeal = { kind: "none" };
+    if (value > 0) {
+      if (type === "percent") deal = { kind: "percent", value };
+      // "fixed" takes an amount off each item; "fixed_price" sets the tier's total.
+      else if (type === "fixed") deal = { kind: "amount", value: Math.round(value * quantity * 100) / 100 };
+      else if (type === "fixed_price") deal = { kind: "price", value };
+    }
+    const percentOff = tierPercentOff(deal, quantity, unitPrice);
+    const values = {
+      quantity: String(quantity),
+      quantity_interval: interval,
+      discount_amount: deal.kind === "percent" ? `${value}%` : undefined,
+      saved_percentage: percentOff !== undefined ? `${Math.round(percentOff)}%` : undefined,
+    };
+    const format = asRecord(formats[i]);
+    const isHighlighted = highlight === i + 1;
+    const title =
+      fillTemplate(format?.title, values) ??
+      fillTemplate(deal.kind === "none" ? vd.discountFormatTextTierZero : vd.discountFormatText, values) ??
+      `Buy ${interval}`;
+    const subtitle = fillTemplate(format?.subtitle, values);
+    // Vitals' "label" is the ribbon over a tier ("MOST POPULAR"); its "badge" is a pill like "Save: £4.48".
+    const badge = fillTemplate(format?.label, values) ?? (isHighlighted ? clean(vd.highlightTierLabel) : undefined);
+    const label = fillTemplate(format?.badge, values);
+    const gifts = asList(t.giftGroups).map((g) => clean(g.textBefore) ?? clean(g.textAfter) ?? "Free gift");
+    return {
+      title,
+      ...(subtitle ? { subtitle } : {}),
+      ...(label ? { label } : {}),
+      ...(badge ? { badge } : {}),
+      quantity,
+      deal,
+      ...(percentOff !== undefined ? { percentOff } : {}),
+      freeGifts: gifts.filter((g) => !FREE_SHIPPING.test(g)),
+      freeShipping: [title, subtitle, label, badge, ...gifts].some((s) => !!s && FREE_SHIPPING.test(s)),
+      preselected: t.selectedByDefault === true || (vd.preselectHighlightedTier === true && isHighlighted),
+    };
+  });
+  const heading = clean(vd.title);
+  return { app: "Vitals", ...(heading ? { heading } : {}), tiers };
+}
+
+/** The product fields Debutify's quantity breaks are targeted by. */
+type DebutifyProduct = { handle?: string; type?: string; tags: string[]; collections: string[] };
+
+/**
+ * Debutify themes (8.x) print the quantity-break widget's settings into the page as
+ * Debutify.widgets['qty-breaks'] plus one product_break.push({...}) per group and a
+ * `var block_setting = {...}` per break; the theme's script draws the tiers from them in the browser
+ * inside <dbtfy-product-quantity-break>, which also holds the product and its collections as JSON.
+ */
+export function debutifyBundle(html: string, productJs?: unknown, unitPrice?: number): BundleOffer | undefined {
+  // The settings are on every page; the tiers only show where the product template has the widget.
+  if (!html.includes("Debutify.widgets['qty-breaks']") || !html.includes("<dbtfy-product-quantity-break")) return undefined;
+  const at = (m: RegExpMatchArray | null) => (m ? asRecord(jsonObjectAt(html, (m.index ?? 0) + m[0].length)) : undefined);
+  const settings = at(html.match(/Debutify\.widgets\['qty-breaks'\]\s*=\s*(?=\{)/));
+  if (!settings || settings.enable_quantity_breaks === false) return undefined;
+  // Groups in page order, each with the breaks that follow it.
+  const groups: { group: Record<string, unknown>; breaks: Record<string, unknown>[] }[] = [];
+  for (const m of html.matchAll(/\['product_break'\]\.push\(\s*(?=\{)|var block_setting\s*=\s*(?=\{)|block_setting\.free_product\s*=\s*(?=\{)/g)) {
+    const obj = at(m);
+    const breaks = groups[groups.length - 1]?.breaks;
+    if (!obj) continue;
+    if (m[0].startsWith("[")) groups.push({ group: obj, breaks: [] });
+    else if (m[0].includes("free_product")) {
+      // The free product as Liquid printed it: the product's JSON, or an error object when it doesn't exist.
+      if (breaks?.length) breaks[breaks.length - 1] = { ...breaks[breaks.length - 1], free_product: obj };
+    } else if (breaks && obj.product_break_range !== undefined) breaks.push(obj);
+  }
+  if (!groups.length) return undefined;
+  const product = debutifyProduct(html, productJs);
+  const shown = groups.filter(({ group }) => debutifyGroupShows(group, product)).flatMap((g) => g.breaks);
+  const breaks = shown.filter((b) => (num(b.product_break_range) ?? 0) > 0).sort((a, b) => num(a.product_break_range)! - num(b.product_break_range)!);
+  if (!breaks.length) return undefined;
+  const tiers: BundleTier[] = [];
+  // The single-unit option the theme adds first (and selects) when "enable single quantity" is on.
+  if (settings.enable_single_quantity === true) {
+    const title = fillTemplate(settings.single_quantity_text, { count: "1" }) ?? "1×";
+    tiers.push({ title, quantity: 1, deal: { kind: "none" }, freeGifts: [], freeShipping: FREE_SHIPPING.test(title), preselected: true });
+  }
+  for (const b of breaks.slice(0, 8)) {
+    const quantity = num(b.product_break_range)!;
+    // The theme reads the amount like parseFloat: "10OFF" is 10.
+    const value = num(String(b.product_break_discount_amount ?? "").match(/^\s*\d+(?:\.\d+)?/)?.[0]) ?? 0;
+    let deal: TierDeal = { kind: "none" };
+    // "%" takes a percentage off; otherwise the amount comes off each item.
+    if (value > 0) deal = b.product_break_discount_type === "%" ? { kind: "percent", value } : { kind: "amount", value: Math.round(value * quantity * 100) / 100 };
+    const percentOff = tierPercentOff(deal, quantity, unitPrice);
+    const values = { count: String(quantity) };
+    const title = fillTemplate(clean(b.title) ? b.title : settings.multiple_quantity_text, values) ?? `${quantity}×`;
+    // The tiers show the widget's shared subtext ("You have saved {SAVED_AMOUNT}"), not the block's subtitle.
+    const subtitle = fillTemplate(settings.multiple_quantity_subtext, values);
+    const label = fillTemplate(b.product_break_tag_1, values);
+    const badge = b.product_break_badge_style === "most_popular" ? "Most popular" : clean(b.badge_title);
+    // The theme shows the free product only when it exists and is for sale.
+    const free = asRecord(b.free_product);
+    const gift = free && free.available !== false ? clean(free.title) : undefined;
+    const giftQty = num(b.product_break_free_product_quantity) ?? 1;
+    const gifts = gift ? [`${giftQty > 1 ? `${giftQty} × ` : ""}${gift}`] : [];
+    tiers.push({
+      title,
+      ...(subtitle ? { subtitle } : {}),
+      ...(label ? { label } : {}),
+      ...(badge ? { badge } : {}),
+      quantity,
+      deal,
+      ...(percentOff !== undefined ? { percentOff } : {}),
+      freeGifts: gifts,
+      freeShipping: [title, subtitle, label, badge].some((s) => !!s && FREE_SHIPPING.test(s)),
+      preselected: false,
+    });
+  }
+  // The widget's "heading" setting isn't shown on the product page.
+  return { app: "Debutify", tiers };
+}
+
+function debutifyProduct(html: string, productJs?: unknown): DebutifyProduct {
+  const fromPage = asRecord(parseJson(html.match(/<script[^>]*data-quantity-break-product[^>]*>([\s\S]*?)<\/script>/)?.[1]));
+  const p = fromPage ?? asRecord(productJs);
+  const tags = Array.isArray(p?.tags) ? (p.tags as unknown[]).filter((t): t is string => typeof t === "string") : typeof p?.tags === "string" ? p.tags.split(",").map((t) => t.trim()) : [];
+  const collections = asList(parseJson(html.match(/<script[^>]*data-quantity-break-collection[^>]*>([\s\S]*?)<\/script>/)?.[1]))
+    .map((c) => c.handle)
+    .filter((h): h is string => typeof h === "string");
+  return { handle: typeof p?.handle === "string" ? p.handle : undefined, type: typeof p?.type === "string" ? p.type : undefined, tags, collections };
+}
+
+/** Debutify's own rule for which break groups a product shows. */
+function debutifyGroupShows(group: Record<string, unknown>, product: DebutifyProduct): boolean {
+  const str = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : "");
+  switch (group.product_break_visibility) {
+    case "all":
+      return true;
+    case "collection":
+      return product.collections.includes(String(group.product_break_collection));
+    case "type":
+      return product.type !== undefined && str(group.product_break_types).includes(product.type.toLowerCase());
+    case "tag":
+      return product.tags.some((t) => str(group.product_break_tags).includes(t.toLowerCase()));
+    case "product":
+      return !!product.handle && group.product_break_product === product.handle;
+    default:
+      return false;
+  }
+}
+
 // ---------------------------------------------------------------- reviews
 
 const attr = (tag: string, name: string) => tag.match(new RegExp(`${name}=['"]([^'"]*)['"]`))?.[1];
@@ -461,14 +684,18 @@ export function conversionFeatures(html: string, text: string, sections: PageSec
 
 // ---------------------------------------------------------------- teardown
 
-/** Tears down one product page: its HTML and, when we could fetch it, /products/<handle>.js. */
-export function teardownProductPage(html: string, productPath: string, productJs?: unknown, currency?: string): Teardown {
+/**
+ * Tears down one product page: its HTML and, when we could fetch them, /products/<handle>.js and
+ * the Vitals offers JSON (vitalsOffersUrl).
+ */
+export function teardownProductPage(html: string, productPath: string, productJs?: unknown, currency?: string, vitalsOffers?: unknown): Teardown {
   const js = productJs && typeof productJs === "object" ? (productJs as Record<string, unknown>) : undefined;
   const price = productPrice(js, currency);
   const productId = num(js?.id);
   const sections = sectionOrder(html);
   const text = visibleText(html);
-  const bundle = kachingBundle(html, price?.price) ?? koalaBundle(html);
+  const bundle =
+    kachingBundle(html, price?.price) ?? koalaBundle(html) ?? vitalsBundle(vitalsOffers, price?.price) ?? debutifyBundle(html, js, price?.price);
   const reviews = reviewSummary(html, productId);
   const title = clean(js?.title) ?? clean(html.match(/<meta property="og:title" content="([^"]*)"/)?.[1]);
   return {

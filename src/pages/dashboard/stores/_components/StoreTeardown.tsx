@@ -181,7 +181,7 @@ export default function StoreTeardown({ teardown: t, host }: { teardown: Teardow
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No bundle tiers found. We read Kaching Bundles and Upsell Koala; other bundle apps and custom pickers that load in the browser don't show here.
+            No bundle tiers found. We read Kaching Bundles, Upsell Koala, Vitals volume discounts and Debutify quantity breaks; other bundle apps and custom pickers that load in the browser don't show here.
           </p>
         )}
       </div>
