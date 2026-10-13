@@ -42,7 +42,7 @@ export function ProductHeadline({ product }: { product: Product }) {
         )}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <StatTile label="Score" value={`${product.aiScore}`} />
+        <StatTile label="AdSpy score" value={`${product.aiScore}`} />
         {revenue && (
           <StatTile
             label={revenue.confidence ? `Revenue / month · ${revenue.confidence} confidence` : "Revenue / month (est.)"}

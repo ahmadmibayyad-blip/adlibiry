@@ -1,15 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
-import { motion } from "motion/react";
+import { motion, MotionConfig } from "motion/react";
 import {
   ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, TrendingUp,
-  ShoppingCart, BarChart3, Tag,
+  ShoppingCart, BarChart3, Tag, MoreHorizontal, ShoppingBag, Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx";
 import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
 import { Authenticated } from "convex/react";
@@ -22,7 +25,7 @@ import ProductGallery from "./_components/ProductGallery.tsx";
 import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
 import { price } from "@/lib/money.ts";
 import { flag } from "@/lib/adFormat.ts";
-import FollowProduct from "./_components/FollowProduct.tsx";
+import FollowProduct, { FollowMenuItem } from "./_components/FollowProduct.tsx";
 import VerdictPanel from "./_components/VerdictPanel.tsx";
 import SourceAgreement from "./_components/SourceAgreement.tsx";
 import SuppliersSection from "./_components/SuppliersSection.tsx";
@@ -40,7 +43,7 @@ const trendColors: Record<string, string> = {
 };
 
 
-function SaveButtonDetail({ productId }: { productId: Id<"products"> }) {
+function SaveButtonDetail({ productId, iconOnly }: { productId: Id<"products">; iconOnly?: boolean }) {
   const isSaved = useQuery(api.products.isSaved, { productId });
   const toggleSave = useMutation(api.products.toggleSave);
 
@@ -52,6 +55,21 @@ function SaveButtonDetail({ productId }: { productId: Id<"products"> }) {
       toast.error("Please sign in to save products");
     }
   };
+
+  if (iconOnly) {
+    return (
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handleSave}
+        aria-label={isSaved ? "Remove from saved" : "Save product"}
+        aria-pressed={!!isSaved}
+        className={cn("h-10 w-10 shrink-0", isSaved && "border-primary/50 text-primary")}
+      >
+        {isSaved ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+      </Button>
+    );
+  }
 
   return (
     <Button
@@ -82,6 +100,8 @@ export default function ProductDetail() {
   // Back to wherever the user came from (Winners, Saved, an ad…); a direct visit has no in-app history.
   const navigate = useNavigate();
   const hasHistory = useLocation().key !== "default";
+  // Quick add opened from the phone action bar's More menu.
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   if (product === undefined) {
     return (
@@ -104,7 +124,7 @@ export default function ProductDetail() {
       <div className="p-8 text-center">
         <h2 className="font-semibold text-lg mb-2">Product not found</h2>
         <Link to="/dashboard/products" className="text-primary hover:underline text-sm">
-          ← Back to products
+          ← Back to all products
         </Link>
       </div>
     );
@@ -117,9 +137,25 @@ export default function ProductDetail() {
   // Without a store or listing to open, the main button already searches AliExpress.
   const mainIsSupplierSearch =
     !["adlibrary_api", "nexscope_api", "tiktok_shop", "shopify"].includes(product.source ?? "") && !product.storeUrl;
+  const viewLabel =
+    product.source === "adlibrary_api"
+      ? "View Live Store"
+      : product.source === "nexscope_api"
+        ? "View on Amazon"
+        : product.source === "tiktok_shop"
+          ? "View on TikTok Shop"
+          : product.source === "shopify"
+            ? "View store page"
+            : product.storeUrl
+              ? "Open landing page"
+              : "Find Supplier on AliExpress";
+  const showFindSupplier = product.source !== "nexscope_api" && !mainIsSupplierSearch;
+  const supplierSearchUrl = `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`;
 
   return (
-    <div className="p-5 lg:p-8 max-w-6xl mx-auto">
+    <MotionConfig reducedMotion="user">
+    {/* Phones get extra bottom room for the sticky action bar. */}
+    <div className="p-5 pb-24 sm:pb-5 lg:p-8 max-w-6xl mx-auto">
       {/* Back */}
       <Link
         to="/dashboard/products"
@@ -131,50 +167,18 @@ export default function ProductDetail() {
         className="inline-flex items-center gap-1.5 h-10 sm:h-auto text-sm text-muted-foreground hover:text-foreground mb-6 cursor-pointer transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        {hasHistory ? "Back" : "Back to products"}
+        {hasHistory ? "Back" : "Back to all products"}
       </Link>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left: image + ad examples */}
-        <motion.div
-          initial={{ opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <ProductGallery product={product} />
-          {/* Profit calculator, under the images */}
-          <div id="profit-calculator" className="scroll-mt-20 mb-6">
-            <ProfitCalculator basePrice={product.price ?? 0} baseCost={product.cost ?? 0} />
-          </div>
-          {product.adExamples.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold mb-3">Ad examples</h3>
-              <div className="space-y-2">
-                {product.adExamples.map((ad, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-card border border-border rounded-lg p-3">
-                    <img
-                      src={ad.imageUrl}
-                      alt={`Ad ${i + 1}`}
-                      className="w-12 h-12 rounded-md object-cover"
-                    />
-                    <div className="flex-1">
-                      <div className="text-xs font-medium">{ad.platform}</div>
-                      <div className="text-xs text-muted-foreground">{ad.impressions} impressions</div>
-                    </div>
-                    <BarChart3 className="w-4 h-4 text-primary" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-
-        {/* Right: details */}
+      {/* Phones stack summary → images and calculator → details; on desktop the
+          images take the left column and summary + details the right one. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-[auto_1fr] gap-x-8 gap-y-5">
+        {/* Summary: title, AdSpy score, verdict, actions */}
         <motion.div
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
-          className="space-y-5"
+          className="space-y-5 lg:col-start-2 lg:row-start-1"
         >
           {/* Title + badges */}
           <div>
@@ -214,20 +218,91 @@ export default function ProductDetail() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold leading-tight mb-2">{product.title}</h1>
+            <div className="flex items-start gap-4 mb-2">
+              <h1 className="flex-1 min-w-0 text-2xl font-bold leading-tight">{product.title}</h1>
+              {/* Main action; phones have it in the bottom bar */}
+              <div className="hidden sm:block shrink-0">
+                <LaunchDialog product={product} />
+              </div>
+            </div>
             {product.aliases?.length ? (
               <p className="text-xs text-muted-foreground mb-2">Also listed as {product.aliases.slice(0, 3).join(", ")}</p>
             ) : null}
             <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
           </div>
 
+          {/* Secondary actions (phones: the bar's More menu) */}
+          <div className="hidden sm:flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline">
+              <a href={product.supplierUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                {viewLabel}
+              </a>
+            </Button>
+            {showFindSupplier && (
+              <Button asChild variant="outline">
+                <a href={supplierSearchUrl} target="_blank" rel="noopener noreferrer">
+                  Find supplier
+                </a>
+              </Button>
+            )}
+            <AddToShopify product={product} />
+            <Authenticated>
+              <SaveButtonDetail productId={product._id} />
+            </Authenticated>
+            <FollowProduct productId={product._id} />
+          </div>
+
           <ProductHeadline product={product} />
 
           <VerdictPanel product={product} />
+        </motion.div>
 
+        {/* Left: image + ad examples */}
+        <motion.div
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          className="lg:col-start-1 lg:row-start-1 lg:row-span-2"
+        >
+          <ProductGallery product={product} />
+          {/* Profit calculator, under the images */}
+          <div id="profit-calculator" className="scroll-mt-20 mb-6">
+            <ProfitCalculator basePrice={product.price ?? 0} baseCost={product.cost ?? 0} />
+          </div>
+          {product.adExamples.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Ad examples</h3>
+              <div className="space-y-2">
+                {product.adExamples.map((ad, i) => (
+                  <div key={i} className="flex items-center gap-3 bg-card border border-border rounded-lg p-3">
+                    <img
+                      src={ad.imageUrl}
+                      alt={`Ad ${i + 1}`}
+                      className="w-12 h-12 rounded-md object-cover"
+                    />
+                    <div className="flex-1">
+                      <div className="text-xs font-medium">{ad.platform}</div>
+                      <div className="text-xs text-muted-foreground">{ad.impressions} impressions</div>
+                    </div>
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Right: details */}
+        <motion.div
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          className="space-y-5 lg:col-start-2 lg:row-start-2 self-start"
+        >
           <SourceAgreement product={product} />
 
-          {/* AI Score */}
+          {/* AdSpy score */}
           <div id="demand" className="bg-card border border-border rounded-xl p-4 scroll-mt-20">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl bg-foreground flex flex-col items-center justify-center shrink-0">
@@ -338,43 +413,6 @@ export default function ProductDetail() {
               </span>
             ))}
           </div>
-
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-            <Button asChild className="flex-1">
-              <a href={product.supplierUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-4 h-4 mr-2" />
-                {product.source === "adlibrary_api"
-                  ? "View Live Store"
-                  : product.source === "nexscope_api"
-                    ? "View on Amazon"
-                    : product.source === "tiktok_shop"
-                      ? "View on TikTok Shop"
-                      : product.source === "shopify"
-                        ? "View store page"
-                        : product.storeUrl
-                      ? "Open landing page"
-                      : "Find Supplier on AliExpress"}
-              </a>
-            </Button>
-            {product.source !== "nexscope_api" && !mainIsSupplierSearch && (
-              <Button asChild variant="outline">
-                <a
-                  href={`https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Find supplier
-                </a>
-              </Button>
-            )}
-            <LaunchDialog product={product} />
-            <AddToShopify product={product} />
-            <Authenticated>
-              <SaveButtonDetail productId={product._id} />
-            </Authenticated>
-            <FollowProduct productId={product._id} />
-          </div>
         </motion.div>
       </div>
 
@@ -384,6 +422,48 @@ export default function ProductDetail() {
       </div>
 
       <ProductPerformance product={product} />
+
+      {/* Phone action bar, sitting just above the dashboard's bottom nav */}
+      <div className="sm:hidden fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2 border-t border-border bg-background/95 backdrop-blur px-4 py-2">
+        <div className="flex-1 min-w-0 [&>button]:w-full [&>button]:h-10">
+          <LaunchDialog product={product} />
+        </div>
+        <Authenticated>
+          <SaveButtonDetail productId={product._id} iconOnly />
+        </Authenticated>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" aria-label="More actions">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-60">
+            <DropdownMenuItem asChild>
+              <a href={product.supplierUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4" />
+                {viewLabel}
+              </a>
+            </DropdownMenuItem>
+            {showFindSupplier && (
+              <DropdownMenuItem asChild>
+                <a href={supplierSearchUrl} target="_blank" rel="noopener noreferrer">
+                  <Search className="w-4 h-4" />
+                  Find supplier
+                </a>
+              </DropdownMenuItem>
+            )}
+            <Authenticated>
+              <DropdownMenuItem onSelect={() => setQuickAddOpen(true)}>
+                <ShoppingBag className="w-4 h-4" />
+                Quick add to Shopify (no AI)
+              </DropdownMenuItem>
+            </Authenticated>
+            <FollowMenuItem productId={product._id} />
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <AddToShopify product={product} dialogOnly open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+      </div>
     </div>
+    </MotionConfig>
   );
 }
