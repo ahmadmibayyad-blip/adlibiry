@@ -6,7 +6,7 @@ import { stableToken } from "./lib/authIdentity";
 import { effectivePlan } from "./lib/billing";
 import { productUrl } from "./lib/productImport";
 import { firstProductPath, inspectHtml, mergeInspections, type Inspection } from "./lib/storeInspect";
-import { productJsPath, teardownProductPage, type Teardown } from "./lib/storeTeardown";
+import { productJsPath, teardownProductPage, vitalsOffersUrl, type Teardown } from "./lib/storeTeardown";
 import type { StoreAd, StoreAnalysis } from "./lib/storeAnalysis";
 import { FREE_WATCHED_STORES, PRO_WATCHED_STORES } from "./stores";
 
@@ -111,7 +111,11 @@ export const inspect = action({
       if (productPath && productHtml) {
         const jsPath = productJsPath(productPath);
         const json = jsPath ? await productJson(`${origin}${jsPath}`) : undefined;
-        teardown = teardownProductPage(productHtml, productPath, json, inspectHtml(productHtml).currency ?? result.currency);
+        // Vitals' volume discounts aren't in the page; its widget reads them from this JSON.
+        const id = (json as { id?: unknown } | undefined)?.id;
+        const vitalsUrl = vitalsOffersUrl(productHtml, typeof id === "number" ? id : undefined);
+        const vitalsOffers = vitalsUrl ? await productJson(vitalsUrl) : undefined;
+        teardown = teardownProductPage(productHtml, productPath, json, inspectHtml(productHtml).currency ?? result.currency, vitalsOffers);
       }
       result = { ...result, teardown };
     }

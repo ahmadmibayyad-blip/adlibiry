@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { FREE_INSPECTIONS_PER_DAY } from "./storeInspector";
+import { matrixProduct, matrixVitalsHtml, matrixVitalsOffers } from "./lib/__fixtures__/storeTeardown";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -67,6 +68,22 @@ describe("Store Inspector", () => {
     // Tracking again keeps the one store and the one watchlist row.
     await user.mutation(api.storeInspector.track, { inspectionId: r.id });
     expect(await t.run(async (ctx) => [(await ctx.db.query("stores").collect()).length, (await ctx.db.query("trackedStores").collect()).length])).toEqual([1, 1]);
+  });
+
+  it("fetches a Vitals volume discount from the URL the page's app embed gives", async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request) => {
+      const url = String(u instanceof Request ? u.url : u);
+      fetched.push(url);
+      if (url === "https://www.matrix-nutrition.co.uk/products/kong-sleep-aid" || url === "https://www.matrix-nutrition.co.uk/") return new Response(`<script src="https://cdn.shopify.com/s/x.js"></script>${matrixVitalsHtml}`);
+      if (url.endsWith("/products/kong-sleep-aid.js")) return new Response(JSON.stringify(matrixProduct));
+      if (url.startsWith("https://appsolve.io/")) return new Response(JSON.stringify(matrixVitalsOffers));
+      return new Response("", { status: 404 });
+    }));
+    const { user } = await setup();
+    const r = await user.action(api.storeInspector.inspect, { url: "https://www.matrix-nutrition.co.uk/products/kong-sleep-aid" });
+    expect(fetched).toContain("https://appsolve.io/bundle/api/v2/sf/ub/pp/56358109371/en/1791838731/GB/7541618114778.json");
+    expect(r.result.teardown?.bundle).toMatchObject({ app: "Vitals", tiers: [{ title: "Buy 1" }, { title: "Buy 2 with 15% off", badge: "MOST POPULAR" }, {}, {}] });
   });
 
   it("explains links that aren't Shopify stores or can't be opened", async () => {
