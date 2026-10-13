@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { THEME_FILES } from "./lib/themeFiles.generated";
-import { BUNDLE_OFF, cleanProductPage, cleanStore, deliveryDays, menuLabel, productTemplate, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
+import { BUNDLE_OFF, DEFAULT_TIERS, capDeals, cleanProductPage, cleanStore, deliveryDays, menuLabel, productTemplate, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
 import { mirrorPlan } from "./lib/pageMirror";
 import { crc32, zipFiles } from "./lib/zip";
@@ -192,6 +192,20 @@ describe("storefront theme", () => {
     checkTemplate(bare, "product.json");
     expect(bare.order).toEqual(["main", "testimonials", "reviews", "guarantee", "faq"]);
     expect(cleanProductPage({})).toBeNull();
+  });
+
+  it("lowers bundle discounts that would sell below the margin, and says so", () => {
+    const deals = [{ qty: 2, off: 50 }, { qty: 5, off: 60 }];
+    // 179 kr, cost 60 kr: an item must sell for at least 85.71 kr, so up to 52% off.
+    expect(capDeals(deals, 179, 60, "DKK")).toEqual({
+      tiers: [{ qty: 2, off: 50 }, { qty: 5, off: 52 }],
+      note: "Bundle discounts lowered to keep your margin (5 items −60% → −52%): at 179 DKK with a supplier cost of 60 DKK, every item keeps at least 30% margin up to 52% off.",
+    });
+    // Cost 80 kr: up to 36% off; both deals land there, so only the first stays, with the single item.
+    expect(capDeals([{ qty: 1, off: 0 }, ...deals], 179, 80).tiers).toEqual([{ qty: 1, off: 0 }, { qty: 2, off: 36 }]);
+    expect(capDeals(DEFAULT_TIERS, 179, 30).tiers).toEqual(DEFAULT_TIERS);
+    expect(capDeals(DEFAULT_TIERS, 100, 72)).toMatchObject({ tiers: null, note: expect.stringContaining("No bundle deals") });
+    expect(capDeals(DEFAULT_TIERS, 179, undefined)).toMatchObject({ tiers: DEFAULT_TIERS, note: expect.stringContaining("No supplier cost") });
   });
 
   it("lays the product page out like a mirrored page: its section order, deals and buy-box extras", () => {

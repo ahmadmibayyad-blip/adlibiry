@@ -60,6 +60,37 @@ export const BUNDLE_OFF = [0, 15, 25] as const;
 /** Our deals as items and % off; a mirrored page brings its own (lib/pageMirror.ts). */
 export const DEFAULT_TIERS: MirrorTier[] = BUNDLE_OFF.map((off, i) => ({ qty: i + 1, off }));
 
+/** The least a deal keeps per item after the supplier cost: 30% of what the shopper pays for it. */
+export const MIN_DEAL_MARGIN = 0.3;
+
+/**
+ * Deals that still make money: each deal's % off is lowered until every item in it keeps MIN_DEAL_MARGIN
+ * over the supplier cost (price and cost in the store's currency, cost with shipping). A copied page's
+ * deals were made for its own price, so they often go below cost at ours. Deals left with no saving drop
+ * out; with fewer than 2, there are no bundle deals. The note says what changed, or that the cost is unknown.
+ */
+export function capDeals(tiers: MirrorTier[], price: number | undefined, cost: number | undefined, currency = ""): { tiers: MirrorTier[] | null; note?: string } {
+  if (!price || price <= 0) return { tiers };
+  if (!cost || cost <= 0) return { tiers, note: "No supplier cost is known for this product, so the bundle discounts weren't checked against your margin. Check them before you run ads." };
+  const fmt = (n: number) => `${Math.round(n * 100) / 100}${currency ? ` ${currency}` : ""}`;
+  // Lowest price per item that keeps the margin; the most % off that allows.
+  const floor = cost / (1 - MIN_DEAL_MARGIN);
+  const maxOff = Math.max(0, Math.floor((1 - floor / price) * 100));
+  const lowered: string[] = [];
+  const capped = tiers.map((t) => {
+    if (t.off <= maxOff) return t;
+    lowered.push(`${t.qty} ${t.qty === 1 ? "item" : "items"} −${t.off}% → −${maxOff}%`);
+    return { ...t, off: maxOff };
+  });
+  // The same saving on more items adds nothing: keep the first of each.
+  const kept = capped.filter((t, i) => i === 0 || t.off === 0 || t.off !== capped[i - 1].off);
+  const margin = `at ${fmt(price)} with a supplier cost of ${fmt(cost)}, every item keeps at least ${MIN_DEAL_MARGIN * 100}% margin up to ${maxOff}% off`;
+  if (kept.length < 2 || !kept.some((t) => t.off > 0)) {
+    return { tiers: null, note: `No bundle deals: ${margin}, which leaves no room for a bundle discount. Raise the price to offer one.` };
+  }
+  return { tiers: kept, ...(lowered.length ? { note: `Bundle discounts lowered to keep your margin (${lowered.join(", ")}): ${margin}.` } : {}) };
+}
+
 /** What shoppers see as the discount's name in the cart and at checkout: "Køb flere · 2 fontæner". */
 export function bundleTitles(pp: ProductPageCopy | undefined, count: number): string[] {
   return Array.from({ length: count }, (_, i) => {

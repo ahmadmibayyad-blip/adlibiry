@@ -21,6 +21,7 @@ import {
   TRUST_ICONS,
   DEFAULT_TIERS,
   bundleTitles,
+  capDeals,
   cleanProductPage,
   cleanStore,
   productPageGuide,
@@ -190,7 +191,12 @@ export const run = internalAction({
       mirror = mirrorPlan(launch.mirrorUrl, u ? await fetchTeardown(u).catch(() => null) : null);
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "generating", mirror });
     }
-    const tiers: MirrorTier[] = mirror?.tiers ?? DEFAULT_TIERS;
+    // The supplier cost is USD; Shopify and the deals want it in the store's currency.
+    const cost = product.cost ? Math.round(product.cost * rate * 100) / 100 : undefined;
+    // Deals that keep a margin at our price (a copied page's were made for its own price).
+    const capped = fullStore ? capDeals(mirror?.tiers ?? DEFAULT_TIERS, launch.price, cost, store.currency ?? "") : { tiers: DEFAULT_TIERS };
+    const tiers: MirrorTier[] = capped.tiers ?? DEFAULT_TIERS;
+    if (capped.note) await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "generating", marginNote: capped.note });
 
     // 1. Write the page and ad kit (and for a full store, the rest of the store).
     let copy: LaunchCopy;
@@ -315,8 +321,6 @@ export const run = internalAction({
     // 3. Create it in the store.
     try {
       const token = await decryptToken(store.accessToken, process.env.SHOPIFY_TOKEN_KEY?.trim());
-      // The supplier cost is USD; Shopify wants it in the store's currency.
-      const cost = product.cost ? Math.round(product.cost * rate * 100) / 100 : undefined;
       const input = launchProductInput({ ...product, imageUrl: photos[0] ?? "", images: photos.slice(1) }, copy, {
         price: launch.price,
         cost,
@@ -356,7 +360,9 @@ export const run = internalAction({
 
       // 3. Full store: bundle discounts, pages, menus, then the theme.
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", shopifyProductId: created.id, productHandle: created.handle, step: "pages" });
-      const deals = await bundleDiscounts(store.shopDomain, token, created.id, tiers, bundleTitles(storeCopy.productPage, tiers.length), previousDiscountIds);
+      const deals = capped.tiers
+        ? await bundleDiscounts(store.shopDomain, token, created.id, tiers, bundleTitles(storeCopy.productPage, tiers.length), previousDiscountIds)
+        : await removeDiscounts(store.shopDomain, token, previousDiscountIds);
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", ...deals });
       const pageList = storePages(storeCopy, facts, launch.language);
       const pages = await upsertPages(store.shopDomain, token, pageList, store);
@@ -582,6 +588,12 @@ async function bundleDiscounts(
       ? { bundlesNote: "No bundle deals yet: reconnect your store in Settings → Shopify and approve the discounts permission, then relaunch." }
       : { bundlesNote: "No bundle deals: the discounts couldn't be created in Shopify this time." };
   }
+}
+
+/** No bundle deals this time (none keep a margin): the ones earlier launches made go, so the checkout matches the page. */
+async function removeDiscounts(shop: string, token: string, ids: string[]): Promise<{ bundleDiscountIds: string[] }> {
+  for (const id of ids) await shopify(shop, token, DISCOUNT_DELETE, { id }).catch((e) => console.warn("Launch: old bundle discount", id, e instanceof Error ? e.message : e));
+  return { bundleDiscountIds: [] };
 }
 
 /** Creates the store's pages, or updates the ones an earlier Full store launch made. */
