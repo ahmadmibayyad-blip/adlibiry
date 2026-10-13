@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { motion } from "motion/react";
 import {
@@ -79,6 +79,9 @@ export default function ProductDetail() {
   useEffect(() => {
     if (id) track({ type: "product_open", productId: id as Id<"products"> }).catch(() => {});
   }, [id, track]);
+  // Back to wherever the user came from (Winners, Saved, an ad…); a direct visit has no in-app history.
+  const navigate = useNavigate();
+  const hasHistory = useLocation().key !== "default";
 
   if (product === undefined) {
     return (
@@ -111,16 +114,24 @@ export default function ProductDetail() {
   const hasCost = product.cost !== undefined;
   const margin =
     hasPrice && hasCost ? Math.round(((product.price! - product.cost!) / product.price!) * 100) : null;
+  // Without a store or listing to open, the main button already searches AliExpress.
+  const mainIsSupplierSearch =
+    !["adlibrary_api", "nexscope_api", "tiktok_shop", "shopify"].includes(product.source ?? "") && !product.storeUrl;
 
   return (
     <div className="p-5 lg:p-8 max-w-6xl mx-auto">
       {/* Back */}
       <Link
         to="/dashboard/products"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 cursor-pointer transition-colors"
+        onClick={(e) => {
+          if (!hasHistory) return;
+          e.preventDefault();
+          navigate(-1);
+        }}
+        className="inline-flex items-center gap-1.5 h-10 sm:h-auto text-sm text-muted-foreground hover:text-foreground mb-6 cursor-pointer transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to products
+        {hasHistory ? "Back" : "Back to products"}
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -189,12 +200,12 @@ export default function ProductDetail() {
               )}
               {product.source === "nexscope_api" && (
                 <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20">
-                  Real Amazon listing via Nexscope.ai
+                  Real Amazon listing
                 </span>
               )}
               {product.source === "tiktok_shop" && (
                 <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full border border-primary/20">
-                  TikTok Shop best-seller via Nexscope.ai
+                  TikTok Shop best-seller
                 </span>
               )}
               {product.source === "shopify" && (
@@ -221,7 +232,7 @@ export default function ProductDetail() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl bg-foreground flex flex-col items-center justify-center shrink-0">
                 <span className="font-display text-2xl font-bold leading-none text-background">{product.aiScore}</span>
-                <span className="text-[10px] text-background/70 mt-0.5">of 100</span>
+                <span className="text-[11px] text-background/70 mt-0.5">of 100</span>
               </div>
               <div>
                 <div className="text-sm font-semibold mb-0.5">AdSpy score</div>
@@ -346,7 +357,7 @@ export default function ProductDetail() {
                       : "Find Supplier on AliExpress"}
               </a>
             </Button>
-            {product.source !== "nexscope_api" && (
+            {product.source !== "nexscope_api" && !mainIsSupplierSearch && (
               <Button asChild variant="outline">
                 <a
                   href={`https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`}

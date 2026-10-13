@@ -77,11 +77,11 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
   return (
     <>
       {trigger === "icon" ? (
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Search by image" className="h-8 px-2.5">
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Search by image" aria-label="Search by image" className="h-10 sm:h-8 px-2.5">
           <Camera className="w-4 h-4" />
         </Button>
       ) : (
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="h-10 sm:h-8">
           <Camera className="w-4 h-4 mr-1.5" />
           Search by image
         </Button>

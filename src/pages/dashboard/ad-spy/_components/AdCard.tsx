@@ -39,10 +39,12 @@ function SaveAdButton({ adId }: { adId: Ad["_id"] }) {
         }
       }}
       className={cn(
-        "p-1.5 rounded-md transition-colors cursor-pointer",
+        // 40px hit area on phones; the negative margin keeps the header's size.
+        "p-3 -m-1.5 sm:m-0 sm:p-1.5 rounded-md transition-colors cursor-pointer",
         isSaved ? "text-primary" : "text-muted-foreground hover:text-foreground",
       )}
       title={isSaved ? "Remove from saved" : "Save ad"}
+      aria-label={isSaved ? "Remove from saved" : "Save ad"}
     >
       {isSaved ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
     </button>
@@ -199,7 +201,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
               type="button"
               aria-label="Close video"
               onClick={() => setPlaying(false)}
-              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center cursor-pointer hover:bg-black"
+              className="absolute top-2 right-2 w-10 h-10 sm:w-7 sm:h-7 rounded-full bg-black/70 text-white flex items-center justify-center cursor-pointer hover:bg-black"
             >
               <X className="w-4 h-4" />
             </button>
@@ -250,7 +252,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
               <span
                 key={o.label}
                 title={`The ad says: “${o.match}”`}
-                className="inline-flex items-center gap-1 max-w-full truncate rounded-md border border-primary/30 bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0.5"
+                className="inline-flex items-center gap-1 max-w-full truncate rounded-md border border-primary/30 bg-primary/10 text-primary text-[11px] font-medium px-1.5 py-0.5"
               >
                 <Tag className="w-2.5 h-2.5 shrink-0" />
                 {o.label}

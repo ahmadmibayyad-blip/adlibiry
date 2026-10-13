@@ -29,7 +29,11 @@ export default function OfferSearchPage() {
   const recent = useQuery(api.offerSearch.recent, {});
   const [params, setParams] = useSearchParams();
   const [offer, setOffer] = useState<OfferId | "custom">("bxgy");
-  const [country, setCountry] = useState("DK");
+  // Starts on the user's target country (onboarding / Settings) when Offer Search covers it, else Denmark.
+  const mine = useQuery(api.onboarding.mine, {});
+  const target = mine?.targetCountry;
+  const [picked, setCountry] = useState<string | null>(null);
+  const country = picked ?? (target && OFFER_COUNTRIES[target] ? target : "DK");
   const [extra, setExtra] = useState("");
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
@@ -73,7 +77,7 @@ export default function OfferSearchPage() {
               type="button"
               onClick={() => setOffer(o)}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-sm transition",
+                "rounded-full border px-3 py-1.5 min-h-10 sm:min-h-0 text-sm transition",
                 offer === o ? "border-primary bg-primary/10 text-foreground font-medium" : "border-border text-muted-foreground hover:text-foreground",
               )}
             >
@@ -84,7 +88,7 @@ export default function OfferSearchPage() {
             type="button"
             onClick={() => setOffer("custom")}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-sm transition",
+              "rounded-full border px-3 py-1.5 min-h-10 sm:min-h-0 text-sm transition",
               offer === "custom" ? "border-primary bg-primary/10 text-foreground font-medium" : "border-border text-muted-foreground hover:text-foreground",
             )}
           >
@@ -100,10 +104,10 @@ export default function OfferSearchPage() {
         >
           <FilterSelect label="Country" value={country} onChange={setCountry} options={COUNTRY_OPTIONS} active />
           {offer === "custom" ? (
-            <Input className="h-8 w-60" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="e.g. 3 for 2, in the country's language" />
+            <Input className="h-10 sm:h-8 w-60" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="e.g. 3 for 2, in the country's language" />
           ) : null}
-          <Input className="h-8 w-56" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Product word (optional), e.g. hund" />
-          <Button type="submit" size="sm" disabled={busy || (offer === "custom" && !custom.trim())}>
+          <Input className="h-10 sm:h-8 w-56" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Product word (optional), e.g. hund" />
+          <Button type="submit" size="sm" className="h-10 sm:h-8" disabled={busy || (offer === "custom" && !custom.trim())}>
             {busy ? <Spinner className="w-4 h-4 mr-2" /> : <Search className="w-4 h-4 mr-2" />}
             Search
           </Button>
@@ -117,7 +121,7 @@ export default function OfferSearchPage() {
                 type="button"
                 onClick={() => setParams({ id: s._id })}
                 className={cn(
-                  "rounded-full border px-2.5 py-0.5 text-xs transition",
+                  "rounded-full border px-2.5 py-0.5 min-h-10 sm:min-h-0 text-xs transition",
                   id === s._id ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -230,12 +234,12 @@ function StoreCard({ store: s, country }: { store: FoundStore; country: string }
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm">
+        <Button asChild size="sm" className="h-10 sm:h-8">
           <Link to={`/dashboard/stores?inspect=${encodeURIComponent(storeUrl)}`}>
-            <Radar className="w-4 h-4 mr-1.5" /> Teardown
+            <Radar className="w-4 h-4 mr-1.5" /> Inspect store
           </Link>
         </Button>
-        <Button asChild size="sm" variant="outline">
+        <Button asChild size="sm" variant="outline" className="h-10 sm:h-8">
           <a href={libraryUrl(country, s)} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="w-4 h-4 mr-1.5" /> All its ads
           </a>

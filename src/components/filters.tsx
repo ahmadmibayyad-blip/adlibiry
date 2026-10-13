@@ -17,7 +17,7 @@ export function Chip({ on, onClick, children }: { on: boolean; onClick: () => vo
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs border cursor-pointer whitespace-nowrap transition-colors shrink-0",
+        "flex items-center gap-1.5 h-10 sm:h-8 px-3 rounded-lg text-xs border cursor-pointer whitespace-nowrap transition-colors shrink-0",
         on ? "bg-primary/15 border-primary text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground",
       )}
     >
@@ -28,7 +28,7 @@ export function Chip({ on, onClick, children }: { on: boolean; onClick: () => vo
 
 export function Check({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string }) {
   return (
-    <label className="flex items-center gap-2 h-8 px-1 text-xs cursor-pointer select-none whitespace-nowrap" title={hint}>
+    <label className="flex items-center gap-2 h-10 sm:h-8 px-1 text-xs cursor-pointer select-none whitespace-nowrap" title={hint}>
       <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
       {label}
     </label>
@@ -73,7 +73,7 @@ export function SavedSearches<F>({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 text-xs">
+          <Button variant="outline" size="sm" className="h-10 sm:h-8 text-xs">
             <Bookmark className="w-3.5 h-3.5 mr-1.5" />Save current search
           </Button>
         </PopoverTrigger>
@@ -93,7 +93,7 @@ export function SavedSearches<F>({
       {saved.length > 0 && (
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 text-xs">Saved searches ({saved.length})</Button>
+            <Button variant="outline" size="sm" className="h-10 sm:h-8 text-xs">Saved searches ({saved.length})</Button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-1" align="end">
             {saved.map((s) => (
