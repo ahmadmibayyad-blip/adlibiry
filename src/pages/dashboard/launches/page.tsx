@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { ExternalLink, Link2, Megaphone, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
+import { CopyCheck, ExternalLink, Link2, Megaphone, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
@@ -39,11 +39,14 @@ export default function LaunchesPage() {
   // A copy, not a lookup: a relaunch that replaces this launch removes its row while the dialog shows progress.
   const [relaunching, setRelaunching] = useState<Doc<"launches"> | null>(null);
   const importLink = useAction(api.productImport.importLink);
-  const [link, setLink] = useState(() => params.get("mirror") ?? "");
+  const [link, setLink] = useState("");
   const [reading, setReading] = useState(false);
   const [fromLink, setFromLink] = useState<{ _id: Id<"importedProducts">; imageUrl: string } | null>(null);
-  // Store Inspector → "Mirror this page" (?mirror=<product page>): launch that product with its page's layout.
-  const [mirror, setMirror] = useState(() => params.get("mirror") ?? "");
+  // The page the launch copies the layout of (Mirror a page; Store Inspector links here with ?mirror=<product page>).
+  const [mirror, setMirror] = useState("");
+  const [mirrorPage, setMirrorPage] = useState(() => params.get("mirror") ?? "");
+  const [mirrorProduct, setMirrorProduct] = useState("");
+  const [mirroring, setMirroring] = useState(false);
   useEffect(() => {
     if (!params.has("mirror")) return;
     params.delete("mirror");
@@ -102,40 +105,78 @@ export default function LaunchesPage() {
         ) : null}
       </div>
       {quota?.store && quota.allowed && (
-        <form
-          className="mb-6 rounded-xl border border-border bg-card p-4 space-y-2"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!link.trim()) return;
-            setReading(true);
-            try {
-              const r = await importLink({ url: link.trim() });
-              setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
-              setLink("");
-            } catch (err) {
-              toast.error(errorMessage(err, "Couldn't read that link"));
-            } finally {
-              setReading(false);
-            }
-          }}
-        >
-          <label htmlFor="launch-link" className="text-sm font-semibold flex items-center gap-1.5">
-            <Link2 className="w-4 h-4 text-primary" /> Launch from a link
-          </label>
-          <div className="flex gap-2 flex-wrap">
-            <Input id="launch-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="AliExpress, Shopify store or other product page link" className="flex-1 min-w-48" />
-            <Button type="submit" disabled={reading || !link.trim()}>
+        <div className="mb-6 grid gap-4 md:grid-cols-2">
+          <form
+            className="rounded-xl border border-border bg-card p-4 space-y-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!link.trim()) return;
+              setReading(true);
+              try {
+                const r = await importLink({ url: link.trim() });
+                setMirror("");
+                setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
+                setLink("");
+              } catch (err) {
+                toast.error(errorMessage(err, "Couldn't read that link"));
+              } finally {
+                setReading(false);
+              }
+            }}
+          >
+            <label htmlFor="launch-link" className="text-sm font-semibold flex items-center gap-1.5">
+              <Link2 className="w-4 h-4 text-primary" /> Launch from a link
+            </label>
+            <Input id="launch-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="AliExpress, Shopify store or other product page link" />
+            <Button type="submit" className="w-full" disabled={reading || !link.trim()}>
               {reading ? <Spinner className="w-4 h-4 mr-2" /> : <Rocket className="w-4 h-4 mr-2" />}
               {reading ? "Reading the product…" : "Launch"}
             </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Any product you found yourself: we read its title, photos and price, and you launch it like a winning product. AliExpress links can take up to a minute.
-          </p>
-          {mirror ? (
-            <p className="text-xs text-primary">The store will copy the layout of {mirror.replace(/^https?:\/\/(www\.)?/, "").split("?")[0]}. You can change it in the next step.</p>
-          ) : null}
-        </form>
+            <p className="text-xs text-muted-foreground">
+              Any product you found yourself: we read its title, photos and price, and you launch it like a winning product. AliExpress links can take up to a minute.
+            </p>
+          </form>
+          {/* Mirror a page: our store built like a page that sells, for the user's own product (or that page's). */}
+          <form
+            className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!mirrorPage.trim()) return;
+              setMirroring(true);
+              try {
+                const r = await importLink({ url: (mirrorProduct.trim() || mirrorPage).trim() });
+                setMirror(mirrorPage.trim());
+                setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
+                setMirrorPage("");
+                setMirrorProduct("");
+              } catch (err) {
+                toast.error(errorMessage(err, "Couldn't read that link"));
+              } finally {
+                setMirroring(false);
+              }
+            }}
+          >
+            <label htmlFor="mirror-page" className="text-sm font-semibold flex items-center gap-1.5">
+              <CopyCheck className="w-4 h-4 text-primary" /> Mirror a page
+            </label>
+            <Input id="mirror-page" type="url" value={mirrorPage} onChange={(e) => setMirrorPage(e.target.value)} placeholder="Product page to copy: https://store.com/products/…" />
+            <Input
+              type="url"
+              value={mirrorProduct}
+              onChange={(e) => setMirrorProduct(e.target.value)}
+              placeholder="Your product: AliExpress or store link (optional)"
+              aria-label="Your product link"
+            />
+            <Button type="submit" className="w-full" disabled={mirroring || !mirrorPage.trim()}>
+              {mirroring ? <Spinner className="w-4 h-4 mr-2" /> : <CopyCheck className="w-4 h-4 mr-2" />}
+              {mirroring ? "Reading the product…" : "Mirror this page"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              A store built like that page: its section order, bundle deals and buy-box extras, with your own text and photos. Leave your product empty to
+              launch the product on that page.
+            </p>
+          </form>
+        </div>
       )}
       {fromLink ? (
         <LaunchDialog
