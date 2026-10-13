@@ -361,7 +361,7 @@ export const run = internalAction({
       // 3. Full store: bundle discounts, pages, menus, then the theme.
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", shopifyProductId: created.id, productHandle: created.handle, step: "pages" });
       const deals = capped.tiers
-        ? await bundleDiscounts(store.shopDomain, token, created.id, tiers, bundleTitles(storeCopy.productPage, tiers.length), previousDiscountIds)
+        ? await bundleDiscounts(store.shopDomain, token, created.id, tiers, bundleTitles(storeCopy.productPage, tiers.length), previousDiscountIds, copy.title || product.title)
         : await removeDiscounts(store.shopDomain, token, previousDiscountIds);
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", ...deals });
       const pageList = storePages(storeCopy, facts, launch.language);
@@ -555,6 +555,7 @@ async function bundleDiscounts(
   tiers: MirrorTier[],
   titles: string[],
   previousIds: string[],
+  productName: string,
 ): Promise<{ bundleOff: number[]; bundleQty: number[]; bundleDiscountIds: string[] } | { bundlesNote: string }> {
   try {
     for (const id of previousIds) {
@@ -564,15 +565,23 @@ async function bundleDiscounts(
     const ids: string[] = [];
     for (let i = 0; i < tiers.length; i++) {
       if (!(tiers[i].off > 0)) continue;
-      const r = (await shopify(shop, token, DISCOUNT_CREATE, {
-        d: {
-          title: titles[i],
-          startsAt: new Date().toISOString(),
-          customerGets: { value: { percentage: tiers[i].off / 100 }, items: { products: { productsToAdd: [productId] } } },
-          minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: String(tiers[i].qty) } },
-          combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: true },
-        },
-      })) as { discountAutomaticBasicCreate?: { automaticDiscountNode: { id: string } | null; userErrors: UserError[] } };
+      // Shopify wants unique titles: another product's deal (or another launch of the same product
+      // imported twice) may have this one, so the product's name, then a number, tell them apart.
+      const name = productName.replace(/\s+/g, " ").trim().slice(0, 40);
+      const candidates = [titles[i], `${titles[i]} – ${name}`, ...[2, 3, 4].map((n) => `${titles[i]} – ${name} (${n})`)].map((t) => t.slice(0, 255));
+      let r: { discountAutomaticBasicCreate?: { automaticDiscountNode: { id: string } | null; userErrors: UserError[] } } = {};
+      for (const title of candidates) {
+        r = (await shopify(shop, token, DISCOUNT_CREATE, {
+          d: {
+            title,
+            startsAt: new Date().toISOString(),
+            customerGets: { value: { percentage: tiers[i].off / 100 }, items: { products: { productsToAdd: [productId] } } },
+            minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: String(tiers[i].qty) } },
+            combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: true },
+          },
+        })) as typeof r;
+        if (r.discountAutomaticBasicCreate?.automaticDiscountNode || !/title must be unique/i.test(userErrors(r.discountAutomaticBasicCreate?.userErrors))) break;
+      }
       const node = r.discountAutomaticBasicCreate?.automaticDiscountNode;
       if (!node) {
         for (const id of ids) await shopify(shop, token, DISCOUNT_DELETE, { id }).catch(() => undefined);

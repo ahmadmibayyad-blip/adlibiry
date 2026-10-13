@@ -612,6 +612,12 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                       Real reviews from buyers of this product on AliExpress, translated and shown on your home and product pages as reviews from your
                       supplier's buyers. Pick listings with many written reviews, or add up to 3 sellers of the same product for more.
                     </span>
+                    {reviewsUrl.split(/\s+/).some((x) => x && !/aliexpress\./i.test(x)) ? (
+                      <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        Only AliExpress links work here. Another store's reviews were written by its own customers about its shop, so they can't
+                        be shown as yours.
+                      </span>
+                    ) : null}
                   </label>
                 )}
                 <label className="flex items-center gap-2 text-sm">
