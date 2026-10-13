@@ -137,3 +137,37 @@ describe("remove last product CSV import", () => {
     expect(left.links).toBe(2);
   });
 });
+
+describe("fix impossible prices", () => {
+  it("clears a local currency imported as dollars, with its GMV and revenue estimates; real prices stay", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "a", role: "admin" }));
+    const admin = t.withIdentity({ subject: "a|s" });
+    await admin.mutation(api.admin.productImport.importProducts, {
+      rows: [
+        { title: "FYC Hair Essence Oil", imageUrl: "https://x/oil.webp", productUrl: "https://shop-id.tokopedia.com/pdp/1", category: "Beauty", priceUsd: 78495.01, unitsPerMonth: 2773, totalGmv: 377_100_000, likes: 4600 },
+        { title: "Truck Floor Mats", imageUrl: "https://x/mat.webp", productUrl: "https://www.tiktok.com/shop/pdp/2", category: "Automotive", priceUsd: 76.48, unitsPerMonth: 30, totalGmv: 22477.4 },
+      ],
+    });
+    let cursor: string | null = null;
+    let fixed = 0;
+    for (;;) {
+      const r: { fixed: number; cursor: string; isDone: boolean } = await admin.mutation(api.admin.importCleanup.clearImpossiblePrices, { cursor });
+      fixed += r.fixed;
+      if (r.isDone) break;
+      cursor = r.cursor;
+    }
+    expect(fixed).toBe(1);
+    const [oil, mats] = await t.run(async (ctx) => {
+      const all = await ctx.db.query("products").collect();
+      return [all.find((p) => p.title.startsWith("FYC"))!, all.find((p) => p.title.startsWith("Truck"))!];
+    });
+    expect(oil.price).toBeUndefined();
+    expect(oil.linkedGmv).toBeUndefined();
+    expect(oil.estRevenue).toBeUndefined();
+    expect(oil.unitsPerMonth).toBe(2773);
+    expect(mats).toMatchObject({ price: 76.48, linkedGmv: 22477 });
+    expect(mats.estRevenue).toBeDefined();
+    await expect(t.withIdentity({ subject: "u|s" }).mutation(api.admin.importCleanup.clearImpossiblePrices, { cursor: null })).rejects.toThrow();
+  });
+});

@@ -3,6 +3,7 @@ import { mutation, query } from "../_generated/server";
 import { requireAdmin } from "./helpers";
 import { markStatsDirty } from "../stats";
 import { productKey } from "./productImport";
+import { MAX_MARKET_PRICE_USD } from "../lib/launchCopy";
 
 // Undo the last ad CSV import. Every ad from one import shares the same
 // firstSeenAt (the import time, see src/lib/adCsv.ts buildAdRows), so the
@@ -161,5 +162,39 @@ export const removeProductImport = mutation({
     if (deleted) await markStatsDirty(ctx);
     const before = page.length ? page[page.length - 1]._creationTime : args.before;
     return { deleted, before, last, done };
+  },
+});
+
+// Prices in a local currency read as dollars (a Rp 78,495 hair oil stored as $78,495, before
+// src/lib/productCsv.ts converted currencies): no product a one-product store sells costs that.
+// Their price, GMV and the money estimates built on them are removed, so they show as unknown
+// instead of ranking at the top; importing the file again fills them in correctly.
+export function hasImpossiblePrice(p: { price?: number; cost?: number }): boolean {
+  return (p.price ?? 0) > MAX_MARKET_PRICE_USD || (p.cost ?? 0) > MAX_MARKET_PRICE_USD;
+}
+
+// Walks every product one page per call; call again with the returned cursor until isDone.
+export const clearImpossiblePrices = mutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const page = await ctx.db.query("products").paginate({ cursor: args.cursor, numItems: BATCH });
+    let fixed = 0;
+    for (const p of page.page) {
+      if (!hasImpossiblePrice(p)) continue;
+      const basis = p.estBasis ? { ...(p.estBasis.impressions ? { impressions: p.estBasis.impressions } : {}) } : undefined;
+      await ctx.db.patch("products", p._id, {
+        price: undefined,
+        priceSource: undefined,
+        ...((p.cost ?? 0) > MAX_MARKET_PRICE_USD ? { cost: undefined } : {}),
+        linkedGmv: undefined,
+        estRevenue: undefined,
+        estAdSpend: undefined,
+        ...(basis ? { estBasis: basis } : {}),
+      });
+      fixed += 1;
+    }
+    if (fixed) await markStatsDirty(ctx);
+    return { fixed, cursor: page.continueCursor, isDone: page.isDone };
   },
 });
