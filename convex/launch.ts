@@ -317,7 +317,9 @@ export const context = internalQuery({
     // The bundle discounts earlier launches of it made in this store, which this one replaces.
     const previousDiscountIds = [...new Set(earlier.filter((l) => l._id !== launch._id && l.shopDomain === store.shopDomain).flatMap((l) => l.bundleDiscountIds ?? []))];
     // rate: store currency per USD, for the supplier cost we send to Shopify.
-    return { launch, product, store, ads, rate: await usdRate(ctx, store.currency ?? "USD"), previousShopifyProductId, previousDiscountIds };
+    // Admins see the AI provider's own error when a launch fails.
+    const isAdmin = (await ctx.db.get("users", launch.userId))?.role === "admin";
+    return { launch, product, store, ads, rate: await usdRate(ctx, store.currency ?? "USD"), previousShopifyProductId, previousDiscountIds, isAdmin };
   },
 });
 

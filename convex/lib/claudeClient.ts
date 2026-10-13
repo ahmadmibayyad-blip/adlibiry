@@ -25,14 +25,24 @@ export function claudeClient(): Anthropic {
       try {
         return await call(params, options);
       } catch (error) {
+        // messages.parse calls messages.create: an error create already took to Kimi isn't tried again.
+        if ((error as { kimiError?: string } | null)?.kimiError !== undefined) throw error;
         if (!shouldUseKimi(error, params as { tools?: unknown[]; stream?: boolean })) throw error;
         console.warn("Claude failed, answering with Kimi:", (error as Error).message?.slice(0, 200));
-        try {
-          return await askKimi(params as Parameters<typeof askKimi>[0], kimi);
-        } catch (kimiError) {
-          console.error("Kimi fallback failed too:", (kimiError as Error).message?.slice(0, 300));
-          throw error;
+        // Twice: Kimi's own rate limits and an answer that's cut off or doesn't fit the schema are often one-offs.
+        let last: unknown;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            return await askKimi(params as Parameters<typeof askKimi>[0], kimi);
+          } catch (kimiError) {
+            last = kimiError;
+            console.error(`Kimi fallback failed (try ${attempt + 1}):`, (kimiError as Error).message?.slice(0, 300));
+            if (attempt === 0) await new Promise((r) => setTimeout(r, 3000));
+          }
         }
+        // Claude's error stays the one callers see; claudeErrorMessage says the backup failed too.
+        if (error && typeof error === "object") (error as { kimiError?: string }).kimiError = String((last as Error)?.message ?? last).slice(0, 300);
+        throw error;
       }
     }) as unknown as F;
 

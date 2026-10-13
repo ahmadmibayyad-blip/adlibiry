@@ -179,7 +179,7 @@ export const run = internalAction({
     const c = await ctx.runQuery(internal.launch.context, { launchId: args.launchId });
     if (!c) return;
     if (!c.product || !c.store) return fail("The product or the connected store is gone.");
-    const { launch, product, store, ads, rate, previousShopifyProductId, previousDiscountIds } = c;
+    const { launch, product, store, ads, rate, previousShopifyProductId, previousDiscountIds, isAdmin } = c;
     const fullStore = launch.mode === "store" && isStoreStyle(launch.style);
     const facts = launch.facts as StoreFacts | undefined;
 
@@ -272,7 +272,7 @@ export const run = internalAction({
       }
     } catch (e) {
       console.error("Launch: AI failed", e);
-      return fail(e instanceof Anthropic.APIError ? claudeErrorMessage(e, false) : "The AI had a problem. Please try again.");
+      return fail(e instanceof Anthropic.APIError ? claudeErrorMessage(e, isAdmin) : "The AI had a problem. Please try again.");
     }
     const wantsPhotos = (launch.aiPhotos ?? 0) > 0;
     await ctx.runMutation(internal.launch.setStatus, {

@@ -21,7 +21,12 @@ export function claudeErrorMessage(error: InstanceType<typeof Anthropic.APIError
               : error instanceof Anthropic.InternalServerError || error.status === 529
                 ? "The AI service is overloaded right now. Please try again in a minute."
                 : "The AI had a problem. Please try again.";
-  return isAdmin ? `${reason} (Anthropic ${error.status}: ${error.message.slice(0, 300)}) [${setupHint()}]` : reason;
+  // claudeClient() tried Kimi (lib/kimiFallback.ts) and it failed too.
+  const kimiError = (error as { kimiError?: string }).kimiError;
+  const backup = kimiError ? " The backup AI couldn't answer either." : "";
+  if (!isAdmin) return reason + backup;
+  const kimi = kimiError ? ` (Kimi: ${kimiError})` : process.env.KIMI_API_KEY?.trim() ? "" : " (no backup AI: KIMI_API_KEY isn't set)";
+  return `${reason}${backup}${kimi} (Anthropic ${error.status}: ${error.message.slice(0, 300)}) [${setupHint()}]`;
 }
 
 // Admin-only: which key and workspace this deployment actually loaded, so a
