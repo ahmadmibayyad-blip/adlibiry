@@ -80,6 +80,8 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Offer Search (`convex/offerSearch.ts`, `/dashboard/offer-search`) searches Meta's Ad Library for an offer in the country's
   language through Apify (trigger "offer", counted against `APIFY_DAILY_BUDGET_USD`); its ads also land in Ad Spy.
   Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.
+  The daily Meta API import (`metaAdLibrary.ts`) also searches each offer's phrase per country (`META_OFFER_SEARCH=off` stops it);
+  Ad Spy's Offer filter reads the ad text with `convex/lib/offerTags.ts`.
 
 ## UI
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adLink, adLibrarySearchUrl, groupByStore, OFFER_COUNTRIES, OFFER_IDS, OFFERS, searchKey, searchPhrases, storeHost, toSearchAd } from "./offerSearch";
+import { adLink, adLibrarySearchUrl, dailyOfferPhrases, groupByStore, OFFER_COUNTRIES, OFFER_IDS, OFFERS, searchKey, searchPhrases, storeHost, toSearchAd } from "./offerSearch";
 
 const DAY = 86_400_000;
 const NOW = Date.parse("2026-10-12T12:00:00Z");
@@ -14,6 +14,16 @@ describe("Offer Search", () => {
     expect(searchPhrases({ offer: "bxgy", country: "SE", custom: "  3 för 2  ", extra: "katt" })).toEqual(["3 för 2 katt"]);
     // Every offer has phrases in every language our countries use.
     for (const id of OFFER_IDS) for (const c of Object.values(OFFER_COUNTRIES)) expect(OFFERS[id].phrases[c.lang].length, `${id} ${c.lang}`).toBeGreaterThan(0);
+  });
+
+  it("gives the daily import one phrase per offer in the country's language", () => {
+    expect(dailyOfferPhrases("se")).toEqual([
+      { offer: "bxgy", phrase: "köp 2 få 1 gratis" },
+      { offer: "percent", phrase: "50% rabatt" },
+      { offer: "free_shipping", phrase: "fri frakt" },
+      { offer: "free_gift", phrase: "gratis present" },
+      { offer: "multibuy", phrase: "köp fler spara mer" },
+    ]);
   });
 
   it("caches by country and phrases, whatever their order or case", () => {

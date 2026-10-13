@@ -8,6 +8,7 @@ import type { SiteStats } from "./stats";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
+import { offerTags } from "./lib/offerTags";
 
 // ── Ads ───────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ const listArgs = {
   maxLikes: v.optional(v.number()),
   maxSpend: v.optional(v.number()),
   language: v.optional(v.string()),
+  offer: v.optional(v.string()), // lib/offerTags.ts OfferKind: ads whose text makes that offer ("bxgy", "percent"…)
 };
 
 const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
@@ -119,6 +121,11 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
   if (args.cta) {
     const c = args.cta.toLowerCase();
     page = page.filter((a) => (a.ctaText ?? "").toLowerCase().includes(c));
+  }
+  if (args.offer) {
+    // Read from the ad's text, like the offer chips on the cards.
+    page = page.filter((a) => offerTags(`${a.headline}
+${a.bodyText}`).some((t) => t.kind === args.offer));
   }
   if (args.minSpend !== undefined) {
     page = page.filter((a) => (parseRangeUpperBound(a.spendEstimate) ?? 0) >= args.minSpend!);

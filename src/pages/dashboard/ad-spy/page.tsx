@@ -35,6 +35,7 @@ type Filters = {
   country?: string;
   language?: string;
   cta?: string;
+  offer?: string; // lib/offerTags.ts OfferKind
   landing?: string; // "has"
   mediaType?: string;
   gender?: string;
@@ -68,6 +69,17 @@ const SPEND = [ANY, opt("0-1000", "Under $1K"), opt("1000-10000", "$1K–$10K"),
 const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
 const MEDIA = [ANY, opt("video", "Video"), opt("image", "Image"), opt("carousel", "Carousel")];
 const LANDING = [ANY, opt("has", "Has store link")];
+// The offer chips' kinds (convex/lib/offerTags.ts).
+const OFFER = [
+  ANY,
+  opt("bxgy", "Buy X get Y"),
+  opt("xfory", "X for Y (3 for 2)"),
+  opt("percent", "% off"),
+  opt("free_shipping", "Free shipping"),
+  opt("free_gift", "Free gift"),
+  opt("code", "Discount code"),
+  opt("urgency", "Ends today / limited"),
+];
 const AUDIENCE = [ANY, opt("All", "All genders"), opt("Female", "Mostly women"), opt("Male", "Mostly men")];
 // WinningHunter, PiPiSpy and CSV imports run in the background: their ads show under
 // Any source, but they aren't listed as a choice.
@@ -105,6 +117,7 @@ function toQueryArgs(f: Filters, search: string) {
     country: f.country,
     language: f.language,
     cta: f.cta,
+    offer: f.offer,
     mediaType: f.mediaType,
     gender: f.gender,
     source: f.source,
@@ -267,6 +280,7 @@ export default function AdSpyPage() {
             options={[{ value: "all", label: "All" }, ...niches.map((n) => ({ value: n.value, label: `${n.value} (${compactNumber(n.n)})` }))]}
             active={!!f.niche}
           />
+          <FilterSelect label="Offer" value={f.offer ?? "any"} onChange={setAny("offer")} options={OFFER} active={!!f.offer} />
           <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
           <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
           <Check

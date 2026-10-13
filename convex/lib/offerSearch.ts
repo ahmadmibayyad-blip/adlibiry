@@ -113,6 +113,12 @@ export function searchPhrases(input: { offer?: OfferId; country: string; extra?:
   return offer.phrases[lang].slice(0, 2).map((p) => clean(`${p} ${extra}`));
 }
 
+/** The daily free import (metaAdLibrary.ts): each offer's most common phrase in the country's language. */
+export function dailyOfferPhrases(country: string): { offer: OfferId; phrase: string }[] {
+  const lang = OFFER_COUNTRIES[country.toUpperCase()]?.lang ?? "en";
+  return OFFER_IDS.map((offer) => ({ offer, phrase: OFFERS[offer].phrases[lang][0] }));
+}
+
 /** The cache key: the same search within a few hours is answered from the last one, for everyone. */
 export function searchKey(country: string, phrases: string[]): string {
   return `${country.toUpperCase()}|${phrases.map((p) => p.toLowerCase()).sort().join("|")}`;
