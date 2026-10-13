@@ -25,7 +25,7 @@ import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 
 type StoreDoc = Doc<"stores">;
-type Tab = "inspect" | "track";
+type Tab = "inspect" | "watchlist" | "browse";
 
 const countryOptions = [
   { value: "All", label: "All countries" },
@@ -45,7 +45,6 @@ export default function StoreTrackerPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<Array<StoreDoc["_id"]>>([]);
   const [compareOpen, setCompareOpen] = useState(false);
-  const [showWatchlist, setShowWatchlist] = useState(false);
 
   // Alerts link to /dashboard/stores?store=<id>: open that store's popup.
   const [params, setParams] = useSearchParams();
@@ -67,21 +66,35 @@ export default function StoreTrackerPage() {
   const seedStores = useMutation(api.stores.seedStores);
   const isAdmin = useQuery(api.users.isAdmin, {});
 
-  // Two tabs, kept in the URL (?tab=inspect|track) so links open the right one. Without one: Inspect for a
-  // ?inspect=<store> link or when nothing is tracked yet, else Track. null while that is still loading.
+  // Three tabs, kept in the URL (?tab=inspect|watchlist|browse) so links open the right one. Without one: Inspect
+  // for a ?inspect=<store> link or when nothing is tracked yet, Watchlist when the user tracks stores, Browse stores
+  // when signed out. The old ?tab=track opens Watchlist if the user tracks stores, else Browse stores.
+  // null while that is still loading.
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const tabParam = params.get("tab");
   const defaultTab: Tab | null =
     authLoading || (isAuthenticated && trackedStores === undefined)
       ? null
-      : isAuthenticated && trackedStores?.length === 0
-        ? "inspect"
-        : "track";
+      : !isAuthenticated
+        ? "browse"
+        : trackedStores?.length === 0
+          ? "inspect"
+          : "watchlist";
   // Kept once known, so tracking a first store from Inspect doesn't switch tabs.
   const [firstTab, setFirstTab] = useState<Tab | null>(null);
   if (firstTab === null && defaultTab !== null) setFirstTab(defaultTab);
   const tab: Tab | null =
-    tabParam === "inspect" || tabParam === "track" ? tabParam : params.get("inspect") ? "inspect" : (firstTab ?? defaultTab);
+    tabParam === "inspect" || tabParam === "watchlist" || tabParam === "browse"
+      ? tabParam
+      : tabParam === "track"
+        ? defaultTab === null
+          ? null
+          : defaultTab === "watchlist"
+            ? "watchlist"
+            : "browse"
+        : params.get("inspect")
+          ? "inspect"
+          : (firstTab ?? defaultTab);
   const setTab = (value: string) =>
     setParams(
       (p) => {
@@ -143,7 +156,8 @@ export default function StoreTrackerPage() {
     }
   };
 
-  const displayedStores = showWatchlist ? trackedStores?.filter(Boolean) as StoreDoc[] | undefined : results;
+  const watchlistStores = trackedStores?.filter(Boolean) as StoreDoc[] | undefined;
+  const storeGrid = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5";
 
   return (
     <div className="p-5 lg:p-8 max-w-7xl mx-auto">
@@ -165,13 +179,17 @@ export default function StoreTrackerPage() {
 
       <Tabs value={tab ?? ""} onValueChange={setTab} className="mb-6">
         <TabsList className="w-full sm:w-auto group-data-[orientation=horizontal]/tabs:h-11 sm:group-data-[orientation=horizontal]/tabs:h-9">
-          <TabsTrigger value="inspect" className="flex-1 sm:flex-none px-4">
-            <Radar className="w-4 h-4" />
+          <TabsTrigger value="inspect" className="flex-1 sm:flex-none px-2 sm:px-4">
+            <Radar className="w-4 h-4 hidden sm:block" />
             Inspect
           </TabsTrigger>
-          <TabsTrigger value="track" className="flex-1 sm:flex-none px-4">
-            <Bookmark className="w-4 h-4" />
-            Track{trackedStores && trackedStores.length > 0 ? ` (${trackedStores.length})` : ""}
+          <TabsTrigger value="watchlist" className="flex-1 sm:flex-none px-2 sm:px-4">
+            <Bookmark className="w-4 h-4 hidden sm:block" />
+            Watchlist{trackedStores && trackedStores.length > 0 ? ` (${trackedStores.length})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="browse" className="flex-1 sm:flex-none px-2 sm:px-4">
+            <Store className="w-4 h-4 hidden sm:block" />
+            Browse stores
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -191,10 +209,64 @@ export default function StoreTrackerPage() {
             </Empty>
           </Unauthenticated>
         </>
-      ) : tab === "track" ? (
+      ) : tab === "watchlist" ? (
+        <>
+          <Unauthenticated>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><Bookmark /></EmptyMedia>
+                <EmptyTitle>Sign in to view your watchlist</EmptyTitle>
+                <EmptyDescription>Track stores to get notified when they launch new products or ads.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </Unauthenticated>
+          <Authenticated>
+            {watchlistStores === undefined ? (
+              <div className={storeGrid}>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <StoreCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : watchlistStores.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon"><Bookmark /></EmptyMedia>
+                  <EmptyTitle>Your watchlist is empty</EmptyTitle>
+                  <EmptyDescription>
+                    Inspect a store or find one in Browse stores, then track it to keep an eye on it here.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button variant="secondary" onClick={() => setTab("inspect")}>
+                    <Radar className="w-4 h-4 mr-2" />
+                    Inspect store
+                  </Button>
+                  <Button variant="secondary" onClick={() => setTab("browse")}>
+                    <Store className="w-4 h-4 mr-2" />
+                    Browse stores
+                  </Button>
+                </div>
+              </Empty>
+            ) : (
+              <div className={storeGrid}>
+                {watchlistStores.map((store, i) => (
+                  <motion.div
+                    key={store._id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: (i % 8) * 0.04 }}
+                  >
+                    <StoreCard store={store} onClick={() => handleOpenStore(store)} />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </Authenticated>
+        </>
+      ) : tab === "browse" ? (
         <>
         {/* Stores added by product discovery (Shopify stores running Facebook ads) */}
-        {!showWatchlist && newlyDiscovered && newlyDiscovered.length > 0 && (
+        {newlyDiscovered && newlyDiscovered.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-primary" />
@@ -223,7 +295,7 @@ export default function StoreTrackerPage() {
         )}
 
         {/* Recently spotted high-traffic feed */}
-        {!showWatchlist && recentlySpotted && recentlySpotted.length > 0 && (
+        {recentlySpotted && recentlySpotted.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -265,20 +337,9 @@ export default function StoreTrackerPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search any Shopify store by name or URL..."
-              disabled={showWatchlist}
-              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground disabled:opacity-50"
+              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
           </div>
-          <Authenticated>
-            <Button
-              variant={showWatchlist ? "default" : "secondary"}
-              onClick={() => setShowWatchlist((s) => !s)}
-              className="shrink-0"
-            >
-              <Bookmark className="w-4 h-4 mr-2" />
-              Watchlist {trackedStores && trackedStores.length > 0 ? `(${trackedStores.length})` : ""}
-            </Button>
-          </Authenticated>
           {compareIds.length > 0 && (
             <Button variant="secondary" onClick={() => setCompareOpen(true)} className="shrink-0">
               <Scale className="w-4 h-4 mr-2" />
@@ -288,41 +349,39 @@ export default function StoreTrackerPage() {
         </motion.div>
 
         {/* Advanced filter bar — dense row of dropdowns/inputs, always visible */}
-        {!showWatchlist && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-            className="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b border-border"
-          >
-            <FilterNumberInput label="Min revenue $K/mo" value={minRevenue} onChange={setMinRevenue} placeholder="0" />
-            <FilterNumberInput label="Min traffic K/mo" value={minTraffic} onChange={setMinTraffic} placeholder="0" />
-            <FilterNumberInput label="Min active ads" value={minActiveAds} onChange={setMinActiveAds} placeholder="0" />
-            <FilterSelect
-              label="Country"
-              value={country ?? "All"}
-              onChange={(v) => setCountry(v === "All" ? undefined : v)}
-              options={countryOptions}
-              active={!!country}
-            />
-            <FilterTogglePill
-              label="High-traffic only"
-              active={highTrafficOnly}
-              onToggle={() => setHighTrafficOnly((v) => !v)}
-            />
-            {activeFilterCount > 0 && (
-              <button
-                onClick={handleClearFilters}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2"
-              >
-                <X className="w-3.5 h-3.5" />
-                Clear ({activeFilterCount})
-              </button>
-            )}
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          className="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b border-border"
+        >
+          <FilterNumberInput label="Min revenue $K/mo" value={minRevenue} onChange={setMinRevenue} placeholder="0" />
+          <FilterNumberInput label="Min traffic K/mo" value={minTraffic} onChange={setMinTraffic} placeholder="0" />
+          <FilterNumberInput label="Min active ads" value={minActiveAds} onChange={setMinActiveAds} placeholder="0" />
+          <FilterSelect
+            label="Country"
+            value={country ?? "All"}
+            onChange={(v) => setCountry(v === "All" ? undefined : v)}
+            options={countryOptions}
+            active={!!country}
+          />
+          <FilterTogglePill
+            label="High-traffic only"
+            active={highTrafficOnly}
+            onToggle={() => setHighTrafficOnly((v) => !v)}
+          />
+          {activeFilterCount > 0 && (
+            <button
+              onClick={handleClearFilters}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2"
+            >
+              <X className="w-3.5 h-3.5" />
+              Clear ({activeFilterCount})
+            </button>
+          )}
+        </motion.div>
 
-        {!showWatchlist && niches && niches.length > 0 && (
+        {niches && niches.length > 0 && (
           <div className="mb-6">
             <FilterSelect
               label="Niche"
@@ -334,47 +393,8 @@ export default function StoreTrackerPage() {
           </div>
         )}
 
-        {showWatchlist ? (
-          <Unauthenticated>
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon"><Bookmark /></EmptyMedia>
-                <EmptyTitle>Sign in to view your watchlist</EmptyTitle>
-                <EmptyDescription>Track stores to get notified when they launch new products or ads.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          </Unauthenticated>
-        ) : null}
-
-        {showWatchlist && displayedStores === undefined ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <StoreCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : showWatchlist && displayedStores && displayedStores.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon"><Bookmark /></EmptyMedia>
-              <EmptyTitle>No tracked stores yet</EmptyTitle>
-              <EmptyDescription>Track stores you want to keep an eye on and they'll show up here.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : showWatchlist && displayedStores ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {displayedStores.map((store, i) => (
-              <motion.div
-                key={store._id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: (i % 8) * 0.04 }}
-              >
-                <StoreCard store={store} onClick={() => handleOpenStore(store)} />
-              </motion.div>
-            ))}
-          </div>
-        ) : status === "LoadingFirstPage" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {status === "LoadingFirstPage" ? (
+          <div className={storeGrid}>
             {Array.from({ length: 8 }).map((_, i) => (
               <StoreCardSkeleton key={i} />
             ))}
@@ -394,7 +414,7 @@ export default function StoreTrackerPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div className={storeGrid}>
               {results.map((store, i) => (
                 <motion.div
                   key={store._id}
@@ -421,15 +441,13 @@ export default function StoreTrackerPage() {
           </>
         )}
 
-        {!showWatchlist && (
-          <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 mt-6">
-            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            Revenue and traffic figures shown are honest ranged estimates from public storefront signals — never fabricated precise numbers.
-          </p>
-        )}
+        <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 mt-6">
+          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          Revenue and traffic figures shown are honest ranged estimates from public storefront signals — never fabricated precise numbers.
+        </p>
         </>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className={storeGrid}>
           {Array.from({ length: 4 }).map((_, i) => (
             <StoreCardSkeleton key={i} />
           ))}
