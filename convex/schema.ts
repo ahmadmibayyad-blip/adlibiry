@@ -696,6 +696,7 @@ export default defineSchema({
     bundlesNote: v.optional(v.string()),
     bundleDiscountIds: v.optional(v.array(v.string())), // the automatic discounts it made, removed by the next launch of the product
     bundleQty: v.optional(v.array(v.number())), // items in each deal (missing = 1, 2 and 3)
+    marginNote: v.optional(v.string()), // deals lowered to keep the margin, or no supplier cost to check them with (storeKit.ts capDeals)
     // "Copy a page's layout": the page whose structure the store copies, and the plan read from it (lib/pageMirror.ts PageMirror).
     mirrorUrl: v.optional(v.string()),
     mirror: v.optional(v.any()),

@@ -349,6 +349,7 @@ export const setStatus = internalMutation({
     bundleDiscountIds: v.optional(v.array(v.string())),
     bundleQty: v.optional(v.array(v.number())),
     mirror: v.optional(v.any()),
+    marginNote: v.optional(v.string()),
   },
   handler: async (ctx, { launchId, ...patch }) => {
     const launch = await ctx.db.get("launches", launchId);

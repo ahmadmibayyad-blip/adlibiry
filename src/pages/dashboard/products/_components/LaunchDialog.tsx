@@ -244,6 +244,7 @@ export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAg
           ) : l.bundlesNote ? (
             <p className="text-xs text-muted-foreground">{l.bundlesNote}</p>
           ) : null}
+          {l.marginNote ? <p className="text-xs text-amber-600 dark:text-amber-400">{l.marginNote}</p> : null}
           <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm">Before you run ads, check that the store can take real orders.</p>
             <StoreCheck variant="default" label="Is my store ready to sell?" />
