@@ -14,6 +14,7 @@ import { aliexpressId } from "./lib/supplierReviews";
 import type { Id } from "./_generated/dataModel";
 import { claudeClient } from "./lib/claudeClient";
 import { claudeErrorMessage } from "./lib/claudeErrors";
+import { STORE_ANALYSIS_SYSTEM, cleanAnalysis, storeEvidence, type StoreAnalysis } from "./lib/storeAnalysis";
 
 // ── AI tools on the product page (Claude) ───────────────────────────────────
 // AI second opinion, ad angles and competitor finder. Like the assistant and
@@ -132,6 +133,36 @@ export const researchProduct = action({
       ...(reviews ? { reviews } : {}),
     });
     return report;
+  },
+});
+
+// ── AI store analysis ───────────────────────────────────────────────────────
+// Store Inspector → "Analyze this store": what the store does to sell, what to copy and how to beat it,
+// from its inspection (theme, apps, product page teardown) and its ads in AdSpy (lib/storeAnalysis.ts).
+// Saved on the inspection.
+
+const StoreAnalysisSchema = z.object({
+  verdict: z.string(),
+  strengths: z.array(z.object({ point: z.string(), evidence: z.string() })),
+  copy: z.array(z.string()),
+  beat: z.array(z.string()),
+  weaknesses: z.array(z.string()),
+  warnings: z.array(z.string()),
+  missing: z.array(z.string()),
+});
+
+export const analyzeStore = action({
+  args: { inspectionId: v.id("storeInspections") },
+  handler: async (ctx, args): Promise<StoreAnalysis> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to use AI tools." });
+    const found = await ctx.runQuery(internal.storeInspector.forAnalysis, { token: stableToken(identity), inspectionId: args.inspectionId });
+    if (!found) throw new ConvexError({ code: "NOT_FOUND", message: "Inspect the store first." });
+    await claimAiRequest(ctx);
+    const raw = await askClaude(ctx, StoreAnalysisSchema, STORE_ANALYSIS_SYSTEM, `${storeEvidence(found.host, found.result, found.ads)}\n\nWrite the analysis.`);
+    const analysis = cleanAnalysis(raw);
+    await ctx.runMutation(internal.storeInspector.saveAnalysis, { inspectionId: args.inspectionId, analysis });
+    return analysis;
   },
 });
 

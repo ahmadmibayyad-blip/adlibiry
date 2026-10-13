@@ -12,13 +12,15 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
 import StoreTeardown from "./StoreTeardown.tsx";
+import StoreAnalysisCard from "./StoreAnalysisCard.tsx";
+import type { StoreAnalysis } from "@/convex/lib/storeAnalysis.ts";
 
 // Store Inspector (convex/storeInspector.ts): paste a Shopify store's link and
 // see its theme, apps, ad pixels and a teardown of its main product page; then add it to the watchlist.
 
 type Shown = { id: Id<"storeInspections">; host: string; result: Inspection };
 
-function Result({ shown, tracked }: { shown: Shown; tracked: boolean }) {
+function Result({ shown, tracked, analysis }: { shown: Shown; tracked: boolean; analysis: StoreAnalysis | null }) {
   const track = useMutation(api.storeInspector.track);
   const [busy, setBusy] = useState(false);
   const { result: r, host } = shown;
@@ -115,6 +117,7 @@ function Result({ shown, tracked }: { shown: Shown; tracked: boolean }) {
           </p>
         </section>
       </div>
+      <StoreAnalysisCard key={shown.id} inspectionId={shown.id} host={host} initial={analysis} />
       {r.teardown ? (
         <StoreTeardown teardown={r.teardown} host={host} />
       ) : r.teardown === undefined ? (
@@ -205,7 +208,7 @@ export default function StoreInspector() {
           ))}
         </div>
       ) : null}
-      {current ? <Result shown={current} tracked={tracked} /> : null}
+      {current ? <Result shown={current} tracked={tracked} analysis={recent?.find((x) => x._id === current.id)?.analysis ?? null} /> : null}
     </div>
   );
 }
