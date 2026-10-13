@@ -55,7 +55,7 @@ export default function AICompetitorFinderCard({
           )}
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Cross-references your Ad Spy and Store Tracker data — only real tracked matches, never invented.
+          Cross-references your Ad Spy and Stores data — only real tracked matches, never invented.
         </p>
 
         {result && (

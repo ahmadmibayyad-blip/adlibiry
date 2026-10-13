@@ -187,7 +187,7 @@ export const INFO_PAGES: InfoPage[] = [
       { heading: "Ad Spy", paragraphs: ["Running ads from Facebook, Instagram and TikTok. Filter by niche, dates, country, format and engagement, play videos right in the grid, download them, and follow advertisers."] },
       { heading: "Hooks of the week", paragraphs: ["Every Monday: the opening lines of the week's most engaging ads per niche, with the hook type, why it works and a template you can reuse."] },
       { heading: "Research", paragraphs: ["Find suppliers for a product and compare prices before you test it."] },
-      { heading: "Store Tracker", paragraphs: ["Shopify stores with estimated revenue, traffic and best sellers. Track a store to get daily sales estimates, a sales chart and alerts when it adds products or its sales jump."] },
+      { heading: "Stores", paragraphs: ["Shopify stores with estimated revenue, traffic and best sellers. Track a store to get daily sales estimates, a sales chart and alerts when it adds products or its sales jump."] },
       { heading: "AI Agents", paragraphs: ["Give an agent a research goal once; every morning it searches the data and writes you a short briefing."] },
       { heading: "Add to Shopify", paragraphs: ["Connect your store once (Admin API token with write_products), then add any product to it as a draft in one click, or download a Shopify CSV."] },
       { heading: "Chrome Extension", paragraphs: ["Save ads you find while browsing straight into AdSpy Pro."] },

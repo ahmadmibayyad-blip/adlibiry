@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Bookmark, BookmarkCheck, ExternalLink, Palette, Puzzle, Radar, Radio } from "lucide-react";
+import { Bookmark, BookmarkCheck, ExternalLink, Palette, Puzzle, Radar, Radio, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import StoreTeardown from "./StoreTeardown.tsx";
 import StoreAnalysisCard from "./StoreAnalysisCard.tsx";
 import type { StoreAnalysis } from "@/convex/lib/storeAnalysis.ts";
@@ -20,7 +21,7 @@ import type { StoreAnalysis } from "@/convex/lib/storeAnalysis.ts";
 
 type Shown = { id: Id<"storeInspections">; host: string; result: Inspection };
 
-function Result({ shown, tracked, analysis }: { shown: Shown; tracked: boolean; analysis: StoreAnalysis | null }) {
+function Result({ shown, tracked, analysis, onClose }: { shown: Shown; tracked: boolean; analysis: StoreAnalysis | null; onClose: () => void }) {
   const track = useMutation(api.storeInspector.track);
   const [busy, setBusy] = useState(false);
   const { result: r, host } = shown;
@@ -39,25 +40,30 @@ function Result({ shown, tracked, analysis }: { shown: Shown; tracked: boolean; 
             {r.locale ? ` · ${r.locale}` : ""}
           </div>
         </div>
-        <Button
-          size="sm"
-          variant={tracked ? "secondary" : "default"}
-          disabled={busy || tracked}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await track({ inspectionId: shown.id });
-              toast.success(`${r.shopName || host} is on your watchlist`);
-            } catch (err) {
-              toast.error(errorMessage(err, "Couldn't add the store"));
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {tracked ? <BookmarkCheck className="w-4 h-4 mr-2" /> : <Bookmark className="w-4 h-4 mr-2" />}
-          {tracked ? "On your watchlist" : "Track this store"}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant={tracked ? "secondary" : "default"}
+            disabled={busy || tracked}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await track({ inspectionId: shown.id });
+                toast.success(`${r.shopName || host} is on your watchlist`);
+              } catch (err) {
+                toast.error(errorMessage(err, "Couldn't add the store"));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {tracked ? <BookmarkCheck className="w-4 h-4 mr-2" /> : <Bookmark className="w-4 h-4 mr-2" />}
+            {tracked ? "On your watchlist" : "Track this store"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close this inspection" title="Close">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
@@ -129,17 +135,47 @@ function Result({ shown, tracked, analysis }: { shown: Shown; tracked: boolean; 
   );
 }
 
+// The host of a pasted link, for the "Ready to inspect" line.
+function hostOf(link: string): string {
+  try {
+    return new URL(/^https?:\/\//i.test(link) ? link : `https://${link}`).hostname.replace(/^www\./, "");
+  } catch {
+    return link;
+  }
+}
+
 export default function StoreInspector() {
   const inspect = useAction(api.storeInspector.inspect);
   const recent = useQuery(api.storeInspector.recent, {});
+  const { plan, isLoading: planLoading } = useUserPlan();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  // Only the inspection the user ran or opened is expanded; past ones stay as chips.
   const [shown, setShown] = useState<Shown | null>(null);
-  const current = shown ?? (recent?.[0] ? { id: recent[0]._id, host: recent[0].host, result: recent[0].result } : null);
-  const tracked = !!recent?.find((x) => x.host === current?.host)?.tracked;
+  const tracked = !!recent?.find((x) => x.host === shown?.host)?.tracked;
+
+  // Offer Search's "Teardown" links here with ?inspect=<store link>: fill it in and wait for the user to press Inspect.
+  const [params, setParams] = useSearchParams();
+  const linked = params.get("inspect");
+  const filled = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linked || filled.current === linked) return;
+    filled.current = linked;
+    setUrl(linked);
+  }, [linked]);
+  const clearLinked = () =>
+    setParams(
+      (p) => {
+        p.delete("inspect");
+        p.set("tab", "inspect");
+        return p;
+      },
+      { replace: true },
+    );
 
   const run = async (link: string) => {
     if (!link.trim()) return;
+    if (linked) clearLinked();
     setBusy(true);
     try {
       const r = await inspect({ url: link.trim() });
@@ -152,32 +188,33 @@ export default function StoreInspector() {
     }
   };
 
-  // Offer Search's "Teardown" links here with ?inspect=<store link>: inspect it once.
-  const [params, setParams] = useSearchParams();
-  const linked = params.get("inspect");
-  const started = useRef<string | null>(null);
-  useEffect(() => {
-    if (!linked || started.current === linked) return;
-    started.current = linked;
-    setUrl(linked);
-    void run(linked);
-    setParams(
-      (p) => {
-        p.delete("inspect");
-        return p;
-      },
-      { replace: true },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per linked store
-  }, [linked]);
+  // Every inspection counts against a daily limit (5 free, more on Pro; convex/storeInspector.ts).
+  const quotaHint = planLoading ? null : plan === "none" ? "Uses 1 of your 5 free inspections today" : "Uses 1 of today's inspections";
 
   return (
-    <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <Radar className="w-4 h-4 text-primary" />
         <h2 className="font-semibold text-sm">Store Inspector</h2>
         <span className="text-xs text-muted-foreground">See which theme, apps and ad pixels any Shopify store runs, and how its product page sells</span>
       </div>
+      {linked && !busy ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+          <p className="text-sm flex-1 min-w-0">
+            Ready to inspect <span className="font-medium break-all">{hostOf(linked)}</span>: reads its theme, apps and main product page.
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" onClick={() => void run(linked)}>
+              <Radar className="w-4 h-4 mr-2" />
+              Inspect
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setUrl(""); clearLinked(); }} aria-label="Dismiss">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          {quotaHint ? <p className="basis-full text-[11px] text-muted-foreground">{quotaHint}</p> : null}
+        </div>
+      ) : null}
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -188,27 +225,40 @@ export default function StoreInspector() {
         <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste a store link, like https://needyknee.se" disabled={busy} />
         <Button type="submit" disabled={busy || !url.trim()} className="shrink-0">
           {busy ? <Spinner className="w-4 h-4 mr-2" /> : <Radar className="w-4 h-4 mr-2" />}
-          Inspect
+          {busy ? "Inspecting…" : "Inspect"}
         </Button>
       </form>
-      {recent && recent.length > 1 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {recent.map((x) => (
-            <button
-              key={x._id}
-              type="button"
-              onClick={() => setShown({ id: x._id, host: x.host, result: x.result })}
-              className={cn(
-                "rounded-full border px-2.5 py-0.5 text-xs transition",
-                current?.host === x.host ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {x.host}
-            </button>
-          ))}
+      {!linked && quotaHint ? <p className="text-[11px] text-muted-foreground -mt-1">{quotaHint}</p> : null}
+      {recent && recent.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-0.5">Recent:</span>
+          {recent.map((x) => {
+            const open = shown?.host === x.host;
+            return (
+              <button
+                key={x._id}
+                type="button"
+                aria-pressed={open}
+                onClick={() => setShown(open ? null : { id: x._id, host: x.host, result: x.result })}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-xs transition cursor-pointer",
+                  open ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {x.host}
+              </button>
+            );
+          })}
         </div>
       ) : null}
-      {current ? <Result shown={current} tracked={tracked} analysis={recent?.find((x) => x._id === current.id)?.analysis ?? null} /> : null}
+      {shown ? (
+        <Result
+          shown={shown}
+          tracked={tracked}
+          analysis={recent?.find((x) => x._id === shown.id)?.analysis ?? null}
+          onClose={() => setShown(null)}
+        />
+      ) : null}
     </div>
   );
 }
