@@ -653,7 +653,11 @@ describe("Launch → Full store", () => {
       if (q.includes("menuCreate")) return json({ data: { menuCreate: { menu: { id: "gid://shopify/Menu/6" }, userErrors: [] } } });
       if (q.includes("themeCreate")) return json({ data: { themeCreate: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: false }, userErrors: [] } } });
       if (q.includes("theme(id")) return json({ data: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: false, processingFailed: false } } });
-      if (q.includes("discountAutomaticBasicCreate")) return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: { id: `gid://shopify/DiscountAutomaticNode/${calls.length}` }, userErrors: [] } } });
+      if (q.includes("discountAutomaticBasicCreate")) {
+        // Another product's deal already has the 2-item title.
+        if (body.variables.d.title === "Køb flere, spar mere · 2 stk.") return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: null, userErrors: [{ field: ["title"], message: "Title must be unique for automatic discount." }] } } });
+        return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: { id: `gid://shopify/DiscountAutomaticNode/${calls.length}` }, userErrors: [] } } });
+      }
       return json({ errors: [{ message: `unexpected ${q.slice(0, 40)}` }] });
     }));
 
@@ -669,11 +673,14 @@ describe("Launch → Full store", () => {
     expect(l?.mirror).toMatchObject({ host: "rival.dk", preselect: 2, sections: ["faq", "row", "comparison", "reviews"], delivery: true, sticky: false, guarantee: false });
     expect((l?.mirror as { skipped: string[] }).skipped.join("\n")).toMatch(/Countdown timer/);
     expect(pageBrief).toContain("tiers: exactly 3, for 1, 2 and 4 items, which cost 0%, 20%, 35% less");
-    const made = calls.filter((c) => c.query.includes("discountAutomaticBasicCreate")).map((c) => c.variables.d as { minimumRequirement: unknown; customerGets: { value: unknown } });
-    expect(made).toMatchObject([
+    const made = calls.filter((c) => c.query.includes("discountAutomaticBasicCreate")).map((c) => c.variables.d as { title: string; minimumRequirement: unknown; customerGets: { value: unknown } });
+    // A taken title gets the product's name.
+    expect(made.map((d) => d.title)).toEqual(["Køb flere, spar mere · 2 stk.", `Køb flere, spar mere · 2 stk. – ${productCopy.title.slice(0, 40)}`, "Køb flere, spar mere · 3 stk."]);
+    expect(made.slice(1)).toMatchObject([
       { customerGets: { value: { percentage: 0.2 } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "2" } } },
       { customerGets: { value: { percentage: 0.35 } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "4" } } },
     ]);
+    expect(l?.bundlesNote).toBeUndefined();
 
     const source = new URL(String(calls.find((c) => c.query.includes("themeCreate"))!.variables.source));
     const files = unzip(new Uint8Array(await (await t.fetch(`${source.pathname}${source.search}`)).arrayBuffer()));

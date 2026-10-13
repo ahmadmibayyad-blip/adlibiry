@@ -40,6 +40,11 @@ describe("Mirror a page", () => {
     expect(mirrorSections(teardown.sections)).toEqual(["row", "row", "comparison", "reviews", "row", "faq"]);
   });
 
+  it("counts a theme's own content sections as photo rows, not shop widgets or apps", () => {
+    const labels = ["Eko halloween", "Buy box", "Eko problem", "Comparison", "Eko steps", "Eko tradition", "Eko uses", "Eko guide", "Guarantee", "Eko quality", "FAQ / accordion", "Eko", "Apps", "Related products", "Newsletter"];
+    expect(mirrorSections(labels.map((label, i) => ({ id: `s${i}`, label })))).toEqual(["row", "comparison", "row", "row", "guarantee", "faq"]);
+  });
+
   it("copies the bundle deals as items and % off, with the chosen deal and its badge", () => {
     expect(mirrorTiers(teardown.bundle!.tiers)).toEqual({ tiers: [{ qty: 1, off: 0 }, { qty: 2, off: 50 }, { qty: 3, off: 30 }], preselect: 2, badges: [2] });
     // Deals of different products, or with no saving, can't be quantity discounts.

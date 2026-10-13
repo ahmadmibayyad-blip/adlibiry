@@ -44,6 +44,9 @@ const SECTION_KIND: [RegExp, MirrorSection][] = [
   [/^FAQ/, "faq"],
 ];
 
+/** Sections that aren't page content to copy: shop widgets, sign-ups, app embeds, code. */
+const NOT_CONTENT = /^(Related products|Newsletter|Custom code|Sticky add-to-cart|App section|Apps?$|Recently viewed|Footer|Header|Announcement)|\(app\)$/i;
+
 const SECTION_NAMES: Record<MirrorSection, string> = {
   row: "Photo + text",
   comparison: "Comparison table",
@@ -57,7 +60,8 @@ export function mirrorSections(sections: PageSection[]): MirrorSection[] {
   const buyBox = sections.findIndex((s) => s.label === "Buy box");
   const out: MirrorSection[] = [];
   for (const s of sections.slice(buyBox + 1)) {
-    const kind = SECTION_KIND.find(([re]) => re.test(s.label))?.[1];
+    // Sections we can't name (a theme's own "eko-problem", "eko-steps"…) are almost always content: a photo-and-text row.
+    const kind = SECTION_KIND.find(([re]) => re.test(s.label))?.[1] ?? (NOT_CONTENT.test(s.label) ? undefined : "row");
     if (!kind) continue;
     if (kind === "row" ? out.filter((k) => k === "row").length >= MAX_ROWS : out.includes(kind)) continue;
     out.push(kind);
