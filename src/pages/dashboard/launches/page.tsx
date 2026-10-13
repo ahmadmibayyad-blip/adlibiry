@@ -209,15 +209,17 @@ export default function LaunchesPage() {
     setParams(params, { replace: true });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- read the OAuth return message once
 
-  // One group per product: the live launch first, then the newest; older ones fold away.
+  // One group per product: the live launch first, then the newest; older ones fold away. The same
+  // product imported twice from a link is two records with one name, so the name groups them.
   const groups: LaunchRow[][] = [];
   const byProduct = new Map<string, LaunchRow[]>();
   for (const l of rows ?? []) {
-    const g = byProduct.get(l.productId);
+    const key = l.product?.title?.trim().toLowerCase() || l.productId;
+    const g = byProduct.get(key);
     if (g) g.push(l);
     else {
       const list = [l];
-      byProduct.set(l.productId, list);
+      byProduct.set(key, list);
       groups.push(list);
     }
   }
@@ -411,7 +413,7 @@ export default function LaunchesPage() {
           <>
             <ul className="divide-y divide-border border border-border rounded-xl bg-card overflow-hidden">
               {groups.slice(0, shown).map(([first, ...older]) => (
-                <li key={first.productId}>
+                <li key={first._id}>
                   <ul>
                     <Row {...rowProps(first)} />
                   </ul>
