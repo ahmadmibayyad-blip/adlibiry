@@ -1,13 +1,18 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { META_FIELDS, META_SEARCH_TERMS, describeMetaError, metaAdToExternal, metaCountries, type MetaApiError, type MetaArchiveAd } from "./lib/metaAdLibrary";
+import { dailyOfferPhrases } from "./lib/offerSearch";
+import { classifyNiche } from "./lib/category";
 
 // Daily import from Meta's official Ad Library API (crons.ts → importRuns
 // "metaAdLibrary"). Needs a Meta app access token with Ad Library API access
 // (identity-verified developer account): Convex env META_ACCESS_TOKEN.
 // Countries: META_AD_COUNTRIES (EU/UK only, default DK,SE,DE,NL,FR); others
 // are skipped with a note, since the API has no commercial ads there.
-// One page of active ads per niche per country.
+// One page of active ads per niche per country, and per offer in the country's
+// language ("køb 2 få 1 gratis", "kostenloser Versand"…: lib/offerSearch.ts), so
+// Ad Spy's Offer filter and Store Inspector see who runs which offer. Offer
+// phrases can be switched off with META_OFFER_SEARCH=off.
 
 const PER_PAGE = 50;
 const RETRY_AFTER_MS = 30_000;
@@ -45,8 +50,14 @@ export const dailyImport = internalAction({
     if (skipped.length) out.errors.push(`Skipped ${skipped.join(", ")}: Meta's API only has commercial ads for EU countries and the UK.`);
     if (!countries.length) return out;
     const now = Date.now();
+    const offers = process.env.META_OFFER_SEARCH?.trim().toLowerCase() !== "off";
     for (const country of countries) {
-      for (const [niche, terms] of Object.entries(META_SEARCH_TERMS)) {
+      // Offer phrases: the niche comes from each ad's own text.
+      const searches: { label: string; terms: string; niche?: string }[] = [
+        ...Object.entries(META_SEARCH_TERMS).map(([niche, terms]) => ({ label: niche, terms, niche })),
+        ...(offers ? dailyOfferPhrases(country).map((o) => ({ label: `offer ${o.offer}`, terms: o.phrase })) : []),
+      ];
+      for (const { label: niche, terms, niche: fixedNiche } of searches) {
         try {
           const r = await archive(token, { search_terms: terms, ad_reached_countries: JSON.stringify([country]), limit: String(PER_PAGE) });
           if ("error" in r) {
@@ -59,7 +70,10 @@ export const dailyImport = internalAction({
             continue;
           }
           out.fetched += r.ads.length;
-          const ads = r.ads.map((a) => metaAdToExternal(a, country, niche, now));
+          const ads = r.ads.map((a) => {
+            const ad = metaAdToExternal(a, country, fixedNiche ?? "Other", now);
+            return fixedNiche ? ad : { ...ad, niche: classifyNiche({ title: ad.headline, body: ad.bodyText, url: ad.landingPageUrl, advertiser: ad.advertiserName }, "Other") };
+          });
           const saved = await ctx.runMutation(internal.sources.links.upsertExternalAds, { ads });
           out.created += saved.created;
           out.updated += saved.updated;
