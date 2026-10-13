@@ -16,10 +16,11 @@ export default function FilterNumberInput({
   placeholder?: string;
   className?: string;
 }) {
+  // A label, so a tap anywhere on the pill focuses the number.
   return (
-    <div
+    <label
       className={cn(
-        "flex items-center gap-1.5 h-8 rounded-full pl-3 pr-2 border bg-card border-border",
+        "flex items-center gap-1.5 h-10 sm:h-8 rounded-full pl-3 pr-2 border bg-card border-border cursor-text",
         value && "border-primary bg-primary/10",
         className
       )}
@@ -33,6 +34,6 @@ export default function FilterNumberInput({
         placeholder={placeholder}
         className="h-6 w-16 border-0 shadow-none bg-transparent px-0 text-xs focus-visible:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-    </div>
+    </label>
   );
 }

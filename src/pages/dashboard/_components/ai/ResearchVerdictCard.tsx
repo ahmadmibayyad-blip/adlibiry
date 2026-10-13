@@ -114,7 +114,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                 <ul className="space-y-1.5">
                   {report.reasons.map((r, i) => (
                     <li key={i} className="text-xs flex gap-2 items-start">
-                      <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium", LABEL[r.label].style)}>{LABEL[r.label].text}</span>
+                      <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium", LABEL[r.label].style)}>{LABEL[r.label].text}</span>
                       <span>{r.text}</span>
                     </li>
                   ))}
@@ -152,7 +152,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                 <ul className="space-y-1">
                   {report.risks.map((r, i) => (
                     <li key={i} className="text-xs flex gap-2 items-start">
-                      {r.blocker && <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium bg-bad/15 text-bad">blocker</span>}
+                      {r.blocker && <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium bg-bad/15 text-bad">blocker</span>}
                       <span>{r.text}</span>
                     </li>
                   ))}

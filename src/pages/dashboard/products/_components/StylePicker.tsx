@@ -27,7 +27,7 @@ function Preview({ id, brand, imageUrl }: { id: StoreStyleId; brand: string; ima
   return (
     <div className="overflow-hidden text-left" style={{ background: c.color_bg, color: c.color_text, fontFamily: `'${s.fonts.body}', sans-serif` }} aria-hidden>
       <div className="flex items-center justify-between px-2.5 py-1.5" style={{ borderBottom: `1px solid ${c.color_text}1f` }}>
-        <span className="truncate text-[10px] leading-none" style={head}>{brand}</span>
+        <span className="truncate text-[11px] leading-none" style={head}>{brand}</span>
         <span className="flex gap-1">
           {[0, 1, 2].map((i) => <span key={i} className="block h-1 w-3 rounded-full" style={{ background: `${c.color_text}40` }} />)}
         </span>

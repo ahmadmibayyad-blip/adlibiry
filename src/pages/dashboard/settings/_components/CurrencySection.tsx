@@ -34,7 +34,7 @@ export default function CurrencySection() {
             )}
           >
             <span className="font-semibold">{c}</span>
-            <span className="text-[10px] opacity-80">{NAMES[c]}</span>
+            <span className="text-[11px] opacity-80">{NAMES[c]}</span>
           </button>
         ))}
       </div>

@@ -41,13 +41,13 @@ export default function ProductTable({ products }: { products: Product[] }) {
                       <span className="line-clamp-2 font-medium hover:text-primary max-w-[22rem]">{p.title}</span>
                       <span className="flex flex-wrap gap-1 mt-0.5 empty:hidden">
                         <Authenticated>
-                          <ResearchCallBadge productId={p._id} className="text-[10px] px-1.5 rounded" />
+                          <ResearchCallBadge productId={p._id} className="text-[11px] px-1.5 rounded" />
                         </Authenticated>
                         {p.winnerRank !== undefined && (
-                          <span className="text-[10px] font-semibold px-1.5 rounded bg-primary/15 text-primary">#{p.winnerRank} in {p.category}</span>
+                          <span className="text-[11px] font-semibold px-1.5 rounded bg-primary/15 text-primary">#{p.winnerRank} in {p.category}</span>
                         )}
                         {(p.linkedAds ?? 0) > 0 && (
-                          <span className="text-[10px] font-medium px-1.5 rounded bg-orange-500/15 text-orange-400">From {p.linkedAds} ad{p.linkedAds === 1 ? "" : "s"}</span>
+                          <span className="text-[11px] font-medium px-1.5 rounded bg-orange-500/15 text-orange-400">From {p.linkedAds} ad{p.linkedAds === 1 ? "" : "s"}</span>
                         )}
                       </span>
                     </span>
