@@ -167,12 +167,12 @@ export default function WinnersPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search winning products…"
-                className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+                className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-10 sm:h-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
               />
             </div>
             <div className="flex items-center gap-2">
               <ImageSearchDialog trigger="icon" />
-              <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-9" role="tablist" aria-label="Order">
+              <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-10 sm:h-9" role="tablist" aria-label="Order">
                 {([["mixed", "Mixed feed"], ["byNiche", "By niche"]] as const).map(([m, label]) => (
                   <button
                     key={m}

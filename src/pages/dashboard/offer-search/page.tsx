@@ -189,7 +189,7 @@ function StoreCard({ store: s, country }: { store: FoundStore; country: string }
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <a href={`https://${s.host}`} target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline break-all">
+          <a href={`https://${s.host}`} target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline break-all inline-block py-2.5 -my-2.5 sm:py-0 sm:my-0">
             {s.host}
           </a>
           <p className="text-xs text-muted-foreground truncate">{s.advertisers.join(" · ")}</p>

@@ -54,21 +54,21 @@ export default function StoreCompareModal({
                       <DollarSign className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div>
                         <div className="font-semibold">{storeRevenueLabel(store) ?? "Tracking"}</div>
-                        <div className="text-[10px] text-muted-foreground">Est. revenue</div>
+                        <div className="text-[11px] text-muted-foreground">Est. revenue</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div>
                         <div className="font-semibold">{store.trafficRange}</div>
-                        <div className="text-[10px] text-muted-foreground">Traffic</div>
+                        <div className="text-[11px] text-muted-foreground">Traffic</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Megaphone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div>
                         <div className="font-semibold">{store.activeAdsCount}</div>
-                        <div className="text-[10px] text-muted-foreground">Active ads</div>
+                        <div className="text-[11px] text-muted-foreground">Active ads</div>
                       </div>
                     </div>
                     {store.isHighTraffic && (
