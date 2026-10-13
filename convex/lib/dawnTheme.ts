@@ -3,7 +3,8 @@
 // copy, style colors and fonts, written into Dawn's own settings and sections.
 // Only storeThemeHttp.ts imports this, so Dawn's files stay out of other functions' bundles.
 
-import { STORE_MENU_HANDLES, STORE_PAGE_HANDLES, type ThemeInput } from "./storeKit";
+import { STORE_MENU_HANDLES, STORE_PAGE_HANDLES, bundleDeals, bundleSettings, type ThemeInput } from "./storeKit";
+import { DEFAULT_SECTIONS } from "./pageMirror";
 import { STORE_STYLES, type StoreStyleId } from "./storeStyles";
 import { DAWN_BINARY, DAWN_FILES } from "./dawnFiles.generated";
 
@@ -232,7 +233,8 @@ type DawnSection = { type: string; settings?: Record<string, unknown>; blocks?: 
 export function dawnProductTemplate(t: ThemeInput, trust: unknown, benefitsLiquid: string) {
   const tpl = JSON.parse(DAWN_FILES["templates/product.json"]) as { sections: Record<string, DawnSection>; order: string[] };
   const pp = t.copy.productPage;
-  const off = t.bundleOff && t.bundleOff.length === 3 && t.bundleOff.some((o) => o > 0) ? t.bundleOff : null;
+  const m = t.mirror;
+  const deals = bundleDeals(t);
   const main = tpl.sections.main;
   const blocks = (main.blocks ?? {}) as Record<string, unknown>;
   // Ticks: "Bold part – detail" from the product page copy, else the product's benefit lines.
@@ -246,35 +248,13 @@ export function dawnProductTemplate(t: ThemeInput, trust: unknown, benefitsLiqui
         .join("") +
       "</ul>"
     : benefitsLiquid;
-  const tier = (i: number) => pp?.bundles.tiers[i];
   Object.assign(blocks, {
     adspy_rating: { type: "adspy_rating", settings: {} },
     adspy_benefits: { type: "custom_liquid", settings: { custom_liquid: ticks } },
-    ...(off && pp?.offer ? { adspy_offer: { type: "text", settings: { text: `<strong>${esc(pp.offer)}</strong>`, text_style: "body" } } } : {}),
+    ...(deals && pp?.offer ? { adspy_offer: { type: "text", settings: { text: `<strong>${esc(pp.offer)}</strong>`, text_style: "body" } } } : {}),
     adspy_stock: { type: "inventory", settings: { text_style: "body", inventory_threshold: 10, show_inventory_quantity: true } },
-    ...(off
-      ? {
-          adspy_bundles: {
-            type: "adspy_bundles",
-            settings: {
-              heading: pp?.bundles.heading ?? "",
-              preselect: "2",
-              unit_price: true,
-              ...Object.fromEntries(
-                [0, 1, 2].flatMap((i) => [
-                  [`tier${i + 1}_qty`, i + 1],
-                  [`tier${i + 1}_title`, tier(i)?.title ?? ""],
-                  [`tier${i + 1}_subtitle`, tier(i)?.subtitle ?? ""],
-                  [`tier${i + 1}_off`, off[i]],
-                  [`tier${i + 1}_badge`, i === 1 ? pp?.bundles.popular ?? "" : i === 2 ? pp?.bundles.best ?? "" : ""],
-                  [`tier${i + 1}_gift`, ""],
-                ]),
-              ),
-            },
-          },
-        }
-      : {}),
-    adspy_guarantee: { type: "adspy_guarantee", settings: { days: t.facts.returnDays > 0 ? t.facts.returnDays : 0, title: "", text: "" } },
+    ...(deals ? { adspy_bundles: { type: "adspy_bundles", settings: bundleSettings(deals, pp, m) } } : {}),
+    ...(m?.guarantee === false ? {} : { adspy_guarantee: { type: "adspy_guarantee", settings: { days: t.facts.returnDays > 0 ? t.facts.returnDays : 0, title: "", text: "" } } }),
     ...(trust ? { adspy_trust: trust } : {}),
     ...Object.fromEntries((pp?.tabs ?? []).map((x, i) => [`adspy_tab${i + 1}`, { type: "collapsible_tab", settings: { heading: x.heading, icon: ["box", "check_mark", "clipboard"][i] ?? "check_mark", content: `<p>${esc(x.text)}</p>` } }])),
   });
@@ -288,7 +268,7 @@ export function dawnProductTemplate(t: ThemeInput, trust: unknown, benefitsLiqui
     ...(blocks.adspy_offer ? ["adspy_offer"] : []),
     "adspy_stock",
     "variant_picker",
-    ...(off ? ["adspy_bundles"] : ["quantity_selector"]),
+    ...(deals ? ["adspy_bundles"] : ["quantity_selector"]),
     "buy_buttons",
     "adspy_guarantee",
     ...(trust ? ["adspy_trust"] : []),
@@ -296,7 +276,7 @@ export function dawnProductTemplate(t: ThemeInput, trust: unknown, benefitsLiqui
     ...(pp?.tabs ?? []).map((_, i) => `adspy_tab${i + 1}`),
     "share",
   ].filter((k) => k in blocks);
-  if (!off) delete blocks.adspy_bundles;
+  if (!deals) delete blocks.adspy_bundles;
   else delete blocks.quantity_selector;
 
   // Under the buy box. Rows show the AI photos (2nd photo on), else the main photo.
@@ -317,18 +297,27 @@ export function dawnProductTemplate(t: ThemeInput, trust: unknown, benefitsLiqui
     },
   }));
   const after: [string, DawnSection][] = [];
-  if (rows[0]) after.push(["adspy_problem", rows[0]]);
-  if (pp && pp.comparison.rows.length >= 3) {
-    after.push(["adspy_comparison", {
-      type: "adspy-comparison",
-      settings: { heading: pp.comparison.heading, us_label: t.brandName, them_1: pp.comparison.others, button_label: pp.button, color_scheme: "scheme-2", padding_top: 48, padding_bottom: 48 },
-      ...keyed("row", pp.comparison.rows, (r) => ({ type: "row", settings: { feature: r.feature, us: r.us, them_1: r.others } })),
-    }]);
+  let row = 0;
+  // Dawn has no guarantee section: the seal in the buy box stands in for it.
+  for (const kind of m?.sections ?? DEFAULT_SECTIONS) {
+    if (kind === "row") {
+      if (rows[row]) after.push([row === 0 ? "adspy_problem" : `adspy_row${row + 1}`, rows[row]]);
+      row++;
+    } else if (kind === "comparison") {
+      if (pp && pp.comparison.rows.length >= 3) {
+        after.push(["adspy_comparison", {
+          type: "adspy-comparison",
+          settings: { heading: pp.comparison.heading, us_label: t.brandName, them_1: pp.comparison.others, button_label: pp.button, color_scheme: "scheme-2", padding_top: 48, padding_bottom: 48 },
+          ...keyed("row", pp.comparison.rows, (r) => ({ type: "row", settings: { feature: r.feature, us: r.us, them_1: r.others } })),
+        }]);
+      }
+    } else if (kind === "reviews") {
+      after.push(["adspy_testimonials", { type: "adspy-testimonials", settings: { heading: pp?.reviewsHeading ?? "", color_scheme: "scheme-2", padding_top: 48, padding_bottom: 48 } }]);
+      after.push(["adspy_reviews", { type: "adspy-reviews" }]);
+    } else if (kind === "faq") {
+      after.push(["adspy_faq", { type: "adspy-product-faq" }]);
+    }
   }
-  rows.slice(1).forEach((row, i) => after.push([`adspy_row${i + 2}`, row]));
-  after.push(["adspy_testimonials", { type: "adspy-testimonials", settings: { heading: pp?.reviewsHeading ?? "", color_scheme: "scheme-2", padding_top: 48, padding_bottom: 48 } }]);
-  after.push(["adspy_reviews", { type: "adspy-reviews" }]);
-  after.push(["adspy_faq", { type: "adspy-product-faq" }]);
   for (const [key, section] of after) tpl.sections[key] = section;
   const mainAt = tpl.order.indexOf("main");
   tpl.order.splice(mainAt + 1, 0, ...after.map(([k]) => k));

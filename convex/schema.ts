@@ -695,6 +695,10 @@ export default defineSchema({
     bundleOff: v.optional(v.array(v.number())),
     bundlesNote: v.optional(v.string()),
     bundleDiscountIds: v.optional(v.array(v.string())), // the automatic discounts it made, removed by the next launch of the product
+    bundleQty: v.optional(v.array(v.number())), // items in each deal (missing = 1, 2 and 3)
+    // "Copy a page's layout": the page whose structure the store copies, and the plan read from it (lib/pageMirror.ts PageMirror).
+    mirrorUrl: v.optional(v.string()),
+    mirror: v.optional(v.any()),
     // A relaunch that replaces this earlier launch (its theme and row go once this one is ready).
     replacesLaunchId: v.optional(v.id("launches")),
   })

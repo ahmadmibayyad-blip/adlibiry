@@ -3,6 +3,7 @@
 // the storefront theme's settings and home page). Pure and unit-tested.
 
 import { scrubClaims, type LaunchCopy } from "./launchCopy";
+import { DEFAULT_SECTIONS, type MirrorTier, type PageMirror } from "./pageMirror";
 import { STORE_STYLES, type StoreStyleId } from "./storeStyles";
 import { THEME_FILES } from "./themeFiles.generated";
 
@@ -56,6 +57,8 @@ const MARKS = ["yes", "partly", "no"] as const;
 
 /** % off for 1, 2 and 3 items: the bundle cards and the automatic discounts Launch creates for them. */
 export const BUNDLE_OFF = [0, 15, 25] as const;
+/** Our deals as items and % off; a mirrored page brings its own (lib/pageMirror.ts). */
+export const DEFAULT_TIERS: MirrorTier[] = BUNDLE_OFF.map((off, i) => ({ qty: i + 1, off }));
 
 /** What shoppers see as the discount's name in the cart and at checkout: "Køb flere · 2 fontæner". */
 export function bundleTitles(pp: ProductPageCopy | undefined, count: number): string[] {
@@ -65,13 +68,15 @@ export function bundleTitles(pp: ProductPageCopy | undefined, count: number): st
   });
 }
 
-export function productPageGuide(off: readonly number[] = BUNDLE_OFF): string {
+export function productPageGuide(tiers: MirrorTier[] = DEFAULT_TIERS): string {
+  const off = tiers.map((t) => t.off);
+  const items = tiers.map((t) => t.qty);
   return (
     "Write the product page's extra copy: ticks (4 benefit lines, each “Short bold part – detail”, max 70 characters), " +
-    `bundles (heading 2–4 words like “Bundle & save”; tiers: exactly 3, for 1, 2 and 3 items, which cost ${off.map((o) => `${o}%`).join(", ")} less; ` +
+    `bundles (heading 2–4 words like “Bundle & save”; tiers: exactly ${tiers.length}, for ${items.slice(0, -1).join(", ")} and ${items[items.length - 1]} items, which cost ${off.map((o) => `${o}%`).join(", ")} less; ` +
     "each with a title of 1–3 words naming the product itself with its count (e.g. “1 fountain”, “2 fountains”, not a part or accessory) and a " +
     "subtitle of max 40 characters; never write a price or number in it: write [unit] where the price per item goes (e.g. “Only [unit] each”, " +
-    "“One for the bedroom”); popular: the badge for the 2-item deal (“Most popular”), best: for the 3-item deal (“Best value”)), " +
+    "“One for the bedroom”); popular: the badge for the most popular deal (“Most popular”), best: for the best-value deal (“Best value”)), " +
     `offer (one line about the real bundle saving: up to ${Math.max(...off)}% off when buying more; no dates or scarcity), ` +
     "sections (3 image-with-text rows: first the problem the product solves, then how it helps, then a detail buyers care about; " +
     "eyebrow 1–3 words, heading max 8 words, text 1–2 sentences, 3 short points), " +
@@ -301,8 +306,12 @@ export type ThemeInput = {
   copy: StoreCopy;
   product: Pick<LaunchCopy, "title">;
   facts: StoreFacts;
-  /** % off for 1, 2 and 3 items when Launch created the matching automatic discounts; no bundle cards without. */
+  /** % off for each deal when Launch created the matching automatic discounts; no bundle cards without. */
   bundleOff?: number[];
+  /** Items in each deal; missing = 1, 2 and 3. */
+  bundleQty?: number[];
+  /** The layout copied from another page (lib/pageMirror.ts); missing = our own. */
+  mirror?: PageMirror;
   /** How many AI photos the product got: they're its 2nd, 3rd… photos (lib/aiPhotos.ts withAiPhotos). */
   aiPhotos?: number;
 };
@@ -426,6 +435,37 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
   };
 }
 
+/** The launch's deals as items and % off, when its discounts exist: 2–3 deals with some saving. */
+export function bundleDeals(t: Pick<ThemeInput, "bundleOff" | "bundleQty">): MirrorTier[] | null {
+  const off = t.bundleOff;
+  if (!off || off.length < 2 || off.length > 3 || !off.some((o) => o > 0)) return null;
+  const qty = t.bundleQty?.length === off.length ? t.bundleQty : off.map((_, i) => i + 1);
+  return off.map((o, i) => ({ qty: qty[i], off: o }));
+}
+
+/** The bundles block's settings, the same in both themes: up to 3 deals (0 items hides one), the chosen one and the badges. */
+export function bundleSettings(deals: MirrorTier[], pp: ProductPageCopy | undefined, mirror?: PageMirror): Record<string, unknown> {
+  // Badges: the mirrored page's, else "Most popular" on deal 2 and "Best value" on deal 3.
+  const badges = mirror?.tiers ? mirror.badges ?? [] : [2, 3];
+  const badge = (n: number) => (badges[0] === n ? pp?.bundles.popular ?? "" : badges[1] === n ? pp?.bundles.best ?? "" : "");
+  const preselect = Math.min(deals.length, Math.max(1, (mirror?.tiers ? mirror.preselect : undefined) ?? 2));
+  return {
+    heading: pp?.bundles.heading ?? "",
+    preselect: String(preselect),
+    unit_price: true,
+    ...Object.fromEntries(
+      [0, 1, 2].flatMap((i) => [
+        [`tier${i + 1}_qty`, deals[i]?.qty ?? 0],
+        [`tier${i + 1}_title`, deals[i] ? pp?.bundles.tiers[i]?.title ?? "" : ""],
+        [`tier${i + 1}_subtitle`, deals[i] ? pp?.bundles.tiers[i]?.subtitle ?? "" : ""],
+        [`tier${i + 1}_off`, deals[i]?.off ?? 0],
+        [`tier${i + 1}_badge`, deals[i] ? badge(i + 1) : ""],
+        [`tier${i + 1}_gift`, ""],
+      ]),
+    ),
+  };
+}
+
 type Block = { type: string; settings: Record<string, unknown> };
 const blockList = (list: [string, Block | null][]) => {
   const kept = list.filter((e): e is [string, Block] => e[1] !== null);
@@ -436,49 +476,31 @@ const blockList = (list: [string, Block | null][]) => {
  * The product page (sections/main-product.liquid's blocks and the sections under it), like the stores
  * selling with Meta ads: stars, ticks, offer and stock, bundle cards (only with Launch's discounts),
  * guarantee, trust icons and tabs; then image-with-text rows, a comparison table, reviews and FAQ.
+ * A mirrored page (t.mirror) sets the sections' order, the deals and which buy-box extras show.
  */
 export function productTemplate(t: ThemeInput) {
   const pp = t.copy.productPage;
-  const off = t.bundleOff && t.bundleOff.length === 3 && t.bundleOff.some((o) => o > 0) ? t.bundleOff : null;
-  const tier = (i: number) => pp?.bundles.tiers[i];
-  const bundles: Block | null = off
-    ? {
-        type: "bundles",
-        settings: {
-          heading: pp?.bundles.heading ?? "",
-          preselect: "2",
-          unit_price: true,
-          ...Object.fromEntries(
-            [0, 1, 2].flatMap((i) => [
-              [`tier${i + 1}_qty`, i + 1],
-              [`tier${i + 1}_title`, tier(i)?.title ?? ""],
-              [`tier${i + 1}_subtitle`, tier(i)?.subtitle ?? ""],
-              [`tier${i + 1}_off`, off[i]],
-              [`tier${i + 1}_badge`, i === 1 ? pp?.bundles.popular ?? "" : i === 2 ? pp?.bundles.best ?? "" : ""],
-              [`tier${i + 1}_gift`, ""],
-            ]),
-          ),
-        },
-      }
-    : null;
+  const m = t.mirror;
+  const deals = bundleDeals(t);
+  const bundles: Block | null = deals ? { type: "bundles", settings: bundleSettings(deals, pp, m) } : null;
   const tabs = (pp?.tabs ?? []).map((x, i) => [`tab${i + 1}`, { type: "collapsible_tab", settings: { heading: x.heading, icon: ["leaf", "check", "sparkle"][i] ?? "none", content: `<p>${esc(x.text)}</p>`, open: false } }] as [string, Block]);
   const main = {
     type: "main-product",
-    settings: { sticky_bar: true },
+    settings: { sticky_bar: m?.sticky ?? true },
     ...blockList([
       ["rating", { type: "rating", settings: {} }],
       ["title", { type: "title", settings: {} }],
       ["subtitle", { type: "subtitle", settings: {} }],
       ["price", { type: "price", settings: {} }],
       ["benefits", { type: "benefits", settings: { lines: (pp?.ticks ?? []).join("\n") } }],
-      ["urgency", { type: "urgency", settings: { offer: off ? pp?.offer ?? "" : "", stock_below: 10, show_in_stock: true } }],
+      ["urgency", { type: "urgency", settings: { offer: deals ? pp?.offer ?? "" : "", stock_below: 10, show_in_stock: true } }],
       ["variant_picker", { type: "variant_picker", settings: { style: "buttons" } }],
       ["bundles", bundles],
-      ["buy_buttons", { type: "buy_buttons", settings: { show_quantity: !off, show_dynamic_checkout: true } }],
-      ["guarantee", { type: "guarantee", settings: {} }],
+      ["buy_buttons", { type: "buy_buttons", settings: { show_quantity: !deals, show_dynamic_checkout: true } }],
+      ["guarantee", m?.guarantee === false ? null : { type: "guarantee", settings: {} }],
       ["trust_icons", { type: "trust_icons", settings: {} }],
       ["payment_icons", { type: "payment_icons", settings: {} }],
-      ["delivery", { type: "delivery", settings: {} }],
+      ["delivery", m?.delivery === false ? null : { type: "delivery", settings: {} }],
       ["description", { type: "description", settings: { collapsible: true, open: false } }],
       ...tabs,
     ]),
@@ -509,20 +531,29 @@ export function productTemplate(t: ThemeInput) {
     sections[key] = section;
     order.push(key);
   };
-  if (rows[0]) add("problem", rows[0]);
-  if (pp && pp.comparison.rows.length >= 3) {
-    add("comparison", {
-      type: "comparison",
-      settings: { heading: pp.comparison.heading, us_label: t.brandName, them_1: pp.comparison.others, button_label: pp.button, scheme: soft },
-      ...blockList(pp.comparison.rows.map((r, i) => [`row${i + 1}`, { type: "row", settings: { feature: r.feature, us: r.us, them_1: r.others } }])),
-    });
+  let row = 0;
+  for (const kind of m?.sections ?? DEFAULT_SECTIONS) {
+    if (kind === "row") {
+      if (rows[row]) add(row === 0 ? "problem" : `row${row + 1}`, rows[row]);
+      row++;
+    } else if (kind === "comparison") {
+      if (pp && pp.comparison.rows.length >= 3) {
+        add("comparison", {
+          type: "comparison",
+          settings: { heading: pp.comparison.heading, us_label: t.brandName, them_1: pp.comparison.others, button_label: pp.button, scheme: soft },
+          ...blockList(pp.comparison.rows.map((r, i) => [`row${i + 1}`, { type: "row", settings: { feature: r.feature, us: r.us, them_1: r.others } }])),
+        });
+      }
+    } else if (kind === "reviews") {
+      // The owner's own reviews (hidden until they add some), then the supplier's when Launch added them.
+      add("testimonials", { type: "testimonials", settings: { heading: pp?.reviewsHeading ?? "", show_summary: true, layout: "slider", scheme: "surface" } });
+      add("reviews", { type: "reviews", settings: { scheme: "base" } });
+    } else if (kind === "guarantee") {
+      add("guarantee", { type: "guarantee", settings: { button_label: pp?.button ?? "", scheme: "surface" } });
+    } else {
+      add("faq", { type: "faq", settings: { heading: t.copy.faq.heading, product_questions: true, scheme: "base" } });
+    }
   }
-  rows.slice(1).forEach((row, i) => add(`row${i + 2}`, row));
-  // The owner's own reviews (hidden until they add some), then the supplier's when Launch added them.
-  add("testimonials", { type: "testimonials", settings: { heading: pp?.reviewsHeading ?? "", show_summary: true, layout: "slider", scheme: "surface" } });
-  add("reviews", { type: "reviews", settings: { scheme: "base" } });
-  add("guarantee", { type: "guarantee", settings: { button_label: pp?.button ?? "", scheme: "surface" } });
-  add("faq", { type: "faq", settings: { heading: t.copy.faq.heading, product_questions: true, scheme: "base" } });
   return { sections, order };
 }
 

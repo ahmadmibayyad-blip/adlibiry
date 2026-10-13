@@ -39,9 +39,16 @@ export default function LaunchesPage() {
   // A copy, not a lookup: a relaunch that replaces this launch removes its row while the dialog shows progress.
   const [relaunching, setRelaunching] = useState<Doc<"launches"> | null>(null);
   const importLink = useAction(api.productImport.importLink);
-  const [link, setLink] = useState("");
+  const [link, setLink] = useState(() => params.get("mirror") ?? "");
   const [reading, setReading] = useState(false);
   const [fromLink, setFromLink] = useState<{ _id: Id<"importedProducts">; imageUrl: string } | null>(null);
+  // Store Inspector → "Mirror this page" (?mirror=<product page>): launch that product with its page's layout.
+  const [mirror, setMirror] = useState(() => params.get("mirror") ?? "");
+  useEffect(() => {
+    if (!params.has("mirror")) return;
+    params.delete("mirror");
+    setParams(params, { replace: true });
+  }, [params, setParams]);
   const failed = rows?.filter((l) => l.status === "failed") ?? [];
   const deleting = rows?.filter((l) => toDelete?.includes(l._id)) ?? [];
 
@@ -125,9 +132,23 @@ export default function LaunchesPage() {
           <p className="text-xs text-muted-foreground">
             Any product you found yourself: we read its title, photos and price, and you launch it like a winning product. AliExpress links can take up to a minute.
           </p>
+          {mirror ? (
+            <p className="text-xs text-primary">The store will copy the layout of {mirror.replace(/^https?:\/\/(www\.)?/, "").split("?")[0]}. You can change it in the next step.</p>
+          ) : null}
         </form>
       )}
-      {fromLink ? <LaunchDialog key={fromLink._id} product={fromLink} startOpen onClose={() => setFromLink(null)} /> : null}
+      {fromLink ? (
+        <LaunchDialog
+          key={fromLink._id}
+          product={fromLink}
+          startOpen
+          mirrorUrl={mirror || undefined}
+          onClose={() => {
+            setFromLink(null);
+            setMirror("");
+          }}
+        />
+      ) : null}
       {quota && !quota.store && (
         <div className="mb-6 rounded-xl border border-dashed border-primary/20 bg-primary/10 p-4 max-w-sm space-y-3">
           <p className="text-sm">Connect your Shopify store to launch winning products as ready-made product pages.</p>

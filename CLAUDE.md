@@ -82,6 +82,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.
   The daily Meta API import (`metaAdLibrary.ts`) also searches each offer's phrase per country (`META_OFFER_SEARCH=off` stops it);
   Ad Spy's Offer filter reads the ad text with `convex/lib/offerTags.ts`.
+- Launch → "Copy a page's layout" (Full store, `mirrorUrl`): launchRun reads that product page with Store Teardown (`lib/pageFetch.ts`),
+  `lib/pageMirror.ts` turns it into a plan (section order, bundle deals as items + % off, buy-box extras) saved as `launches.mirror`;
+  both themes' product templates follow it and the bundle discounts use its quantities (`bundleQty`). Structure only, never text or photos.
 
 ## UI
 

@@ -19,7 +19,7 @@ import {
   STORE_ICONS,
   STORE_SYSTEM,
   TRUST_ICONS,
-  BUNDLE_OFF,
+  DEFAULT_TIERS,
   bundleTitles,
   cleanProductPage,
   cleanStore,
@@ -35,6 +35,9 @@ import {
   type StorePageKey,
 } from "./lib/storeKit";
 import { STORE_STYLES, isStoreStyle } from "./lib/storeStyles";
+import { fetchTeardown } from "./lib/pageFetch";
+import { mirrorPlan, type MirrorTier, type PageMirror } from "./lib/pageMirror";
+import { productUrl } from "./lib/productImport";
 
 // The Launch job (convex/launch.ts start): Claude writes the page and ad kit
 // from the product's facts and its winning ads, the claim rules clean it, and
@@ -180,6 +183,15 @@ export const run = internalAction({
     const fullStore = launch.mode === "store" && isStoreStyle(launch.style);
     const facts = launch.facts as StoreFacts | undefined;
 
+    // 0. "Copy a page's layout": read that page's structure first; its deals go into the AI's brief.
+    let mirror: PageMirror | undefined;
+    if (fullStore && launch.mirrorUrl) {
+      const u = productUrl(launch.mirrorUrl);
+      mirror = mirrorPlan(launch.mirrorUrl, u ? await fetchTeardown(u).catch(() => null) : null);
+      await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "generating", mirror });
+    }
+    const tiers: MirrorTier[] = mirror?.tiers ?? DEFAULT_TIERS;
+
     // 1. Write the page and ad kit (and for a full store, the rest of the store).
     let copy: LaunchCopy;
     let storeCopy: StoreCopy | undefined;
@@ -237,7 +249,7 @@ export const run = internalAction({
               model: MODEL,
               max_tokens: 5000,
               system,
-              messages: [{ role: "user", content: `${productFacts}\nStore name: ${launch.brandName}\n\n${productPageGuide(BUNDLE_OFF)}` }],
+              messages: [{ role: "user", content: `${productFacts}\nStore name: ${launch.brandName}\n\n${productPageGuide(tiers)}` }],
               output_config: { effort: "low", format: zodOutputFormat(ProductPageSchema) },
             });
             return message.stop_reason === "refusal" ? null : message.parsed_output;
@@ -344,7 +356,7 @@ export const run = internalAction({
 
       // 3. Full store: bundle discounts, pages, menus, then the theme.
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", shopifyProductId: created.id, productHandle: created.handle, step: "pages" });
-      const deals = await bundleDiscounts(store.shopDomain, token, created.id, BUNDLE_OFF, bundleTitles(storeCopy.productPage, BUNDLE_OFF.length), previousDiscountIds);
+      const deals = await bundleDiscounts(store.shopDomain, token, created.id, tiers, bundleTitles(storeCopy.productPage, tiers.length), previousDiscountIds);
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "publishing", ...deals });
       const pageList = storePages(storeCopy, facts, launch.language);
       const pages = await upsertPages(store.shopDomain, token, pageList, store);
@@ -525,8 +537,8 @@ const DISCOUNT_CREATE = `mutation D($d: DiscountAutomaticBasicInput!) {
 }`;
 
 /**
- * The bundle cards' prices, made real: one automatic discount per deal ("2 or more: 15% off" on this
- * product), replacing the ones earlier launches of it made (by id). Shopify applies the best one that fits.
+ * The bundle cards' prices, made real: one automatic discount per deal with a saving ("2 or more: 15% off" on
+ * this product), replacing the ones earlier launches of it made (by id). Shopify applies the best one that fits.
  * Shoppers see the title in the cart and at checkout, so it's the deal's own name ("Køb flere · 2 fontæner").
  * Without the discounts permission (stores connected before) there are no bundle cards, and a note says why.
  */
@@ -534,24 +546,24 @@ async function bundleDiscounts(
   shop: string,
   token: string,
   productId: string,
-  off: readonly number[],
+  tiers: MirrorTier[],
   titles: string[],
   previousIds: string[],
-): Promise<{ bundleOff: number[]; bundleDiscountIds: string[] } | { bundlesNote: string }> {
+): Promise<{ bundleOff: number[]; bundleQty: number[]; bundleDiscountIds: string[] } | { bundlesNote: string }> {
   try {
     for (const id of previousIds) {
       // Already deleted in Shopify, or never ours: either way it no longer competes with the new ones.
       await shopify(shop, token, DISCOUNT_DELETE, { id }).catch((e) => console.warn("Launch: old bundle discount", id, e instanceof Error ? e.message : e));
     }
     const ids: string[] = [];
-    for (let i = 1; i < off.length; i++) {
-      if (!(off[i] > 0)) continue;
+    for (let i = 0; i < tiers.length; i++) {
+      if (!(tiers[i].off > 0)) continue;
       const r = (await shopify(shop, token, DISCOUNT_CREATE, {
         d: {
           title: titles[i],
           startsAt: new Date().toISOString(),
-          customerGets: { value: { percentage: off[i] / 100 }, items: { products: { productsToAdd: [productId] } } },
-          minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: String(i + 1) } },
+          customerGets: { value: { percentage: tiers[i].off / 100 }, items: { products: { productsToAdd: [productId] } } },
+          minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: String(tiers[i].qty) } },
           combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: true },
         },
       })) as { discountAutomaticBasicCreate?: { automaticDiscountNode: { id: string } | null; userErrors: UserError[] } };
@@ -562,7 +574,7 @@ async function bundleDiscounts(
       }
       ids.push(node.id);
     }
-    return { bundleOff: [...off], bundleDiscountIds: ids };
+    return { bundleOff: tiers.map((t) => t.off), bundleQty: tiers.map((t) => t.qty), bundleDiscountIds: ids };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     console.warn("Launch: bundle discounts failed", msg);

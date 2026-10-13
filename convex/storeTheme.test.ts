@@ -6,6 +6,7 @@ import { api } from "./_generated/api";
 import { THEME_FILES } from "./lib/themeFiles.generated";
 import { BUNDLE_OFF, cleanProductPage, cleanStore, deliveryDays, menuLabel, productTemplate, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
+import { mirrorPlan } from "./lib/pageMirror";
 import { crc32, zipFiles } from "./lib/zip";
 import { readTheme } from "../scripts/build-theme.mjs";
 import { settle } from "./lib/settle";
@@ -191,6 +192,25 @@ describe("storefront theme", () => {
     checkTemplate(bare, "product.json");
     expect(bare.order).toEqual(["main", "testimonials", "reviews", "guarantee", "faq"]);
     expect(cleanProductPage({})).toBeNull();
+  });
+
+  it("lays the product page out like a mirrored page: its section order, deals and buy-box extras", () => {
+    const pp = cleanProductPage(productPage)!;
+    const base: ThemeInput = { style: "fresh", brandName: "Rank Ryg", productHandle: "posture-corrector", copy: { ...cleanStore(storeCopy), productPage: pp }, product: { title: "Posture corrector" }, facts };
+    const mirror = mirrorPlan("https://komforttid.dk/products/a", null);
+    const tpl = productTemplate({
+      ...base,
+      bundleOff: [10, 30],
+      bundleQty: [2, 4],
+      mirror: { ...mirror, tiers: [{ qty: 2, off: 10 }, { qty: 4, off: 30 }], preselect: 1, badges: [1], sections: ["row", "reviews", "row", "comparison", "faq"], sticky: false, delivery: false, guarantee: false },
+    });
+    checkTemplate(tpl, "product.json");
+    expect(tpl.order).toEqual(["main", "problem", "testimonials", "reviews", "row2", "comparison", "faq"]);
+    const main = tpl.sections.main as { settings: Record<string, unknown>; blocks: Record<string, { settings: Record<string, unknown> }>; block_order: string[] };
+    expect(main.settings.sticky_bar).toBe(false);
+    expect(main.block_order).not.toContain("guarantee");
+    expect(main.block_order).not.toContain("delivery");
+    expect(main.blocks.bundles.settings).toMatchObject({ preselect: "1", tier1_qty: 2, tier1_off: 10, tier1_badge: "Mest populær", tier2_qty: 4, tier2_off: 30, tier2_badge: "", tier3_qty: 0, tier3_badge: "" });
   });
 
   it("drops claims it can't back up and icons the theme doesn't have", () => {
@@ -578,5 +598,74 @@ describe("Launch → Full store", () => {
     await user.mutation(api.launch.publishTheme, { launchId });
     await settle(t);
     expect(await user.query(api.launch.get, { launchId })).toMatchObject({ themeLive: true });
+  });
+
+  it("copies a competitor page's layout: its deals become the discounts and cards, its sections set the order", async () => {
+    const validStore = { ...storeCopy, trust: [storeCopy.trust[0]], benefits: { ...storeCopy.benefits, items: [storeCopy.benefits.items[0]] } };
+    const deals = { blockTitle: "Bundle", preselectedDealBarId: "b", dealBars: [
+      { id: "a", quantity: 1, discountType: "percentage", discountValue: 0 },
+      { id: "b", quantity: 2, discountType: "percentage", discountValue: 20 },
+      { id: "c", quantity: 4, discountType: "percentage", discountValue: 35 },
+    ] };
+    const rival =
+      '<html><script>Shopify.shop = "rival.myshopify.com";</script>' +
+      '<div id="shopify-section-template--9__main">Buy now. Estimated delivery: Oct 20. Only today! Ends at midnight.' +
+      `<script type="application/json" class="kaching-bundles-deal-block-settings">${JSON.stringify(deals)}</script></div>` +
+      '<section id="shopify-section-template--9__faq_abc123"><h2>FAQ</h2></section>' +
+      '<section id="shopify-section-template--9__image_with_text_x"></section>' +
+      '<section id="shopify-section-template--9__comparison_y"></section></html>';
+    let pageBrief = "";
+    const calls: { query: string; variables: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url === "https://rival.dk/products/a") return new Response(rival, { status: 200 });
+      if (url === "https://rival.dk/products/a.js") return json({ id: 5, title: "Rival", variants: [{ price: 10000, available: true }] });
+      if (url.includes("anthropic.com")) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        const isPage = String(body.messages[0].content).includes("product page's extra copy");
+        const isStore = !isPage && String(body.system).includes("rest of a one-product dropshipping store");
+        if (isPage) pageBrief = String(body.messages[0].content);
+        return json({ id: "msg_1", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+          content: [{ type: "text", text: JSON.stringify(isPage ? productPage : isStore ? validStore : productCopy) }], usage: { input_tokens: 10, output_tokens: 10 } });
+      }
+      if (!url.includes("/graphql.json")) return new Response("", { status: 404 });
+      const body = JSON.parse(String(init?.body));
+      calls.push(body);
+      const q: string = body.query;
+      if (q.includes("productSet")) return json({ data: { productSet: { product: { id: "gid://shopify/Product/9", handle: "rank-ryg", onlineStorePreviewUrl: null }, userErrors: [] } } });
+      if (q.includes("publications(")) return json({ data: { publications: { nodes: [] } } });
+      if (q.includes("pageCreate")) return json({ data: { pageCreate: { page: { id: `gid://shopify/Page/${body.variables.page.handle}`, handle: body.variables.page.handle }, userErrors: [] } } });
+      if (q.includes("menus(")) return json({ data: { menus: { nodes: [] } } });
+      if (q.includes("menuCreate")) return json({ data: { menuCreate: { menu: { id: "gid://shopify/Menu/6" }, userErrors: [] } } });
+      if (q.includes("themeCreate")) return json({ data: { themeCreate: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: false }, userErrors: [] } } });
+      if (q.includes("theme(id")) return json({ data: { theme: { id: "gid://shopify/OnlineStoreTheme/77", processing: false, processingFailed: false } } });
+      if (q.includes("discountAutomaticBasicCreate")) return json({ data: { discountAutomaticBasicCreate: { automaticDiscountNode: { id: `gid://shopify/DiscountAutomaticNode/${calls.length}` }, userErrors: [] } } });
+      return json({ errors: [{ message: `unexpected ${q.slice(0, 40)}` }] });
+    }));
+
+    const { t, productId, user } = await setup();
+    await expect(user.mutation(api.launch.start, { productId, language: "Danish", tone: "friendly", publish: "ACTIVE", mode: "store", style: "nordic", mirrorUrl: "not a link" })).rejects.toThrow(/full link/);
+    const { launchId } = await user.mutation(api.launch.start, {
+      productId, language: "Danish", tone: "friendly", publish: "ACTIVE", mode: "store", style: "nordic", brandName: "Rank Ryg", mirrorUrl: "rival.dk/products/a",
+      facts: { shippingTime: "5–8 hverdage", returnDays: 30 },
+    });
+    await settle(t);
+    const l = await user.query(api.launch.get, { launchId });
+    expect(l).toMatchObject({ status: "published", mirrorUrl: "https://rival.dk/products/a", bundleOff: [0, 20, 35], bundleQty: [1, 2, 4] });
+    expect(l?.mirror).toMatchObject({ host: "rival.dk", preselect: 2, sections: ["faq", "row", "comparison", "reviews"], delivery: true, sticky: false, guarantee: false });
+    expect((l?.mirror as { skipped: string[] }).skipped.join("\n")).toMatch(/Countdown timer/);
+    expect(pageBrief).toContain("tiers: exactly 3, for 1, 2 and 4 items, which cost 0%, 20%, 35% less");
+    const made = calls.filter((c) => c.query.includes("discountAutomaticBasicCreate")).map((c) => c.variables.d as { minimumRequirement: unknown; customerGets: { value: unknown } });
+    expect(made).toMatchObject([
+      { customerGets: { value: { percentage: 0.2 } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "2" } } },
+      { customerGets: { value: { percentage: 0.35 } }, minimumRequirement: { quantity: { greaterThanOrEqualToQuantity: "4" } } },
+    ]);
+
+    const source = new URL(String(calls.find((c) => c.query.includes("themeCreate"))!.variables.source));
+    const files = unzip(new Uint8Array(await (await t.fetch(`${source.pathname}${source.search}`)).arrayBuffer()));
+    const tpl = JSON.parse(files["templates/product.json"]);
+    expect(tpl.order).toEqual(["main", "faq", "problem", "comparison", "testimonials", "reviews"]);
+    expect(tpl.sections.main.settings.sticky_bar).toBe(false);
+    expect(tpl.sections.main.blocks.bundles.settings).toMatchObject({ preselect: "2", tier3_qty: 4, tier3_off: 35 });
   });
 });
