@@ -89,7 +89,7 @@ function AiPhotos({ l }: { l: Doc<"launches"> }) {
 function Checks({ items }: { items?: string[] }) {
   if (!items?.length) return null;
   return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+    <div className="rounded-lg border border-warn/30 bg-warn/5 p-3">
       <h4 className="text-sm font-semibold mb-1.5">Check before you go live</h4>
       <ul className="space-y-1 text-xs list-disc pl-4">
         {items.map((c) => <li key={c}>{c}</li>)}
@@ -244,7 +244,7 @@ export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAg
           ) : l.bundlesNote ? (
             <p className="text-xs text-muted-foreground">{l.bundlesNote}</p>
           ) : null}
-          {l.marginNote ? <p className="text-xs text-amber-600 dark:text-amber-400">{l.marginNote}</p> : null}
+          {l.marginNote ? <p className="text-xs text-warn">{l.marginNote}</p> : null}
           <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm">Before you run ads, check that the store can take real orders.</p>
             <StoreCheck variant="default" label="Is my store ready to sell?" />
@@ -475,6 +475,12 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
               </p>
 
               <ModeSwitch mode={mode} onChange={setMode} />
+              {mode === "page" && mirrorUrl.trim() ? (
+                <p className="text-xs text-warn -mt-2">
+                  Copying {mirrorUrl.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0]}'s layout needs Full store. Switch back to keep it; a single product page
+                  launches without it.
+                </p>
+              ) : null}
 
               {mode === "store" && (
                 <section className="space-y-3">
@@ -613,7 +619,7 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                       supplier's buyers. Pick listings with many written reviews, or add up to 3 sellers of the same product for more.
                     </span>
                     {reviewsUrl.split(/\s+/).some((x) => x && !/aliexpress\./i.test(x)) ? (
-                      <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      <span className="block text-xs text-warn mt-1">
                         Only AliExpress links work here. Another store's reviews were written by its own customers about its shop, so they can't
                         be shown as yours.
                       </span>

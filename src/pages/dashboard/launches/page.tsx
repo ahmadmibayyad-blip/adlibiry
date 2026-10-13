@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { CopyCheck, ExternalLink, Link2, Megaphone, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
+import { CircleCheck, CopyCheck, ExternalLink, Link2, Megaphone, MoreHorizontal, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
@@ -10,6 +10,7 @@ import ConnectShopify from "@/components/ConnectShopify.tsx";
 import StoreCheck from "@/components/StoreCheck.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import AdKit from "@/pages/dashboard/products/_components/AdKit.tsx";
 import DeleteLaunches from "./_components/DeleteLaunches.tsx";
 import RelaunchDialog from "./_components/RelaunchDialog.tsx";
@@ -17,20 +18,160 @@ import LaunchDialog from "@/pages/dashboard/products/_components/LaunchDialog.ts
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
+import { cn } from "@/lib/utils.ts";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 
-// Every product page launched to Shopify (convex/launch.ts), newest first.
-// The header shows the quota (api.launch.myQuota) and the connected store;
-// Shopify's OAuth answer lands here via /dashboard/launch/shopify-callback.
+// Every product page launched to Shopify (convex/launch.ts), newest first, grouped by product
+// (the live one leads its group). The header shows the quota (api.launch.myQuota) and the
+// connected store; Shopify's OAuth answer lands here via /dashboard/launch/shopify-callback.
 const STATUS: Record<string, string> = {
   generating: "Writing…",
   publishing: "Publishing…",
   published: "In your store",
   failed: "Failed",
 };
+const GROUPS_PER_PAGE = 20;
+
+// Row actions: 40px tall on touch screens, 32px from sm up.
+const ACTION = "inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-10 sm:h-8 hover:bg-muted shrink-0";
+
+type LaunchRow = Doc<"launches"> & { product?: { imageUrl?: string; title?: string; imported?: boolean } | null };
+
+function money(amount: number, currency?: string) {
+  try {
+    if (currency) return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: amount % 1 ? 2 : 0 }).format(amount);
+  } catch {
+    /* unknown currency code */
+  }
+  return amount.toFixed(2);
+}
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** "Live store", "Theme ready", "Draft"…: what the launch is now, at a glance. */
+function StatusBadge({ l }: { l: LaunchRow }) {
+  if (l.status === "published" && l.mode === "store" && l.themeLive) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-good/10 text-good px-2 py-0.5 text-[11px] font-semibold">
+        <CircleCheck className="w-3 h-3" /> Live store
+      </span>
+    );
+  }
+  const label =
+    l.status === "published"
+      ? l.mode === "store"
+        ? "Theme ready, not live"
+        : l.publish === "DRAFT"
+          ? "Draft in Shopify"
+          : "Live product"
+      : STATUS[l.status] ?? l.status;
+  const tone = l.status === "failed" ? "bg-bad/10 text-bad" : l.status === "published" ? "bg-muted text-foreground" : "bg-primary/10 text-primary";
+  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", tone)}>{label}</span>;
+}
+
+function Row({
+  l,
+  currency,
+  showDomain,
+  earlier,
+  onAds,
+  onRelaunch,
+  onDelete,
+}: {
+  l: LaunchRow;
+  currency?: string;
+  showDomain: boolean;
+  earlier?: boolean;
+  onAds: () => void;
+  onRelaunch: () => void;
+  onDelete: () => void;
+}) {
+  const title = (l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "Product";
+  const busy = l.status === "generating" || l.status === "publishing";
+  return (
+    <li className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 p-3", earlier && "bg-muted/30")}>
+      <ProductImage src={l.product?.imageUrl} alt="" className={cn("rounded-md object-cover bg-muted shrink-0", earlier ? "w-9 h-9" : "w-12 h-12")} />
+      <div className="min-w-0 flex-1 basis-48 space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          {l.product?.imported || earlier ? (
+            <span className="text-sm font-medium line-clamp-1">{title}</span>
+          ) : (
+            <Link to={`/dashboard/products/${l.productId}`} className="text-sm font-medium line-clamp-1 hover:underline">
+              {title}
+            </Link>
+          )}
+          <StatusBadge l={l} />
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {[
+            l.mode === "store" ? `Full store${l.brandName ? ` · ${l.brandName}` : ""}` : "Product page",
+            when(l.createdAt),
+            l.price ? money(l.price, currency) : "",
+            showDomain ? l.shopDomain : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+        {l.status === "failed" && l.error && <div className="text-xs text-bad">{l.error}</div>}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {l.status === "published" && (l.copy as { adKit?: unknown[] } | undefined)?.adKit?.length ? (
+          <button type="button" onClick={onAds} className={ACTION}>
+            <Megaphone className="w-3.5 h-3.5" />
+            Ads
+          </button>
+        ) : null}
+        {l.themePreviewUrl && (
+          <a href={l.themePreviewUrl} target="_blank" rel="noopener noreferrer" className={ACTION}>
+            <ExternalLink className="w-3.5 h-3.5" />
+            Preview
+          </a>
+        )}
+        {l.adminUrl && (
+          <a href={l.adminUrl} target="_blank" rel="noopener noreferrer" className={ACTION}>
+            <ExternalLink className="w-3.5 h-3.5" />
+            Shopify
+          </a>
+        )}
+        {(l.status === "published" || l.status === "failed") && (
+          <button type="button" onClick={onRelaunch} title={l.status === "failed" ? "Try again with the same settings" : "Relaunch with the same settings"} className={ACTION}>
+            <RotateCw className="w-3.5 h-3.5" />
+            {l.status === "failed" ? "Try again" : "Relaunch"}
+          </button>
+        )}
+        {!busy && (
+          // Delete sits in a menu, away from Relaunch, so a slip on a phone can't hit it.
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label="More actions" className="inline-flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-md text-muted-foreground hover:bg-muted shrink-0">
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                <Trash2 /> Delete launch
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** "Reading the product… 12s": AliExpress can take up to a minute, so show that time is passing. */
+function Elapsed() {
+  const [s, setS] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setS((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return s >= 3 ? <span className="tabular-nums"> {s}s</span> : null;
+}
 
 export default function LaunchesPage() {
-  const rows = useQuery(api.launch.mine, {});
+  const rows = useQuery(api.launch.mine, {}) as LaunchRow[] | undefined;
   const quota = useQuery(api.launch.myQuota, {});
   const [params, setParams] = useSearchParams();
   const [adsFor, setAdsFor] = useState<Id<"launches"> | null>(null);
@@ -47,6 +188,9 @@ export default function LaunchesPage() {
   const [mirrorPage, setMirrorPage] = useState(() => params.get("mirror") ?? "");
   const [mirrorProduct, setMirrorProduct] = useState("");
   const [mirroring, setMirroring] = useState(false);
+  // On phones one form shows at a time; from md up both sit side by side.
+  const [tool, setTool] = useState<"link" | "mirror">(() => (params.get("mirror") ? "mirror" : "link"));
+  const [shown, setShown] = useState(GROUPS_PER_PAGE);
   useEffect(() => {
     if (!params.has("mirror")) return;
     params.delete("mirror");
@@ -64,6 +208,30 @@ export default function LaunchesPage() {
     params.delete("reason");
     setParams(params, { replace: true });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- read the OAuth return message once
+
+  // One group per product: the live launch first, then the newest; older ones fold away.
+  const groups: LaunchRow[][] = [];
+  const byProduct = new Map<string, LaunchRow[]>();
+  for (const l of rows ?? []) {
+    const g = byProduct.get(l.productId);
+    if (g) g.push(l);
+    else {
+      const list = [l];
+      byProduct.set(l.productId, list);
+      groups.push(list);
+    }
+  }
+  for (const g of groups) g.sort((a, b) => Number(!!b.themeLive) - Number(!!a.themeLive));
+  const currencyOf = (l: LaunchRow) => (l.facts as { currency?: string } | undefined)?.currency ?? (l.shopDomain === quota?.store?.shopDomain ? quota?.store?.currency : undefined);
+  const showDomain = (l: LaunchRow) => !!quota?.store && l.shopDomain !== quota.store.shopDomain;
+  const rowProps = (l: LaunchRow) => ({
+    l,
+    currency: currencyOf(l),
+    showDomain: showDomain(l),
+    onAds: () => setAdsFor(l._id),
+    onRelaunch: () => setRelaunching(l),
+    onDelete: () => setToDelete([l._id]),
+  });
 
   return (
     <div className="p-5 lg:p-8 max-w-4xl mx-auto">
@@ -95,88 +263,113 @@ export default function LaunchesPage() {
           </div>
         )}
       </div>
-      <div className="flex items-start justify-between gap-3 flex-wrap mb-6">
-        <p className="text-sm text-muted-foreground">Products you launched to your Shopify store, with their ad kits. Launch more from any product page.</p>
-        {failed.length ? (
-          <button type="button" onClick={() => setToDelete(failed.map((l) => l._id))} className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
-            <Trash2 className="w-3.5 h-3.5" />
-            Clear failed ({failed.length})
-          </button>
-        ) : null}
-      </div>
+      <p className="text-sm text-muted-foreground mb-6">Products you launched to your Shopify store, with their ad kits. Launch more from any product page.</p>
       {quota?.store && quota.allowed && (
-        <div className="mb-6 grid gap-4 md:grid-cols-2">
-          <form
-            className="rounded-xl border border-border bg-card p-4 space-y-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!link.trim()) return;
-              setReading(true);
-              try {
-                const r = await importLink({ url: link.trim() });
-                setMirror("");
-                setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
-                setLink("");
-              } catch (err) {
-                toast.error(errorMessage(err, "Couldn't read that link"));
-              } finally {
-                setReading(false);
-              }
-            }}
-          >
-            <label htmlFor="launch-link" className="text-sm font-semibold flex items-center gap-1.5">
-              <Link2 className="w-4 h-4 text-primary" /> Launch from a link
-            </label>
-            <Input id="launch-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="AliExpress, Shopify store or other product page link" />
-            <Button type="submit" className="w-full" disabled={reading || !link.trim()}>
-              {reading ? <Spinner className="w-4 h-4 mr-2" /> : <Rocket className="w-4 h-4 mr-2" />}
-              {reading ? "Reading the product…" : "Launch"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Any product you found yourself: we read its title, photos and price, and you launch it like a winning product. AliExpress links can take up to a minute.
-            </p>
-          </form>
-          {/* Mirror a page: our store built like a page that sells, for the user's own product (or that page's). */}
-          <form
-            className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!mirrorPage.trim()) return;
-              setMirroring(true);
-              try {
-                const r = await importLink({ url: (mirrorProduct.trim() || mirrorPage).trim() });
-                setMirror(mirrorPage.trim());
-                setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
-                setMirrorPage("");
-                setMirrorProduct("");
-              } catch (err) {
-                toast.error(errorMessage(err, "Couldn't read that link"));
-              } finally {
-                setMirroring(false);
-              }
-            }}
-          >
-            <label htmlFor="mirror-page" className="text-sm font-semibold flex items-center gap-1.5">
-              <CopyCheck className="w-4 h-4 text-primary" /> Mirror a page
-            </label>
-            <Input id="mirror-page" type="url" value={mirrorPage} onChange={(e) => setMirrorPage(e.target.value)} placeholder="Product page to copy: https://store.com/products/…" />
-            <Input
-              type="url"
-              value={mirrorProduct}
-              onChange={(e) => setMirrorProduct(e.target.value)}
-              placeholder="Your product: AliExpress or store link (optional)"
-              aria-label="Your product link"
-            />
-            <Button type="submit" className="w-full" disabled={mirroring || !mirrorPage.trim()}>
-              {mirroring ? <Spinner className="w-4 h-4 mr-2" /> : <CopyCheck className="w-4 h-4 mr-2" />}
-              {mirroring ? "Reading the product…" : "Mirror this page"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              A store built like that page: its section order, bundle deals and buy-box extras, with your own text and photos. Leave your product empty to
-              launch the product on that page.
-            </p>
-          </form>
-        </div>
+        <section aria-label="Start a launch" className="mb-8">
+          <div className="md:hidden mb-3 grid grid-cols-2 rounded-lg border border-border p-1 text-sm" role="group" aria-label="How to launch">
+            {(
+              [
+                ["link", "From a link", Link2],
+                ["mirror", "Mirror a page", CopyCheck],
+              ] as const
+            ).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={tool === key}
+                onClick={() => setTool(key)}
+                className={cn("h-10 rounded-md inline-flex items-center justify-center gap-1.5", tool === key ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground")}
+              >
+                <Icon className="w-4 h-4" /> {label}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <form
+              className={cn("rounded-xl border border-border bg-card p-4 space-y-2", tool !== "link" && "hidden md:block")}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!link.trim()) return;
+                setReading(true);
+                try {
+                  const r = await importLink({ url: link.trim() });
+                  setMirror("");
+                  setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
+                  setLink("");
+                } catch (err) {
+                  toast.error(errorMessage(err, "Couldn't read that link"));
+                } finally {
+                  setReading(false);
+                }
+              }}
+            >
+              <label htmlFor="launch-link" className="text-sm font-semibold flex items-center gap-1.5">
+                <Link2 className="w-4 h-4 text-primary" /> Launch from a link
+              </label>
+              <Input id="launch-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="AliExpress, Shopify store or other product page link" />
+              <Button type="submit" className="w-full h-10" disabled={reading || !link.trim()}>
+                {reading ? <Spinner className="w-4 h-4 mr-2" /> : <Rocket className="w-4 h-4 mr-2" />}
+                {reading ? (
+                  <>
+                    Reading the product…
+                    <Elapsed />
+                  </>
+                ) : (
+                  "Launch"
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Any product you found yourself: we read its title, photos and price, and you launch it like a winning product. AliExpress links can take up to a minute.
+              </p>
+            </form>
+            {/* Mirror a page: our store built like a page that sells, for the user's own product (or that page's). */}
+            <form
+              className={cn("rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2", tool !== "mirror" && "hidden md:block")}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!mirrorPage.trim()) return;
+                setMirroring(true);
+                try {
+                  const r = await importLink({ url: (mirrorProduct.trim() || mirrorPage).trim() });
+                  setMirror(mirrorPage.trim());
+                  setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
+                  setMirrorPage("");
+                  setMirrorProduct("");
+                } catch (err) {
+                  toast.error(errorMessage(err, "Couldn't read that link"));
+                } finally {
+                  setMirroring(false);
+                }
+              }}
+            >
+              <h2 className="text-sm font-semibold flex items-center gap-1.5">
+                <CopyCheck className="w-4 h-4 text-primary" /> Mirror a page
+              </h2>
+              <label htmlFor="mirror-page" className="block text-xs font-medium">
+                Page to copy
+              </label>
+              <Input id="mirror-page" type="url" value={mirrorPage} onChange={(e) => setMirrorPage(e.target.value)} placeholder="https://store.com/products/…" />
+              <label htmlFor="mirror-product" className="block text-xs font-medium pt-1">
+                Your product <span className="font-normal text-muted-foreground">(optional: AliExpress or store link)</span>
+              </label>
+              <Input id="mirror-product" type="url" value={mirrorProduct} onChange={(e) => setMirrorProduct(e.target.value)} placeholder="Empty: launch the product on that page" />
+              <Button type="submit" className="w-full h-10" disabled={mirroring || !mirrorPage.trim()}>
+                {mirroring ? <Spinner className="w-4 h-4 mr-2" /> : <CopyCheck className="w-4 h-4 mr-2" />}
+                {mirroring ? (
+                  <>
+                    Reading the product…
+                    <Elapsed />
+                  </>
+                ) : (
+                  "Mirror this page"
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                A store built like that page: its section order, bundle deals and buy-box extras, with your own text and photos.
+              </p>
+            </form>
+          </div>
+        </section>
       )}
       {fromLink ? (
         <LaunchDialog
@@ -196,66 +389,56 @@ export default function LaunchesPage() {
           <ConnectShopify />
         </div>
       )}
-      {rows === undefined ? (
-        <Spinner />
-      ) : rows.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-border rounded-xl text-sm">
-          No launches yet. Open a product in <Link className="text-primary underline" to="/dashboard/winners">Winning Products</Link> and press Launch.
+      <section aria-labelledby="your-launches">
+        <div className="flex items-end justify-between gap-3 flex-wrap mb-3">
+          <h2 id="your-launches" className="text-lg font-semibold">
+            Your launches{rows?.length ? <span className="ml-1.5 text-sm font-normal text-muted-foreground tabular-nums">{rows.length}</span> : null}
+          </h2>
+          {failed.length ? (
+            <button type="button" onClick={() => setToDelete(failed.map((l) => l._id))} className={ACTION}>
+              <Trash2 className="w-3.5 h-3.5" />
+              Clear failed ({failed.length})
+            </button>
+          ) : null}
         </div>
-      ) : (
-        <ul className="divide-y divide-border border border-border rounded-xl bg-card">
-          {rows.map((l) => (
-            <li key={l._id} className="flex flex-wrap items-center gap-3 p-3">
-              <ProductImage src={l.product?.imageUrl} alt="" className="w-12 h-12 rounded-md object-cover bg-muted shrink-0" />
-              <div className="min-w-0 flex-1 basis-48">
-                {l.product?.imported ? (
-                  <span className="text-sm font-medium line-clamp-1">{(l.copy as { title?: string } | undefined)?.title ?? l.product.title}</span>
-                ) : (
-                  <Link to={`/dashboard/products/${l.productId}`} className="text-sm font-medium line-clamp-1 hover:underline">
-                    {(l.copy as { title?: string } | undefined)?.title ?? l.product?.title ?? "Product"}
-                  </Link>
-                )}
-                <div className="text-xs text-muted-foreground">
-                  {l.mode === "store" ? `Full store${l.brandName ? ` “${l.brandName}”` : ""} · ` : ""}
-                  {STATUS[l.status] ?? l.status}
-                  {l.status === "published" ? (l.mode === "store" ? (l.themeLive ? " (live theme)" : " (theme not live yet)") : l.publish === "DRAFT" ? " (draft)" : " (live)") : ""} · {l.shopDomain} · {new Date(l.createdAt).toLocaleDateString()}
-                  {l.price ? ` · ${l.price.toFixed(2)}` : ""}
-                </div>
-                {l.status === "failed" && l.error && <div className="text-xs text-bad mt-0.5">{l.error}</div>}
-              </div>
-              {l.status === "published" && (l.copy as { adKit?: unknown[] } | undefined)?.adKit?.length ? (
-                <button type="button" onClick={() => setAdsFor(l._id)} className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
-                  <Megaphone className="w-3.5 h-3.5" />
-                  Ads
-                </button>
-              ) : null}
-              {l.themePreviewUrl && (
-                <a href={l.themePreviewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Preview store
-                </a>
-              )}
-              {l.adminUrl && (
-                <a href={l.adminUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Shopify
-                </a>
-              )}
-              {(l.status === "published" || l.status === "failed") && (
-                <button type="button" onClick={() => setRelaunching(l)} title={l.status === "failed" ? "Try again with the same settings" : "Relaunch with the same settings"} className="inline-flex items-center gap-1 text-xs border border-border rounded-md px-2.5 h-8 hover:bg-muted shrink-0">
-                  <RotateCw className="w-3.5 h-3.5" />
-                  {l.status === "failed" ? "Try again" : "Relaunch"}
-                </button>
-              )}
-              {l.status !== "generating" && l.status !== "publishing" && (
-                <button type="button" onClick={() => setToDelete([l._id])} aria-label="Delete launch" title="Delete launch" className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-bad hover:bg-muted shrink-0">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+        {rows === undefined ? (
+          <Spinner />
+        ) : rows.length === 0 ? (
+          <div className="text-center py-16 border border-dashed border-border rounded-xl text-sm">
+            No launches yet. Open a product in <Link className="text-primary underline" to="/dashboard/winners">Winning Products</Link> and press Launch.
+          </div>
+        ) : (
+          <>
+            <ul className="divide-y divide-border border border-border rounded-xl bg-card overflow-hidden">
+              {groups.slice(0, shown).map(([first, ...older]) => (
+                <li key={first.productId}>
+                  <ul>
+                    <Row {...rowProps(first)} />
+                  </ul>
+                  {older.length ? (
+                    <details className="group border-t border-border/60">
+                      <summary className="cursor-pointer select-none px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground list-none [&::-webkit-details-marker]:hidden">
+                        <span className="group-open:hidden">Show {older.length} earlier {older.length === 1 ? "launch" : "launches"} of this product</span>
+                        <span className="hidden group-open:inline">Hide earlier launches</span>
+                      </summary>
+                      <ul className="divide-y divide-border/60 border-t border-border/60">
+                        {older.map((l) => (
+                          <Row key={l._id} {...rowProps(l)} earlier />
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            {groups.length > shown ? (
+              <Button variant="outline" className="mt-3 w-full h-10" onClick={() => setShown((n) => n + GROUPS_PER_PAGE)}>
+                Show more ({groups.length - shown} more {groups.length - shown === 1 ? "product" : "products"})
+              </Button>
+            ) : null}
+          </>
+        )}
+      </section>
       {relaunching ? <RelaunchDialog key={relaunching._id} launch={relaunching} aiPhotosReady={!!quota?.aiPhotosReady} onClose={() => setRelaunching(null)} /> : null}
       {deleting.length ? <DeleteLaunches key={deleting.map((l) => l._id).join()} launches={deleting} open onOpenChange={(o) => !o && setToDelete(null)} /> : null}
       <Dialog open={!!adsLaunch} onOpenChange={(o) => !o && setAdsFor(null)}>
