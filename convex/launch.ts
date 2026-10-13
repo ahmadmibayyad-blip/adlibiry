@@ -201,6 +201,7 @@ async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs
   const currency = store.currency ?? "USD";
   const price =
     args.price && args.price > 0 ? Math.round(args.price * 100) / 100 : suggestPrice(product, { currency, rate: await usdRate(ctx, currency) }).price;
+  if (!price) throw new ConvexError({ code: "NO_PRICE", message: "Enter the price you'll sell it for: we couldn't tell a sensible one from this product's data." });
   let storeFields = {};
   if (args.mode === "store") {
     if (!isStoreStyle(args.style)) throw new ConvexError({ code: "BAD_STYLE", message: "Pick a style for your store." });

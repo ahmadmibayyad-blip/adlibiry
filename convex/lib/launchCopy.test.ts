@@ -22,6 +22,8 @@ describe("Launch price", () => {
     expect(suggestPrice({ cost: 4.2 }).price! / 4.2).toBeGreaterThanOrEqual(2.5);
     expect(suggestPrice({ price: 39.5 })).toEqual({ price: 39.5 });
     expect(suggestPrice({})).toEqual({});
+    // A rupiah price read as dollars ($78,495 for a hair oil) suggests nothing; the owner enters one.
+    expect(suggestPrice({ price: 78495.01 }, { currency: "DKK", rate: 6.67 })).toEqual({});
   });
 
   it("prices in the store's currency, with that currency's price endings", () => {

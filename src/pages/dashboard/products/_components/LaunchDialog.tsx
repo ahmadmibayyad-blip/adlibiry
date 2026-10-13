@@ -549,9 +549,13 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                 {mode === "store" && <h3 className="text-sm font-semibold">Product</h3>}
                 <label className="block text-sm">
                   <span className="font-medium">Price ({currency})</span>
-                  <Input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" />
+                  <Input type="number" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" />
                   <span className="text-xs text-muted-foreground">
-                    {cost ? `Supplier cost ${cost.toFixed(2)} ${currency} incl. shipping · margin ${margin ?? "–"}%` : "No supplier cost known: check your margin."}
+                    {cost
+                      ? `Supplier cost ${cost.toFixed(2)} ${currency} incl. shipping · margin ${margin ?? "–"}%`
+                      : prep.suggested.price
+                        ? "No supplier cost known: check your margin."
+                        : "We couldn't tell a sensible price from this product's data: enter yours."}
                   </span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
