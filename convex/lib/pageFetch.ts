@@ -4,7 +4,10 @@
 import { firstProductPath, inspectHtml } from "./storeInspect";
 import { productJsPath, teardownProductPage, vitalsOffersUrl, type Teardown } from "./storeTeardown";
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36";
+// An honest bot name: Shopify answers a desktop-Chrome name that doesn't act like Chrome with 429 on
+// product pages and /products/<handle>.js (seen October 2026), but serves named bots normally.
+export const STORE_UA = "Mozilla/5.0 (compatible; AdSpyPro/1.0; +https://adspypro.net)";
+const UA = STORE_UA;
 
 export async function fetchPage(url: string): Promise<string | null> {
   try {

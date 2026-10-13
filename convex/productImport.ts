@@ -8,16 +8,19 @@ import { classifyNiche } from "./lib/category";
 import { fromAliExpressApi, fromAliExpressHtml, fromApifyAliExpress, fromProductHtml, fromShopifyJs, importSource, productUrl, type ImportedProduct } from "./lib/productImport";
 import { aliexpressId } from "./lib/supplierReviews";
 import { shopifyJsUrl } from "./lib/productImages";
+import { STORE_UA } from "./lib/pageFetch";
 
 // Launch from any link: reads a product page (AliExpress, a Shopify store or
 // any shop; parsing in lib/productImport.ts) into importedProducts, private to
 // the user, so it can be launched like a catalog product.
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36";
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36";
 
 async function get(url: string, accept: string): Promise<Response | null> {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: accept, "Accept-Language": "en-US,en;q=0.9" }, signal: AbortSignal.timeout(15_000) });
+    // Stores get our bot name (lib/pageFetch.ts STORE_UA: Shopify blocks a fake Chrome on product pages).
+    const ua = /(^|\.)aliexpress\./.test(new URL(url).hostname) ? BROWSER_UA : STORE_UA;
+    const res = await fetch(url, { headers: { "User-Agent": ua, Accept: accept, "Accept-Language": "en-US,en;q=0.9" }, signal: AbortSignal.timeout(15_000) });
     return res.ok ? res : null;
   } catch {
     return null;
