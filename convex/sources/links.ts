@@ -7,6 +7,7 @@ import type { Id } from "../_generated/dataModel";
 import { richAdFields, defined } from "../lib/adFields";
 import { fuseAd } from "../lib/fusion";
 import { logConflicts } from "../sourceConflicts";
+import { storeHost } from "../lib/productMatch";
 
 export const adFields = {
   externalId: v.string(),
@@ -66,8 +67,11 @@ export async function upsertAd(
         const fused = fuseAd(existing, fields, source, now.slice(0, 10));
         for (const k of fused.drop) delete (fields as Record<string, unknown>)[k];
         await logConflicts(ctx, "ad", adId, fused.conflicts, now.slice(0, 10));
+        // Which shop it sends people to, now rather than at the nightly pipeline (Store Inspector's AI reads it).
+        const host = storeHost(fields.landingPageUrl ?? existing.landingPageUrl) ?? undefined;
         await ctx.db.patch("ads", adId, {
           ...fields,
+          ...(host !== existing.landingHost ? { landingHost: host } : {}),
           sources: fused.sources,
           sourceFields: fused.sourceFields,
           // Seen again today: our own record of how long it has run.
@@ -89,6 +93,7 @@ export async function upsertAd(
       ...REQUIRED_TEXT_DEFAULTS,
       lastSeenAt: now,
       ...fields,
+      ...(storeHost(fields.landingPageUrl) ? { landingHost: storeHost(fields.landingPageUrl)! } : {}),
       externalKey: externalId,
       targeting: targeting ?? { ageRange: "Unknown", gender: "All", interests: [] },
       source,

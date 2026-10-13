@@ -65,8 +65,10 @@ describe("Offer Search", () => {
       ["helysta.dk", 1, false],
     ]);
     expect(done!.stores[0].offers.map((o) => o.label)).toEqual(expect.arrayContaining(["Buy 2 get 1", "Free shipping"]));
-    // The ads also land in Ad Spy.
-    expect(await t.run(async (ctx) => (await ctx.db.query("ads").collect()).length)).toBe(3);
+    // The ads also land in Ad Spy, tied to their store right away (Store Inspector's AI reads them).
+    const ads = await t.run((ctx) => ctx.db.query("ads").collect());
+    expect(ads).toHaveLength(3);
+    expect(ads.map((a) => a.landingHost).sort()).toEqual(["helysta.dk", "pawtech.dk", "pawtech.dk"]);
 
     // The same search again: answered from the last one, no new run, and it doesn't count against the limit.
     const again = await user.action(api.offerSearch.start, { offer: "bxgy", country: "dk" });
