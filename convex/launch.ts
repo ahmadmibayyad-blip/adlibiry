@@ -9,7 +9,9 @@ import { suggestPrice } from "./lib/launchCopy";
 import { bigBrandIn } from "./lib/productMatch";
 import { getLaunchProduct, type Launchable } from "./lib/launchProduct";
 import { missingStoreScopes } from "./lib/shopifyOAuth";
+import { productUrl } from "./lib/productImport";
 import { isBaseTheme, isStoreStyle } from "./lib/storeStyles";
+import type { PageMirror } from "./lib/pageMirror";
 
 // ── Launch: winning product → product page (or a full store) in the user's Shopify store ──
 // start() checks the plan, the monthly quota and the product, then schedules
@@ -116,6 +118,8 @@ const startArgs = {
   brandName: v.optional(v.string()),
   aiPhotos: v.optional(v.number()),
   reviewsUrl: v.optional(v.string()),
+  /** Full store: a product page whose layout to copy (lib/pageMirror.ts). */
+  mirrorUrl: v.optional(v.string()),
   facts: v.optional(
     v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
   ),
@@ -169,6 +173,7 @@ export const relaunch = mutation({
         : {}),
       aiPhotos: args.aiPhotos ?? old.aiPhotos ?? 0,
       ...((args.reviewsUrl ?? old.reviewsUrl) ? { reviewsUrl: args.reviewsUrl ?? old.reviewsUrl } : {}),
+      ...(old.mode === "store" && old.mirrorUrl ? { mirrorUrl: old.mirrorUrl } : {}),
     });
     // A store you made live is never replaced; a running launch can't be either.
     const replaceable = old.status !== "generating" && old.status !== "publishing" && !old.themeLive && r.launchId !== old._id;
@@ -204,11 +209,14 @@ async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs
     }
     const f = args.facts;
     const email = f?.supportEmail?.trim().slice(0, 120);
+    const mirror = args.mirrorUrl?.trim() ? productUrl(/^https?:\/\//i.test(args.mirrorUrl.trim()) ? args.mirrorUrl.trim() : `https://${args.mirrorUrl.trim()}`) : null;
+    if (args.mirrorUrl?.trim() && !mirror) throw new ConvexError({ code: "BAD_LINK", message: "The page to copy needs a full link, like https://store.com/products/…" });
     storeFields = {
       mode: "store",
       style: args.style,
       ...(args.baseTheme === "dawn" ? { baseTheme: "dawn" } : {}),
       brandName: (args.brandName?.trim() || store.shopName).slice(0, 60),
+      ...(mirror ? { mirrorUrl: mirror.toString().slice(0, 2000) } : {}),
       facts: {
         shippingTime: (f?.shippingTime.trim() || "5–10 business days").slice(0, 60),
         returnDays: Math.min(365, Math.max(0, Math.round(f?.returnDays ?? 30))),
@@ -337,6 +345,8 @@ export const setStatus = internalMutation({
     bundleOff: v.optional(v.array(v.number())),
     bundlesNote: v.optional(v.string()),
     bundleDiscountIds: v.optional(v.array(v.string())),
+    bundleQty: v.optional(v.array(v.number())),
+    mirror: v.optional(v.any()),
   },
   handler: async (ctx, { launchId, ...patch }) => {
     const launch = await ctx.db.get("launches", launchId);
@@ -458,6 +468,8 @@ export const themeSource = internalQuery({
       title: (l.copy as { title?: string } | undefined)?.title ?? "",
       facts: l.facts,
       bundleOff: l.bundleOff,
+      bundleQty: l.bundleQty,
+      mirror: l.mirror as PageMirror | undefined,
       aiPhotos: l.aiPhotoUrls?.length ?? 0,
     };
   },

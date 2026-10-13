@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
-import { Check, ExternalLink, Gift, LayoutList, ListChecks, Package, ScanSearch, Star, Tag, Truck } from "lucide-react";
+import { Check, CopyCheck, ExternalLink, Gift, LayoutList, ListChecks, Package, ScanSearch, Star, Tag, Truck } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { BundleTier, PageSection, Teardown, TierDeal } from "@/convex/lib/storeTeardown.ts";
 import { Badge } from "@/components/ui/badge.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table.tsx";
 
 // Store Teardown (convex/lib/storeTeardown.ts): what the store's main product page shows,
@@ -113,6 +115,16 @@ export default function StoreTeardown({ teardown: t, host }: { teardown: Teardow
           <span className="truncate">{t.productTitle ?? t.productPath}</span>
           <ExternalLink className="w-3 h-3 shrink-0" />
         </a>
+      </div>
+      <div className="rounded-lg border border-border bg-muted/30 p-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground max-w-md">
+          Launch a store built like this page: its section order, bundle deals and buy-box extras, with your own text and photos.
+        </p>
+        <Button asChild size="sm" variant="outline">
+          <Link to={`/dashboard/launch?mirror=${encodeURIComponent(`https://${host}${t.productPath}`)}`}>
+            <CopyCheck className="w-4 h-4 mr-1.5" /> Mirror this page
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

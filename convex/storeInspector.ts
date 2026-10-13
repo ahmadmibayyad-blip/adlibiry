@@ -6,7 +6,8 @@ import { stableToken } from "./lib/authIdentity";
 import { effectivePlan } from "./lib/billing";
 import { productUrl } from "./lib/productImport";
 import { firstProductPath, inspectHtml, mergeInspections, type Inspection } from "./lib/storeInspect";
-import { productJsPath, teardownProductPage, vitalsOffersUrl, type Teardown } from "./lib/storeTeardown";
+import { fetchPage as page, teardownAt } from "./lib/pageFetch";
+import type { Teardown } from "./lib/storeTeardown";
 import type { StoreAd, StoreAnalysis } from "./lib/storeAnalysis";
 import { FREE_WATCHED_STORES, PRO_WATCHED_STORES } from "./stores";
 
@@ -15,32 +16,9 @@ import { FREE_WATCHED_STORES, PRO_WATCHED_STORES } from "./stores";
 // conversion features, section order), and add it to the store watchlist.
 // Results are cached per store for 12 hours.
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36";
 const CACHE_MS = 12 * 3_600_000;
 export const FREE_INSPECTIONS_PER_DAY = 5;
 export const PRO_INSPECTIONS_PER_DAY = 100;
-
-async function page(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9" }, signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return null;
-    return (await res.text()).slice(0, 3_000_000);
-  } catch {
-    return null;
-  }
-}
-
-/** /products/<handle>.js: the product's prices and variants as JSON. */
-async function productJson(url: string): Promise<unknown> {
-  try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" }, signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) return undefined;
-    const text = await res.text();
-    return text.length < 2_000_000 ? (JSON.parse(text) as unknown) : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 async function userByToken(ctx: { db: QueryCtx["db"] }, token: string): Promise<Doc<"users"> | null> {
   return ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", token)).unique();
@@ -108,15 +86,7 @@ export const inspect = action({
       result = mergeInspections(pages.map(inspectHtml));
       if (!result.shopify) throw new ConvexError({ code: "NOT_SHOPIFY", message: `${host} doesn't look like a Shopify store. The Inspector reads Shopify stores only.` });
       let teardown: Teardown | null = null;
-      if (productPath && productHtml) {
-        const jsPath = productJsPath(productPath);
-        const json = jsPath ? await productJson(`${origin}${jsPath}`) : undefined;
-        // Vitals' volume discounts aren't in the page; its widget reads them from this JSON.
-        const id = (json as { id?: unknown } | undefined)?.id;
-        const vitalsUrl = vitalsOffersUrl(productHtml, typeof id === "number" ? id : undefined);
-        const vitalsOffers = vitalsUrl ? await productJson(vitalsUrl) : undefined;
-        teardown = teardownProductPage(productHtml, productPath, json, inspectHtml(productHtml).currency ?? result.currency, vitalsOffers);
-      }
+      if (productPath && productHtml) teardown = await teardownAt(origin, productPath, productHtml, result.currency);
       result = { ...result, teardown };
     }
     const id = await ctx.runMutation(internal.storeInspector.save, { userId: pre.userId, host, url: `https://${host}`, result });

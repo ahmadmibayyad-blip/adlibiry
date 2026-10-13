@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Authenticated, useAction, useMutation, useQuery } from "convex/react";
-import { Check, Copy, ExternalLink, Eye, FileText, Paintbrush, Rocket, Store } from "lucide-react";
+import { Check, Copy, CopyCheck, ExternalLink, Eye, FileText, Paintbrush, Rocket, Store } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { BASE_THEME_NAMES, STORE_STYLES, type BaseTheme, type StoreStyleId } from "@/convex/lib/storeStyles.ts";
 import type { SupplierReviews } from "@/convex/lib/supplierReviews.ts";
+import type { PageMirror } from "@/convex/lib/pageMirror.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
@@ -153,6 +154,30 @@ function GoLive({ l }: { l: Doc<"launches"> }) {
   );
 }
 
+/** What "Copy a page's layout" took from the page, and what it left out. */
+function MirrorResult({ mirror }: { mirror: PageMirror }) {
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2 text-sm">
+      <p className="font-medium flex items-center gap-1.5">
+        <CopyCheck className="w-4 h-4 text-primary" /> Layout copied from {mirror.host}
+      </p>
+      {mirror.copied.length ? (
+        <ul className="space-y-1 text-xs">
+          {mirror.copied.map((x) => (
+            <li key={x} className="flex gap-1.5"><Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />{x}</li>
+          ))}
+        </ul>
+      ) : null}
+      {mirror.skipped.length ? (
+        <ul className="space-y-1 text-xs text-muted-foreground list-disc pl-5">
+          {mirror.skipped.map((x) => <li key={x}>{x}</li>)}
+        </ul>
+      ) : null}
+      <p className="text-[11px] text-muted-foreground">Only the structure is copied. The text and photos are your own, written and made for your product.</p>
+    </div>
+  );
+}
+
 export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAgain: () => void }) {
   const l = useQuery(api.launch.get, { launchId });
   const quota = useQuery(api.launch.myQuota, {});
@@ -205,9 +230,16 @@ export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAg
           <GoLive l={l} />
           {l.error ? <p className="text-sm text-bad">{l.error}</p> : null}
           {l.reviewsUrl ? <ReviewsResult reviews={l.reviews as SupplierReviews | undefined} note={l.reviewsNote} /> : null}
+          {l.mirror ? <MirrorResult mirror={l.mirror as PageMirror} /> : null}
           {l.bundleOff ? (
             <p className="text-xs text-muted-foreground">
-              Bundle deals on the product page: {l.bundleOff.slice(1).map((off, i) => `${i + 2} items −${off}%`).join(", ")}, with matching automatic discounts in Shopify.
+              Bundle deals on the product page:{" "}
+              {l.bundleOff
+                .map((off, i) => ({ off, qty: l.bundleQty?.[i] ?? i + 1 }))
+                .filter((d) => d.off > 0)
+                .map((d) => `${d.qty} ${d.qty === 1 ? "item" : "items"} −${d.off}%`)
+                .join(", ")}
+              , with matching automatic discounts in Shopify.
             </p>
           ) : l.bundlesNote ? (
             <p className="text-xs text-muted-foreground">{l.bundlesNote}</p>
@@ -306,7 +338,7 @@ function ThemeSwitch({ value, onChange }: { value: BaseTheme; onChange: (t: Base
 /** What the dialog needs: a catalog product, or one pasted as a link (convex/productImport.ts). */
 type LaunchTarget = { _id: Id<"products"> | Id<"importedProducts">; imageUrl: string };
 
-function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void }) {
+function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void; mirrorUrl?: string }) {
   const [open, setOpen] = useState(!!startOpen);
   const prep = useQuery(api.launch.prepare, open ? { productId: product._id } : "skip");
   const status = useQuery(api.shopifyApp.status, open ? {} : "skip");
@@ -335,6 +367,7 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
   const [supportEmail, setSupportEmail] = useState("");
   const [aiPhotosInput, setAiPhotos] = useState<number | null>(null);
   const [reviewsInput, setReviewsUrl] = useState<string | null>(null);
+  const [mirrorUrl, setMirrorUrl] = useState(mirrorStart ?? "");
   const [launchId, setLaunchId] = useState<Id<"launches"> | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -411,6 +444,7 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
                     ...(priceNum > 0 ? { price: priceNum } : {}),
                     ...(aiPhotos > 0 ? { aiPhotos } : {}),
                     ...(mode === "store" && reviewsUrl.trim() ? { reviewsUrl: reviewsUrl.trim() } : {}),
+                    ...(mode === "store" && mirrorUrl.trim() ? { mirrorUrl: mirrorUrl.trim() } : {}),
                     ...(mode === "store"
                       ? {
                           mode,
@@ -448,6 +482,20 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
                   <h3 className="text-sm font-semibold pt-1">Pick a style</h3>
                   <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
                   <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
+                  <label className="block text-sm">
+                    <span className="font-medium flex items-center gap-1.5"><CopyCheck className="w-4 h-4 text-primary" /> Copy a page's layout</span>
+                    <Input
+                      type="url"
+                      value={mirrorUrl}
+                      onChange={(e) => setMirrorUrl(e.target.value)}
+                      placeholder="A product page that sells well, optional: https://store.com/products/…"
+                      className="mt-1"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Your product page gets that page's section order, bundle deals and buy-box extras. Never its text, photos or reviews: those are
+                      written and made for your product. Fake countdowns aren't copied.
+                    </span>
+                  </label>
                 </section>
               )}
 
@@ -582,10 +630,10 @@ function LaunchButton({ product, startOpen, onClose }: { product: LaunchTarget; 
   );
 }
 
-export default function LaunchDialog({ product, startOpen, onClose }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void }) {
+export default function LaunchDialog({ product, startOpen, onClose, mirrorUrl }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void; mirrorUrl?: string }) {
   return (
     <Authenticated>
-      <LaunchButton product={product} startOpen={startOpen} onClose={onClose} />
+      <LaunchButton product={product} startOpen={startOpen} onClose={onClose} mirrorUrl={mirrorUrl} />
     </Authenticated>
   );
 }

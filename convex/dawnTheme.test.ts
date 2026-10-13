@@ -3,6 +3,7 @@ import { DAWN_BINARY, DAWN_FILES } from "./lib/dawnFiles.generated";
 import { DAWN_FONTS, dawnOverrides, dawnThemeFiles } from "./lib/dawnTheme";
 import { BUNDLE_OFF, cleanProductPage, cleanStore, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLE_IDS } from "./lib/storeStyles";
+import { mirrorPlan } from "./lib/pageMirror";
 import { zipFiles } from "./lib/zip";
 import { readDawn } from "../scripts/build-theme.mjs";
 
@@ -152,6 +153,25 @@ describe("Dawn theme", () => {
     expect(plain.sections.main.block_order).not.toContain("adspy_bundles");
     expect(plain.sections.main.block_order).not.toContain("adspy_offer");
     expect(plain.sections.adspy_problem.settings).toMatchObject({ image_index: 1 });
+  });
+
+  it("lays Dawn's product page out like a mirrored page", () => {
+    const productPage = cleanProductPage({
+      ticks: ["Rank ryg – uden at tænke over det"],
+      offer: "Spar op til 30 %",
+      bundles: { heading: "Køb flere", tiers: [{ title: "2 stk.", subtitle: "" }, { title: "4 stk.", subtitle: "" }], popular: "Mest populær", best: "Bedste pris" },
+      sections: [{ eyebrow: "Problemet", heading: "Ondt i nakken?", text: "Mange sidder krumbøjede.", points: [] }],
+      comparison: { heading: "Hvorfor os", others: "Bandage", rows: [{ feature: "A", us: "yes", others: "no" }, { feature: "B", us: "yes", others: "no" }, { feature: "C", us: "yes", others: "no" }] },
+      tabs: [],
+      button: "Bestil nu",
+      reviewsHeading: "Det siger kunderne",
+    })!;
+    const mirror = { ...mirrorPlan("https://rival.dk/products/a", null), tiers: [{ qty: 2, off: 10 }, { qty: 4, off: 30 }], preselect: 2, badges: [2], sections: ["faq" as const, "comparison" as const, "row" as const, "reviews" as const], guarantee: false };
+    const tpl = JSON.parse(dawnOverrides({ ...input(), copy: { ...copy, productPage }, bundleOff: [10, 30], bundleQty: [2, 4], mirror })["templates/product.json"]) as { sections: Record<string, SectionJson>; order: string[] };
+    checkSections(tpl.sections, tpl.order, "mirrored product.json");
+    expect(tpl.order.slice(0, 6)).toEqual(["main", "adspy_faq", "adspy_comparison", "adspy_problem", "adspy_testimonials", "adspy_reviews"]);
+    expect(tpl.sections.main.block_order).not.toContain("adspy_guarantee");
+    expect(tpl.sections.main.blocks?.adspy_bundles.settings).toMatchObject({ preselect: "2", tier1_qty: 2, tier2_qty: 4, tier2_badge: "Mest populær", tier3_qty: 0 });
   });
 
   it("keeps our names within Shopify's 25 characters and labels within 70 (longer ones make Shopify drop the section and its templates)", () => {
