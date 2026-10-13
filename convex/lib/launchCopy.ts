@@ -53,6 +53,9 @@ export function charmFor(n: number, currency = "USD"): number {
  * to the store's currency (rate = units of that currency per USD), so a Danish
  * store gets a DKK price. Returns the margin so the user sees it.
  */
+/** Above this a product's recorded price isn't trusted for a suggestion. */
+export const MAX_MARKET_PRICE_USD = 2000;
+
 export function suggestPrice(
   p: Pick<LaunchProduct, "price" | "cost">,
   fx: { currency: string; rate: number } = { currency: "USD", rate: 1 },
@@ -64,7 +67,8 @@ export function suggestPrice(
     if (price < cost * 2.5) price = charmFor(cost * 2.5 + 1, fx.currency);
     return { price, cost, marginPercent: Math.round(((price - cost) / price) * 100) };
   }
-  if (!(p.price && p.price > 0)) return {};
+  // A market price far beyond a one-product store's is bad data (a local currency read as dollars), not a price.
+  if (!(p.price && p.price > 0 && p.price <= MAX_MARKET_PRICE_USD)) return {};
   const market = p.price * rate;
   return { price: WHOLE_CURRENCIES.has(fx.currency.toUpperCase()) ? charmFor(market, fx.currency) : Math.round(market * 100) / 100 };
 }

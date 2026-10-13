@@ -151,6 +151,45 @@ export function toNumber(s: string | undefined): number | undefined {
   return n;
 }
 
+// Money cells in another currency ("Rp78.495", "₫129.000", "฿299", "INR13999.0", "€24,95"): TikTok Shop
+// exports from Indonesia, Vietnam, Thailand… write local prices, and reading them as dollars made a
+// Rp 78,495 hair oil a $78,495 product. Approximate USD per unit (October 2026); good enough for research.
+const USD_PER: Record<string, number> = {
+  USD: 1, EUR: 1.08, GBP: 1.27, CHF: 1.13, DKK: 0.145, SEK: 0.095, NOK: 0.093, PLN: 0.25, CZK: 0.043, HUF: 0.0027, RON: 0.22,
+  AUD: 0.66, NZD: 0.6, CAD: 0.73, MXN: 0.054, BRL: 0.18, TRY: 0.029, AED: 0.27, SAR: 0.27, ZAR: 0.055, ILS: 0.27,
+  IDR: 1 / 16_300, VND: 1 / 25_400, THB: 1 / 33.5, PHP: 1 / 58, MYR: 1 / 4.25, SGD: 0.77, INR: 1 / 84, JPY: 1 / 150, KRW: 1 / 1_380,
+  CNY: 0.14, HKD: 0.13, TWD: 0.031,
+};
+// Currencies without decimals in practice: "78.495" there is seventy-eight thousand.
+const WHOLE = new Set(["IDR", "VND", "KRW", "JPY", "HUF"]);
+// Symbols, longest first ("S$" before "$"). A plain "$" counts as USD.
+const SYMBOLS: [RegExp, string][] = [
+  [/\bRp\.?/i, "IDR"], [/₫|đ/i, "VND"], [/฿/, "THB"], [/₱/, "PHP"], [/\bRM/i, "MYR"], [/S\$/, "SGD"], [/A\$|AU\$/, "AUD"],
+  [/C\$|CA\$/, "CAD"], [/R\$/, "BRL"], [/MX\$/, "MXN"], [/NT\$/, "TWD"], [/HK\$/, "HKD"], [/₹/, "INR"], [/€/, "EUR"], [/£/, "GBP"],
+  [/₩/, "KRW"], [/JP¥|円/, "JPY"], [/CN¥|元/, "CNY"], [/¥/, "JPY"], [/₺/, "TRY"], [/zł/i, "PLN"], [/\bkr\.?/i, "?"], // DKK, SEK or NOK: unknown
+];
+
+/** The currency a money cell (or its column's header) names, if any. */
+export function moneyCurrency(s: string): string | undefined {
+  const code = s.match(/(?:^|[^A-Za-z])([A-Z]{3})(?=$|[^A-Za-z])/)?.[1];
+  if (code && USD_PER[code]) return code;
+  for (const [re, c] of SYMBOLS) if (re.test(s)) return c;
+  return undefined;
+}
+
+/** A money cell in USD: converted from the currency it (or its column header) names; unknown codes give nothing. */
+export function moneyToUsd(s: string | undefined, header = ""): number | undefined {
+  if (s === undefined || !s.trim()) return undefined;
+  const currency = moneyCurrency(s) ?? moneyCurrency(header) ?? (/(^|[^A-Za-z])[A-Z]{3}(?=\d)/.test(s.trim()) ? "?" : "USD");
+  const rate = USD_PER[currency];
+  if (!rate) return undefined;
+  const t = s.trim();
+  let n = WHOLE.has(currency) && /\d[.,]\d{3}(?!\d)/.test(t) && !/[.,]\d{1,2}$/.test(t) ? toNumber(t.replace(/[.,](?=\d{3}(?!\d))/g, "")) : toNumber(t);
+  if (n === undefined) return undefined;
+  n *= rate;
+  return currency === "USD" ? n : Math.round(n * 100) / 100;
+}
+
 // Order matters: first match wins. Words end with \b where a stem would
 // otherwise match inside other words (e.g. "pain" in "painting").
 export { guessCategory } from "@/convex/lib/category.ts";
@@ -175,12 +214,14 @@ export function buildRows(
   map: ColumnMap,
   opts: { category: "auto" | string },
 ): BuildResult {
-  const [, ...data] = table;
+  const [header = [], ...data] = table;
   const seen = new Set<string>();
   const rows: ProductRow[] = [];
   let duplicates = 0;
   let invalid = 0;
   const get = (r: string[], f: Field) => (map[f] !== undefined ? (r[map[f]!] ?? "").trim() : undefined);
+  // Money in USD, whatever currency the cell or its header names.
+  const money = (r: string[], f: Field) => moneyToUsd(get(r, f), map[f] !== undefined ? header[map[f]!] ?? "" : "");
   for (const r of data) {
     const title = get(r, "title") ?? "";
     const imageUrl = get(r, "imageUrl") ?? "";
@@ -211,17 +252,17 @@ export function buildRows(
     const researchUrl = get(r, "researchUrl");
     // No items-sold column: a month of GMV ÷ price.
     const unitsFromGmv = (row: string[]) => {
-      const gmv = monthly(toNumber(get(row, "gmv30d")), toNumber(get(row, "gmv7d")));
-      const price = toNumber(get(row, "priceUsd"));
+      const gmv = monthly(money(row, "gmv30d"), money(row, "gmv7d"));
+      const price = money(row, "priceUsd");
       return gmv !== undefined && price ? Math.round(gmv / price) : undefined;
     };
     rows.push({
       title: title.slice(0, 300),
       imageUrl,
       productUrl: /^https?:\/\//i.test(productUrl) ? productUrl : "",
-      priceUsd: toNumber(get(r, "priceUsd")),
+      priceUsd: money(r, "priceUsd"),
       originalPrice: get(r, "originalPrice") || undefined,
-      cost: toNumber(get(r, "cost")),
+      cost: money(r, "cost"),
       category,
       description: get(r, "description") || undefined,
       ads: toNumber(get(r, "ads")),
@@ -229,7 +270,7 @@ export function buildRows(
       growthPercent: toNumber(get(r, "growthPercent")),
       researchUrl: researchUrl && researchUrl !== productUrl && /^https?:\/\//i.test(researchUrl) ? researchUrl : undefined,
       unitsPerMonth: monthly(toNumber(get(r, "itemsSold30d")), toNumber(get(r, "itemsSold7d"))) ?? unitsFromGmv(r),
-      totalGmv: toNumber(get(r, "totalGmv")),
+      totalGmv: money(r, "totalGmv"),
       rating: toNumber(get(r, "rating")),
       reviews: toNumber(get(r, "reviews")),
     });
