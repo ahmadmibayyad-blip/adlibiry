@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { askKimi, shouldUseKimi, stripFence, toKimiRequest } from "./kimiFallback";
+import Anthropic from "@anthropic-ai/sdk";
 import { claudeClient } from "./claudeClient";
+import { claudeErrorMessage } from "./claudeErrors";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -91,5 +93,39 @@ describe("Kimi fallback", () => {
     const msg = await claudeClient().messages.parse(params);
     expect(msg.parsed_output).toEqual({ title: "Fra Kimi" });
     expect(hosts).toEqual(["api.anthropic.com", "api.moonshot.ai"]);
+  });
+
+  it("tries Kimi twice, and says when the backup failed too", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    vi.stubEnv("KIMI_API_KEY", "kimi-key");
+    let kimiCalls = 0;
+    let kimiOk = true;
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request) => {
+      if (String(u instanceof Request ? u.url : u).includes("anthropic.com")) {
+        return new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." } }), { status: 400, headers: { "content-type": "application/json" } });
+      }
+      kimiCalls++;
+      if (kimiCalls === 1 || !kimiOk) return new Response(JSON.stringify({ error: { message: "Too many requests" } }), { status: 429 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{"title":"Fra Kimi"}' }, finish_reason: "stop" }] }));
+    }));
+    const params = { model: "claude-opus-5-5", max_tokens: 100, messages: [{ role: "user" as const, content: "x" }], output_config: { format: zodOutputFormat(z.object({ title: z.string() })) } };
+    const run = async () => {
+      const p = claudeClient().messages.parse(params);
+      const settled = p.then((v) => ({ v }), (e: unknown) => ({ e }));
+      await vi.runAllTimersAsync();
+      return settled;
+    };
+    expect(await run()).toMatchObject({ v: { parsed_output: { title: "Fra Kimi" } } });
+    expect(kimiCalls).toBe(2);
+
+    kimiOk = false;
+    const failed = (await run()) as { e: InstanceType<typeof Anthropic.APIError> };
+    expect(kimiCalls).toBe(4);
+    expect(claudeErrorMessage(failed.e, false)).toBe(
+      "The AI is out of credit. The site owner needs to add credit at console.anthropic.com → Billing. The backup AI couldn't answer either.",
+    );
+    expect(claudeErrorMessage(failed.e, true)).toContain("(Kimi: Kimi 429: Too many requests)");
+    vi.useRealTimers();
   });
 });
