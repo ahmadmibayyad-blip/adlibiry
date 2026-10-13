@@ -86,8 +86,8 @@ const AUDIENCE = [ANY, opt("All", "All genders"), opt("Female", "Mostly women"),
 const SOURCES = [
   ANY,
   opt("adlibrary_api", "AdLibrary"),
-  opt("apify", "Meta (Apify)"),
-  opt("nexscope", "TikTok (Nexscope)"),
+  opt("apify", "Meta"),
+  opt("nexscope", "TikTok"),
   opt("extension", "Extension"),
 ];
 const SORTS = [
@@ -173,7 +173,8 @@ export default function AdSpyPage() {
   const facets = useQuery(api.ads.getFacets, {});
   const { niches: myNiches } = useMyNiches();
   const [useMine, setUseMine] = useState(true);
-  const args = { ...toQueryArgs(f, debouncedSearch), ...(useMine && !f.niche && myNiches.length ? { niches: myNiches } : {}) };
+  const nichesOn = useMine && !f.niche && myNiches.length > 0;
+  const args = { ...toQueryArgs(f, debouncedSearch), ...(nichesOn ? { niches: myNiches } : {}) };
   const { results, status, loadMore } = usePaginatedQuery(api.ads.list, args, { initialNumItems: 24 });
   const shown = excludeViewed ? results.filter((a) => !viewedSet.has(a._id)) : results;
 
@@ -194,13 +195,17 @@ export default function AdSpyPage() {
   }, [status, shown.length, filterKey, target, loadMore]);
   const showMoreAds = () => setWanted({ key: filterKey, n: Math.max(target, shown.length) + PAGE });
 
-  const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length;
+  // "My niches" is on by default, so it counts as a filter too.
+  const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length + (nichesOn ? 1 : 0);
   // Filters set inside "Advanced filters" (everything but platform and the four visible ones).
   const advancedCount = Object.entries(f).filter(
     ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling"].includes(k) && v !== undefined && v !== false,
   ).length;
   const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
-  const clearAll = () => setF((prev) => ({ sort: prev.sort }));
+  const clearAll = () => {
+    setF((prev) => ({ sort: prev.sort }));
+    setUseMine(false);
+  };
 
   const openAd = (ad: Ad) => {
     navigate(`/dashboard/ads/${ad._id}`);
@@ -264,7 +269,7 @@ export default function AdSpyPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search ad copy…"
-              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-10 sm:h-8 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
           </div>
           <ImageSearchDialog trigger="icon" />
@@ -293,7 +298,7 @@ export default function AdSpyPage() {
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             aria-expanded={showAdvanced}
-            className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground cursor-pointer"
+            className="flex items-center gap-1 h-10 sm:h-8 px-2.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             Advanced filters{advancedCount > 0 ? ` (${advancedCount})` : ""}
@@ -343,9 +348,9 @@ export default function AdSpyPage() {
         {/* Sort + saved searches */}
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
           <FilterSelect label="Sort by" value={f.sort ?? "added"} onChange={(v) => set("sort", v === "added" ? undefined : v)} options={SORTS} active={!!f.sort} />
-          <MyNichesChip niches={myNiches} on={useMine && !f.niche} onToggle={() => setUseMine(!useMine)} />
+          <MyNichesChip niches={myNiches} on={nichesOn} onToggle={() => setUseMine(!useMine)} />
           {activeCount > 0 && (
-            <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-8 px-2">
+            <button onClick={clearAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer h-10 sm:h-8 px-2">
               <X className="w-3.5 h-3.5" />Clear filters ({activeCount})
             </button>
           )}
@@ -372,8 +377,21 @@ export default function AdSpyPage() {
         <div className="flex flex-col items-center py-20 text-center border border-dashed border-border rounded-xl">
           <Sparkles className="w-10 h-10 text-muted-foreground mb-3" />
           <h3 className="font-semibold mb-1">No ads match these filters</h3>
-          <p className="text-sm text-muted-foreground mb-3">Try removing a filter.</p>
-          {activeCount > 0 && <Button variant="outline" size="sm" onClick={clearAll}>Clear filters</Button>}
+          <p className="text-sm text-muted-foreground mb-3">
+            {nichesOn ? "Only ads in your niches are shown." : "Try removing a filter."}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {nichesOn && (
+              <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={() => setUseMine(false)}>
+                Show all niches
+              </Button>
+            )}
+            {activeCount > (nichesOn ? 1 : 0) && (
+              <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={clearAll}>
+                Clear filters
+              </Button>
+            )}
+          </div>
         </div>
       ) : (
         <>

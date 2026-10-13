@@ -28,7 +28,7 @@ export default function FilterSelect({
       <SelectTrigger
         size="sm"
         className={cn(
-          "h-8 text-xs rounded-full px-3 gap-1 bg-card border-border",
+          "data-[size=sm]:h-10 sm:data-[size=sm]:h-8 text-xs rounded-full px-3 gap-1 bg-card border-border",
           active && "border-primary text-primary bg-primary/10"
         )}
       >

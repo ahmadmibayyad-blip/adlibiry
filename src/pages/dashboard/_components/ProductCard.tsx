@@ -53,12 +53,14 @@ function SaveButton({ productId }: { productId: Id<"products"> }) {
     <button
       onClick={handleSave}
       className={cn(
-        "p-1.5 rounded-full border border-border shadow-sm transition-all cursor-pointer",
+        // The ::before stretches the hit area to 40px on phones without growing the icon.
+        "relative p-1.5 rounded-full border border-border shadow-sm transition-all cursor-pointer before:absolute before:-inset-1.5 sm:before:hidden",
         isSaved
           ? "bg-primary/10 border-primary/30 text-primary"
           : "bg-background/90 text-muted-foreground hover:text-foreground hover:bg-secondary"
       )}
       title={isSaved ? "Remove from saved" : "Save product"}
+      aria-label={isSaved ? "Remove from saved" : "Save product"}
     >
       {isSaved ? (
         <BookmarkCheck className="w-3.5 h-3.5" />
@@ -94,12 +96,12 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
             className={cn("flex items-baseline gap-1.5 rounded-lg px-2 py-1 shadow-sm", scoreTone(product.aiScore))}
             title="AdSpy score out of 100. The product page shows what it's based on."
           >
-            <span className="text-[10px] font-medium opacity-80">Score</span>
+            <span className="text-[11px] font-medium opacity-80">Score</span>
             <span className="text-sm font-bold leading-none tabular-nums">{product.aiScore}</span>
           </div>
-          {isNewToday && <div className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-brand text-[#15171c]">New</div>}
+          {isNewToday && <div className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-brand text-[#15171c]">New</div>}
           <Authenticated>
-            <ResearchCallBadge productId={product._id} className="px-2 py-0.5 text-[10px] bg-background/90 shadow-sm" />
+            <ResearchCallBadge productId={product._id} className="px-2 py-0.5 text-[11px] bg-background/90 shadow-sm" />
           </Authenticated>
         </div>
         <div className="absolute top-2 right-2">
@@ -128,7 +130,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           <div className="flex flex-wrap gap-1">
             {product.verifiedWinner && (
               <span
-                className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-good/15 text-good"
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-good/15 text-good"
                 title="Verified winner: the ad registry, ad engagement and marketplace sales all point the same way, with a known margin and low competition."
               >
                 ⭐ Verified
@@ -136,14 +138,14 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
             )}
             {product.winnerRank !== undefined && (
               <span
-                className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary"
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary"
                 title={`Winning product: #${product.winnerRank} in ${product.category}`}
               >
                 #{product.winnerRank} in {product.category}
               </span>
             )}
             {ads > 0 && (
-              <span className="text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-full bg-brand/15 text-brand-ink">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-brand/15 text-brand-ink">
                 {ads} ad{ads === 1 ? "" : "s"}
               </span>
             )}
@@ -162,11 +164,11 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
               <div className="flex items-baseline gap-1">
                 <span className="text-base font-bold tabular-nums">{price(product.price!)}</span>
                 {product.priceSource === "estimated_market" && (
-                  <span className="text-[10px] text-muted-foreground">est.</span>
+                  <span className="text-[11px] text-muted-foreground">est.</span>
                 )}
               </div>
               {product.priceSource === "landing_page" && product.originalPrice && !product.originalPrice.startsWith("USD") && (
-                <div className="text-[10px] text-muted-foreground truncate">{product.originalPrice} in store</div>
+                <div className="text-[11px] text-muted-foreground truncate">{product.originalPrice} in store</div>
               )}
             </div>
           ) : product.originalPrice ? (
@@ -177,7 +179,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           {margin !== null && (
             <div className="text-right shrink-0">
               <div className="text-sm font-bold text-good tabular-nums">{margin}%</div>
-              <div className="text-[10px] text-muted-foreground">margin</div>
+              <div className="text-[11px] text-muted-foreground">margin</div>
             </div>
           )}
           {margin === null && product.saturation !== "Unknown" && (

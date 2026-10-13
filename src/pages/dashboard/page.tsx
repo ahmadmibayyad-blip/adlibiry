@@ -114,7 +114,7 @@ function ScoreRing({ score }: { score: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
         <span className="text-lg font-bold tabular-nums">{score}</span>
-        <span className="text-[9px] text-muted-foreground">/100</span>
+        <span className="text-[11px] text-muted-foreground">/100</span>
       </div>
     </div>
   );
@@ -182,13 +182,13 @@ function HeroWinner({ product }: { product: Doc<"products"> | undefined | null }
             </div>
           )}
           <div className="flex flex-wrap gap-2 mt-auto pt-4">
-            <Button asChild size="sm">
+            <Button asChild size="sm" className="h-10 sm:h-8">
               <Link to={href}>
                 View product
                 <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="h-10 sm:h-8">
               <a
                 href={`https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`}
                 target="_blank"
@@ -214,7 +214,7 @@ function TrendingNow() {
           <Flame className="w-4 h-4 text-orange-500" />
           Trending now
         </h2>
-        <Link to="/dashboard/research" className="text-xs text-primary hover:underline">
+        <Link to="/dashboard/research" className="flex items-center h-10 sm:h-auto text-xs text-primary hover:underline">
           All trends
         </Link>
       </div>
@@ -306,7 +306,7 @@ function JustAdded() {
                 aria-selected={tab === t}
                 onClick={() => setTab(t)}
                 className={cn(
-                  "px-3 h-7 rounded-full font-medium cursor-pointer transition-colors",
+                  "px-3 h-10 sm:h-7 rounded-full font-medium cursor-pointer transition-colors",
                   tab === t ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -317,7 +317,7 @@ function JustAdded() {
         </div>
         <Link
           to={tab === "ads" ? "/dashboard/ad-spy" : "/dashboard/products"}
-          className="flex items-center gap-1 text-sm text-primary hover:underline"
+          className="flex items-center gap-1 h-10 sm:h-auto text-sm text-primary hover:underline"
         >
           See all
           <ArrowRight className="w-3.5 h-3.5" />
@@ -368,7 +368,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
             Live
           </div>
         </div>
-        <Link to={niche ? `/dashboard/winners?niche=${encodeURIComponent(niche)}` : "/dashboard/winners"} className="flex items-center gap-1 text-sm text-primary hover:underline">
+        <Link to={niche ? `/dashboard/winners?niche=${encodeURIComponent(niche)}` : "/dashboard/winners"} className="flex items-center gap-1 h-10 sm:h-auto text-sm text-primary hover:underline">
           View all
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
@@ -383,7 +383,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
               aria-selected={niche === t.niche}
               onClick={() => setNiche(t.niche)}
               className={cn(
-                "shrink-0 px-3.5 h-8 rounded-full text-xs font-medium border transition-colors cursor-pointer",
+                "shrink-0 px-3.5 h-10 sm:h-8 rounded-full text-xs font-medium border transition-colors cursor-pointer",
                 niche === t.niche
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card border-border text-muted-foreground hover:text-foreground",
@@ -453,12 +453,12 @@ export default function DashboardHome() {
         <div className="flex items-center gap-2">
           {/* Dev seed button: admins only, only while there are no products */}
           {isAdmin && top !== undefined && top.length === 0 && (
-            <Button size="sm" variant="outline" onClick={handleSeed} className="text-xs">
+            <Button size="sm" variant="outline" onClick={handleSeed} className="h-10 sm:h-8 text-xs">
               Load Sample Products
             </Button>
           )}
           <ImageSearchDialog />
-          <Button size="sm" variant="outline" onClick={openAssistant} className="rounded-full">
+          <Button size="sm" variant="outline" onClick={openAssistant} className="h-10 sm:h-8 rounded-full">
             <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />
             Ask AI
           </Button>

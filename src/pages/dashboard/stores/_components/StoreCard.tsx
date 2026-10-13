@@ -31,12 +31,13 @@ function TrackButton({ storeId }: { storeId: StoreDoc["_id"] }) {
     <button
       onClick={handleTrack}
       className={cn(
-        "p-2 rounded-lg border border-border transition-all cursor-pointer",
+        "p-3 sm:p-2 rounded-lg border border-border transition-all cursor-pointer",
         isTracked
           ? "bg-primary/10 border-primary/30 text-primary"
           : "bg-background/80 text-muted-foreground hover:text-foreground hover:bg-secondary"
       )}
       title={isTracked ? "Remove from watchlist" : "Track store"}
+      aria-label={isTracked ? "Remove from watchlist" : "Track store"}
     >
       {isTracked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
     </button>
@@ -69,12 +70,13 @@ export default function StoreCard({
         </div>
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
           {onToggleCompare && (
-            <div
-              className="bg-background/90 backdrop-blur-sm rounded-lg p-1.5 border border-border"
+            // The label is the hit area: 40px+ on phones around the 16px box.
+            <label
+              className="flex bg-background/90 backdrop-blur-sm rounded-lg p-3 sm:p-1.5 border border-border cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             >
-              <Checkbox checked={compareSelected} onCheckedChange={onToggleCompare} className="cursor-pointer" />
-            </div>
+              <Checkbox checked={compareSelected} onCheckedChange={onToggleCompare} aria-label={`Compare ${store.name}`} className="cursor-pointer" />
+            </label>
           )}
           <Authenticated>
             <TrackButton storeId={store._id} />

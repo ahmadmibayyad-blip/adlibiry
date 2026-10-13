@@ -16,7 +16,7 @@ export default function FilterTogglePill({
     <button
       onClick={onToggle}
       className={cn(
-        "h-8 rounded-full px-3 text-xs font-medium whitespace-nowrap transition-all cursor-pointer border shrink-0",
+        "h-10 sm:h-8 rounded-full px-3 text-xs font-medium whitespace-nowrap transition-all cursor-pointer border shrink-0",
         active
           ? "bg-primary text-primary-foreground border-primary"
           : "bg-card border-border text-muted-foreground hover:text-foreground"
