@@ -7,7 +7,7 @@ const footerLinks: Record<string, { label: string; to: string }[]> = {
   Product: [
     { label: "Ad Spy", to: "/dashboard/ad-spy" },
     { label: "Product Research", to: "/dashboard/research" },
-    { label: "Store Tracker", to: "/dashboard/stores" },
+    { label: "Stores", to: "/dashboard/stores" },
     { label: "Market Intelligence", to: "/dashboard" },
     { label: "AI Scoring", to: "/dashboard/winners" },
     { label: "Creative Library", to: "/dashboard/hooks" },

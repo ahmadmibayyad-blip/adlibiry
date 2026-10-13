@@ -238,7 +238,7 @@ export default function CountrySaturationCard({
           <h3 className="font-semibold text-sm">Country Saturation Analyzer</h3>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Checks how crowded this product is by country, using our real tracked Ad Spy, Store Tracker, Trends, and Supplier data — never invented numbers.
+          Checks how crowded this product is by country, using our real tracked Ad Spy, Stores, Trends, and Supplier data — never invented numbers.
         </p>
 
         <Tabs defaultValue="check">

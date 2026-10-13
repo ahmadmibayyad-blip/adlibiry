@@ -139,7 +139,7 @@ export default function AlertPreferencesPanel() {
         />
         <ToggleRow
           label="Tracked store updates"
-          description="New products or a sales jump at a store on your Store Tracker watchlist."
+          description="New products or a sales jump at a store on your Stores watchlist."
           checked={prefs.notifyTrackedStoreUpdates}
           onCheckedChange={(v) => save({ notifyTrackedStoreUpdates: v })}
         />

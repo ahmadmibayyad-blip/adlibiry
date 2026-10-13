@@ -337,7 +337,7 @@ export default function DataSourcesPanel() {
         {ttRes && <Result lines={[["Fetched", ttRes.fetched], ["Created", ttRes.created], ["Updated", ttRes.updated], ["Available", ttRes.totalAvailable]]} errors={ttRes.errors} view={{ to: "/dashboard/ad-spy?source=nexscope&sort=added", label: "View in Ad Spy" }} />}
       </Card>
 
-      <Card icon={Store} title="Shopify stores that advertise (Nexscope)" text="Shopify stores with active ads, traffic and order estimates. They appear in Store Tracker. The search box matches store names/domains, not products — leave it empty for the top advertisers.">
+      <Card icon={Store} title="Shopify stores that advertise (Nexscope)" text="Shopify stores with active ads, traffic and order estimates. They appear in Stores. The search box matches store names/domains, not products — leave it empty for the top advertisers.">
         <div className="flex flex-wrap gap-2">
           <select className={selectCls} value={st.country} onChange={(e) => setSt({ ...st, country: e.target.value })}>
             {META_COUNTRIES.map((c) => <option key={c}>{c}</option>)}
@@ -368,7 +368,7 @@ export default function DataSourcesPanel() {
             {stBusy ? "Importing..." : "Import"}
           </Button>
         </div>
-        {stRes && <Result lines={[["Fetched", stRes.fetched], ["Created", stRes.created], ["Updated", stRes.updated]]} errors={stRes.errors} view={{ to: "/dashboard/stores", label: "View in Store Tracker" }} />}
+        {stRes && <Result lines={[["Fetched", stRes.fetched], ["Created", stRes.created], ["Updated", stRes.updated]]} errors={stRes.errors} view={{ to: "/dashboard/stores", label: "View in Stores" }} />}
       </Card>
 
       <Card icon={Download} title="Meta Ad Library (Apify)" text="Facebook + Instagram ads for any country incl. DK/SE/NO. Runs on Apify; results arrive automatically in a few minutes.">
