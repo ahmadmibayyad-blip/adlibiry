@@ -104,7 +104,7 @@ export default function StoreTeardown({ teardown: t, host }: { teardown: Teardow
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="text-sm font-semibold flex items-center gap-1.5">
           <ScanSearch className="w-4 h-4 text-primary" />
-          Product page teardown
+          Product page breakdown
         </h4>
         <a
           href={`https://${host}${t.productPath}`}

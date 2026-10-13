@@ -55,7 +55,7 @@ const TREND = [ANY, opt("Rising", "Rising"), opt("Stable", "Stable"), opt("Decli
 const SATURATION = [ANY, opt("Low", "Low"), opt("Medium", "Medium"), opt("High", "High")];
 const SORTS = [
   opt("rank", "Feed order"),
-  opt("score", "Winning score"),
+  opt("score", "AdSpy score"),
   opt("newest", "Newest"),
   opt("ads", "Ads running"),
   opt("likes", "Most likes"),
@@ -138,7 +138,7 @@ export default function WinnersPage() {
             </div>
             <p className="text-sm text-muted-foreground">
               A new mix every {roundDays} days from all products with score {minScore}+. Everything else is in{" "}
-              <Link to="/dashboard/products" className="text-primary hover:underline">Products</Link>.
+              <Link to="/dashboard/products" className="text-primary hover:underline">All products</Link>.
             </p>
           </div>
           {summary && (
@@ -210,7 +210,7 @@ export default function WinnersPage() {
             <FilterSelect label="Margin" value={f.margin ?? "any"} onChange={setAny("margin")} options={MARGIN} active={!!f.margin} />
             <FilterSelect label="Ads running" value={f.ads ?? "any"} onChange={setAny("ads")} options={ADS} active={!!f.ads} />
             <FilterSelect label="Likes" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
-            <FilterSelect label="Score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+            <FilterSelect label="AdSpy score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
             <FilterSelect label="Trend" value={f.trend ?? "any"} onChange={setAny("trend")} options={TREND} active={!!f.trend} />
             <FilterSelect label="Saturation" value={f.saturation ?? "any"} onChange={setAny("saturation")} options={SATURATION} active={!!f.saturation} />
           </div>
@@ -262,7 +262,7 @@ export default function WinnersPage() {
               <Trophy className="w-10 h-10 text-muted-foreground mb-3" />
               <h3 className="font-semibold mb-1">No winning products match these filters</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Try removing a filter, or search all products in <Link to="/dashboard/products" className="text-primary hover:underline">Products</Link>.
+                Try removing a filter, or search all products in <Link to="/dashboard/products" className="text-primary hover:underline">All products</Link>.
               </p>
               {activeCount > 0 && <Button variant="outline" size="sm" onClick={clearAll}>Clear filters</Button>}
             </div>
@@ -272,7 +272,7 @@ export default function WinnersPage() {
               <h3 className="font-semibold mb-1">Today's list isn't ready yet</h3>
               <p className="text-sm text-muted-foreground max-w-md">
                 A new mix is drawn every {roundDays} days from all products with a score of {minScore}+. Until then, browse everything in{" "}
-                <Link to="/dashboard/products" className="text-primary hover:underline">Products</Link>.
+                <Link to="/dashboard/products" className="text-primary hover:underline">All products</Link>.
               </p>
             </div>
           )

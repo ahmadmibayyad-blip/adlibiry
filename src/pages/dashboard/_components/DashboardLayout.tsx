@@ -39,7 +39,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: "Find",
     items: [
       { icon: Trophy, label: "Winning Products", href: "/dashboard/winners", short: "Winners" },
-      { icon: TrendingUp, label: "Products", href: "/dashboard/products" },
+      { icon: TrendingUp, label: "All products", href: "/dashboard/products" },
       { icon: Search, label: "Ad Spy", href: "/dashboard/ad-spy" },
       { icon: Tags, label: "Offer Search", href: "/dashboard/offer-search", badge: "NEW" },
       { icon: ShoppingBag, label: "TikTok Shop", href: "/dashboard/tiktok-shop" },

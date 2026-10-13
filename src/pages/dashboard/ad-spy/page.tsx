@@ -94,7 +94,7 @@ const SORTS = [
   opt("added", "Recently added"),
   opt("newest", "Newest (first seen)"),
   opt("lastSeen", "Last seen"),
-  opt("score", "Winning score"),
+  opt("score", "Ad score"),
   opt("impressions", "Most impressions"),
   opt("mostLiked", "Most likes"),
   opt("comments", "Most comments"),
@@ -335,7 +335,7 @@ export default function AdSpyPage() {
         <div className="flex flex-wrap items-center gap-2">
           <FilterSelect label="Impressions" value={f.impressions ?? "any"} onChange={setAny("impressions")} options={IMPRESSIONS} active={!!f.impressions} />
           <FilterSelect label="Engagement (likes)" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
-          <FilterSelect label="Winning score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+          <FilterSelect label="Ad score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
           <div className="flex flex-wrap items-center gap-3 ml-1">
             <Check label="New ads" hint="First seen in the last 7 days" checked={!!f.newAds} onChange={(v) => set("newAds", v || undefined)} />
             <Check label="Repeated ads" hint="The same creative runs as 2+ ad copies — a scaling signal" checked={!!f.repeated} onChange={(v) => set("repeated", v || undefined)} />

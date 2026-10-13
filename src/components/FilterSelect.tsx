@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils.ts";
 export type FilterSelectOption = { value: string; label: string };
 
 // Compact dropdown filter used to lay many filters out in a row directly on
-// the page (Ad Spy, Winning Products, Store Tracker), matching the dense
+// the page (Ad Spy, Winning Products, Stores), matching the dense
 // filter-bar layout dropshippers expect from other ad-spy tools. Each
 // dropdown always carries a leading "Any ..." option so it round-trips to
 // `undefined` (no filter applied).

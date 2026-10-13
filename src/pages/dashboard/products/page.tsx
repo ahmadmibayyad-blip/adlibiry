@@ -86,7 +86,7 @@ const TREND = [ANY, opt("Rising", "Rising"), opt("Stable", "Stable"), opt("Decli
 const SATURATION = [ANY, opt("Low", "Low"), opt("Medium", "Medium"), opt("High", "High"), opt("Unknown", "Unknown")];
 const SORTS = [
   opt("newest", "Newest"),
-  opt("score", "Winning score"),
+  opt("score", "AdSpy score"),
   opt("ads", "Ads running"),
   opt("margin", "Margin"),
   opt("likes", "Most likes"),
@@ -191,7 +191,7 @@ export default function ProductsFeed() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <TrendingUp className="w-5 h-5 text-primary" />
-            <h1 className="text-2xl font-bold">Products</h1>
+            <h1 className="text-2xl font-bold">All products</h1>
           </div>
           <p className="text-sm text-muted-foreground">
             Everything we track, including products found inside running ads. Only the best reach{" "}
@@ -308,7 +308,7 @@ export default function ProductsFeed() {
           <FilterSelect label="Ads running" value={f.ads ?? "any"} onChange={setAny("ads")} options={ADS} active={!!f.ads} />
           <FilterSelect label="Likes" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
           <FilterSelect label="Growth" value={f.growth ?? "any"} onChange={setAny("growth")} options={GROWTH} active={!!f.growth} />
-          <FilterSelect label="Score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+          <FilterSelect label="AdSpy score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
           <FilterSelect label="Trend" value={f.trend ?? "any"} onChange={setAny("trend")} options={TREND} active={!!f.trend} />
           <FilterSelect label="Saturation" value={f.saturation ?? "any"} onChange={setAny("saturation")} options={SATURATION} active={!!f.saturation} />
         </div>

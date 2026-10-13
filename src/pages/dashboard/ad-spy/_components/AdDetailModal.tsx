@@ -155,7 +155,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
-                  <Zap className="w-3.5 h-3.5 text-primary" />Winning score
+                  <Zap className="w-3.5 h-3.5 text-primary" />Ad score
                 </div>
                 <p className="text-xs text-muted-foreground">Runtime, engagement, reach and ad copies combined.</p>
               </div>

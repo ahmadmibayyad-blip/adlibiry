@@ -22,7 +22,7 @@ export default function ProductTable({ products }: { products: Product[] }) {
             <th className="text-right font-medium px-3 py-2.5">Ads</th>
             <th className="text-right font-medium px-3 py-2.5">Likes</th>
             <th className="text-right font-medium px-3 py-2.5">Growth</th>
-            <th className="text-right font-medium px-3 py-2.5">Score</th>
+            <th className="text-right font-medium px-3 py-2.5" title="AdSpy score out of 100">AdSpy score</th>
             <th className="text-left font-medium px-3 py-2.5">Category</th>
             <th className="text-left font-medium px-3 py-2.5">Store</th>
             <th className="px-3 py-2.5" />

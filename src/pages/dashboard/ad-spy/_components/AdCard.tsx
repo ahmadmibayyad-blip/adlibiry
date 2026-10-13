@@ -232,7 +232,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
             </span>
           )}
         </div>
-        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/65 rounded-md px-1.5 py-0.5" title="Winning score">
+        <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/65 rounded-md px-1.5 py-0.5" title="Ad score">
           <Zap className="w-3 h-3 text-primary" />
           <span className={cn("text-[11px] font-bold", scoreColor(ad.aiScore))}>{ad.aiScore}</span>
         </div>
