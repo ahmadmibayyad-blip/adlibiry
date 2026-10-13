@@ -336,6 +336,44 @@ function ThemeSwitch({ value, onChange }: { value: BaseTheme; onChange: (t: Base
   );
 }
 
+const FORM_STEPS = ["What", "Look", "Store facts"] as const;
+
+/** "1 What · 2 Look · 3 Store facts": where a Full store's form is. Earlier steps can be clicked to go back. */
+function StepIndicator({ step, onBack }: { step: number; onBack: (s: number) => void }) {
+  return (
+    <ol className="flex items-center gap-1.5 text-xs" aria-label="Steps">
+      {FORM_STEPS.map((label, i) => {
+        const n = i + 1;
+        const dot = (
+          <>
+            <span
+              className={cn(
+                "inline-flex w-5 h-5 items-center justify-center rounded-full border text-[11px] tabular-nums",
+                n < step ? "border-primary bg-primary text-primary-foreground" : n === step ? "border-primary text-primary" : "border-border text-muted-foreground",
+              )}
+            >
+              {n < step ? <Check className="w-3 h-3" /> : n}
+            </span>
+            <span className={cn(n === step ? "font-medium text-foreground" : "text-muted-foreground", n !== step && "hidden sm:inline")}>{label}</span>
+          </>
+        );
+        return (
+          <li key={label} className="flex items-center gap-1.5" aria-current={n === step ? "step" : undefined}>
+            {i > 0 && <span aria-hidden className="w-4 sm:w-6 h-px bg-border" />}
+            {n < step ? (
+              <button type="button" onClick={() => onBack(n)} className="inline-flex items-center gap-1.5 rounded hover:underline" aria-label={`Back to step ${n}: ${label}`}>
+                {dot}
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">{dot}</span>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 /** What the dialog needs: a catalog product, or one pasted as a link (convex/productImport.ts). */
 type LaunchTarget = { _id: Id<"products"> | Id<"importedProducts">; imageUrl: string };
 
@@ -358,7 +396,11 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
   const [languageInput, setLanguage] = useState<string | null>(null);
   const [tone, setTone] = useState<(typeof TONES)[number][0]>("friendly");
   const [publishInput, setPublish] = useState<"DRAFT" | "ACTIVE" | null>(null);
-  const [mode, setMode] = useState<"page" | "store">("store");
+  // A single product page as a draft is the safe start; copying a page's layout needs Full store.
+  const [mode, setMode] = useState<"page" | "store">(mirrorStart ? "store" : "page");
+  // Full store's form comes in 3 steps (What, Look, Store facts); a product page needs only the first.
+  const [step, setStep] = useState(1);
+  const formRef = useRef<HTMLFormElement>(null);
   const [style, setStyle] = useState<StoreStyleId>("fresh");
   const [baseTheme, setBaseTheme] = useState<BaseTheme>("adspy");
   const [brandInput, setBrand] = useState<string | null>(null);
@@ -389,6 +431,11 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
   const priceNum = Number(price);
   const margin = cost && priceNum > 0 ? Math.round(((priceNum - cost) / priceNum) * 100) : undefined;
   const currency = prep?.store?.currency ?? "USD";
+  const lastStep = mode === "store" ? FORM_STEPS.length : 1;
+  const goTo = (s: number) => {
+    setStep(s);
+    formRef.current?.scrollIntoView?.({ block: "start" });
+  };
 
   return (
     <>
@@ -398,7 +445,7 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
           Launch
         </Button>
       )}
-      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setLaunchId(null); onClose?.(); } }}>
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setLaunchId(null); setStep(1); onClose?.(); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Launch to Shopify</DialogTitle>
@@ -430,9 +477,19 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
             )
           ) : (
             <form
-              className="space-y-5"
+              ref={formRef}
+              className="space-y-5 scroll-mt-4"
               onSubmit={async (e) => {
                 e.preventDefault();
+                // Next is a submit button too, so the browser checks this step's fields (the price) before moving on.
+                if (step < lastStep) {
+                  goTo(step + 1);
+                  return;
+                }
+                if (!(priceNum > 0)) {
+                  goTo(1);
+                  return;
+                }
                 setBusy(true);
                 try {
                   const days = Number(returnDays);
@@ -469,20 +526,54 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                 }
               }}
             >
-              <p className="text-xs text-muted-foreground">
-                Store: <strong className="text-foreground">{prep.store.shopName}</strong> ·{" "}
-                {prep.allowed.left === null ? "unlimited launches" : `${prep.allowed.left} of ${prep.allowed.limit} launches left`}
-              </p>
-
-              <ModeSwitch mode={mode} onChange={setMode} />
-              {mode === "page" && mirrorUrl.trim() ? (
-                <p className="text-xs text-warn -mt-2">
-                  Copying {mirrorUrl.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0]}'s layout needs Full store. Switch back to keep it; a single product page
-                  launches without it.
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-xs text-muted-foreground">
+                  Store: <strong className="text-foreground">{prep.store.shopName}</strong> ·{" "}
+                  {prep.allowed.left === null ? "unlimited launches" : `${prep.allowed.left} of ${prep.allowed.limit} launches left`}
                 </p>
-              ) : null}
+                {mode === "store" && <StepIndicator step={step} onBack={goTo} />}
+              </div>
 
-              {mode === "store" && (
+              {step === 1 && (
+                <>
+                  <ModeSwitch mode={mode} onChange={setMode} />
+                  {mode === "page" && mirrorUrl.trim() ? (
+                    <p className="text-xs text-warn -mt-2">
+                      Copying {mirrorUrl.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0]}'s layout needs Full store. Switch back to keep it; a single product page
+                      launches without it.
+                    </p>
+                  ) : null}
+
+                  <label className="block text-sm">
+                    <span className="font-medium">Price ({currency})</span>
+                    <Input type="number" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" />
+                    <span className="text-xs text-muted-foreground">
+                      {cost
+                        ? `Supplier cost ${cost.toFixed(2)} ${currency} incl. shipping · margin ${margin ?? "–"}%`
+                        : prep.suggested.price
+                          ? "No supplier cost known: check your margin."
+                          : "We couldn't tell a sensible price from this product's data: enter yours."}
+                    </span>
+                  </label>
+
+                  {mode === "page" && (
+                    <>
+                      <label className="block text-sm">
+                        <span className="font-medium">Language</span>
+                        <select className={SELECT} value={language} onChange={(e) => setLanguage(e.target.value)}>
+                          {[...new Set(Object.values(LANGUAGES))].map((l) => <option key={l}>{l}</option>)}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={publish === "ACTIVE"} onChange={(e) => setPublish(e.target.checked ? "ACTIVE" : "DRAFT")} />
+                        Publish it live now (otherwise it's saved as a draft for you to check)
+                      </label>
+                    </>
+                  )}
+                </>
+              )}
+
+              {mode === "store" && step === 2 && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">Theme</h3>
                   <ThemeSwitch value={baseTheme} onChange={setBaseTheme} />
@@ -506,136 +597,162 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
                 </section>
               )}
 
-              {mode === "store" && !prep.store.viaApp && !needsReconnect ? (
+              {/* Shown where Full store is picked, and again next to the build button it holds back. */}
+              {mode === "store" && step !== 2 && !prep.store.viaApp && !needsReconnect ? (
                 <p className="text-xs text-muted-foreground">
                   Your store is connected with a custom-app token. It needs the theme, page and navigation permissions for a full store:{" "}
                   <Link to="/dashboard/settings" className="text-primary hover:underline">Settings → Shopify → Update token</Link>.
                 </p>
               ) : null}
 
-              {needsReconnect ? (
+              {needsReconnect && step !== 2 ? (
                 <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-sm">
                   <p>Building a full store needs permission to add a theme, pages and menus. Reconnect your store once to approve it.</p>
                   <ConnectShopify />
                 </div>
               ) : null}
 
-              {mode === "store" && (
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold">Your store</h3>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <label className="block text-sm">
-                      <span className="font-medium">Store name</span>
-                      <Input value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={60} className="mt-1" />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="font-medium">Support email</span>
-                      <Input type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="Optional" className="mt-1" />
-                    </label>
-                    <label className="block text-sm">
-                      <span className="font-medium">Delivery time</span>
-                      <Input value={shippingTime} onChange={(e) => setShippingTime(e.target.value)} maxLength={60} className="mt-1" />
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
+              {mode === "store" && step === 3 && (
+                <>
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Your store</h3>
+                    <div className="grid sm:grid-cols-2 gap-3">
                       <label className="block text-sm">
-                        <span className="font-medium">Returns (days)</span>
-                        <Input type="number" min="0" max="365" value={returnDays} onChange={(e) => setReturnDays(e.target.value)} className="mt-1" />
+                        <span className="font-medium">Store name</span>
+                        <Input value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={60} className="mt-1" />
                       </label>
                       <label className="block text-sm">
-                        <span className="font-medium">Free shipping from</span>
-                        <Input type="number" min="0" step="1" value={freeShipping} onChange={(e) => setFreeShipping(e.target.value)} placeholder={`${currency}, optional`} className="mt-1" />
+                        <span className="font-medium">Support email</span>
+                        <Input type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="Optional" className="mt-1" />
+                      </label>
+                      <label className="block text-sm">
+                        <span className="font-medium">Delivery time</span>
+                        <Input value={shippingTime} onChange={(e) => setShippingTime(e.target.value)} maxLength={60} className="mt-1" />
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="block text-sm">
+                          <span className="font-medium">Returns (days)</span>
+                          <Input type="number" min="0" max="365" value={returnDays} onChange={(e) => setReturnDays(e.target.value)} className="mt-1" />
+                        </label>
+                        <label className="block text-sm">
+                          <span className="font-medium">Free shipping from</span>
+                          <Input type="number" min="0" step="1" value={freeShipping} onChange={(e) => setFreeShipping(e.target.value)} placeholder={`${currency}, optional`} className="mt-1" />
+                        </label>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">The AI only promises what you enter here on the shipping, returns and FAQ pages.</p>
+                  </section>
+
+                  {/* Smart defaults already fill these; the summary line says what they are. */}
+                  <details className="group rounded-lg border border-border">
+                    <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-medium list-none [&::-webkit-details-marker]:hidden">
+                      <span className="group-open:hidden">More options</span>
+                      <span className="hidden group-open:inline">Fewer options</span>
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        {language} · {TONES.find(([v]) => v === tone)?.[1]} · {aiPhotos ? `${aiPhotos} AI photos` : "no AI photos"}
+                        {publish === "ACTIVE" ? " · product active" : " · product as draft"}
+                      </span>
+                    </summary>
+                    <div className="space-y-3 border-t border-border p-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="block text-sm">
+                          <span className="font-medium">Language</span>
+                          <select className={SELECT} value={language} onChange={(e) => setLanguage(e.target.value)}>
+                            {[...new Set(Object.values(LANGUAGES))].map((l) => <option key={l}>{l}</option>)}
+                          </select>
+                        </label>
+                        <label className="block text-sm">
+                          <span className="font-medium">Tone</span>
+                          <select className={SELECT} value={tone} onChange={(e) => setTone(e.target.value as typeof tone)}>
+                            {TONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">AI product photos</span>
+                        <div className="mt-1 flex gap-1.5" role="radiogroup" aria-label="AI product photos">
+                          {AI_PHOTO_COUNTS.map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              role="radio"
+                              aria-checked={aiPhotos === n}
+                              disabled={!prep.aiPhotosReady}
+                              onClick={() => setAiPhotos(n)}
+                              className={cn(
+                                "h-8 min-w-12 rounded-md border px-3 text-sm disabled:opacity-50",
+                                aiPhotos === n ? "border-primary bg-primary/10 font-medium text-foreground" : "border-input text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {n === 0 ? "None" : n}
+                            </button>
+                          ))}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {prep.aiPhotosReady
+                            ? "New photos made from the product photo: in use, close-ups and lifestyle scenes. They go on the product page and you can use them in ads."
+                            : "AI photos aren't switched on yet."}
+                        </span>
+                      </div>
+                      <label className="block text-sm">
+                        <span className="font-medium">Supplier reviews</span>
+                        <textarea
+                          value={reviewsUrl}
+                          onChange={(e) => setReviewsUrl(e.target.value)}
+                          placeholder="AliExpress product links, one per line (up to 3), optional"
+                          rows={2}
+                          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          Real reviews from buyers of this product on AliExpress, translated and shown on your home and product pages as reviews from your
+                          supplier's buyers. Pick listings with many written reviews, or add up to 3 sellers of the same product for more.
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={publish === "ACTIVE"} onChange={(e) => setPublish(e.target.checked ? "ACTIVE" : "DRAFT")} />
+                        Make the product active (needed for it to show on the new home page)
                       </label>
                     </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">The AI only promises what you enter here on the shipping, returns and FAQ pages.</p>
-                </section>
+                  </details>
+                  {/* Outside the fold, so a prefilled non-AliExpress link is never hidden. */}
+                  {reviewsUrl.split(/\s+/).some((x) => x && !/aliexpress\./i.test(x)) ? (
+                    <p className="text-xs text-warn -mt-2">
+                      Only AliExpress links work for supplier reviews. Another store's reviews were written by its own customers about its shop, so they can't
+                      be shown as yours.
+                    </p>
+                  ) : null}
+                </>
               )}
 
-              <section className="space-y-3">
-                {mode === "store" && <h3 className="text-sm font-semibold">Product</h3>}
-                <label className="block text-sm">
-                  <span className="font-medium">Price ({currency})</span>
-                  <Input type="number" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" />
-                  <span className="text-xs text-muted-foreground">
-                    {cost
-                      ? `Supplier cost ${cost.toFixed(2)} ${currency} incl. shipping · margin ${margin ?? "–"}%`
-                      : prep.suggested.price
-                        ? "No supplier cost known: check your margin."
-                        : "We couldn't tell a sensible price from this product's data: enter yours."}
-                  </span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="block text-sm">
-                    <span className="font-medium">Language</span>
-                    <select className={SELECT} value={language} onChange={(e) => setLanguage(e.target.value)}>
-                      {[...new Set(Object.values(LANGUAGES))].map((l) => <option key={l}>{l}</option>)}
-                    </select>
-                  </label>
-                  <label className="block text-sm">
-                    <span className="font-medium">Tone</span>
-                    <select className={SELECT} value={tone} onChange={(e) => setTone(e.target.value as typeof tone)}>
-                      {TONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </label>
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  {step > 1 && (
+                    <Button type="button" variant="outline" className="h-10" onClick={() => goTo(step - 1)}>
+                      Back
+                    </Button>
+                  )}
+                  {step < lastStep ? (
+                    <Button type="submit" className="flex-1 h-10">
+                      Next: {FORM_STEPS[step]}
+                    </Button>
+                  ) : (
+                    <Button type="submit" className="flex-1 h-10" disabled={busy || needsReconnect}>
+                      {busy ? <Spinner /> : <Rocket className="w-4 h-4 mr-2" />}
+                      {mode === "store" ? `Build my ${STORE_STYLES[style].name} store` : "Write and launch"}
+                    </Button>
+                  )}
                 </div>
-                <div className="text-sm">
-                  <span className="font-medium">AI product photos</span>
-                  <div className="mt-1 flex gap-1.5" role="radiogroup" aria-label="AI product photos">
-                    {AI_PHOTO_COUNTS.map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        role="radio"
-                        aria-checked={aiPhotos === n}
-                        disabled={!prep.aiPhotosReady}
-                        onClick={() => setAiPhotos(n)}
-                        className={cn(
-                          "h-8 min-w-12 rounded-md border px-3 text-sm disabled:opacity-50",
-                          aiPhotos === n ? "border-primary bg-primary/10 font-medium text-foreground" : "border-input text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {n === 0 ? "None" : n}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {prep.aiPhotosReady
-                      ? "New photos made from the product photo: in use, close-ups and lifestyle scenes. They go on the product page and you can use them in ads."
-                      : "AI photos aren't switched on yet."}
-                  </span>
-                </div>
-                {mode === "store" && (
-                  <label className="block text-sm">
-                    <span className="font-medium">Supplier reviews</span>
-                    <textarea
-                      value={reviewsUrl}
-                      onChange={(e) => setReviewsUrl(e.target.value)}
-                      placeholder="AliExpress product links, one per line (up to 3), optional"
-                      rows={2}
-                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      Real reviews from buyers of this product on AliExpress, translated and shown on your home and product pages as reviews from your
-                      supplier's buyers. Pick listings with many written reviews, or add up to 3 sellers of the same product for more.
-                    </span>
-                    {reviewsUrl.split(/\s+/).some((x) => x && !/aliexpress\./i.test(x)) ? (
-                      <span className="block text-xs text-warn mt-1">
-                        Only AliExpress links work here. Another store's reviews were written by its own customers about its shop, so they can't
-                        be shown as yours.
-                      </span>
-                    ) : null}
-                  </label>
-                )}
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={publish === "ACTIVE"} onChange={(e) => setPublish(e.target.checked ? "ACTIVE" : "DRAFT")} />
-                  {mode === "store" ? "Make the product active (needed for it to show on the new home page)" : "Publish it live now (otherwise it's saved as a draft for you to check)"}
-                </label>
-              </section>
-
-              <Button type="submit" className="w-full" disabled={busy || needsReconnect}>
-                {busy ? <Spinner /> : <Rocket className="w-4 h-4 mr-2" />}
-                {mode === "store" ? `Build my ${STORE_STYLES[style].name} store` : "Write and launch"}
-              </Button>
+                {step >= lastStep ? (
+                  <p className="text-xs text-muted-foreground text-center">
+                    {prep.allowed.left === null ? "Unlimited launches" : `Uses 1 of your ${prep.allowed.left} launches left`}
+                    {mode === "store"
+                      ? " · installs as a new theme — your live store doesn't change"
+                      : publish === "ACTIVE"
+                        ? " · published live"
+                        : " · saved as a draft in Shopify"}
+                  </p>
+                ) : null}
+              </div>
               <p className="text-[11px] text-muted-foreground">
                 The AI only uses real facts: no invented reviews, sales numbers or health claims. Check the{mode === "store" ? " store" : " page"} before you run ads.
               </p>
