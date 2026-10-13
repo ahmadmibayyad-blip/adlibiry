@@ -164,7 +164,7 @@ export default function StoreTrackerPage() {
       <TrialLimitNotice />
 
       <Tabs value={tab ?? ""} onValueChange={setTab} className="mb-6">
-        <TabsList className="w-full sm:w-auto h-11 sm:h-9">
+        <TabsList className="w-full sm:w-auto group-data-[orientation=horizontal]/tabs:h-11 sm:group-data-[orientation=horizontal]/tabs:h-9">
           <TabsTrigger value="inspect" className="flex-1 sm:flex-none px-4">
             <Radar className="w-4 h-4" />
             Inspect
