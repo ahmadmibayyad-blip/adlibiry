@@ -449,6 +449,24 @@ function LaunchButton({
     formRef.current?.scrollIntoView?.({ block: "start" });
   };
 
+  // Both kinds of launch take them: our theme shows them on the product page (and a full store's home page).
+  const reviewsField = (
+    <label className="block text-sm">
+      <span className="font-medium">Supplier reviews</span>
+      <textarea
+        value={reviewsUrl}
+        onChange={(e) => setReviewsUrl(e.target.value)}
+        placeholder="AliExpress product links, one per line (up to 3), optional"
+        rows={2}
+        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      />
+      <span className="text-xs text-muted-foreground">
+        Real reviews from buyers of this product on AliExpress, translated and shown on your store as reviews from your supplier's buyers. Pick listings
+        with many written reviews, or add up to 3 sellers of the same product for more.
+      </span>
+    </label>
+  );
+
   return (
     <>
       {!startOpen && (
@@ -513,7 +531,7 @@ function LaunchButton({
                     publish,
                     ...(priceNum > 0 ? { price: priceNum } : {}),
                     ...(aiPhotos > 0 ? { aiPhotos } : {}),
-                    ...(mode === "store" && reviewsUrl.trim() ? { reviewsUrl: reviewsUrl.trim() } : {}),
+                    ...(reviewsUrl.trim() ? { reviewsUrl: reviewsUrl.trim() } : {}),
                     ...(mode === "store" && mirrorUrl.trim() ? { mirrorUrl: mirrorUrl.trim() } : {}),
                     ...(mode === "store"
                       ? {
@@ -581,6 +599,7 @@ function LaunchButton({
                         <input type="checkbox" checked={publish === "ACTIVE"} onChange={(e) => setPublish(e.target.checked ? "ACTIVE" : "DRAFT")} />
                         Publish it live now (otherwise it's saved as a draft for you to check)
                       </label>
+                      {reviewsField}
                     </>
                   )}
                 </>
@@ -717,20 +736,7 @@ function LaunchButton({
                             : "AI photos aren't switched on yet."}
                         </span>
                       </div>
-                      <label className="block text-sm">
-                        <span className="font-medium">Supplier reviews</span>
-                        <textarea
-                          value={reviewsUrl}
-                          onChange={(e) => setReviewsUrl(e.target.value)}
-                          placeholder="AliExpress product links, one per line (up to 3), optional"
-                          rows={2}
-                          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          Real reviews from buyers of this product on AliExpress, translated and shown on your home and product pages as reviews from your
-                          supplier's buyers. Pick listings with many written reviews, or add up to 3 sellers of the same product for more.
-                        </span>
-                      </label>
+                      {reviewsField}
                       <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={publish === "ACTIVE"} onChange={(e) => setPublish(e.target.checked ? "ACTIVE" : "DRAFT")} />
                         Make the product active (needed for it to show on the new home page)
