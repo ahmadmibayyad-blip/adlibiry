@@ -5,6 +5,7 @@
 // the AI writes the copy for the user's own product. Fake urgency (countdowns, "ends today") isn't copied.
 // The themes (storeKit.ts productTemplate, dawnTheme.ts dawnProductTemplate) read the plan. Pure.
 
+import type { HomeSection, SiteLook } from "./siteMirror";
 import type { BundleTier, PageSection, Teardown } from "./storeTeardown";
 
 /** Below the buy box: one image-with-text row, the comparison table, reviews, the guarantee section or the FAQ. */
@@ -27,6 +28,9 @@ export type PageMirror = {
   sticky: boolean;
   delivery: boolean;
   guarantee: boolean;
+  /** The store's home page sections and its colors and fonts (lib/siteMirror.ts), when its home page could be read. */
+  home?: HomeSection[];
+  look?: SiteLook;
   /** What was copied, and what wasn't and why: shown to the user after the launch. */
   copied: string[];
   skipped: string[];

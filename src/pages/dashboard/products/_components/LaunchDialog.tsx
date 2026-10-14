@@ -591,19 +591,26 @@ function LaunchButton({
                   <ThemeSwitch value={baseTheme} onChange={setBaseTheme} />
                   <h3 className="text-sm font-semibold pt-1">Pick a style</h3>
                   <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
-                  <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
+                  <p className="text-xs text-muted-foreground">
+                    {mirrorUrl.trim()
+                      ? baseTheme === "dawn"
+                        ? "Mirroring copies the store's home page, colors and fonts only with the AdSpy Storefront theme; Dawn keeps this style."
+                        : "Mirroring uses the copied store's colors and fonts when we can read them; this style fills in the rest."
+                      : "You can change colors, fonts and sections afterwards in Shopify's theme editor."}
+                  </p>
                   <label className="block text-sm">
                     <span className="font-medium flex items-center gap-1.5"><CopyCheck className="w-4 h-4 text-primary" /> Mirror a page</span>
                     <Input
                       type="url"
                       value={mirrorUrl}
                       onChange={(e) => setMirrorUrl(e.target.value)}
-                      placeholder="A product page that sells well, optional: https://store.com/products/…"
+                      placeholder="A store that sells well, optional: https://store.com"
                       className="mt-1"
                     />
                     <span className="text-xs text-muted-foreground">
-                      Copies that page's structure onto your product page: its section order, bundle deals and buy-box extras. Never its text, photos or reviews: those are
-                      written and made for your product. Fake countdowns aren't copied.
+                      Copies that store's layout: its home page sections, colors and fonts (with the AdSpy Storefront theme), and its product page's section order,
+                      bundle deals and buy-box extras. Never its text, photos, logo or reviews: those are written and made for your product. Fake countdowns aren't
+                      copied.
                     </span>
                   </label>
                 </section>

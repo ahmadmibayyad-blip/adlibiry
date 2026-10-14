@@ -42,13 +42,17 @@ export async function teardownAt(origin: string, productPath: string, productHtm
   return teardownProductPage(productHtml, productPath, json, inspectHtml(productHtml).currency ?? currency, vitalsOffers);
 }
 
-/** A product page's teardown from its link (a store's home page gives its first product); null when it can't be read. */
-export async function fetchTeardown(u: URL): Promise<Teardown | null> {
+/**
+ * A store's product page teardown and its home page HTML, from a link to either (Mirror a page copies both).
+ * A home page link mirrors its first product; home is null when the home page can't be read.
+ */
+export async function fetchStore(u: URL): Promise<{ teardown: Teardown | null; home: string | null }> {
   const origin = `${u.protocol}//${u.host}`;
-  // A store's home page: its first product.
-  const home = u.pathname.includes("/products/") ? null : await fetchPage(u.toString());
-  const path = u.pathname.includes("/products/") ? u.pathname : home ? firstProductPath(home) ?? undefined : undefined;
+  const isProduct = u.pathname.includes("/products/");
+  const homeHtml = await fetchPage(isProduct ? `${origin}/` : u.toString());
+  const home = homeHtml && inspectHtml(homeHtml).shopify ? homeHtml : null;
+  const path = isProduct ? u.pathname : home ? firstProductPath(home) ?? undefined : undefined;
   const html = path ? await fetchPage(`${origin}${path}`) : null;
-  if (!path || !html || !inspectHtml(html).shopify) return null;
-  return teardownAt(origin, path, html);
+  if (!path || !html || !inspectHtml(html).shopify) return { teardown: null, home };
+  return { teardown: await teardownAt(origin, path, html), home };
 }

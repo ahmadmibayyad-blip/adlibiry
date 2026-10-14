@@ -8,7 +8,8 @@ import { classifyNiche } from "./lib/category";
 import { fromAliExpressApi, fromAliExpressHtml, fromApifyAliExpress, fromProductHtml, fromShopifyJs, importSource, productUrl, type ImportedProduct } from "./lib/productImport";
 import { aliexpressId } from "./lib/supplierReviews";
 import { shopifyJsUrl } from "./lib/productImages";
-import { STORE_UA } from "./lib/pageFetch";
+import { STORE_UA, fetchPage } from "./lib/pageFetch";
+import { firstProductPath } from "./lib/storeInspect";
 
 // Launch from any link: reads a product page (AliExpress, a Shopify store or
 // any shop; parsing in lib/productImport.ts) into importedProducts, private to
@@ -171,11 +172,21 @@ export const importLink = action({
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     const u = productUrl(args.url);
     if (!u) throw new ConvexError({ code: "BAD_LINK", message: "Paste the link of a product page, starting with https://" });
-    const product = await readProduct(u);
+    let product = await readProduct(u);
+    let url = u.toString();
+    if (!product && !u.pathname.includes("/products/")) {
+      // A store's home page (Mirror a page takes one): its first product.
+      const home = await fetchPage(url);
+      const path = home ? firstProductPath(home) : null;
+      if (path) {
+        const p = new URL(path, u);
+        product = await readProduct(p);
+        url = p.toString();
+      }
+    }
     if (!product) {
       throw new ConvexError({ code: "NOT_A_PRODUCT", message: "We couldn't read a product on that page. Paste the link of the product page itself (AliExpress, a Shopify store or another shop)." });
     }
-    const url = u.toString();
     const productId = await ctx.runMutation(internal.productImport.save, { token: stableToken(identity), url, product });
     if (!productId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     return { productId, title: product.title, imageUrl: product.imageUrl };

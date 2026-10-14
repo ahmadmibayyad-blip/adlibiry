@@ -579,3 +579,31 @@ body.drawer-open { overflow: hidden; }
 /* toast after add to cart (cart page mode) */
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; z-index: 70; padding: 12px 20px; border-radius: var(--btn-radius); background: var(--c-text); color: var(--c-bg); font-weight: 600; transition: opacity .25s, transform .25s; }
 .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* What to expect (sections/timeline.liquid): stages on a line, stacked on phones. */
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--stages), minmax(0, 1fr)); gap: 24px; position: relative; }
+.timeline::before { content: ""; position: absolute; top: 9px; left: 9px; right: 9px; height: 2px; background: color-mix(in srgb, var(--c-accent) 35%, transparent); }
+.timeline__stage { position: relative; padding-top: 34px; }
+.timeline__dot { position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-radius: 999px; background: var(--c-accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-accent) 18%, transparent); }
+.scheme-accent .timeline__dot { background: var(--c-accent-text); }
+.timeline__label { margin: 0 0 6px; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--c-accent-ink); }
+.scheme-accent .timeline__label, .scheme-inverse .timeline__label { color: inherit; opacity: .85; }
+.timeline__stage .h4 { font-size: 1.2rem; margin-bottom: 8px; }
+.timeline__stage .muted { margin: 0; }
+.timeline__cta { margin-top: clamp(28px, 4vw, 40px); text-align: center; }
+.timeline__note { margin: 16px auto 0; text-align: center; font-size: .8rem; }
+@media (max-width: 749px) {
+  .timeline { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .timeline::before { top: 9px; bottom: 9px; left: 9px; right: auto; width: 2px; height: auto; }
+  .timeline__stage { padding: 0 0 0 40px; }
+}
+
+/* Scrolling text (sections/marquee.liquid): two copies of the list slide left forever. */
+.marquee { overflow: hidden; padding: 12px 0; font-family: var(--font-head); font-weight: var(--head-weight); text-transform: var(--head-case); font-size: .95rem; }
+.marquee__track { display: flex; width: max-content; animation: marquee var(--marquee-speed, 30s) linear infinite; }
+.marquee:hover .marquee__track { animation-play-state: paused; }
+.marquee__list { display: flex; list-style: none; margin: 0; padding: 0; }
+.marquee__item { white-space: nowrap; padding: 0 28px; position: relative; }
+.marquee__item::after { content: ""; position: absolute; right: -3px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 999px; background: currentColor; opacity: .6; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee__track { width: auto; flex-wrap: wrap; justify-content: center; } .marquee__list[aria-hidden] { display: none; } }

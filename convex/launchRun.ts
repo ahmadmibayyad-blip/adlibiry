@@ -18,11 +18,13 @@ import { SHOPIFY_API_VERSION } from "./lib/shopifyExport";
 import {
   STORE_ICONS,
   STORE_SYSTEM,
+  TIMELINE_GUIDE,
   TRUST_ICONS,
   DEFAULT_TIERS,
   bundleTitles,
   capDeals,
   cleanProductPage,
+  cleanTimeline,
   cleanStore,
   productPageGuide,
   storeFacts,
@@ -36,7 +38,8 @@ import {
   type StorePageKey,
 } from "./lib/storeKit";
 import { STORE_STYLES, isStoreStyle } from "./lib/storeStyles";
-import { fetchTeardown } from "./lib/pageFetch";
+import { fetchStore } from "./lib/pageFetch";
+import { homePlan, lookNote, siteLook } from "./lib/siteMirror";
 import { mirrorPlan, type MirrorTier, type PageMirror } from "./lib/pageMirror";
 import { productUrl } from "./lib/productImport";
 
@@ -101,6 +104,9 @@ const ProductPageSchema = z.object({
   button: z.string(),
   reviewsHeading: z.string(),
 });
+
+// A mirrored home page's "What to expect" stages (lib/storeKit.ts TimelineCopy), its own small request.
+const TimelineSchema = z.object({ heading: z.string(), text: z.string(), button: z.string(), items: z.array(z.object({ label: z.string(), title: z.string(), text: z.string() })) });
 
 const STORE_GUIDE =
   "Write the store: announcement (one short line, e.g. the delivery time or free shipping if given), hero (eyebrow 2–4 words, " +
@@ -188,7 +194,24 @@ export const run = internalAction({
     let mirror: PageMirror | undefined;
     if (fullStore && launch.mirrorUrl) {
       const u = productUrl(launch.mirrorUrl);
-      mirror = mirrorPlan(launch.mirrorUrl, u ? await fetchTeardown(u).catch(() => null) : null);
+      const site = u ? await fetchStore(u).catch(() => ({ teardown: null, home: null })) : { teardown: null, home: null };
+      mirror = mirrorPlan(launch.mirrorUrl, site.teardown);
+      // The whole store: its home page's sections, colors and fonts (lib/siteMirror.ts). Our theme draws them; Dawn keeps its own.
+      if (site.home && launch.baseTheme !== "dawn") {
+        const home = homePlan(site.home);
+        const look = siteLook(site.home);
+        mirror = {
+          ...mirror,
+          home: home.sections,
+          look,
+          copied: [...home.copied, ...lookNote(look), ...mirror.copied],
+          skipped: [...home.skipped, ...(look.colors ? [] : ["Their colors couldn't be read, so the store keeps the style you picked."]), ...mirror.skipped],
+        };
+      } else if (site.home) {
+        mirror = { ...mirror, skipped: ["Their home page layout, colors and fonts are copied with the AdSpy Storefront theme, not Dawn.", ...mirror.skipped] };
+      } else {
+        mirror = { ...mirror, skipped: [`We couldn't read ${mirror.host}'s home page, so the home page uses our own layout.`, ...mirror.skipped] };
+      }
       await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "generating", mirror });
     }
     // The supplier cost is USD; Shopify and the deals want it in the store's currency.
@@ -264,13 +287,34 @@ export const run = internalAction({
             return null;
           }
         };
-        // Three requests at once: the product page, the rest of the store, and our theme's product page sections.
-        const [page, storeOut, productPage] = await Promise.all([writePage(), writeStore(), writeProductPage()]);
+        // A mirrored home page with a "What to expect" timeline; a failure leaves that section out.
+        const writeTimeline = async (): Promise<unknown> => {
+          if (!mirror?.home?.includes("timeline")) return null;
+          try {
+            const message = await claudeClient().messages.parse({
+              model: MODEL,
+              max_tokens: 1500,
+              system,
+              messages: [{ role: "user", content: `${productFacts}
+
+${TIMELINE_GUIDE}` }],
+              output_config: { effort: "low", format: zodOutputFormat(TimelineSchema) },
+            });
+            return message.stop_reason === "refusal" ? null : message.parsed_output;
+          } catch (e) {
+            console.warn("Launch: timeline copy failed, leaving it out", e instanceof Error ? e.message : e);
+            return null;
+          }
+        };
+        // Four requests at once: the product page, the rest of the store, our theme's product page sections and a mirrored timeline.
+        const [page, storeOut, productPage, timeline] = await Promise.all([writePage(), writeStore(), writeProductPage(), writeTimeline()]);
         if (!page || !storeOut) return fail("The AI couldn't write this store. Try again or pick another product.");
         copy = cleanCopy(page).copy;
         storeCopy = cleanStore(storeOut);
         const pp = cleanProductPage(productPage);
         if (pp) storeCopy.productPage = pp;
+        const tl = cleanTimeline(timeline);
+        if (tl) storeCopy.timeline = tl;
       } else {
         const page = await writePage();
         if (!page) return fail("The AI couldn't write this page. Try again or pick another product.");

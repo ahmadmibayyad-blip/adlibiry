@@ -447,9 +447,9 @@ export default function LaunchesPage() {
                 <CopyCheck className="w-4 h-4 text-primary" /> Mirror a page
               </h2>
               <label htmlFor="mirror-page" className="block text-xs font-medium">
-                Page to copy
+                Store to copy <span className="font-normal text-muted-foreground">(its home page or a product page)</span>
               </label>
-              <Input id="mirror-page" type="url" value={mirrorPage} onChange={(e) => setMirrorPage(e.target.value)} placeholder="https://store.com/products/…" />
+              <Input id="mirror-page" type="url" value={mirrorPage} onChange={(e) => setMirrorPage(e.target.value)} placeholder="https://store.com" />
               <label htmlFor="mirror-product" className="block text-xs font-medium pt-1">
                 Your product <span className="font-normal text-muted-foreground">(optional: AliExpress or store link)</span>
               </label>
@@ -480,7 +480,8 @@ export default function LaunchesPage() {
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
-                A store built like that page: its section order, bundle deals and buy-box extras, with your own text and photos.
+                A store built like that one: its home page layout, colors and fonts, and its product page's sections, bundle deals and buy-box extras. Text and
+                photos are made for your product.
               </p>
             </form>
           </div>
