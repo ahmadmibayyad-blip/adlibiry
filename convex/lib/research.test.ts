@@ -34,6 +34,16 @@ describe("buildTrends", () => {
     expect(posture).toMatchObject({ direction: "Declining", risingPercent: -25 });
     expect(rows.some((r) => r.keyword.includes("lamp"))).toBe(false); // too old
   });
+
+  it("keeps only phrases with recent ads, so 12 weeks of varied ads stay small", () => {
+    const words = (i: number) => `item${i} thing${i % 997} model${i % 89} style${i % 13}`;
+    const ads = [
+      ...Array.from({ length: 30_000 }, (_, i) => ad(words(i), 15 + (i % 60))), // older weeks only
+      ...Array.from({ length: 4 }, () => ad("Heated eye mask", 1)),
+    ];
+    const rows = buildTrends(ads, NOW);
+    expect(rows.map((r) => r.keyword)).toEqual(["heated eye mask"]);
+  });
 });
 
 describe("buildNiches", () => {
