@@ -16,6 +16,13 @@ export const DAWN_FONTS: Record<StoreStyleId, { head: string; body: string }> = 
   playful: { head: "fredoka_n6", body: "nunito_n4" },
   nordic: { head: "fraunces_n5", body: "inter_n4" },
   tech: { head: "space_grotesk_n6", body: "inter_n4" },
+  // The newer looks use Dawn fonts we know Shopify's library has, close to their Google fonts.
+  glow: { head: "plus_jakarta_sans_n7", body: "plus_jakarta_sans_n4" },
+  clinic: { head: "plus_jakarta_sans_n7", body: "inter_n4" },
+  sport: { head: "archivo_black_n4", body: "inter_n4" },
+  mono: { head: "space_grotesk_n6", body: "inter_n4" },
+  soft: { head: "fredoka_n6", body: "nunito_n4" },
+  cozy: { head: "fraunces_n5", body: "inter_n4" },
 };
 
 /** Our section backgrounds → Dawn color schemes (scheme-1 page, -2 soft, -3 accent, -4 inverted). */

@@ -11,8 +11,8 @@ export type HomeSection = "hero" | "marquee" | "trust" | "product" | "benefits" 
 
 export type SiteLook = {
   colors?: { bg: string; surface: string; text: string; accent: string; accentText: string };
-  /** Google Fonts families. */
-  fonts?: { head: string; body: string };
+  /** Google Fonts families, with the weights they have. */
+  fonts?: { head: string; body: string; headWeight?: number; bodyWeights?: string };
   uppercase?: boolean;
 };
 
@@ -215,10 +215,12 @@ export const GOOGLE_FONTS = [
   "Noto Sans", "Ubuntu", "Cabin", "Hind", "Red Hat Display", "Albert Sans", "Instrument Sans", "Onest", "Inter Tight", "Libre Franklin",
   "Crimson Text", "Cinzel", "Marcellus", "Tenor Sans", "Italiana", "Zilla Slab", "Arimo", "Mukta", "Questrial", "League Spartan", "Chivo",
 ];
+// Fonts with only a regular weight: Google Fonts refuses a request for bold ones.
+const SINGLE_WEIGHT = new Set(["Archivo Black", "Anton", "Bebas Neue", "DM Serif Display", "Prata", "Abril Fatface", "Questrial", "Marcellus", "Tenor Sans", "Italiana"]);
 const FONT_KEY = new Map(GOOGLE_FONTS.map((f) => [f.toLowerCase().replace(/\s+/g, " "), f]));
 
 /** Heading and body fonts from font-family declarations (and Shopify's --font-heading-family / --font-body-family). */
-export function siteFonts(html: string): { head: string; body: string } | undefined {
+export function siteFonts(html: string): SiteLook["fonts"] {
   const all = new Map<string, number>();
   const head = new Map<string, number>();
   const body = new Map<string, number>();
@@ -234,7 +236,8 @@ export function siteFonts(html: string): { head: string; body: string } | undefi
   const top = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const b = top(body) ?? top(all);
   if (!b) return undefined;
-  return { head: top(head) ?? b, body: b };
+  const h = top(head) ?? b;
+  return { head: h, body: b, ...(SINGLE_WEIGHT.has(h) ? { headWeight: 400 } : {}), ...(SINGLE_WEIGHT.has(b) ? { bodyWeights: "400" } : {}) };
 }
 
 /** What the look copied, for the launch's "what Mirror took" list. */

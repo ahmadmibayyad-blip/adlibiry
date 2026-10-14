@@ -36,7 +36,9 @@
         ]
       },
       { "type": "text", "id": "custom_head_font", "label": "Heading font (Google Fonts name)", "info": "Optional, e.g. Poppins. Replaces the pair's heading font." },
+      { "type": "select", "id": "custom_head_weight", "label": "Heading font weight", "default": "700", "options": [{ "value": "400", "label": "Regular" }, { "value": "500", "label": "Medium" }, { "value": "600", "label": "Semibold" }, { "value": "700", "label": "Bold" }, { "value": "800", "label": "Extra bold" }], "info": "Pick one the heading font has." },
       { "type": "text", "id": "custom_body_font", "label": "Body font (Google Fonts name)", "info": "Optional. Replaces the pair's body font." },
+      { "type": "text", "id": "custom_body_weights", "label": "Body font weights", "default": "400;500;600;700", "info": "The weights the body font has, e.g. 400 for a font with one weight." },
       { "type": "checkbox", "id": "heading_uppercase", "label": "Uppercase headings", "default": false }
     ]
   },

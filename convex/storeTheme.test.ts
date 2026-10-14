@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { THEME_FILES } from "./lib/themeFiles.generated";
+import { styleSettings } from "./lib/storeKit";
 import { BUNDLE_OFF, DEFAULT_TIERS, capDeals, cleanProductPage, cleanStore, cleanTimeline, deliveryDays, menuLabel, productTemplate, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
 import { mirrorPlan } from "./lib/pageMirror";
@@ -111,7 +112,7 @@ describe("storefront theme", () => {
 
   it("ships every style as a Theme settings preset", () => {
     const data = JSON.parse(THEME_FILES["config/settings_data.json"]);
-    for (const id of STORE_STYLE_IDS) expect(data.presets[STORE_STYLES[id].name]).toEqual(STORE_STYLES[id].settings);
+    for (const id of STORE_STYLE_IDS) expect(data.presets[STORE_STYLES[id].name], id).toEqual(styleSettings(STORE_STYLES[id]));
     const ids = JSON.parse(THEME_FILES["config/settings_schema.json"]).flatMap((g: { settings?: { id: string }[] }) => (g.settings ?? []).map((s) => s.id));
     for (const key of Object.keys(STORE_STYLES.fresh.settings)) expect(ids).toContain(key);
   });

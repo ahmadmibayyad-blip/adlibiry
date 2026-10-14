@@ -48,16 +48,24 @@
     assign font_query = ''
     if settings.custom_head_font != blank
       assign head_font = settings.custom_head_font | strip
-      assign head_weight = 700
+      assign head_weight = settings.custom_head_weight | default: '700'
     endif
     if settings.custom_body_font != blank
       assign body_font = settings.custom_body_font | strip
     endif
     assign head_family = head_font | replace: ' ', '+'
     assign body_family = body_font | replace: ' ', '+'
-    assign font_query = 'family=' | append: head_family | append: ':wght@400;500;600;700;800'
-    if body_family != head_family
-      assign font_query = font_query | append: '&family=' | append: body_family | append: ':wght@400;500;600;700'
+    assign body_weights = settings.custom_body_weights | default: '400;500;600;700' | strip
+    if body_family == head_family
+      assign font_query = 'family=' | append: head_family | append: ':wght@' | append: body_weights
+      unless body_weights contains head_weight
+        assign font_query = 'family=' | append: head_family | append: ':wght@' | append: body_weights | append: ';' | append: head_weight
+      endunless
+    else
+      assign font_query = 'family=' | append: head_family | append: ':wght@' | append: head_weight | append: '&family=' | append: body_family
+      if body_weights != '400'
+        assign font_query = font_query | append: ':wght@' | append: body_weights
+      endif
     endif
   endif
 -%}
