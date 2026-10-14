@@ -1,6 +1,6 @@
 <section class="section scheme-{{ section.settings.scheme }}">
   <div class="page-width page-width--narrow center">
-    {%- if section.settings.heading != blank -%}<h2 class="h2">{{ section.settings.heading | escape }}</h2>{%- endif -%}
+    {%- if section.settings.heading != blank -%}<h2 class="h2">{{ section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}</h2>{%- endif -%}
     {%- if section.settings.text != blank -%}<div class="rte lead">{{ section.settings.text }}</div>{%- endif -%}
     {%- if section.settings.button_label != blank -%}
       <a href="{{ section.settings.button_link | default: routes.all_products_collection_url }}" class="btn">{{ section.settings.button_label | escape }}</a>

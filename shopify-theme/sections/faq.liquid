@@ -8,7 +8,7 @@
 <section class="section scheme-{{ section.settings.scheme }}">
   <div class="page-width page-width--narrow">
     {%- if section.settings.heading != blank -%}
-      <div class="section__head"><h2 class="h2">{{ section.settings.heading | escape }}</h2></div>
+      <div class="section__head"><h2 class="h2">{{ section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}</h2></div>
     {%- elsif product_faq.size > 0 -%}
       <div class="section__head"><h2 class="h2">{{ 'products.faq' | t }}</h2></div>
     {%- endif -%}

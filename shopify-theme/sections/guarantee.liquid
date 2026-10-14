@@ -6,7 +6,7 @@
       <div class="guarantee-band">
         <span class="seal seal--large" aria-hidden="true"><strong>{{ days }}</strong><span>{{ 'products.guarantee_seal' | t }}</span></span>
         <div>
-          <h2 class="h3">{%- if section.settings.heading != blank -%}{{ section.settings.heading | escape }}{%- else -%}{{ 'products.guarantee_title' | t: days: days }}{%- endif -%}</h2>
+          <h2 class="h3">{%- if section.settings.heading != blank -%}{{ section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}{%- else -%}{{ 'products.guarantee_title' | t: days: days }}{%- endif -%}</h2>
           <p class="muted">{%- if section.settings.text != blank -%}{{ section.settings.text | escape }}{%- else -%}{{ 'products.guarantee_text' | t: days: days }}{%- endif -%}</p>
           {%- if section.settings.button_label != blank -%}
             <a href="{{ section.settings.button_link | default: '#buy' }}" class="btn">{{ section.settings.button_label | escape }}</a>

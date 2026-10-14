@@ -1,13 +1,31 @@
+{%- comment -%} Hero. Proof is real only: the product's supplier reviews (Launch adds them), never made-up numbers. {%- endcomment -%}
 {%- liquid
   assign p = section.settings.product
   assign img = section.settings.image | default: p.media[1] | default: p.featured_media
   assign link = section.settings.button_link | default: p.url | default: routes.all_products_collection_url
+  assign sup = p.metafields.adspy.reviews.value
+  assign quote = nil
+  for r in sup.items
+    if r.rating >= 4 and r.text.size > 40 and r.text.size < 260
+      assign quote = r
+      break
+    endif
+  endfor
+  assign heading = section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>'
 -%}
 <section class="hero hero--{{ section.settings.layout }} scheme-{{ section.settings.scheme }}">
   <div class="page-width hero__inner">
     <div class="hero__text">
-      {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
-      <h1 class="h1">{{ section.settings.heading | escape }}</h1>
+      {%- if sup.average > 0 -%}
+        <a class="hero__proof" href="{{ link }}#reviews">
+          {% render 'stars', rating: sup.average %}
+          <strong>{{ sup.average }}/5</strong>
+          <span>{{ 'products.rating_count_supplier' | t: count: sup.total }}</span>
+        </a>
+      {%- elsif section.settings.eyebrow != blank -%}
+        <p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>
+      {%- endif -%}
+      <h1 class="h1">{{ heading }}</h1>
       {%- if section.settings.text != blank -%}<p class="lead">{{ section.settings.text | escape }}</p>{%- endif -%}
       <div class="hero__actions">
         {%- if section.settings.button_label != blank -%}
@@ -27,9 +45,16 @@
     </div>
     <div class="hero__media">
       {%- if img != blank -%}
-        {{ img | image_url: width: 1400 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '500, 750, 1000, 1400', sizes: '(min-width: 990px) 50vw, 100vw', alt: section.settings.heading }}
+        {{ img | image_url: width: 1400 | image_tag: loading: 'eager', fetchpriority: 'high', widths: '500, 750, 1000, 1400', sizes: '(min-width: 990px) 50vw, 100vw', alt: section.settings.heading | remove: '[' | remove: ']' }}
       {%- else -%}
         {{ 'lifestyle-1' | placeholder_svg_tag: 'placeholder' }}
+      {%- endif -%}
+      {%- if quote -%}
+        <figure class="hero__quote">
+          {% render 'stars', rating: quote.rating %}
+          <blockquote>{{ quote.text | escape | truncate: 150 }}</blockquote>
+          <figcaption>{%- if quote.name != blank -%}{{ quote.name | escape }} · {% endif -%}{{ 'products.reviews_buyer' | t }}</figcaption>
+        </figure>
       {%- endif -%}
     </div>
   </div>
@@ -41,7 +66,7 @@
   "max_blocks": 4,
   "settings": [
     { "type": "text", "id": "eyebrow", "label": "Small text above the heading" },
-    { "type": "text", "id": "heading", "label": "Heading", "default": "Made for everyday life" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Made for [everyday] life", "info": "[Brackets] highlight words. The stars and review line show when the product has supplier reviews." },
     { "type": "textarea", "id": "text", "label": "Text" },
     { "type": "text", "id": "button_label", "label": "Button label", "default": "Shop now" },
     { "type": "url", "id": "button_link", "label": "Button link (empty: the product)" },

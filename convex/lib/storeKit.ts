@@ -47,7 +47,7 @@ export type StoreCopy = {
 export type TimelineCopy = { heading: string; text: string; button: string; items: { label: string; title: string; text: string }[] };
 
 export const TIMELINE_GUIDE =
-  "Write a \"What to expect\" timeline for this product's home page: heading (max 6 words), text (one short sentence), button (2–3 words, " +
+  "Write a \"What to expect\" timeline for this product's home page: heading (max 6 words, one or two key words in [square brackets]), text (one short sentence), button (2–3 words, " +
   "to the product page) and 3–4 stages in time order, each with label (when: e.g. \"First use\", \"Week 2\", \"Day 30\"), title (max 6 " +
   "words) and text (1–2 sentences). Describe what using the product is like at each stage, from its facts: how it feels, how a routine " +
   "settles in. No guaranteed or medical results, no percentages, no before/after promises, no customer counts.";
