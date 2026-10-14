@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { NICHES } from "./lib/category";
 import { productTitleForAd } from "./lib/productMatch";
@@ -19,7 +19,7 @@ export const adsPage = internalQuery({
     const page = await ctx.db
       .query("ads")
       .withIndex("by_first_seen", (q) => q.gte("firstSeenAt", args.since))
-      .paginate({ numItems: 400, cursor: args.cursor });
+      .paginate({ numItems: 200, cursor: args.cursor });
     const ads: AdLite[] = page.page.map((a) => ({
       title: productTitleForAd(a),
       niche: a.niche,
@@ -34,7 +34,7 @@ export const adsPage = internalQuery({
 export const productsPage = internalQuery({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, args) => {
-    const page = await ctx.db.query("products").paginate({ numItems: 1000, cursor: args.cursor });
+    const page = await ctx.db.query("products").paginate({ numItems: 250, cursor: args.cursor }); // whole product docs: big pages pass the read limit
     const products: ProductLite[] = page.page.map((p) => ({
       category: p.category,
       aiScore: p.aiScore,
@@ -91,31 +91,47 @@ export const save = internalMutation({
   },
 });
 
+async function rebuildResearch(ctx: ActionCtx) {
+  const now = Date.now();
+  const since = new Date(now - TREND_WINDOW_MS).toISOString();
+  const ads: AdLite[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: { ads: AdLite[]; isDone: boolean; cursor: string } = await ctx.runQuery(internal.research.adsPage, { since, cursor });
+    ads.push(...page.ads);
+    if (page.isDone) break;
+    cursor = page.cursor;
+  }
+  const products: ProductLite[] = [];
+  cursor = null;
+  for (;;) {
+    const page: { products: ProductLite[]; isDone: boolean; cursor: string } = await ctx.runQuery(internal.research.productsPage, { cursor });
+    products.push(...page.products);
+    if (page.isDone) break;
+    cursor = page.cursor;
+  }
+  const trends = buildTrends(ads, now);
+  const niches = buildNiches(NICHES, products, ads, now);
+  await ctx.runMutation(internal.research.save, { trends, niches, dashboard: buildDashboard(ads, products, now) });
+  return { ads: ads.length, products: products.length, trends: trends.length, categories: niches.length };
+}
+
 export const rebuild = internalAction({
   args: {},
   handler: async (ctx) => {
-    const now = Date.now();
-    const since = new Date(now - TREND_WINDOW_MS).toISOString();
-    const ads: AdLite[] = [];
-    let cursor: string | null = null;
-    for (;;) {
-      const page: { ads: AdLite[]; isDone: boolean; cursor: string } = await ctx.runQuery(internal.research.adsPage, { since, cursor });
-      ads.push(...page.ads);
-      if (page.isDone) break;
-      cursor = page.cursor;
+    await rebuildResearch(ctx);
+  },
+});
+
+// Admin → "Rebuild research": the same rebuild now, with what it built or why it failed.
+export const rebuildNow = action({
+  args: {},
+  handler: async (ctx): Promise<{ ads: number; products: number; trends: number; categories: number } | { error: string }> => {
+    await ctx.runQuery(internal.hooks.assertAdmin, {});
+    try {
+      return await rebuildResearch(ctx);
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
     }
-    const products: ProductLite[] = [];
-    cursor = null;
-    for (;;) {
-      const page: { products: ProductLite[]; isDone: boolean; cursor: string } = await ctx.runQuery(internal.research.productsPage, { cursor });
-      products.push(...page.products);
-      if (page.isDone) break;
-      cursor = page.cursor;
-    }
-    await ctx.runMutation(internal.research.save, {
-      trends: buildTrends(ads, now),
-      niches: buildNiches(NICHES, products, ads, now),
-      dashboard: buildDashboard(ads, products, now),
-    });
   },
 });

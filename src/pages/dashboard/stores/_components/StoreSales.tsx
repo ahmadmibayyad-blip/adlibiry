@@ -78,7 +78,7 @@ export default function StoreSales({ storeId }: { storeId: Id<"stores"> }) {
       {latest && (
         <div className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <StatTile label="Est. orders, last day" value={range(latest.estOrdersLow, latest.estOrdersHigh, String)} hint={`${latest.updatedCount} of ${latest.productCount} products changed`} />
+            <StatTile label="Est. orders, last day" value={range(latest.estOrdersLow, latest.estOrdersHigh, (n) => Math.round(n).toLocaleString("en-US"))} hint={`${latest.updatedCount} of ${latest.productCount} products changed`} />
             <StatTile label="Est. revenue, last day" value={range(latest.estRevenueLow, latest.estRevenueHigh, money)} hint={latest.newCount ? `${latest.newCount} new products` : undefined} />
             <StatTile label={`Est. revenue, ${Math.min(days.length, 30)} days tracked`} value={range(total.low, total.high, money)} />
           </div>
