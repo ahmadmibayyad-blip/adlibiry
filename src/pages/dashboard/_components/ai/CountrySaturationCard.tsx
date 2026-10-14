@@ -450,7 +450,7 @@ export default function CountrySaturationCard({
           {/* ── Country comparison ───────────────────────────────────────── */}
           <TabsContent value="compare">
             <p className="text-xs text-muted-foreground mb-2">
-              Pick countries to score side by side for this niche, using the same real data and scoring math as a single check.
+              Pick countries to score side by side for this category, using the same real data and scoring math as a single check.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-3">
               {SATURATION_COUNTRIES.map((c) => (

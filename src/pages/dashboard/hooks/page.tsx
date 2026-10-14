@@ -102,7 +102,7 @@ function BuildNow() {
         setBusy(true);
         try {
           const r = await build({});
-          toast.success(`Built ${r.hooks} hooks in ${r.niches} niches${r.errors.length ? ` (${r.errors.length} AI errors)` : ""}`);
+          toast.success(`Built ${r.hooks} hooks in ${r.niches} categories${r.errors.length ? ` (${r.errors.length} AI errors)` : ""}`);
         } catch (e) {
           toast.error(e instanceof ConvexError ? (e.data as { message: string }).message : "Couldn't build the hooks");
         } finally {

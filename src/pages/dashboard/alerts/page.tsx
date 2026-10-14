@@ -112,7 +112,7 @@ function AlertsFeed() {
             <EmptyMedia variant="icon"><Bell /></EmptyMedia>
             <EmptyTitle>No notifications yet</EmptyTitle>
             <EmptyDescription>
-              Set up your alert preferences below to get notified about new winners, ads in your niches, and tracked store updates.
+              Set up your alert preferences below to get notified about new winners, ads in your categories, and tracked store updates.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -147,7 +147,7 @@ export default function AlertsPage() {
           <h1 className="text-2xl font-bold">Alerts</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Get notified the moment a new winning product, a new ad in your niches, or an update from a tracked store shows up.
+          Get notified the moment a new winning product, a new ad in your categories, or an update from a tracked store shows up.
         </p>
       </motion.div>
 
