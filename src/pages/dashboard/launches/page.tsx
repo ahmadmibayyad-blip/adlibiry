@@ -230,6 +230,7 @@ export default function LaunchesPage() {
   const goLiveLaunch = rows?.find((l) => l._id === goingLive);
   const importLink = useAction(api.productImport.importLink);
   const [link, setLink] = useState("");
+  const [linkReviews, setLinkReviews] = useState("");
   const [reading, setReading] = useState(false);
   const [fromLink, setFromLink] = useState<{ _id: Id<"importedProducts">; imageUrl: string } | null>(null);
   // The page the launch mirrors (Mirror a page; Store Inspector links here with ?mirror=<product page>).
@@ -392,9 +393,10 @@ export default function LaunchesPage() {
                 try {
                   const r = await importLink({ url: link.trim() });
                   setMirror("");
-                  setReviews("");
+                  setReviews(linkReviews.trim());
                   setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
                   setLink("");
+                  setLinkReviews("");
                 } catch (err) {
                   toast.error(errorMessage(err, "Couldn't read that link"));
                 } finally {
@@ -406,6 +408,20 @@ export default function LaunchesPage() {
                 <Link2 className="w-4 h-4 text-primary" /> Launch from a link
               </label>
               <Input id="launch-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="AliExpress, Shopify store or other product page link" />
+              <label htmlFor="link-reviews" className="block text-xs font-medium pt-1">
+                Supplier reviews <span className="font-normal text-muted-foreground">(optional: AliExpress links, one per line, up to 3)</span>
+              </label>
+              <textarea
+                id="link-reviews"
+                value={linkReviews}
+                onChange={(e) => setLinkReviews(e.target.value)}
+                rows={2}
+                placeholder="https://aliexpress.com/item/…"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              {linkReviews.split(/\s+/).some((x) => x && !/aliexpress\./i.test(x)) ? (
+                <p className="text-xs text-warn">Only AliExpress links work: another store's reviews are about its own shop, so they can't be shown as yours.</p>
+              ) : null}
               <Button type="submit" className="w-full h-10" disabled={reading || !link.trim()}>
                 {reading ? <Spinner className="w-4 h-4 mr-2" /> : <Rocket className="w-4 h-4 mr-2" />}
                 {reading ? (
