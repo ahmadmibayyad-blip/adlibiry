@@ -80,12 +80,24 @@ function direction(thisWeek: number, lastWeek: number): { dir: TrendRow["directi
 
 export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] {
   type Acc = { weeks: number[]; niches: Map<string, number>; countries: Map<string, number>; platforms: Map<string, number> };
+  // First count phrases in the last two weeks only, then keep details just for
+  // phrases with enough recent ads: per-phrase maps for every phrase of 12
+  // weeks of ads ran the rebuild out of memory.
+  const recent = new Map<string, number>();
+  for (const ad of ads) {
+    const age = now - Date.parse(ad.firstSeenAt);
+    if (age >= 0 && age < 2 * WEEK_MS) for (const k of keywordsOf(ad.title)) inc(recent, k);
+  }
+  const keep = new Set([...recent].filter(([, n]) => n >= 3).map(([k]) => k));
+  recent.clear();
+
   const acc = new Map<string, Acc>();
   for (const ad of ads) {
     const age = now - Date.parse(ad.firstSeenAt);
     if (!(age >= 0) || age >= WEEKS * WEEK_MS) continue;
     const week = WEEKS - 1 - Math.floor(age / WEEK_MS); // 11 = this week
     for (const k of keywordsOf(ad.title)) {
+      if (!keep.has(k)) continue;
       let a = acc.get(k);
       if (!a) acc.set(k, (a = { weeks: Array(WEEKS).fill(0), niches: new Map(), countries: new Map(), platforms: new Map() }));
       a.weeks[week]++;
