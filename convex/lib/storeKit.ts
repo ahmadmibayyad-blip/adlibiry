@@ -5,7 +5,7 @@
 import { scrubClaims, type LaunchCopy } from "./launchCopy";
 import { DEFAULT_SECTIONS, type MirrorTier, type PageMirror } from "./pageMirror";
 import { DEFAULT_HOME, type HomeSection } from "./siteMirror";
-import { STORE_STYLES, type StoreStyleId } from "./storeStyles";
+import { STORE_STYLES, type StoreStyle, type StoreStyleId } from "./storeStyles";
 import { THEME_FILES } from "./themeFiles.generated";
 
 export const STORE_ICONS = ["sparkle", "heart", "leaf", "bolt", "shield", "clock", "smile", "star", "drop", "sun", "home", "paw", "gift", "check"] as const;
@@ -382,6 +382,16 @@ export function deliveryDays(text: string): { min: number; max: number } | null 
   return max > 0 && max <= 90 ? { min, max } : null;
 }
 
+/** A style's Theme settings, its fonts included: the preset of the same name in settings_data.json. */
+export function styleSettings(s: StoreStyle): Record<string, unknown> {
+  return { ...s.settings, ...fontSettings(s.customFonts) };
+}
+
+/** Theme settings for Google fonts by name (theme-style.liquid); empty ones keep the font pair. */
+function fontSettings(f: { head: string; body: string; headWeight: number; bodyWeights: string } | undefined) {
+  return { custom_head_font: f?.head ?? "", custom_body_font: f?.body ?? "", custom_head_weight: String(f?.headWeight ?? 700), custom_body_weights: f?.bodyWeights ?? "400;500;600;700" };
+}
+
 /** The scrolling text's lines: the trust lines and benefit titles the AI already wrote, no new claims. */
 export function marqueeTexts(c: StoreCopy): string[] {
   return [...new Set([...c.trust.map((x) => x.text), ...c.benefits.items.map((b) => b.title)].filter(Boolean))].slice(0, 6);
@@ -391,12 +401,12 @@ export function marqueeTexts(c: StoreCopy): string[] {
 export function themeOverrides(t: ThemeInput): Record<string, string> {
   const style = STORE_STYLES[t.style];
   const c = t.copy;
-  const presets = Object.fromEntries(Object.values(STORE_STYLES).map((s) => [s.name, { ...s.settings }]));
+  const presets = Object.fromEntries(Object.values(STORE_STYLES).map((s) => [s.name, styleSettings(s)]));
   const look = t.mirror?.look;
   const days = deliveryDays(t.facts.shippingTime);
   const settings = {
     current: {
-      ...style.settings,
+      ...styleSettings(style),
       page_width: 1240,
       brand_name: t.brandName,
       trust_line_1: c.productTrust.shipping,
@@ -419,7 +429,7 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
             color_accent_text: look.colors.accentText,
           }
         : {}),
-      ...(look?.fonts ? { custom_head_font: look.fonts.head, custom_body_font: look.fonts.body } : {}),
+      ...(look?.fonts ? fontSettings({ headWeight: 700, bodyWeights: "400;500;600;700", ...look.fonts }) : {}),
       ...(look?.uppercase ? { heading_uppercase: true } : {}),
     },
     presets,

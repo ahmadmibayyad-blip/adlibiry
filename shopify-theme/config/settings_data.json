@@ -11,7 +11,43 @@
       "font_pair": "fresh",
       "heading_uppercase": false,
       "radius": 14,
-      "button_pill": true
+      "button_pill": true,
+      "custom_head_font": "",
+      "custom_body_font": "",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
+    },
+    "Glow": {
+      "color_bg": "#ffffff",
+      "color_surface": "#f2f8ec",
+      "color_text": "#122312",
+      "color_accent": "#2c5801",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#c2410c",
+      "font_pair": "fresh",
+      "heading_uppercase": false,
+      "radius": 12,
+      "button_pill": true,
+      "custom_head_font": "Poppins",
+      "custom_body_font": "Poppins",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
+    },
+    "Clinic": {
+      "color_bg": "#ffffff",
+      "color_surface": "#eef3fa",
+      "color_text": "#0f1b2d",
+      "color_accent": "#1f4fd1",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#d92d20",
+      "font_pair": "fresh",
+      "heading_uppercase": false,
+      "radius": 10,
+      "button_pill": false,
+      "custom_head_font": "Manrope",
+      "custom_body_font": "Manrope",
+      "custom_head_weight": "800",
+      "custom_body_weights": "400;500;600;700"
     },
     "Bold": {
       "color_bg": "#fffdf5",
@@ -23,7 +59,27 @@
       "font_pair": "bold",
       "heading_uppercase": true,
       "radius": 4,
-      "button_pill": false
+      "button_pill": false,
+      "custom_head_font": "",
+      "custom_body_font": "",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
+    },
+    "Sport": {
+      "color_bg": "#0d0d0d",
+      "color_surface": "#1b1b1b",
+      "color_text": "#f4f4f4",
+      "color_accent": "#c6ff3d",
+      "color_accent_text": "#0d0d0d",
+      "color_sale": "#ff5a4e",
+      "font_pair": "bold",
+      "heading_uppercase": true,
+      "radius": 4,
+      "button_pill": false,
+      "custom_head_font": "Anton",
+      "custom_body_font": "Inter",
+      "custom_head_weight": "400",
+      "custom_body_weights": "400;500;600;700"
     },
     "Luxe": {
       "color_bg": "#100f0d",
@@ -35,7 +91,27 @@
       "font_pair": "luxe",
       "heading_uppercase": false,
       "radius": 2,
-      "button_pill": false
+      "button_pill": false,
+      "custom_head_font": "",
+      "custom_body_font": "",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
+    },
+    "Mono": {
+      "color_bg": "#ffffff",
+      "color_surface": "#f3f3f1",
+      "color_text": "#111111",
+      "color_accent": "#111111",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#b42318",
+      "font_pair": "tech",
+      "heading_uppercase": true,
+      "radius": 0,
+      "button_pill": false,
+      "custom_head_font": "Inter Tight",
+      "custom_body_font": "Inter",
+      "custom_head_weight": "600",
+      "custom_body_weights": "400;500;600;700"
     },
     "Playful": {
       "color_bg": "#fff8f3",
@@ -47,7 +123,27 @@
       "font_pair": "playful",
       "heading_uppercase": false,
       "radius": 24,
-      "button_pill": true
+      "button_pill": true,
+      "custom_head_font": "",
+      "custom_body_font": "",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
+    },
+    "Soft": {
+      "color_bg": "#fdfbff",
+      "color_surface": "#efe9fb",
+      "color_text": "#251c3d",
+      "color_accent": "#6a48d7",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#d9467a",
+      "font_pair": "playful",
+      "heading_uppercase": false,
+      "radius": 22,
+      "button_pill": true,
+      "custom_head_font": "Quicksand",
+      "custom_body_font": "Quicksand",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
     },
     "Nordic": {
       "color_bg": "#f7f2eb",
@@ -59,7 +155,27 @@
       "font_pair": "nordic",
       "heading_uppercase": false,
       "radius": 8,
-      "button_pill": false
+      "button_pill": false,
+      "custom_head_font": "",
+      "custom_body_font": "",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
+    },
+    "Cozy": {
+      "color_bg": "#fbf6f0",
+      "color_surface": "#f2e5d7",
+      "color_text": "#2a1d14",
+      "color_accent": "#b4532a",
+      "color_accent_text": "#ffffff",
+      "color_sale": "#8a3a1c",
+      "font_pair": "nordic",
+      "heading_uppercase": false,
+      "radius": 16,
+      "button_pill": true,
+      "custom_head_font": "DM Serif Display",
+      "custom_body_font": "DM Sans",
+      "custom_head_weight": "400",
+      "custom_body_weights": "400;500;600;700"
     },
     "Tech": {
       "color_bg": "#0a0f1f",
@@ -71,7 +187,11 @@
       "font_pair": "tech",
       "heading_uppercase": false,
       "radius": 12,
-      "button_pill": false
+      "button_pill": false,
+      "custom_head_font": "",
+      "custom_body_font": "",
+      "custom_head_weight": "700",
+      "custom_body_weights": "400;500;600;700"
     }
   }
 }
