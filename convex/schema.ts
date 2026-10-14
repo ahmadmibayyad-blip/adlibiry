@@ -700,6 +700,9 @@ export default defineSchema({
     // "Copy a page's layout": the page whose structure the store copies, and the plan read from it (lib/pageMirror.ts PageMirror).
     mirrorUrl: v.optional(v.string()),
     mirror: v.optional(v.any()),
+    // "Special requests" the owner typed for the AI, and the look changes read from them (lib/designWishes.ts DesignWishes).
+    wishes: v.optional(v.string()),
+    design: v.optional(v.any()),
     // A relaunch that replaces this earlier launch (its theme and row go once this one is ready).
     replacesLaunchId: v.optional(v.id("launches")),
   })

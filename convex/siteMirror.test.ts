@@ -46,12 +46,12 @@ describe("siteMirror", () => {
   it("reads the store's colors and Google fonts", () => {
     const look = siteLook(home);
     expect(look.colors).toEqual({ bg: "#ffffff", surface: "#f6fcf1", text: "#0b0b0b", accent: "#2c5801", accentText: "#ffffff" });
-    expect(look.fonts).toEqual({ head: "Poppins", body: "Poppins" });
+    expect(look.fonts).toEqual({ head: "Poppins", body: "Poppins", headWeight: 700, bodyWeights: "400;500;600;700" });
     expect(lookNote(look)).toEqual(["Colors: #2c5801 buttons and accents, #f6fcf1 soft backgrounds, #0b0b0b text", "Fonts: Poppins"]);
     // Dawn's rgb triplets and font variables.
     const dawn = siteLook(":root{--color-button: 196,30,58;--color-background: 255,255,255;--color-foreground: 18,18,18;--font-heading-family: Playfair Display, serif;--font-body-family: Lato, sans-serif}");
     expect(dawn.colors).toMatchObject({ accent: "#c41e3a", bg: "#ffffff", text: "#121212" });
-    expect(dawn.fonts).toEqual({ head: "Playfair Display", body: "Lato" });
+    expect(dawn.fonts).toMatchObject({ head: "Playfair Display", body: "Lato" });
     // Fonts that aren't on Google Fonts and gray-only pages are left to the chosen style.
     expect(siteFonts("body{font-family:'Harmonia Sans Pro Cyr', sans-serif}")).toBeUndefined();
     expect(siteLook("body{background-color:#ffffff;color:#222222}").colors).toBeUndefined();
