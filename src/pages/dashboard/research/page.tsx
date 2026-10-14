@@ -47,7 +47,7 @@ export default function ResearchPage() {
           <h1 className="text-2xl font-bold">Product Research</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Trending keywords, niche breakdowns, and supplier sourcing — everything to validate a product before you spend on ads.
+          Trending keywords, category breakdowns, and supplier sourcing — everything to validate a product before you spend on ads.
         </p>
       </motion.div>
       <TrialLimitNotice />
@@ -252,7 +252,7 @@ function SourcingTab({ initialNiche }: { initialNiche?: string }) {
           <Search className="w-10 h-10 text-muted-foreground mb-3" />
           <h3 className="font-semibold mb-1">What do you want to source?</h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            Type a product or pick a niche. You'll get supplier searches on AliExpress, Alibaba, CJdropshipping, Temu and Amazon,
+            Type a product or pick a category. You'll get supplier searches on AliExpress, Alibaba, CJdropshipping, Temu and Amazon,
             plus matching products already in AdSpy Pro.
           </p>
         </div>
