@@ -24,14 +24,16 @@ describe("buildTrends", () => {
       ad("Old lamp thing", 200),
     ];
     const rows = buildTrends(ads, NOW);
-    expect(rows[0]).toMatchObject({ keyword: "dog cooling mat", niche: "Pet Supplies", direction: "Rising", risingPercent: 500 });
+    // 6 of 9 new ads this week vs 1 of 5 the weeks before.
+    expect(rows[0]).toMatchObject({ keyword: "dog cooling mat", niche: "Pet Supplies", direction: "Rising", risingPercent: 233 });
+    expect(rows[0].insight).toBe("6 new ads this week, 67% of all new ads (20% the 4 weeks before), mostly on TikTok.");
     expect(rows[0].weeklyInterest).toHaveLength(12);
     expect(rows[0].weeklyInterest[11]).toBe(100);
     expect(rows[0].countryBreakdown[0]).toEqual({ country: "US", interest: 100 });
     // Words and shorter phrases inside a listed phrase aren't listed again.
     expect(rows.filter((r) => r.keyword.includes("cooling")).map((r) => r.keyword)).toEqual(["dog cooling mat"]);
     const posture = rows.find((r) => r.keyword === "posture corrector");
-    expect(posture).toMatchObject({ direction: "Declining", risingPercent: -25 });
+    expect(posture).toMatchObject({ direction: "Declining", risingPercent: -58 });
     expect(rows.some((r) => r.keyword.includes("lamp"))).toBe(false); // too old
   });
 
@@ -44,6 +46,25 @@ describe("buildTrends", () => {
     const rows = buildTrends(ads, NOW);
     expect(rows.map((r) => r.keyword)).toEqual(["heated eye mask"]);
   });
+
+  it("doesn't call everything rising when a week brings far more ads", () => {
+    const ads = [
+      ...Array.from({ length: 10 }, () => ad("Dog cooling mat", 9)),
+      ...Array.from({ length: 90 }, (_, i) => ad(`Filler${i}`, 9)),
+      ...Array.from({ length: 100 }, () => ad("Dog cooling mat", 2)), // 10x the ads, same 10% share
+      ...Array.from({ length: 50 }, () => ad("Heated eye mask", 2)),
+      ...Array.from({ length: 850 }, (_, i) => ad(`Item${i}`, 2)),
+    ];
+    const rows = buildTrends(ads, NOW);
+    expect(rows[0]).toMatchObject({ keyword: "heated eye mask", direction: "Rising" });
+    expect(rows.find((r) => r.keyword === "dog cooling mat")).toMatchObject({ direction: "Stable", risingPercent: 0 });
+  });
+
+  it("lists vague single words only inside a phrase", () => {
+    const rows = buildTrends(Array.from({ length: 4 }, () => ad("Custom phone case", 1)), NOW);
+    expect(rows.map((r) => r.keyword)).toEqual(["custom phone case"]);
+    expect(keywordsOf("Custom case")).not.toContain("custom");
+  });
 });
 
 describe("buildNiches", () => {
@@ -54,7 +75,7 @@ describe("buildNiches", () => {
         { category: "Pet Supplies", aiScore: 80, winnerRank: 1, linkedAds: 2 },
         { category: "Pet Supplies", aiScore: 60 },
       ],
-      [ad("Dog bed", 1), ad("Dog bed", 2), ad("Cat toy", 9)],
+      [ad("Dog bed", 1), ad("Dog bed", 2), ad("Cat toy", 9), ad("Face serum", 10, { niche: "Beauty" })], // all new ads this week vs half last week
       NOW,
     );
     expect(rows).toHaveLength(1); // Toys has no products or ads
