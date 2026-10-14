@@ -18,7 +18,7 @@
     <div class="page-width">
       <div class="section__head">
         {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
-        <h2 class="h2">{%- if section.settings.heading != blank -%}{{ section.settings.heading | escape }}{%- else -%}{{ 'products.reviews_heading' | t }}{%- endif -%}</h2>
+        <h2 class="h2">{%- if section.settings.heading != blank -%}{{ section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}{%- else -%}{{ 'products.reviews_heading' | t }}{%- endif -%}</h2>
         {%- if section.settings.show_summary -%}
           <p class="reviews__summary">
             {% render 'stars', rating: average %}

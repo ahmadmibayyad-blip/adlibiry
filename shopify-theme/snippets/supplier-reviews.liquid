@@ -4,7 +4,7 @@
   `heading`: optional, replaces the default heading.
 {%- endcomment -%}
 <div class="section__head">
-  <h2 class="h2">{%- if heading != blank -%}{{ heading | escape }}{%- else -%}{{ 'products.reviews_heading' | t }}{%- endif -%}</h2>
+  <h2 class="h2">{%- if heading != blank -%}{{ heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}{%- else -%}{{ 'products.reviews_heading' | t }}{%- endif -%}</h2>
   <p class="reviews__summary">
     {% render 'stars', rating: reviews.average %}
     <strong>{{ reviews.average }}</strong>

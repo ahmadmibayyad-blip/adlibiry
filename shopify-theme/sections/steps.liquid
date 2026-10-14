@@ -1,7 +1,7 @@
 <section class="section scheme-{{ section.settings.scheme }}">
   <div class="page-width">
     {%- if section.settings.heading != blank -%}
-      <div class="section__head"><h2 class="h2">{{ section.settings.heading | escape }}</h2></div>
+      <div class="section__head"><h2 class="h2">{{ section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}</h2></div>
     {%- endif -%}
     <ol class="grid grid--{{ section.blocks.size | at_most: 4 }} steps" role="list">
       {%- for block in section.blocks -%}

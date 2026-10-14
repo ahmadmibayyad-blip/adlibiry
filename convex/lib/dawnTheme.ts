@@ -3,7 +3,7 @@
 // copy, style colors and fonts, written into Dawn's own settings and sections.
 // Only storeThemeHttp.ts imports this, so Dawn's files stay out of other functions' bundles.
 
-import { STORE_MENU_HANDLES, STORE_PAGE_HANDLES, bundleDeals, bundleSettings, type ThemeInput } from "./storeKit";
+import { STORE_MENU_HANDLES, STORE_PAGE_HANDLES, bundleDeals, bundleSettings, type StoreCopy, type ThemeInput } from "./storeKit";
 import { DEFAULT_SECTIONS } from "./pageMirror";
 import { STORE_STYLES, type StoreStyleId } from "./storeStyles";
 import { DAWN_BINARY, DAWN_FILES } from "./dawnFiles.generated";
@@ -33,6 +33,12 @@ const keyed = <T>(prefix: string, items: T[], toBlock: (x: T) => Record<string, 
 };
 
 /** Dawn's settings_data.json with the style's colors, fonts and corners, and our cart drawer. */
+
+/** The copy without accent [brackets] (lib/storeKit.ts STORE_GUIDE asks for them in headings). */
+const plain = (v: unknown): unknown =>
+  typeof v === "string" ? v.replace(/[[\]]/g, "") : Array.isArray(v) ? v.map(plain) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)])) : v;
+const plainCopy = (c: StoreCopy) => plain(c) as StoreCopy;
+
 export function dawnSettings(t: ThemeInput): Record<string, unknown> {
   const original = JSON.parse(DAWN_FILES["config/settings_data.json"]) as { presets: Record<string, Record<string, unknown>> };
   const base = original.presets.Dawn ?? {};
@@ -75,7 +81,8 @@ export function dawnSettings(t: ThemeInput): Record<string, unknown> {
 /** The store-specific files that replace Dawn's defaults: settings, home and product page, header and footer. */
 export function dawnOverrides(t: ThemeInput): Record<string, string> {
   const style = STORE_STYLES[t.style];
-  const c = t.copy;
+  // Dawn has no accent words: the [brackets] our theme turns into italics go.
+  const c = plainCopy(t.copy);
   const sc = style.schemes;
   const aboutUrl = `/pages/${t.pageHandles?.about ?? STORE_PAGE_HANDLES.about}`;
   const trust = c.trust.slice(0, 3);

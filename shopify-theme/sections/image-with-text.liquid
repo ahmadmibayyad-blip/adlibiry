@@ -25,7 +25,7 @@
     </div>
     <div class="split__text">
       {%- if section.settings.eyebrow != blank -%}<p class="eyebrow">{{ section.settings.eyebrow | escape }}</p>{%- endif -%}
-      <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+      <h2 class="h2">{{ section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}</h2>
       <div class="rte muted">{{ section.settings.text }}</div>
       {%- assign points = section.settings.points | newline_to_br | split: '<br />' -%}
       {%- if section.settings.points != blank -%}

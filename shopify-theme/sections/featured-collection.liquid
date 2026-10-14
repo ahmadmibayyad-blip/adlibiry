@@ -2,7 +2,7 @@
 <section class="section scheme-{{ section.settings.scheme }}">
   <div class="page-width">
     <div class="section__head section__head--row">
-      <h2 class="h2">{{ section.settings.heading | escape }}</h2>
+      <h2 class="h2">{{ section.settings.heading | escape | replace: '[', '<em>' | replace: ']', '</em>' }}</h2>
       <a href="{{ source.url | default: routes.all_products_collection_url }}" class="link-arrow">{{ 'collections.view_all' | t }} {% render 'icon', name: 'arrow' %}</a>
     </div>
     <div class="grid grid--products">

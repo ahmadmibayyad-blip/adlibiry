@@ -607,3 +607,35 @@ body.drawer-open { overflow: hidden; }
 .marquee__item::after { content: ""; position: absolute; right: -3px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 999px; background: currentColor; opacity: .6; }
 @keyframes marquee { to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .marquee__track { width: auto; flex-wrap: wrap; justify-content: center; } .marquee__list[aria-hidden] { display: none; } }
+
+/* Accent words: [brackets] in a heading become <em>, set in italic in the accent color. */
+.h1 em, .h2 em, h1 em, h2 em { font-style: italic; color: var(--c-accent-ink); font-weight: inherit; }
+.scheme-accent .h1 em, .scheme-accent .h2 em, .scheme-inverse .h1 em, .scheme-inverse .h2 em, .footer em { color: inherit; }
+
+/* Hero proof: the supplier reviews' real average and count above the heading, and one buyer's words on the photo. */
+.hero__proof { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 18px; font-size: .92rem; text-decoration: none; }
+.hero__proof .stars .icon { width: 17px; height: 17px; }
+.hero__proof span:last-child { color: var(--c-muted); }
+.hero__proof:hover span:last-child { text-decoration: underline; text-underline-offset: 3px; }
+/* Desktop: the card hangs off the photo's edge, so it covers little of the photo. */
+.hero__quote { position: absolute; left: -32px; bottom: -28px; max-width: min(300px, calc(100% - 24px)); margin: 0; padding: 16px 18px; border-radius: var(--radius); background: color-mix(in srgb, var(--c-bg) 94%, transparent); color: var(--c-text); box-shadow: 0 18px 40px -18px rgba(0,0,0,.35); backdrop-filter: blur(8px); }
+.hero__quote .stars .icon { width: 14px; height: 14px; }
+.hero__quote blockquote { margin: 8px 0 6px; font-size: .92rem; line-height: 1.45; }
+.hero__quote figcaption { font-size: .78rem; font-weight: 600; color: var(--c-muted); }
+@media (max-width: 989px) {
+  .hero__inner { padding-top: 20px; gap: 24px; }
+  .hero__media img, .hero__media svg { aspect-ratio: 5 / 4; }
+  /* Phones: under the photo, overlapping its edge, so the photo stays clear. */
+  .hero__quote { position: relative; left: auto; bottom: auto; max-width: none; margin: -40px 14px 0; padding: 12px 14px; }
+}
+@media (max-width: 599px) {
+  /* Small phones keep the buy button in the first screen: the stars line above the heading is the proof. */
+  .hero__quote { display: none; }
+  .hero__quote blockquote { font-size: .85rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+}
+
+/* Phones: sections breathe less, so the page isn't a long scroll of air. */
+@media (max-width: 749px) {
+  .section { padding: 44px 0; }
+  .section__head { margin-bottom: 24px; }
+}

@@ -116,7 +116,8 @@ const STORE_GUIDE =
   "only from the facts), newsletter (heading + one line; no discount unless given), footerText (one sentence), productTrust (three " +
   "short lines under the buy button: delivery, returns, payment), pages (About: 3–4 paragraphs; Shipping & returns: 4–6 paragraphs " +
   "from the store facts only, telling customers to contact support to start a return; FAQ page title; Contact title + one-line intro), " +
-  "and menu labels. " +
+  "and menu labels. In the hero heading and the benefits, steps, story and FAQ headings, put [square brackets] around the one to three words " +
+  "that matter most, once per heading (the theme sets them in italics), e.g. \"Fade dark spots, [keep your glow]\". " +
   `Trust icons: one of ${TRUST_ICONS.join(", ")}. Benefit icons: one of ${STORE_ICONS.join(", ")}.`;
 
 type Gql = { data?: Record<string, unknown>; errors?: { message: string }[] | string };
