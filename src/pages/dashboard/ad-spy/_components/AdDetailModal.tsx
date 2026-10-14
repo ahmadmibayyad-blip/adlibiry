@@ -117,7 +117,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                   <span>· {ad.niche}</span>
                 </div>
               </div>
-              <FollowAdvertiser name={ad.advertiserName} className="ml-auto shrink-0" />
+              {ad.advertiserName !== "Unknown advertiser" && <FollowAdvertiser name={ad.advertiserName} className="ml-auto shrink-0" />}
             </div>
 
             <div className="rounded-xl overflow-hidden border border-border bg-muted">

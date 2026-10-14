@@ -388,7 +388,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
                   : "bg-card border-border text-muted-foreground hover:text-foreground",
               )}
             >
-              {t.niche ?? "All niches"} <span className="opacity-70 tabular-nums">{t.filled}</span>
+              {t.niche ?? "All categories"} <span className="opacity-70 tabular-nums">{t.filled}</span>
             </button>
           ))}
         </div>

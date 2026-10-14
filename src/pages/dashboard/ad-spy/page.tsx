@@ -383,7 +383,7 @@ export default function AdSpyPage() {
           <div className="flex flex-wrap justify-center gap-2">
             {nichesOn && (
               <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={() => setUseMine(false)}>
-                Show all niches
+                Show all categories
               </Button>
             )}
             {activeCount > (nichesOn ? 1 : 0) && (

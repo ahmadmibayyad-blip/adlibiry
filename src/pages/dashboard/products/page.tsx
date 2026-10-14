@@ -271,7 +271,7 @@ export default function ProductsFeed() {
                 onSelect={(e) => e.preventDefault()}
                 onCheckedChange={() => setF((prev) => ({ ...prev, categories: undefined, category: undefined }))}
               >
-                All niches
+                All categories
               </DropdownMenuCheckboxItem>
               {categories.map((c) => (
                 <DropdownMenuCheckboxItem

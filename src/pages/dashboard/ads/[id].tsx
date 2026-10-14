@@ -101,6 +101,8 @@ export default function AdDetailPage() {
     );
   }
 
+  // Ads without a page name share "Unknown advertiser": they aren't one advertiser to follow or list.
+  const knownAdvertiser = !!ad.advertiserName && ad.advertiserName !== "Unknown advertiser";
   const rows = history ?? [];
   const enough = rows.length >= 2;
   const series = (get: (r: (typeof rows)[number]) => number): Point[] => rows.map((r) => ({ day: r.day, value: get(r) }));
@@ -160,7 +162,7 @@ export default function AdDetailPage() {
             <div className="flex items-center gap-2 mb-2 min-w-0">
               {ad.advertiserAvatar && <img src={ad.advertiserAvatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />}
               <span className="text-sm font-semibold truncate">{ad.advertiserName}</span>
-              <FollowAdvertiser name={ad.advertiserName} className="shrink-0" />
+              {knownAdvertiser && <FollowAdvertiser name={ad.advertiserName} className="shrink-0" />}
             </div>
             <h1 className="font-display text-2xl font-bold leading-tight mb-1">“{ad.headline}”</h1>
             <p className="text-sm text-muted-foreground line-clamp-3">{ad.bodyText}</p>
@@ -246,7 +248,7 @@ export default function AdDetailPage() {
         </section>
       )}
 
-      <MoreFromAdvertiser name={ad.advertiserName} adId={ad._id} />
+      {knownAdvertiser && <MoreFromAdvertiser name={ad.advertiserName} adId={ad._id} />}
 
       <AdDetailModal ad={ad} open={details} onOpenChange={setDetails} />
     </div>

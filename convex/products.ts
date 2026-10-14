@@ -8,8 +8,12 @@ import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import type { SiteStats } from "./stats";
 import { recordEvent } from "./events";
+import { sortProducts, sortsSearch } from "./lib/productSort";
 
 // ── Products ────────────────────────────────────────────────────────────────
+
+// Matches sorted together when a search has a sort (the search index returns at most 1,024).
+const SORTED_SEARCH_MAX = 150;
 
 const listArgs = {
   paginationOpts: paginationOptsValidator,
@@ -79,7 +83,7 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
   const term = args.search?.trim();
   let result;
   if (term) {
-    result = await ctx.db
+    const matches = ctx.db
       .query("products")
       .withSearchIndex("search_title", (q) => {
         let s = q.search("title", term);
@@ -88,8 +92,11 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
       })
       // The other filters can't go in the search/price index; pages stay small.
       // eslint-disable-next-line @convex-dev/no-filter-in-query
-      .filter(conds)
-      .paginate(args.paginationOpts);
+      .filter(conds);
+    // Search results come by relevance; with a sort, the best matches are sorted as one page.
+    result = sortsSearch(args.sort)
+      ? { page: sortProducts(await matches.take(SORTED_SEARCH_MAX), args.sort), isDone: true, continueCursor: "" }
+      : await matches.paginate(args.paginationOpts);
   } else if (args.sort === "priceLow") {
     // eslint-disable-next-line @convex-dev/no-filter-in-query
     result = await ctx.db.query("products").withIndex("by_price", (q) => q.gt("price", 0)).order("asc").filter(conds).paginate(args.paginationOpts);

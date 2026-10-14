@@ -93,7 +93,7 @@ export default function OnboardingDialog() {
             Skip for now
           </Button>
           <Button disabled={saving || picked.length === 0} onClick={() => save(picked, digest)}>
-            Show me my niches
+            Show me my categories
           </Button>
         </div>
       </DialogContent>
