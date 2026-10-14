@@ -40,6 +40,7 @@ import {
 import { STORE_STYLES, isStoreStyle } from "./lib/storeStyles";
 import { fetchStore } from "./lib/pageFetch";
 import { homePlan, lookNote, siteLook } from "./lib/siteMirror";
+import { DESIGN_GUIDE, cleanDesign } from "./lib/designWishes";
 import { mirrorPlan, type MirrorTier, type PageMirror } from "./lib/pageMirror";
 import { productUrl } from "./lib/productImport";
 
@@ -107,6 +108,19 @@ const ProductPageSchema = z.object({
 
 // A mirrored home page's "What to expect" stages (lib/storeKit.ts TimelineCopy), its own small request.
 const TimelineSchema = z.object({ heading: z.string(), text: z.string(), button: z.string(), items: z.array(z.object({ label: z.string(), title: z.string(), text: z.string() })) });
+
+// The special requests' look (lib/designWishes.ts): null for what the owner didn't ask about.
+const DesignSchema = z.object({
+  accent: z.string().nullable(),
+  background: z.string().nullable(),
+  surface: z.string().nullable(),
+  text: z.string().nullable(),
+  roundness: z.string().nullable(),
+  uppercase: z.boolean().nullable(),
+  heroLayout: z.string().nullable(),
+  headingFont: z.string().nullable(),
+  bodyFont: z.string().nullable(),
+});
 
 const STORE_GUIDE =
   "Write the store: announcement (one short line, e.g. the delivery time or free shipping if given), hero (eyebrow 2–4 words, " +
@@ -227,7 +241,14 @@ export const run = internalAction({
     let storeCopy: StoreCopy | undefined;
     try {
       if (!process.env.ANTHROPIC_API_KEY) return fail("The AI isn't set up yet (missing ANTHROPIC_API_KEY).");
-      const productFacts = launchFacts(product, ads, { language: launch.language, tone: launch.tone, price: launch.price });
+      // The owner's special requests go into every request's brief; the claim rules still apply to what comes back.
+      const productFacts =
+        launchFacts(product, ads, { language: launch.language, tone: launch.tone, price: launch.price }) +
+        (launch.wishes
+          ? `
+
+The store owner's special requests, in their words. Follow them wherever they fit this part of the store, unless they ask for something the rules above forbid (made-up reviews, numbers, guarantees or claims): ${launch.wishes}`
+          : "");
       const writePage = async () => {
         const message = await claudeClient().messages.parse({
           model: MODEL,
@@ -307,8 +328,27 @@ ${TIMELINE_GUIDE}` }],
             return null;
           }
         };
-        // Four requests at once: the product page, the rest of the store, our theme's product page sections and a mirrored timeline.
-        const [page, storeOut, productPage, timeline] = await Promise.all([writePage(), writeStore(), writeProductPage(), writeTimeline()]);
+        // The look changes in the special requests, for our theme; a failure keeps the style's look.
+        const readDesign = async (): Promise<unknown> => {
+          if (!launch.wishes || launch.baseTheme === "dawn") return null;
+          try {
+            const message = await claudeClient().messages.parse({
+              model: MODEL,
+              max_tokens: 800,
+              system: DESIGN_GUIDE,
+              messages: [{ role: "user", content: launch.wishes }],
+              output_config: { effort: "low", format: zodOutputFormat(DesignSchema) },
+            });
+            return message.stop_reason === "refusal" ? null : message.parsed_output;
+          } catch (e) {
+            console.warn("Launch: special requests' look couldn't be read", e instanceof Error ? e.message : e);
+            return null;
+          }
+        };
+        // Five requests at once: the product page, the rest of the store, our theme's product page sections, a mirrored timeline and the requested look.
+        const [page, storeOut, productPage, timeline, designOut] = await Promise.all([writePage(), writeStore(), writeProductPage(), writeTimeline(), readDesign()]);
+        const design = cleanDesign(designOut);
+        if (design) await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "generating", design });
         if (!page || !storeOut) return fail("The AI couldn't write this store. Try again or pick another product.");
         copy = cleanCopy(page).copy;
         storeCopy = cleanStore(storeOut);

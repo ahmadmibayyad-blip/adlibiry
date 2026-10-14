@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Authenticated, useAction, useMutation, useQuery } from "convex/react";
-import { Check, Copy, CopyCheck, ExternalLink, Eye, FileText, Paintbrush, Rocket, Store } from "lucide-react";
+import { Check, Copy, CopyCheck, ExternalLink, Eye, FileText, Paintbrush, Rocket, Sparkles, Store } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
@@ -8,6 +8,7 @@ import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { BASE_THEME_NAMES, STORE_STYLES, type BaseTheme, type StoreStyleId } from "@/convex/lib/storeStyles.ts";
 import type { SupplierReviews } from "@/convex/lib/supplierReviews.ts";
 import type { PageMirror } from "@/convex/lib/pageMirror.ts";
+import type { DesignWishes } from "@/convex/lib/designWishes.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
@@ -231,6 +232,16 @@ export function Progress({ launchId, onAgain }: { launchId: Id<"launches">; onAg
           {l.error ? <p className="text-sm text-bad">{l.error}</p> : null}
           {l.reviewsUrl ? <ReviewsResult reviews={l.reviews as SupplierReviews | undefined} note={l.reviewsNote} /> : null}
           {l.mirror ? <MirrorResult mirror={l.mirror as PageMirror} /> : null}
+          {(l.design as DesignWishes | undefined)?.changed.length ? (
+            <div className="rounded-lg border border-border p-3 text-sm space-y-1">
+              <p className="font-medium flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-primary" /> From your special requests
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground">
+                {(l.design as DesignWishes).changed.map((x) => <li key={x}>{x}</li>)}
+              </ul>
+            </div>
+          ) : null}
           {l.bundleOff ? (
             <p className="text-xs text-muted-foreground">
               Bundle deals on the product page:{" "}
@@ -423,6 +434,7 @@ function LaunchButton({
   const [aiPhotosInput, setAiPhotos] = useState<number | null>(null);
   const [reviewsInput, setReviewsUrl] = useState<string | null>(reviewsStart || null);
   const [mirrorUrl, setMirrorUrl] = useState(mirrorStart ?? "");
+  const [wishes, setWishes] = useState("");
   const [launchId, setLaunchId] = useState<Id<"launches"> | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -532,6 +544,7 @@ function LaunchButton({
                     ...(priceNum > 0 ? { price: priceNum } : {}),
                     ...(aiPhotos > 0 ? { aiPhotos } : {}),
                     ...(reviewsUrl.trim() ? { reviewsUrl: reviewsUrl.trim() } : {}),
+                    ...(wishes.trim() ? { wishes: wishes.trim() } : {}),
                     ...(mode === "store" && mirrorUrl.trim() ? { mirrorUrl: mirrorUrl.trim() } : {}),
                     ...(mode === "store"
                       ? {
@@ -574,6 +587,25 @@ function LaunchButton({
                       launches without it.
                     </p>
                   ) : null}
+
+                  <label className="block text-sm">
+                    <span className="font-medium flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-primary" /> Special requests for the AI <span className="font-normal text-muted-foreground">(optional)</span>
+                    </span>
+                    <textarea
+                      value={wishes}
+                      onChange={(e) => setWishes(e.target.value)}
+                      maxLength={600}
+                      rows={3}
+                      placeholder="E.g. pink and rounded, written for busy mums, mention it's vegan, a section about gift wrapping"
+                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      The AI follows these when it writes your {mode === "store" ? "store" : "product page"}
+                      {mode === "store" && baseTheme !== "dawn" ? ", and changes colors, fonts and shapes if you ask" : ""}. It won't make up reviews, numbers or
+                      guarantees.
+                    </span>
+                  </label>
 
                   <label className="block text-sm">
                     <span className="font-medium">Price ({currency})</span>

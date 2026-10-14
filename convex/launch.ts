@@ -12,6 +12,7 @@ import { missingStoreScopes } from "./lib/shopifyOAuth";
 import { productUrl } from "./lib/productImport";
 import { isBaseTheme, isStoreStyle } from "./lib/storeStyles";
 import type { PageMirror } from "./lib/pageMirror";
+import { MAX_WISHES, type DesignWishes } from "./lib/designWishes";
 
 // ── Launch: winning product → product page (or a full store) in the user's Shopify store ──
 // start() checks the plan, the monthly quota and the product, then schedules
@@ -120,6 +121,8 @@ const startArgs = {
   reviewsUrl: v.optional(v.string()),
   /** Full store: a product page whose layout to copy (lib/pageMirror.ts). */
   mirrorUrl: v.optional(v.string()),
+  /** What the owner asks the AI for, in their words (lib/designWishes.ts). */
+  wishes: v.optional(v.string()),
   facts: v.optional(
     v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
   ),
@@ -174,6 +177,7 @@ export const relaunch = mutation({
       aiPhotos: args.aiPhotos ?? old.aiPhotos ?? 0,
       ...((args.reviewsUrl ?? old.reviewsUrl) ? { reviewsUrl: args.reviewsUrl ?? old.reviewsUrl } : {}),
       ...(old.mode === "store" && old.mirrorUrl ? { mirrorUrl: old.mirrorUrl } : {}),
+      ...(old.wishes ? { wishes: old.wishes } : {}),
     });
     // A store you made live is never replaced; a running launch can't be either.
     const replaceable = old.status !== "generating" && old.status !== "publishing" && !old.themeLive && r.launchId !== old._id;
@@ -238,6 +242,7 @@ async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs
     ...(price ? { price } : {}),
     ...(args.aiPhotos && args.aiPhotos > 0 && aiPhotosReady() ? { aiPhotos: Math.min(MAX_AI_PHOTOS, Math.round(args.aiPhotos)) } : {}),
     ...(args.reviewsUrl?.trim() ? { reviewsUrl: args.reviewsUrl.trim().slice(0, 2000) } : {}),
+    ...(args.wishes?.trim() ? { wishes: args.wishes.trim().slice(0, MAX_WISHES) } : {}),
     ...storeFields,
     createdAt: new Date().toISOString(),
   });
@@ -350,6 +355,7 @@ export const setStatus = internalMutation({
     bundleDiscountIds: v.optional(v.array(v.string())),
     bundleQty: v.optional(v.array(v.number())),
     mirror: v.optional(v.any()),
+    design: v.optional(v.any()),
     marginNote: v.optional(v.string()),
   },
   handler: async (ctx, { launchId, ...patch }) => {
@@ -474,6 +480,7 @@ export const themeSource = internalQuery({
       bundleOff: l.bundleOff,
       bundleQty: l.bundleQty,
       mirror: l.mirror as PageMirror | undefined,
+      design: l.design as DesignWishes | undefined,
       aiPhotos: l.aiPhotoUrls?.length ?? 0,
     };
   },

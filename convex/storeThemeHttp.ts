@@ -44,6 +44,7 @@ export const serveTheme = httpAction(async (ctx, req) => {
     bundleOff: src.bundleOff,
     bundleQty: src.bundleQty,
     mirror: src.mirror,
+    design: src.design,
     aiPhotos: src.aiPhotos,
   };
   const zip = zipFiles(src.baseTheme === "dawn" ? dawnThemeFiles(input) : themeFiles(input));

@@ -156,6 +156,13 @@ function contrast(a: Rgb, b: Rgb): number {
   return (x + 0.05) / (y + 0.05);
 }
 
+/** Whether text in `fg` reads on `bg` (#rrggbb): WCAG AA contrast, 4.5:1. */
+export function readableOn(fg: string, bg: string): boolean {
+  const a = parseColor(fg);
+  const b = parseColor(bg);
+  return !!a && !!b && contrast(a, b) >= 4.5;
+}
+
 const mix = (a: Rgb, b: Rgb, t: number): Rgb => a.map((n, i) => Math.round(n * (1 - t) + b[i] * t)) as Rgb;
 
 /** Counts of each color, by what the declaration names: buttons and accents, backgrounds, text. */
@@ -217,6 +224,11 @@ export const GOOGLE_FONTS = [
 ];
 // Fonts with only a regular weight: Google Fonts refuses a request for bold ones.
 const SINGLE_WEIGHT = new Set(["Archivo Black", "Anton", "Bebas Neue", "DM Serif Display", "Prata", "Abril Fatface", "Questrial", "Marcellus", "Tenor Sans", "Italiana"]);
+/** The weights to ask Google Fonts for: one-weight fonts only have 400. */
+export function fontWeights(head: string, body: string): { headWeight: number; bodyWeights: string } {
+  return { headWeight: SINGLE_WEIGHT.has(head) ? 400 : 700, bodyWeights: SINGLE_WEIGHT.has(body) ? "400" : "400;500;600;700" };
+}
+
 const FONT_KEY = new Map(GOOGLE_FONTS.map((f) => [f.toLowerCase().replace(/\s+/g, " "), f]));
 
 /** Heading and body fonts from font-family declarations (and Shopify's --font-heading-family / --font-body-family). */
@@ -237,7 +249,7 @@ export function siteFonts(html: string): SiteLook["fonts"] {
   const b = top(body) ?? top(all);
   if (!b) return undefined;
   const h = top(head) ?? b;
-  return { head: h, body: b, ...(SINGLE_WEIGHT.has(h) ? { headWeight: 400 } : {}), ...(SINGLE_WEIGHT.has(b) ? { bodyWeights: "400" } : {}) };
+  return { head: h, body: b, ...fontWeights(h, b) };
 }
 
 /** What the look copied, for the launch's "what Mirror took" list. */

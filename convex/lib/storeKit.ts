@@ -5,6 +5,7 @@
 import { scrubClaims, type LaunchCopy } from "./launchCopy";
 import { DEFAULT_SECTIONS, type MirrorTier, type PageMirror } from "./pageMirror";
 import { DEFAULT_HOME, type HomeSection } from "./siteMirror";
+import { designSettings, type DesignWishes } from "./designWishes";
 import { STORE_STYLES, type StoreStyle, type StoreStyleId } from "./storeStyles";
 import { THEME_FILES } from "./themeFiles.generated";
 
@@ -365,6 +366,8 @@ export type ThemeInput = {
   bundleQty?: number[];
   /** The layout copied from another page (lib/pageMirror.ts); missing = our own. */
   mirror?: PageMirror;
+  /** Look changes from the owner's special requests (lib/designWishes.ts), over the style and a mirrored look. */
+  design?: DesignWishes;
   /** How many AI photos the product got: they're its 2nd, 3rd… photos (lib/aiPhotos.ts withAiPhotos). */
   aiPhotos?: number;
 };
@@ -434,6 +437,7 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
     },
     presets,
   };
+  if (t.design) Object.assign(settings.current, designSettings(t.design, settings.current));
 
   const blocks = <T>(prefix: string, items: T[], type: string, settings: (x: T) => Record<string, unknown>) => {
     const entries = items.map((x, i) => [`${prefix}${i + 1}`, { type, settings: settings(x) }] as const);
@@ -449,7 +453,7 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
         text: c.hero.text,
         button_label: c.hero.button || c.menu.shop,
         product: t.productHandle,
-        layout: style.heroLayout,
+        layout: t.design?.heroLayout ?? style.heroLayout,
         scheme: style.schemes.hero,
       },
       ...blocks("p", c.hero.points, "point", (text) => ({ text })),
