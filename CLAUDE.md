@@ -85,6 +85,8 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Launch → "Mirror a page" (Full store, `mirrorUrl`; UI names: Mirror, Inspect, Watchlist, AdSpy score): launchRun reads that product page with Store Teardown (`lib/pageFetch.ts`),
   `lib/pageMirror.ts` turns it into a plan (section order, bundle deals as items + % off, buy-box extras) saved as `launches.mirror`;
   both themes' product templates follow it and the bundle discounts use its quantities (`bundleQty`). Structure only, never text or photos.
+  A home page link (or the product page's store) also copies the home page: `lib/siteMirror.ts` maps its sections to ours (`mirror.home`, incl. the
+  `timeline` and `marquee` sections) and reads its colors and Google fonts (`mirror.look` → theme settings `custom_head_font`/`custom_body_font`); our theme only, not Dawn.
 
 ## UI
 

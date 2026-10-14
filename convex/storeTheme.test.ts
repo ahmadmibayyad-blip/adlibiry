@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { THEME_FILES } from "./lib/themeFiles.generated";
-import { BUNDLE_OFF, DEFAULT_TIERS, capDeals, cleanProductPage, cleanStore, deliveryDays, menuLabel, productTemplate, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
+import { BUNDLE_OFF, DEFAULT_TIERS, capDeals, cleanProductPage, cleanStore, cleanTimeline, deliveryDays, menuLabel, productTemplate, storeMenus, storePages, themeFiles, themeOverrides, type StoreCopy, type ThemeInput } from "./lib/storeKit";
 import { STORE_STYLES, STORE_STYLE_IDS } from "./lib/storeStyles";
 import { mirrorPlan } from "./lib/pageMirror";
+import type { HomeSection } from "./lib/siteMirror";
 import { crc32, zipFiles } from "./lib/zip";
 import { readTheme } from "../scripts/build-theme.mjs";
 import { settle } from "./lib/settle";
@@ -225,6 +226,43 @@ describe("storefront theme", () => {
     expect(main.block_order).not.toContain("guarantee");
     expect(main.block_order).not.toContain("delivery");
     expect(main.blocks.bundles.settings).toMatchObject({ preselect: "1", tier1_qty: 2, tier1_off: 10, tier1_badge: "Mest populær", tier2_qty: 4, tier2_off: 30, tier2_badge: "", tier3_qty: 0, tier3_badge: "" });
+  });
+
+  it("lays the home page out like a mirrored store, in its colors and fonts", () => {
+    const timeline = cleanTimeline({
+      heading: "What to expect",
+      text: "Your first weeks.",
+      button: "Shop now",
+      items: [
+        { label: "First use", title: "Feels supportive", text: "You notice your shoulders." },
+        { label: "Week 2", title: "Part of your day", text: "Clinically proven to fix posture in 7 days. Wearing it becomes a habit." },
+        { label: "", title: "", text: "dropped" },
+      ],
+    });
+    expect(timeline?.items).toHaveLength(2);
+    expect(timeline?.items[1].text).toBe("Wearing it becomes a habit."); // the unprovable claim is dropped
+    const copy = { ...cleanStore(storeCopy), timeline };
+    const mirror = {
+      ...mirrorPlan("https://rival.com/", null),
+      home: ["hero", "marquee", "reviews", "timeline", "benefits", "story", "faq", "guarantee"] as HomeSection[],
+      look: { colors: { bg: "#ffffff", surface: "#f6fcf1", text: "#0b0b0b", accent: "#2c5801", accentText: "#ffffff" }, fonts: { head: "Poppins", body: "Poppins" } },
+    };
+    const files = themeOverrides({ style: "fresh", brandName: "Rank Ryg", productHandle: "posture-corrector", copy, product: { title: "Posture corrector" }, facts, mirror });
+    const index = JSON.parse(files["templates/index.json"]);
+    checkTemplate(index, "index.json");
+    expect(index.order).toEqual(["hero", "marquee", "reviews", "timeline", "benefits", "story", "faq", "guarantee"]);
+    expect(index.sections.timeline.settings).toMatchObject({ heading: "What to expect", button_label: "Shop now", product: "posture-corrector" });
+    expect(index.sections.marquee.block_order.length).toBeGreaterThanOrEqual(2);
+    expect(JSON.parse(files["config/settings_data.json"]).current).toMatchObject({
+      color_accent: "#2c5801",
+      color_surface: "#f6fcf1",
+      color_text: "#0b0b0b",
+      custom_head_font: "Poppins",
+      custom_body_font: "Poppins",
+    });
+    // Without its timeline copy the section is left out, not shown empty.
+    const bare = JSON.parse(themeOverrides({ style: "fresh", brandName: "Rank Ryg", productHandle: "posture-corrector", copy: cleanStore(storeCopy), product: { title: "Posture corrector" }, facts, mirror })["templates/index.json"]);
+    expect(bare.order).not.toContain("timeline");
   });
 
   it("drops claims it can't back up and icons the theme doesn't have", () => {

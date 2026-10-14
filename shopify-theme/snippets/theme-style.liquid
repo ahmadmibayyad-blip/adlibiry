@@ -1,4 +1,4 @@
-{%- comment -%} Colors, fonts and shapes from Theme settings → the CSS variables base.css uses. {%- endcomment -%}
+{%- comment -%} Colors, fonts and shapes from Theme settings → the CSS variables base.css uses. A Google Fonts name in custom_head_font / custom_body_font (Launch's Mirror sets the copied store's) replaces the pair's font. {%- endcomment -%}
 {%- liquid
   assign accent_contrast = settings.color_accent | color_contrast: settings.color_bg
   assign accent_ink = settings.color_accent
@@ -44,6 +44,22 @@
       assign font_query = 'family=Plus+Jakarta+Sans:wght@400;500;600;700;800'
       assign head_weight = 700
   endcase
+  if settings.custom_head_font != blank or settings.custom_body_font != blank
+    assign font_query = ''
+    if settings.custom_head_font != blank
+      assign head_font = settings.custom_head_font | strip
+      assign head_weight = 700
+    endif
+    if settings.custom_body_font != blank
+      assign body_font = settings.custom_body_font | strip
+    endif
+    assign head_family = head_font | replace: ' ', '+'
+    assign body_family = body_font | replace: ' ', '+'
+    assign font_query = 'family=' | append: head_family | append: ':wght@400;500;600;700;800'
+    if body_family != head_family
+      assign font_query = font_query | append: '&family=' | append: body_family | append: ':wght@400;500;600;700'
+    endif
+  endif
 -%}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

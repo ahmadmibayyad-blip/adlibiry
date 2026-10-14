@@ -4,6 +4,7 @@
 
 import { scrubClaims, type LaunchCopy } from "./launchCopy";
 import { DEFAULT_SECTIONS, type MirrorTier, type PageMirror } from "./pageMirror";
+import { DEFAULT_HOME, type HomeSection } from "./siteMirror";
 import { STORE_STYLES, type StoreStyleId } from "./storeStyles";
 import { THEME_FILES } from "./themeFiles.generated";
 
@@ -39,7 +40,28 @@ export type StoreCopy = {
   menu: { home: string; shop: string; about: string; faq: string; contact: string; shipping: string; search: string };
   /** Our theme's product page (templates/product.json); written in its own request, so it can be missing. */
   productPage?: ProductPageCopy;
+  /** "What to expect" stages, only for a mirrored home page that has them (its own small request). */
+  timeline?: TimelineCopy;
 };
+
+export type TimelineCopy = { heading: string; text: string; button: string; items: { label: string; title: string; text: string }[] };
+
+export const TIMELINE_GUIDE =
+  "Write a \"What to expect\" timeline for this product's home page: heading (max 6 words), text (one short sentence), button (2–3 words, " +
+  "to the product page) and 3–4 stages in time order, each with label (when: e.g. \"First use\", \"Week 2\", \"Day 30\"), title (max 6 " +
+  "words) and text (1–2 sentences). Describe what using the product is like at each stage, from its facts: how it feels, how a routine " +
+  "settles in. No guaranteed or medical results, no percentages, no before/after promises, no customer counts.";
+
+/** The timeline's lengths, counts and claim rules; undefined with fewer than 2 stages. */
+export function cleanTimeline(raw: unknown): TimelineCopy | undefined {
+  const r = (raw ?? {}) as Partial<TimelineCopy>;
+  const s = (v: unknown, n: number) => scrubClaims(cut(v, n * 2)).text.slice(0, n);
+  const items = (Array.isArray(r.items) ? r.items : [])
+    .map((x) => ({ label: s(x?.label, 24), title: s(x?.title, 60), text: s(x?.text, 220) }))
+    .filter((x) => x.title && x.text)
+    .slice(0, 4);
+  return items.length >= 2 ? { heading: s(r.heading, 60), text: s(r.text, 160), button: s(r.button, 30), items } : undefined;
+}
 
 /** The product page's own copy: ticks, bundle cards, image-with-text rows, comparison table and tabs. */
 export type ProductPageCopy = {
@@ -360,11 +382,17 @@ export function deliveryDays(text: string): { min: number; max: number } | null 
   return max > 0 && max <= 90 ? { min, max } : null;
 }
 
+/** The scrolling text's lines: the trust lines and benefit titles the AI already wrote, no new claims. */
+export function marqueeTexts(c: StoreCopy): string[] {
+  return [...new Set([...c.trust.map((x) => x.text), ...c.benefits.items.map((b) => b.title)].filter(Boolean))].slice(0, 6);
+}
+
 /** The store-specific files that replace the theme's defaults: settings, home page, header and footer. */
 export function themeOverrides(t: ThemeInput): Record<string, string> {
   const style = STORE_STYLES[t.style];
   const c = t.copy;
   const presets = Object.fromEntries(Object.values(STORE_STYLES).map((s) => [s.name, { ...s.settings }]));
+  const look = t.mirror?.look;
   const days = deliveryDays(t.facts.shippingTime);
   const settings = {
     current: {
@@ -381,6 +409,18 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
       show_add_another: true,
       show_payment_icons: true,
       guarantee_days: t.facts.returnDays > 0 ? t.facts.returnDays : 0,
+      // A mirrored store's own colors and fonts (lib/siteMirror.ts siteLook) over the style's.
+      ...(look?.colors
+        ? {
+            color_bg: look.colors.bg,
+            color_surface: look.colors.surface,
+            color_text: look.colors.text,
+            color_accent: look.colors.accent,
+            color_accent_text: look.colors.accentText,
+          }
+        : {}),
+      ...(look?.fonts ? { custom_head_font: look.fonts.head, custom_body_font: look.fonts.body } : {}),
+      ...(look?.uppercase ? { heading_uppercase: true } : {}),
     },
     presets,
   };
@@ -429,13 +469,30 @@ export function themeOverrides(t: ThemeInput): Record<string, string> {
     reviews: { type: "reviews", settings: { product: t.productHandle, scheme: style.schemes.story === "surface" ? "base" : "surface" } },
     faq: { type: "faq", settings: { heading: c.faq.heading, scheme: style.schemes.faq }, ...blocks("f", c.faq.items.slice(0, 6), "question", (f) => ({ question: f.q, answer: `<p>${esc(f.a)}</p>` })) },
     newsletter: { type: "newsletter", settings: { heading: c.newsletter.heading, text: c.newsletter.text, scheme: style.schemes.newsletter } },
+    // Only a mirrored home page has these three.
+    ...(c.timeline
+      ? {
+          timeline: {
+            type: "timeline",
+            settings: { heading: c.timeline.heading, text: c.timeline.text, button_label: c.timeline.button, product: t.productHandle, scheme: style.schemes.steps },
+            ...blocks("s", c.timeline.items, "stage", (x) => ({ label: x.label, title: x.title, text: x.text })),
+          },
+        }
+      : {}),
+    marquee: { type: "marquee", settings: { scheme: "accent" }, ...blocks("m", marqueeTexts(c), "item", (text) => ({ text })) },
+    guarantee: { type: "guarantee", settings: { button_label: c.hero.button || c.menu.shop, button_link: `/products/${t.productHandle}`, scheme: "surface" } },
   };
-  const order = ["hero", "trust", "product", "benefits", "steps", "story", "reviews", "faq", "newsletter"].filter((k) => {
+  // A mirrored store's home page follows its order (lib/siteMirror.ts homePlan); else ours.
+  const plan: HomeSection[] = t.mirror?.home?.length ? t.mirror.home : DEFAULT_HOME;
+  const order = plan.filter((k) => {
     if (k === "benefits") return c.benefits.items.length > 0;
     if (k === "steps") return c.steps.items.length > 0;
     if (k === "faq") return c.faq.items.length > 0;
     if (k === "trust") return c.trust.length > 0;
     if (k === "story") return c.story.heading && c.story.paragraphs.length > 0;
+    if (k === "timeline") return !!c.timeline;
+    if (k === "marquee") return marqueeTexts(c).length >= 2;
+    if (k === "guarantee") return t.facts.returnDays > 0;
     return true;
   });
 

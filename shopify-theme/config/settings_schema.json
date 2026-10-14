@@ -35,6 +35,8 @@
           { "value": "tech", "label": "Space Grotesk + Inter" }
         ]
       },
+      { "type": "text", "id": "custom_head_font", "label": "Heading font (Google Fonts name)", "info": "Optional, e.g. Poppins. Replaces the pair's heading font." },
+      { "type": "text", "id": "custom_body_font", "label": "Body font (Google Fonts name)", "info": "Optional. Replaces the pair's body font." },
       { "type": "checkbox", "id": "heading_uppercase", "label": "Uppercase headings", "default": false }
     ]
   },
