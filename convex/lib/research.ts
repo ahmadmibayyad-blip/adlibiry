@@ -50,6 +50,15 @@ const STOP = new Set(
   ).split(" "),
 );
 
+// Too vague on their own ("custom", "case"), fine inside a phrase ("phone case").
+const VAGUE = new Set(
+  (
+    "high daily anti custom support bundle home kit style design product products original natural care cute fashion beauty " +
+    "case cover type ultra super smart soft portable electric fast long light lightweight waterproof adjustable reusable " +
+    "body face outdoor indoor travel"
+  ).split(" "),
+);
+
 export function keywordsOf(title: string): string[] {
   const words = title
     .toLowerCase()
@@ -57,7 +66,7 @@ export function keywordsOf(title: string): string[] {
     .replace(/[^a-z0-9 ]+/g, " ")
     .split(/\s+/)
     .filter((w) => w.length >= 3 && !/^\d+$/.test(w));
-  const keep = (w: string) => !STOP.has(w) && w.length >= 4;
+  const keep = (w: string) => !STOP.has(w) && !VAGUE.has(w) && w.length >= 4;
   const out = new Set<string>();
   for (let i = 0; i < words.length; i++) {
     if (keep(words[i])) out.add(words[i]);
@@ -80,22 +89,31 @@ function direction(thisWeek: number, lastWeek: number): { dir: TrendRow["directi
 
 export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] {
   type Acc = { weeks: number[]; niches: Map<string, number>; countries: Map<string, number>; platforms: Map<string, number> };
-  // First count phrases in the last two weeks only, then keep details just for
-  // phrases with enough recent ads: per-phrase maps for every phrase of 12
-  // weeks of ads ran the rebuild out of memory.
+  const weekOf = (ad: AdLite) => {
+    const age = now - Date.parse(ad.firstSeenAt);
+    return age >= 0 && age < WEEKS * WEEK_MS ? WEEKS - 1 - Math.floor(age / WEEK_MS) : -1; // 11 = this week
+  };
+  // New ads per week across everything, so a busier week of imports doesn't
+  // make every phrase look like it's rising: phrases are compared by their
+  // share of all new ads.
+  const totals: number[] = Array(WEEKS).fill(0);
+  // First count phrases in this week's ads only, then keep details just for
+  // phrases with enough of them: per-phrase maps for every phrase of 12 weeks
+  // of ads ran the rebuild out of memory.
   const recent = new Map<string, number>();
   for (const ad of ads) {
-    const age = now - Date.parse(ad.firstSeenAt);
-    if (age >= 0 && age < 2 * WEEK_MS) for (const k of keywordsOf(ad.title)) inc(recent, k);
+    const w = weekOf(ad);
+    if (w < 0) continue;
+    totals[w]++;
+    if (w === WEEKS - 1) for (const k of keywordsOf(ad.title)) inc(recent, k);
   }
   const keep = new Set([...recent].filter(([, n]) => n >= 3).map(([k]) => k));
   recent.clear();
 
   const acc = new Map<string, Acc>();
   for (const ad of ads) {
-    const age = now - Date.parse(ad.firstSeenAt);
-    if (!(age >= 0) || age >= WEEKS * WEEK_MS) continue;
-    const week = WEEKS - 1 - Math.floor(age / WEEK_MS); // 11 = this week
+    const week = weekOf(ad);
+    if (week < 0) continue;
     for (const k of keywordsOf(ad.title)) {
       if (!keep.has(k)) continue;
       let a = acc.get(k);
@@ -107,32 +125,39 @@ export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] 
     }
   }
 
-  const rows = [...acc.entries()]
-    .filter(([, a]) => a.weeks[WEEKS - 1] + a.weeks[WEEKS - 2] >= 3) // enough recent ads to mean something
-    .map(([keyword, a]) => {
-      const thisWeek = a.weeks[WEEKS - 1];
-      const lastWeek = a.weeks[WEEKS - 2];
-      const { dir, pct } = direction(thisWeek, lastWeek);
-      const max = Math.max(...a.weeks, 1);
-      const countryTotal = [...a.countries.values()].reduce((s, n) => s + n, 0) || 1;
-      const platform = top(a.platforms, 1)[0]?.[0];
-      return {
-        keyword,
-        niche: top(a.niches, 1)[0]?.[0] ?? "Other",
-        direction: dir,
-        risingPercent: pct,
-        weeklyInterest: a.weeks.map((w) => Math.round((w / max) * 100)),
-        countryBreakdown: top(a.countries, 3).map(([country, n]) => ({ country, interest: Math.round((n / countryTotal) * 100) })),
-        insight: `${thisWeek} new ad${thisWeek === 1 ? "" : "s"} this week vs ${lastWeek} last week${platform ? `, mostly on ${platform}` : ""}.`,
-        momentum: thisWeek - lastWeek,
-        volume: thisWeek + lastWeek,
-      };
-    });
+  const BASE = 4; // weeks before this one that set the usual share
+  const baseTotal = totals.slice(WEEKS - 1 - BASE, WEEKS - 1).reduce((s, n) => s + n, 0);
+  const pctOf = (n: number, of: number) => (of ? (n / of) * 100 : 0);
+  const rows = [...acc.entries()].map(([keyword, a]) => {
+    const thisWeek = a.weeks[WEEKS - 1];
+    const before = a.weeks.slice(WEEKS - 1 - BASE, WEEKS - 1).reduce((s, n) => s + n, 0);
+    const share = pctOf(thisWeek, totals[WEEKS - 1]);
+    const usual = pctOf(before, baseTotal);
+    const pct = usual > 0 ? Math.max(-100, Math.min(999, Math.round((share / usual - 1) * 100))) : 100;
+    const shares = a.weeks.map((n, w) => pctOf(n, totals[w]));
+    const max = Math.max(...shares) || 1;
+    const countryTotal = [...a.countries.values()].reduce((s, n) => s + n, 0) || 1;
+    const platform = top(a.platforms, 1)[0]?.[0];
+    const fmt = (n: number) => (n >= 10 ? Math.round(n).toString() : n.toFixed(1));
+    return {
+      keyword,
+      niche: top(a.niches, 1)[0]?.[0] ?? "Other",
+      direction: (pct >= 20 ? "Rising" : pct <= -20 ? "Declining" : "Stable") as TrendRow["direction"],
+      risingPercent: pct,
+      weeklyInterest: shares.map((n) => Math.round((n / max) * 100)),
+      countryBreakdown: top(a.countries, 3).map(([country, n]) => ({ country, interest: Math.round((n / countryTotal) * 100) })),
+      insight:
+        `${thisWeek} new ad${thisWeek === 1 ? "" : "s"} this week, ${fmt(share)}% of all new ads` +
+        (usual > 0 ? ` (${fmt(usual)}% the 4 weeks before)` : " (none the 4 weeks before)") +
+        (platform ? `, mostly on ${platform}.` : "."),
+      // Ads above what its usual share would give this week; phrases name a product better than single words.
+      excess: (thisWeek - (usual / 100) * totals[WEEKS - 1]) * (1 + 0.5 * (keyword.split(" ").length - 1)),
+      volume: thisWeek,
+    };
+  });
 
-  // Lead with what's gaining the most ads, then the busiest; on a tie the
-  // longer phrase ("dog cooling mat" over "cooling mat") names it best.
   const words = (k: string) => k.split(" ").length;
-  rows.sort((a, b) => b.momentum - a.momentum || b.volume - a.volume || words(b.keyword) - words(a.keyword));
+  rows.sort((a, b) => b.excess - a.excess || b.volume - a.volume || words(b.keyword) - words(a.keyword));
   const picked: typeof rows = [];
   for (const r of rows) {
     // Skip a word or phrase already covered by a listed phrase.
@@ -141,7 +166,7 @@ export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] 
     picked.push(r);
     if (picked.length >= limit) break;
   }
-  return picked.map(({ momentum: _m, volume: _v, ...row }) => row);
+  return picked.map(({ excess: _e, volume: _v, ...row }) => row);
 }
 
 export const NICHE_ICONS: Record<string, string> = {
@@ -160,6 +185,12 @@ export const NICHE_ICONS: Record<string, string> = {
 };
 
 export function buildNiches(niches: readonly string[], products: ProductLite[], ads: AdLite[], now: number): NicheRow[] {
+  const ageOf = (a: AdLite) => now - Date.parse(a.firstSeenAt);
+  const isThisWeek = (a: AdLite) => ageOf(a) >= 0 && ageOf(a) < WEEK_MS;
+  const isLastWeek = (a: AdLite) => ageOf(a) >= WEEK_MS && ageOf(a) < 2 * WEEK_MS;
+  // Trend by share of all new ads, so a bigger week of imports doesn't lift every category.
+  const allThis = ads.filter(isThisWeek).length || 1;
+  const allLast = ads.filter(isLastWeek).length || 1;
   return niches
     .map((name) => {
       const ps = products.filter((p) => p.category === name);
@@ -168,11 +199,8 @@ export function buildNiches(niches: readonly string[], products: ProductLite[], 
       const winners = ps.filter((p) => p.winnerRank !== undefined).length;
       const fromAds = ps.filter((p) => (p.linkedAds ?? 0) > 0).length;
       const nicheAds = ads.filter((a) => a.niche === name);
-      const thisWeek = nicheAds.filter((a) => now - Date.parse(a.firstSeenAt) < WEEK_MS).length;
-      const lastWeek = nicheAds.filter((a) => {
-        const age = now - Date.parse(a.firstSeenAt);
-        return age >= WEEK_MS && age < 2 * WEEK_MS;
-      }).length;
+      const thisWeek = nicheAds.filter(isThisWeek).length;
+      const lastWeek = nicheAds.filter(isLastWeek).length;
       const countries = new Map<string, number>();
       const platforms = new Map<string, number>();
       for (const a of nicheAds) {
@@ -192,7 +220,7 @@ export function buildNiches(niches: readonly string[], products: ProductLite[], 
         description: parts.join(" · ") + ".",
         avgAiScore: avg,
         productCount: ps.length,
-        trendDirection: direction(thisWeek, lastWeek).dir,
+        trendDirection: direction(thisWeek / allThis, lastWeek / allLast).dir,
         topCountries: top(countries, 3).map(([c]) => c),
         adCount: nicheAds.length,
       };
