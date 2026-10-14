@@ -236,6 +236,8 @@ export default function LaunchesPage() {
   const [mirror, setMirror] = useState("");
   const [mirrorPage, setMirrorPage] = useState(() => params.get("mirror") ?? savedMirror());
   const [mirrorProduct, setMirrorProduct] = useState("");
+  const [mirrorReviews, setMirrorReviews] = useState("");
+  const [reviews, setReviews] = useState("");
   const [mirroring, setMirroring] = useState(false);
   // On phones one form shows at a time; from md up both sit side by side.
   const [tool, setTool] = useState<"link" | "mirror">(() => (params.get("mirror") || savedMirror() ? "mirror" : "link"));
@@ -390,6 +392,7 @@ export default function LaunchesPage() {
                 try {
                   const r = await importLink({ url: link.trim() });
                   setMirror("");
+                  setReviews("");
                   setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
                   setLink("");
                 } catch (err) {
@@ -428,9 +431,11 @@ export default function LaunchesPage() {
                 try {
                   const r = await importLink({ url: (mirrorProduct.trim() || mirrorPage).trim() });
                   setMirror(mirrorPage.trim());
+                  setReviews(mirrorReviews.trim());
                   setFromLink({ _id: r.productId, imageUrl: r.imageUrl });
                   setMirrorPage("");
                   setMirrorProduct("");
+                  setMirrorReviews("");
                 } catch (err) {
                   toast.error(errorMessage(err, "Couldn't read that link"));
                 } finally {
@@ -449,6 +454,20 @@ export default function LaunchesPage() {
                 Your product <span className="font-normal text-muted-foreground">(optional: AliExpress or store link)</span>
               </label>
               <Input id="mirror-product" type="url" value={mirrorProduct} onChange={(e) => setMirrorProduct(e.target.value)} placeholder="Empty: launch the product on that page" />
+              <label htmlFor="mirror-reviews" className="block text-xs font-medium pt-1">
+                Supplier reviews <span className="font-normal text-muted-foreground">(optional: AliExpress links, one per line, up to 3)</span>
+              </label>
+              <textarea
+                id="mirror-reviews"
+                value={mirrorReviews}
+                onChange={(e) => setMirrorReviews(e.target.value)}
+                rows={2}
+                placeholder="https://aliexpress.com/item/…"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              {mirrorReviews.split(/\s+/).some((x) => x && !/aliexpress\./i.test(x)) ? (
+                <p className="text-xs text-warn">Only AliExpress links work: another store's reviews are about its own shop, so they can't be shown as yours.</p>
+              ) : null}
               <Button type="submit" className="w-full h-10" disabled={mirroring || !mirrorPage.trim()}>
                 {mirroring ? <Spinner className="w-4 h-4 mr-2" /> : <CopyCheck className="w-4 h-4 mr-2" />}
                 {mirroring ? (
@@ -473,9 +492,11 @@ export default function LaunchesPage() {
           product={fromLink}
           startOpen
           mirrorUrl={mirror || undefined}
+          reviewsUrl={reviews || undefined}
           onClose={() => {
             setFromLink(null);
             setMirror("");
+            setReviews("");
           }}
         />
       ) : null}

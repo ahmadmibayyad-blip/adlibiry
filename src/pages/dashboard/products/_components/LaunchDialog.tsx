@@ -377,7 +377,19 @@ function StepIndicator({ step, onBack }: { step: number; onBack: (s: number) => 
 /** What the dialog needs: a catalog product, or one pasted as a link (convex/productImport.ts). */
 type LaunchTarget = { _id: Id<"products"> | Id<"importedProducts">; imageUrl: string };
 
-function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void; mirrorUrl?: string }) {
+function LaunchButton({
+  product,
+  startOpen,
+  onClose,
+  mirrorUrl: mirrorStart,
+  reviewsUrl: reviewsStart,
+}: {
+  product: LaunchTarget;
+  startOpen?: boolean;
+  onClose?: () => void;
+  mirrorUrl?: string;
+  reviewsUrl?: string;
+}) {
   const [open, setOpen] = useState(!!startOpen);
   const prep = useQuery(api.launch.prepare, open ? { productId: product._id } : "skip");
   const status = useQuery(api.shopifyApp.status, open ? {} : "skip");
@@ -409,7 +421,7 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
   const [freeShipping, setFreeShipping] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
   const [aiPhotosInput, setAiPhotos] = useState<number | null>(null);
-  const [reviewsInput, setReviewsUrl] = useState<string | null>(null);
+  const [reviewsInput, setReviewsUrl] = useState<string | null>(reviewsStart || null);
   const [mirrorUrl, setMirrorUrl] = useState(mirrorStart ?? "");
   const [launchId, setLaunchId] = useState<Id<"launches"> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -776,10 +788,10 @@ function LaunchButton({ product, startOpen, onClose, mirrorUrl: mirrorStart }: {
   );
 }
 
-export default function LaunchDialog({ product, startOpen, onClose, mirrorUrl }: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void; mirrorUrl?: string }) {
+export default function LaunchDialog(props: { product: LaunchTarget; startOpen?: boolean; onClose?: () => void; mirrorUrl?: string; reviewsUrl?: string }) {
   return (
     <Authenticated>
-      <LaunchButton product={product} startOpen={startOpen} onClose={onClose} mirrorUrl={mirrorUrl} />
+      <LaunchButton {...props} />
     </Authenticated>
   );
 }
