@@ -519,7 +519,8 @@ function LaunchButton({
                       ? {
                           mode,
                           style,
-                          baseTheme,
+                          // Only our theme copies a store's home page, colors and fonts.
+                          baseTheme: mirrorUrl.trim() ? "adspy" : baseTheme,
                           brandName: brand,
                           facts: {
                             shippingTime,
@@ -587,17 +588,20 @@ function LaunchButton({
 
               {mode === "store" && step === 2 && (
                 <section className="space-y-3">
-                  <h3 className="text-sm font-semibold">Theme</h3>
-                  <ThemeSwitch value={baseTheme} onChange={setBaseTheme} />
-                  <h3 className="text-sm font-semibold pt-1">Pick a style</h3>
-                  <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
-                  <p className="text-xs text-muted-foreground">
-                    {mirrorUrl.trim()
-                      ? baseTheme === "dawn"
-                        ? "Mirroring copies the store's home page, colors and fonts only with the AdSpy Storefront theme; Dawn keeps this style."
-                        : "Mirroring uses the copied store's colors and fonts when we can read them; this style fills in the rest."
-                      : "You can change colors, fonts and sections afterwards in Shopify's theme editor."}
-                  </p>
+                  {/* Mirroring: the copied store decides the look, so there's nothing to pick. */}
+                  {mirrorUrl.trim() ? (
+                    <p className="text-sm">
+                      The look is copied from <strong>{mirrorUrl.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0]}</strong>: its layout, colors and fonts.
+                    </p>
+                  ) : (
+                    <>
+                      <h3 className="text-sm font-semibold">Theme</h3>
+                      <ThemeSwitch value={baseTheme} onChange={setBaseTheme} />
+                      <h3 className="text-sm font-semibold pt-1">Pick a style</h3>
+                      <StylePicker value={style} onChange={setStyle} brand={brand} imageUrl={product.imageUrl || undefined} />
+                      <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
+                    </>
+                  )}
                   <label className="block text-sm">
                     <span className="font-medium flex items-center gap-1.5"><CopyCheck className="w-4 h-4 text-primary" /> Mirror a page</span>
                     <Input
@@ -608,8 +612,8 @@ function LaunchButton({
                       className="mt-1"
                     />
                     <span className="text-xs text-muted-foreground">
-                      Copies that store's layout: its home page sections, colors and fonts (with the AdSpy Storefront theme), and its product page's section order,
-                      bundle deals and buy-box extras. Never its text, photos, logo or reviews: those are written and made for your product. Fake countdowns aren't
+                      Copies that store's layout: its home page sections, colors and fonts, and its product page's section order, bundle deals and buy-box
+                      extras. Never its text, photos, logo or reviews: those are written and made for your product. Fake countdowns aren't
                       copied.
                     </span>
                   </label>
