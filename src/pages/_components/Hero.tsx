@@ -55,7 +55,7 @@ function TodaysWinners() {
             ))}
       </ul>
       <div className="px-5 py-3 bg-muted/50 text-xs text-muted-foreground">
-        {summary ? `${fmt(summary.total)} winners across ${summary.perNiche.length} niches in the app.` : " "}
+        {summary ? `${fmt(summary.total)} winners across ${summary.perNiche.length} categories in the app.` : " "}
       </div>
     </div>
   );

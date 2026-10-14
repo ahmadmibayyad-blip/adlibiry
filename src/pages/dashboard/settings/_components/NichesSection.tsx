@@ -33,7 +33,7 @@ export default function NichesSection() {
   return (
     <div className="bg-card border border-border rounded-xl p-5 space-y-4">
       <div>
-        <h2 className="font-semibold text-sm mb-1">My niches</h2>
+        <h2 className="font-semibold text-sm mb-1">My categories</h2>
         <p className="text-xs text-muted-foreground mb-3">Winning Products, Products and Ad Spy show these first. Tap to add or remove.</p>
         <div className="flex flex-wrap gap-2">
           {NICHES.map((n) => (
@@ -79,7 +79,7 @@ export default function NichesSection() {
         <span className="text-sm">
           Morning digest email
           <span className="block text-xs text-muted-foreground">
-            Top 5 new winners{niches.length ? " in my niches" : ""} and my alerts, at 8:00{mine.timezone ? ` (${mine.timezone})` : " my time"}.
+            Top 5 new winners{niches.length ? " in my categories" : ""} and my alerts, at 8:00{mine.timezone ? ` (${mine.timezone})` : " my time"}.
           </span>
         </span>
         <Switch

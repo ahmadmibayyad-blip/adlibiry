@@ -20,7 +20,7 @@ const SUGGESTIONS = [
   "Find 5 winning pet products with good margins",
   "Which beauty ads have been running the longest?",
   "Write 3 TikTok hooks for a posture corrector",
-  "What niche should a beginner start with?",
+  "What category should a beginner start with?",
 ];
 
 function loadChat(): Msg[] {
@@ -98,7 +98,7 @@ export default function AIAssistant() {
               <Sparkles className="w-4 h-4 text-primary" /> AI assistant
             </SheetTitle>
             <SheetDescription>
-              Ask about winning products, ads and niches, or get hooks and ad copy. Answers use the ads and products in the app.
+              Ask about winning products, ads and categories, or get hooks and ad copy. Answers use the ads and products in the app.
             </SheetDescription>
           </SheetHeader>
 

@@ -384,7 +384,7 @@ export default function StoreTrackerPage() {
         {niches && niches.length > 0 && (
           <div className="mb-6">
             <FilterSelect
-              label="Niche"
+              label="Category"
               value={niche ?? "all"}
               onChange={(v) => setNiche(v === "all" ? undefined : v)}
               active={!!niche}

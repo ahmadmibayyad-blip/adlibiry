@@ -45,7 +45,7 @@ export default function AINicheReportModal({ niche, open, onOpenChange }: { nich
       const message =
         error instanceof ConvexError && typeof (error.data as { message?: unknown })?.message === "string"
           ? (error.data as { message: string }).message
-          : "Failed to generate niche report";
+          : "Failed to generate category report";
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -58,7 +58,7 @@ export default function AINicheReportModal({ niche, open, onOpenChange }: { nich
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
-            AI Niche Report — {niche.name}
+            AI Category Report — {niche.name}
           </DialogTitle>
         </DialogHeader>
 

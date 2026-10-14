@@ -242,7 +242,7 @@ function TopNiches({ niches }: { niches: { niche: string; thisWeek: number; last
   return (
     <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold">Top niches this week</h2>
+        <h2 className="text-sm font-semibold">Top categories this week</h2>
         <span className="text-[11px] text-muted-foreground">new ads · vs last week</span>
       </div>
       {niches === undefined ? (
@@ -374,7 +374,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
       </div>
 
       {tabs.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-4" role="tablist" aria-label="Niche">
+        <div className="flex gap-2 overflow-x-auto pb-1 mb-4" role="tablist" aria-label="Category">
           {[{ niche: undefined as string | undefined, filled: summary?.total ?? 0 }, ...tabs].map((t) => (
             <button
               key={t.niche ?? "all"}

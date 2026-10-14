@@ -18,7 +18,7 @@ export default function MyNichesChip({ niches, on, onToggle }: { niches: string[
         )}
       >
         {on ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-        My niches ({niches.length})
+        My categories ({niches.length})
       </button>
       <Link to="/dashboard/settings" className="inline-flex items-center h-10 sm:h-auto px-1 text-[11px] text-muted-foreground hover:text-foreground underline">
         change

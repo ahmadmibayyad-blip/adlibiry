@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils.ts";
 // (convex/agents.ts, convex/agentRunner.ts).
 
 const TEMPLATES = [
-  { name: "Daily winners", goal: "Every morning, find the 5 best new winning products in my niches: score 75+, a known price, and ads running. Say why each one could sell." },
-  { name: "Scaling ads", goal: "Find ads in my niches that have been running 14+ days with high views or likes — a sign they are profitable. Tell me what product they sell and the hook they use." },
+  { name: "Daily winners", goal: "Every morning, find the 5 best new winning products in my categories: score 75+, a known price, and ads running. Say why each one could sell." },
+  { name: "Scaling ads", goal: "Find ads in my categories that have been running 14+ days with high views or likes — a sign they are profitable. Tell me what product they sell and the hook they use." },
   { name: "Cheap & low competition", goal: "Find products under $30 with a margin of 40%+ and few ads running, so a beginner can test them with a small budget." },
 ];
 
@@ -97,7 +97,7 @@ function NewAgent({ onDone }: { onDone: () => void }) {
         maxLength={1000}
       />
       <div>
-        <div className="text-xs text-muted-foreground mb-1.5">Focus niches (optional)</div>
+        <div className="text-xs text-muted-foreground mb-1.5">Focus categories (optional)</div>
         <NichePicker value={niches} onChange={setNiches} />
       </div>
       <div className="flex gap-2">
@@ -146,7 +146,7 @@ function AgentCard({ agent }: { agent: Doc<"agents"> & { latest: Doc<"agentBrief
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">{agent.goal}</p>
-          {agent.niches.length > 0 && <p className="text-xs text-muted-foreground mt-1">Niches: {agent.niches.join(", ")}</p>}
+          {agent.niches.length > 0 && <p className="text-xs text-muted-foreground mt-1">Categories: {agent.niches.join(", ")}</p>}
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={run} disabled={running}>

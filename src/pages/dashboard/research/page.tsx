@@ -30,7 +30,7 @@ export default function ResearchPage() {
 
   const tabs: { id: Tab; label: string; icon: typeof LineChart }[] = [
     { id: "trends", label: "Trends", icon: LineChart },
-    { id: "niches", label: "Niche Explorer", icon: Compass },
+    { id: "niches", label: "Category Explorer", icon: Compass },
     { id: "sourcing", label: "Sourcing", icon: Search },
   ];
 
@@ -161,8 +161,8 @@ function NichesTab({ onSelectNiche }: { onSelectNiche: (niche: string) => void }
     return (
       <div className="flex flex-col items-center py-20 text-center border border-dashed border-border rounded-xl">
         <Compass className="w-10 h-10 text-muted-foreground mb-3" />
-        <h3 className="font-semibold mb-1">No niches yet</h3>
-        <p className="text-sm text-muted-foreground">Niche stats are built every morning from your products and ads.</p>
+        <h3 className="font-semibold mb-1">No categories yet</h3>
+        <p className="text-sm text-muted-foreground">Category stats are built every morning from your products and ads.</p>
       </div>
     );
   }
@@ -239,11 +239,11 @@ function SourcingTab({ initialNiche }: { initialNiche?: string }) {
           />
         </div>
         <FilterSelect
-          label="Niche"
+          label="Category"
           value={niche ?? "all"}
           onChange={(v) => setNiche(v === "all" ? undefined : v)}
           active={!!niche}
-          options={[{ value: "all", label: "All niches" }, ...nicheNames.map((n) => ({ value: n, label: n }))]}
+          options={[{ value: "all", label: "All categories" }, ...nicheNames.map((n) => ({ value: n, label: n }))]}
         />
       </div>
 

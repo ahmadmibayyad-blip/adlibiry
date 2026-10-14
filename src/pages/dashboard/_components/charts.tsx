@@ -233,7 +233,7 @@ export function ComparisonRow({
   return (
     <div className="grid grid-cols-[7rem_minmax(0,1fr)_8.5rem] items-center gap-3 text-xs">
       <span>{label}</span>
-      <div className="relative h-2.5 rounded-full bg-muted" title={`This ad ${format(value)} · niche median ${format(median)}`}>
+      <div className="relative h-2.5 rounded-full bg-muted" title={`This ad ${format(value)} · category median ${format(median)}`}>
         <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${scale(value)}%`, background: SERIES.primary }} />
         <div className="absolute -top-1 -bottom-1 w-0.5 bg-foreground" style={{ left: `calc(${scale(median)}% - 1px)` }} />
       </div>

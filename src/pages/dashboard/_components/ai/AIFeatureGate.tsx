@@ -17,7 +17,7 @@ export default function AIFeatureGate({ children }: { children: React.ReactNode 
         </div>
         <h3 className="font-semibold text-sm mb-1">AI Intelligence is a Pro feature</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Upgrade to Pro to unlock AI scoring, ad angles, niche reports, and competitor finding.
+          Upgrade to Pro to unlock AI scoring, ad angles, category reports, and competitor finding.
         </p>
         <Button asChild size="sm">
           <Link to="/#pricing">

@@ -202,7 +202,7 @@ export default function ProductsFeed() {
           <div className="flex gap-2 text-xs">
             {[
               { label: "Products", value: stats.products.total },
-              { label: "Niches", value: categories.length },
+              { label: "Categories", value: categories.length },
               { label: "Sources", value: (stats.products.sources ?? []).length },
             ].map((s) => (
               <div key={s.label} className="bg-card border border-border rounded-lg px-3 py-1.5 text-center">
@@ -260,8 +260,8 @@ export default function ProductsFeed() {
                   selectedNiches.length > 0 && "border-primary text-primary bg-primary/10",
                 )}
               >
-                <span className="text-muted-foreground font-normal mr-0.5">Niche:</span>
-                {selectedNiches.length === 0 ? "All" : selectedNiches.length === 1 ? selectedNiches[0] : `${selectedNiches.length} niches`}
+                <span className="text-muted-foreground font-normal mr-0.5">Category:</span>
+                {selectedNiches.length === 0 ? "All" : selectedNiches.length === 1 ? selectedNiches[0] : `${selectedNiches.length} categories`}
                 <ChevronDown className="w-3.5 h-3.5 opacity-60" />
               </button>
             </DropdownMenuTrigger>

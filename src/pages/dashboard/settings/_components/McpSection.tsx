@@ -131,7 +131,7 @@ export default function McpSection() {
             (video, image, carousel), minDaysRunning, sort (newest, score, mostLiked, longestRunning, impressions, comments), limit (1–15).
           </p>
           <p>
-            <code className="break-all">GET {API_URL}/niches</code>: the niche names to use above.
+            <code className="break-all">GET {API_URL}/niches</code>: the category names to use above.
           </p>
           <p>Requests are shared with your AI app connections: 300 a day, reset at midnight UTC.</p>
         </div>
