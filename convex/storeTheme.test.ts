@@ -266,6 +266,17 @@ describe("storefront theme", () => {
     expect(bare.order).not.toContain("timeline");
   });
 
+  it("keeps accent [brackets] only in the headings that turn them into italics", () => {
+    const c = cleanStore({
+      ...storeCopy,
+      hero: { ...storeCopy.hero, heading: "Sit [straighter], all day" },
+      benefits: { ...storeCopy.benefits, heading: "[Two] [pairs]", items: [{ icon: "leaf", title: "For dogs [and cats]", text: "Soft [mesh]." }] },
+    });
+    expect(c.hero.heading).toBe("Sit [straighter], all day");
+    expect(c.benefits.heading).toBe("Two pairs");
+    expect(c.benefits.items[0]).toMatchObject({ title: "For dogs and cats", text: "Soft mesh." });
+  });
+
   it("drops claims it can't back up and icons the theme doesn't have", () => {
     const c = cleanStore(storeCopy);
     expect(c.trust).toEqual([{ icon: "truck", text: "Delivery in 5–8 days" }, { icon: "shield", text: "Bad icon falls back" }]);

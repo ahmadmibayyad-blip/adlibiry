@@ -56,12 +56,13 @@ export const TIMELINE_GUIDE =
 /** The timeline's lengths, counts and claim rules; undefined with fewer than 2 stages. */
 export function cleanTimeline(raw: unknown): TimelineCopy | undefined {
   const r = (raw ?? {}) as Partial<TimelineCopy>;
-  const s = (v: unknown, n: number) => scrubClaims(cut(v, n * 2)).text.slice(0, n);
+  const s = (v: unknown, n: number) => noAccent(scrubClaims(cut(v, n * 2)).text.slice(0, n));
+  const h = (v: unknown, n: number) => accent(scrubClaims(cut(v, n * 2)).text.slice(0, n));
   const items = (Array.isArray(r.items) ? r.items : [])
     .map((x) => ({ label: s(x?.label, 24), title: s(x?.title, 60), text: s(x?.text, 220) }))
     .filter((x) => x.title && x.text)
     .slice(0, 4);
-  return items.length >= 2 ? { heading: s(r.heading, 60), text: s(r.text, 160), button: s(r.button, 30), items } : undefined;
+  return items.length >= 2 ? { heading: h(r.heading, 60), text: s(r.text, 160), button: s(r.button, 30), items } : undefined;
 }
 
 /** The product page's own copy: ticks, bundle cards, image-with-text rows, comparison table and tabs. */
@@ -207,11 +208,19 @@ export const STORE_SYSTEM =
   "Shipping and returns text uses only the store facts. Headings are short (max 8 words). Menu labels are one or two words.";
 
 const cut = (s: unknown, n: number) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+
+/**
+ * Accent [brackets] (STORE_GUIDE): kept in the headings the theme turns into italics, one balanced pair at most,
+ * and removed everywhere else, where the theme would show them as they are.
+ */
+const noAccent = (t: string) => t.replace(/[[\]]/g, "");
+const accent = (t: string) => (/^[^[\]]*\[[^[\]]+\][^[\]]*$/.test(t) ? t : noAccent(t));
 const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback);
 
 /** Lengths, counts, allowed icons and the claim rules, on whatever the AI returned. */
 export function cleanStore(raw: StoreCopy): StoreCopy {
-  const s = (v: unknown, n: number) => scrubClaims(cut(v, n * 2)).text.slice(0, n);
+  const s = (v: unknown, n: number) => noAccent(scrubClaims(cut(v, n * 2)).text.slice(0, n));
+  const h = (v: unknown, n: number) => accent(scrubClaims(cut(v, n * 2)).text.slice(0, n));
   const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
   const texts = (v: unknown, max: number, n: number) => arr<unknown>(v).map((x) => s(x, n)).filter(Boolean).slice(0, max);
   const r = raw ?? ({} as StoreCopy);
@@ -219,7 +228,7 @@ export function cleanStore(raw: StoreCopy): StoreCopy {
     announcement: s(r.announcement, 90),
     hero: {
       eyebrow: s(r.hero?.eyebrow, 40),
-      heading: s(r.hero?.heading, 80),
+      heading: h(r.hero?.heading, 80),
       text: s(r.hero?.text, 220),
       button: s(r.hero?.button, 30),
       points: texts(r.hero?.points, 3, 40),
@@ -229,7 +238,7 @@ export function cleanStore(raw: StoreCopy): StoreCopy {
       .filter((t) => t.text)
       .slice(0, 4),
     benefits: {
-      heading: s(r.benefits?.heading, 70),
+      heading: h(r.benefits?.heading, 70),
       text: s(r.benefits?.text, 200),
       items: arr<{ icon: string; title: string; text: string }>(r.benefits?.items)
         .map((b) => ({ icon: pick(b?.icon, STORE_ICONS, "sparkle"), title: s(b?.title, 50), text: s(b?.text, 200) }))
@@ -237,15 +246,15 @@ export function cleanStore(raw: StoreCopy): StoreCopy {
         .slice(0, 4),
     },
     steps: {
-      heading: s(r.steps?.heading, 70),
+      heading: h(r.steps?.heading, 70),
       items: arr<{ title: string; text: string }>(r.steps?.items)
         .map((x) => ({ title: s(x?.title, 50), text: s(x?.text, 200) }))
         .filter((x) => x.title)
         .slice(0, 4),
     },
-    story: { eyebrow: s(r.story?.eyebrow, 40), heading: s(r.story?.heading, 80), paragraphs: texts(r.story?.paragraphs, 3, 400), button: s(r.story?.button, 30) },
+    story: { eyebrow: s(r.story?.eyebrow, 40), heading: h(r.story?.heading, 80), paragraphs: texts(r.story?.paragraphs, 3, 400), button: s(r.story?.button, 30) },
     faq: {
-      heading: s(r.faq?.heading, 70),
+      heading: h(r.faq?.heading, 70),
       items: arr<{ q: string; a: string }>(r.faq?.items)
         .map((f) => ({ q: s(f?.q, 140), a: s(f?.a, 500) }))
         .filter((f) => f.q && f.a)
