@@ -117,7 +117,7 @@ export default function WinnersPage() {
   const clearAll = () => setF((prev) => ({ sort: prev.sort }));
   const sorted = !!f.sort && f.sort !== "rank";
 
-  // "By niche" (feed order): start a new heading whenever the niche changes.
+  // "By category" (feed order): start a new heading whenever the niche changes.
   const sections: { niche: string | null; items: typeof results }[] = [];
   for (const r of results) {
     const key = mode === "byNiche" && !f.niche && !sorted ? r.niche : null;
@@ -146,7 +146,7 @@ export default function WinnersPage() {
               {[
                 { label: "Winners", value: summary.total },
                 { label: "New this round", value: summary.newToday },
-                { label: "Niches", value: summary.perNiche.length },
+                { label: "Categories", value: summary.perNiche.length },
               ].map((s) => (
                 <div key={s.label} className="bg-card border border-border rounded-lg px-3 py-1.5 text-center">
                   <div className="font-bold text-sm tabular-nums">{compactNumber(s.value)}</div>
@@ -173,7 +173,7 @@ export default function WinnersPage() {
             <div className="flex items-center gap-2">
               <ImageSearchDialog trigger="icon" />
               <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-10 sm:h-9" role="tablist" aria-label="Order">
-                {([["mixed", "Mixed feed"], ["byNiche", "By niche"]] as const).map(([m, label]) => (
+                {([["mixed", "Mixed feed"], ["byNiche", "By category"]] as const).map(([m, label]) => (
                   <button
                     key={m}
                     role="tab"
@@ -325,7 +325,7 @@ export default function WinnersPage() {
             A niche with fewer than {slots} products above score {minScore} shows fewer. It's never padded with weaker ones.
             Big brands, print-on-demand and services are left out.
           </p>
-          <h3 className="text-sm font-semibold mb-2">Slots filled per niche</h3>
+          <h3 className="text-sm font-semibold mb-2">Slots filled per category</h3>
           <div className="space-y-2.5">
             {summary?.perNiche.map((n) => (
               <button key={n.niche} className="block w-full text-left cursor-pointer group" onClick={() => set("niche", n.niche)}>
@@ -338,7 +338,7 @@ export default function WinnersPage() {
                 </div>
               </button>
             ))}
-            {summary && summary.perNiche.length === 0 && <p className="text-xs text-muted-foreground">No niche has a qualifying product yet.</p>}
+            {summary && summary.perNiche.length === 0 && <p className="text-xs text-muted-foreground">No category has a qualifying product yet.</p>}
           </div>
           {summary?.roundDay && (
             <p className="text-[11px] text-muted-foreground mt-4">
@@ -350,10 +350,10 @@ export default function WinnersPage() {
           <h3 className="text-sm font-semibold mb-2">How a product gets in</h3>
           <ol className="space-y-2 text-xs list-decimal list-inside marker:text-primary">
             <li>Every {roundDays} days a new mix is drawn from the products we already have (score {minScore}+).</li>
-            <li>In each niche the best {keepTop} by score always stay.</li>
+            <li>In each category the best {keepTop} by score always stay.</li>
             <li>The other {slots - keepTop} places rotate: products that weren't shown last time come first.</li>
             <li>Between mixes, a product whose score drops below {minScore} is taken out.</li>
-            <li>Niches take turns in the feed. Everything else stays in Products.</li>
+            <li>Categories take turns in the feed. Everything else stays in Products.</li>
           </ol>
         </div>
       </aside>

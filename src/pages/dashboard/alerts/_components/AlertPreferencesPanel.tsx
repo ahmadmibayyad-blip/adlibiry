@@ -132,8 +132,8 @@ export default function AlertPreferencesPanel() {
           onCheckedChange={(v) => save({ notifyNewWinners: v })}
         />
         <ToggleRow
-          label="New ads in watched niches"
-          description="Get notified when a new ad is spotted in a niche you're watching below."
+          label="New ads in watched categories"
+          description="Get notified when a new ad is spotted in a category you're watching below."
           checked={prefs.notifyNewAdsInNiches}
           onCheckedChange={(v) => save({ notifyNewAdsInNiches: v })}
         />
@@ -160,7 +160,7 @@ export default function AlertPreferencesPanel() {
 
       {allNiches && allNiches.length > 0 && (
         <div className="mt-4 pt-4 border-t border-border">
-          <div className="text-sm font-medium mb-2">Watched niches</div>
+          <div className="text-sm font-medium mb-2">Watched categories</div>
           <div className="flex flex-wrap gap-1.5">
             {allNiches.map((niche) => (
               <button

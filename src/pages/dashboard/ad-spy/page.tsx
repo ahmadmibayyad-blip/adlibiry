@@ -279,7 +279,7 @@ export default function AdSpyPage() {
         <div className="flex flex-wrap items-center gap-2">
           <FilterSelect label="Country" value={f.country ?? "any"} onChange={setAny("country")} options={countryOptions} active={!!f.country} />
           <FilterSelect
-            label="Niche"
+            label="Category"
             value={f.niche ?? "all"}
             onChange={(v) => set("niche", v === "all" ? undefined : v)}
             options={[{ value: "all", label: "All" }, ...niches.map((n) => ({ value: n.value, label: `${n.value} (${compactNumber(n.n)})` }))]}
@@ -290,7 +290,7 @@ export default function AdSpyPage() {
           <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
           <Check
             label="Scaling"
-            hint="Running 14+ days and still getting budget: views up 10%+ on last week, or engagement above the niche's median"
+            hint="Running 14+ days and still getting budget: views up 10%+ on last week, or engagement above the category's median"
             checked={!!f.scaling}
             onChange={(v) => set("scaling", v || undefined)}
           />
@@ -378,7 +378,7 @@ export default function AdSpyPage() {
           <Sparkles className="w-10 h-10 text-muted-foreground mb-3" />
           <h3 className="font-semibold mb-1">No ads match these filters</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            {nichesOn ? "Only ads in your niches are shown." : "Try removing a filter."}
+            {nichesOn ? "Only ads in your categories are shown." : "Try removing a filter."}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {nichesOn && (

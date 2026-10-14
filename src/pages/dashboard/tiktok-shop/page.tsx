@@ -53,7 +53,7 @@ function LoadMore({ show, onClick }: { show: boolean; onClick: () => void }) {
 function BestSellers({ niches }: { niches?: string[] }) {
   const { results, status, loadMore } = usePaginatedQuery(api.products.tiktokShop, niches ? { niches } : {}, { initialNumItems: PAGE });
   if (status === "LoadingFirstPage") return <ProductSkeletons />;
-  if (!results.length) return <Empty title="No TikTok Shop products yet" hint={`They're imported every morning. Try turning off "My niches".`} />;
+  if (!results.length) return <Empty title="No TikTok Shop products yet" hint={`They're imported every morning. Try turning off "My categories".`} />;
   return (
     <>
       <div className={GRID}>
@@ -88,7 +88,7 @@ function FromTikTokAds({ niches }: { niches?: string[] }) {
   }, [status, products.length, target, loadMore]);
   if (status === "LoadingFirstPage") return <ProductSkeletons />;
   if (!products.length && status !== "LoadingMore")
-    return <Empty title="No products from TikTok ads yet" hint={`They appear once TikTok ads in Ad Spy are linked to a product. Try turning off "My niches".`} />;
+    return <Empty title="No products from TikTok ads yet" hint={`They appear once TikTok ads in Ad Spy are linked to a product. Try turning off "My categories".`} />;
   return (
     <>
       <div className={GRID}>
@@ -118,7 +118,7 @@ function TikTokAds({ niches }: { niches?: string[] }) {
         ))}
       </div>
     );
-  if (!results.length) return <Empty title="No TikTok ads yet" hint={`They're imported every morning. Try turning off "My niches".`} />;
+  if (!results.length) return <Empty title="No TikTok ads yet" hint={`They're imported every morning. Try turning off "My categories".`} />;
   return (
     <>
       <div className={AD_GRID}>

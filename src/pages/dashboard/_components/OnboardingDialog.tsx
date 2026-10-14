@@ -33,7 +33,7 @@ export default function OnboardingDialog() {
     setSaving(true);
     try {
       await complete({ niches, digest: withDigest, timezone: browserTimezone(), ...(country ? { targetCountry: country } : {}) });
-      if (niches.length) toast.success("Your app now shows your niches first");
+      if (niches.length) toast.success("Your app now shows your categories first");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't save that");
     } finally {
@@ -45,7 +45,7 @@ export default function OnboardingDialog() {
     <Dialog open={open}>
       <DialogContent className="sm:max-w-lg [&>button]:hidden" onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>Which niches do you sell in?</DialogTitle>
+          <DialogTitle>Which categories do you sell in?</DialogTitle>
           <DialogDescription>Pick any. Winning Products, Products and Ad Spy will show these first. You can change them in Settings.</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -84,7 +84,7 @@ export default function OnboardingDialog() {
         <label className="flex items-start gap-2 text-sm cursor-pointer mt-1">
           <Checkbox checked={digest} onCheckedChange={(v) => setDigest(v === true)} className="mt-0.5" />
           <span>
-            Email me the top 5 new winners in my niches each morning
+            Email me the top 5 new winners in my categories each morning
             <span className="block text-xs text-muted-foreground">At 8:00 your time. Unsubscribe any time.</span>
           </span>
         </label>

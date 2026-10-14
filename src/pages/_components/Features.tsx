@@ -15,7 +15,7 @@ const features = [
     icon: Search,
     title: "Ad Spy",
     description:
-      "Facebook, Instagram and TikTok ads with country, niche and engagement filters. The Scaling filter shows ads running 14+ days that are still growing.",
+      "Facebook, Instagram and TikTok ads with country, category and engagement filters. The Scaling filter shows ads running 14+ days that are still growing.",
     gradient: "from-chart-1/15 to-chart-1/5",
     accent: "text-chart-1",
   },
@@ -54,7 +54,7 @@ const features = [
   {
     icon: ShoppingBag,
     title: "TikTok Shop",
-    description: "TikTok Shop best-sellers ranked by estimated sales per month, filtered to your niches. Updated daily.",
+    description: "TikTok Shop best-sellers ranked by estimated sales per month, filtered to your categories. Updated daily.",
     gradient: "from-chart-2/15 to-chart-2/5",
     accent: "text-chart-2",
   },
@@ -62,7 +62,7 @@ const features = [
     icon: Quote,
     title: "Hooks and angles",
     description:
-      "The opening lines winning ads use, including what's said in the first 3 seconds of videos, and which angles your niche hasn't used yet.",
+      "The opening lines winning ads use, including what's said in the first 3 seconds of videos, and which angles your category hasn't used yet.",
     gradient: "from-chart-3/15 to-chart-1/5",
     accent: "text-chart-3",
   },

@@ -13,7 +13,7 @@ export default function StatsBar() {
     { value: n(stats?.ads.activeCount), label: "Ads running now" },
     { value: n(stats?.products.total), label: "Products scored" },
     { value: n(stats?.ads.countries.length), label: "Countries" },
-    { value: n(stats?.products.categories.length), label: "Niches" },
+    { value: n(stats?.products.categories.length), label: "Categories" },
   ];
 
   return (

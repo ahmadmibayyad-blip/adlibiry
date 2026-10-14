@@ -49,7 +49,7 @@ export default function NicheCard({ niche, onClick, onGenerateReport }: { niche:
           className="w-full mt-3 pt-3 border-t border-border flex items-center justify-center gap-1.5 text-xs font-medium text-primary hover:underline cursor-pointer"
         >
           <FileText className="w-3.5 h-3.5" />
-          AI Niche Report
+          AI Category Report
         </button>
       )}
     </div>

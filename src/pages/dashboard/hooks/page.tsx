@@ -135,7 +135,7 @@ export default function HooksPage() {
             <h1 className="text-2xl font-bold">Hooks of the week</h1>
           </div>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            The opening lines of this week's most engaging ads, per niche. Each one has its hook type, why it works and a template you
+            The opening lines of this week's most engaging ads, per category. Each one has its hook type, why it works and a template you
             can reuse for your own product. New list every Monday.
           </p>
         </div>
