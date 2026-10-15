@@ -26,6 +26,7 @@ export const adsPage = internalQuery({
       platform: a.platform,
       countries: a.countries?.length ? a.countries : a.country && a.country !== "INTL" ? [a.country] : [],
       firstSeenAt: a.firstSeenAt,
+      advertiser: a.advertiserName && !/^unknown/i.test(a.advertiserName) ? a.advertiserName : a.landingHost,
     }));
     return { ads, isDone: page.isDone, cursor: page.continueCursor };
   },
@@ -54,6 +55,7 @@ const trendRow = v.object({
   weeklyInterest: v.array(v.number()),
   countryBreakdown: v.array(v.object({ country: v.string(), interest: v.number() })),
   insight: v.string(),
+  rank: v.number(),
 });
 const nicheRow = v.object({
   name: v.string(),

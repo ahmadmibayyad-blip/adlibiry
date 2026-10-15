@@ -2,9 +2,9 @@
 // convex/research.ts). Pure functions so they can be tested directly.
 //
 // Trending keywords: product words and two-word phrases counted in NEW ads
-// per week (by first-seen date) over the last 12 weeks. "Rising" means more
-// new ads mention it this week than last week. This is advertiser activity
-// in AdSpy Pro's data, not search interest.
+// per week (by first-seen date) over the last 12 weeks. "Rising" means it
+// takes a bigger share of this week's new ads than of the 4 weeks before.
+// This is advertiser activity in AdSpy Pro's data, not search interest.
 
 export type AdLite = {
   title: string;       // product title or headline
@@ -12,6 +12,7 @@ export type AdLite = {
   platform: string;
   countries: string[]; // ISO codes
   firstSeenAt: string; // ISO
+  advertiser?: string; // page name or shop domain; missing when unknown
 };
 
 export type ProductLite = { category: string; aiScore: number; winnerRank?: number; linkedAds?: number; publishedAt?: string };
@@ -24,6 +25,7 @@ export type TrendRow = {
   weeklyInterest: number[];
   countryBreakdown: { country: string; interest: number }[];
   insight: string;
+  rank: number; // 0 = top of the list
 };
 
 export type NicheRow = {
@@ -46,7 +48,9 @@ const STOP = new Set(
     "new best free shipping sale off buy get now shop official store hot deal deals pcs pc set pack today only limited " +
     "offer order shop now click link bio here more just like love perfect great top quality premium gift gifts ideal " +
     "women men womens mens kids size color colour black white red blue green pink large small mini big pro plus max " +
-    "tiktok facebook instagram amazon aliexpress 2024 2025 2026 day days week year use easy make made"
+    "tiktok facebook instagram amazon aliexpress 2024 2025 2026 day days week year use easy make made " +
+    "yourself again trial online better save start code stock feel meet try discount coupon promo deliver delivery " +
+    "der die das und mit fur til med och les des une pour con por para"
   ).split(" "),
 );
 
@@ -100,14 +104,23 @@ export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] 
   // First count phrases in this week's ads only, then keep details just for
   // phrases with enough of them: per-phrase maps for every phrase of 12 weeks
   // of ads ran the rebuild out of memory.
-  const recent = new Map<string, number>();
+  // A phrase must also come from 3+ advertisers: one brand running many
+  // copies of an ad isn't a trend. Ads with no known advertiser count apart.
+  const recent = new Map<string, Set<string>>();
+  let unknown = 0;
   for (const ad of ads) {
     const w = weekOf(ad);
     if (w < 0) continue;
     totals[w]++;
-    if (w === WEEKS - 1) for (const k of keywordsOf(ad.title)) inc(recent, k);
+    if (w !== WEEKS - 1) continue;
+    const who = ad.advertiser?.toLowerCase() || `?${unknown++}`;
+    for (const k of keywordsOf(ad.title)) {
+      let set = recent.get(k);
+      if (!set) recent.set(k, (set = new Set()));
+      if (set.size < 3) set.add(who);
+    }
   }
-  const keep = new Set([...recent].filter(([, n]) => n >= 3).map(([k]) => k));
+  const keep = new Set([...recent].filter(([, who]) => who.size >= 3).map(([k]) => k));
   recent.clear();
 
   const acc = new Map<string, Acc>();
@@ -138,7 +151,7 @@ export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] 
     const max = Math.max(...shares) || 1;
     const countryTotal = [...a.countries.values()].reduce((s, n) => s + n, 0) || 1;
     const platform = top(a.platforms, 1)[0]?.[0];
-    const fmt = (n: number) => (n >= 10 ? Math.round(n).toString() : n.toFixed(1));
+    const fmt = (n: number) => (n >= 10 ? Math.round(n).toString() : n >= 0.05 ? n.toFixed(1) : "under 0.1");
     return {
       keyword,
       niche: top(a.niches, 1)[0]?.[0] ?? "Other",
@@ -166,7 +179,7 @@ export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] 
     picked.push(r);
     if (picked.length >= limit) break;
   }
-  return picked.map(({ excess: _e, volume: _v, ...row }) => row);
+  return picked.map(({ excess: _e, volume: _v, ...row }, rank) => ({ ...row, rank }));
 }
 
 export const NICHE_ICONS: Record<string, string> = {

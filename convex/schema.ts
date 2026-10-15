@@ -459,6 +459,7 @@ export default defineSchema({
       interest: v.number(),         // 0-100 relative interest
     })),
     insight: v.string(),            // short research note on why it's trending
+    rank: v.optional(v.number()),   // list order from the rebuild, 0 = top
     updatedAt: v.string(),          // ISO 8601 UTC
   })
     .index("by_niche", ["niche"])
