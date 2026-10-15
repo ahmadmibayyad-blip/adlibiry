@@ -119,7 +119,7 @@ describe("Launch", () => {
     }));
     const { t, productId, user } = await setup({ plan: "pro", subscriptionStatus: "active" });
     const prep = await user.query(api.launch.prepare, { productId });
-    expect(prep).toMatchObject({ allowed: { left: 10, limit: 10 }, store: { shopName: "My Store" }, suggested: { price: 21.99, cost: 8, marginPercent: 64 }, blocked: null });
+    expect(prep).toMatchObject({ allowed: { left: 5, limit: 5, storesLeft: 3, storesLimit: 3 }, store: { shopName: "My Store" }, suggested: { price: 21.99, cost: 8, marginPercent: 64 }, blocked: null });
 
     const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "friendly", publish: "DRAFT" });
     await settle(t);
@@ -130,7 +130,7 @@ describe("Launch", () => {
     expect(prompts[0]).toContain("Your back hurts because…"); // the winning ad's spoken hook went into the prompt
     expect(productSetInput).toMatchObject({ title: "Adjustable Posture Corrector", status: "DRAFT", variants: [{ price: "21.99" }] });
     expect(String(productSetInput?.descriptionHtml)).toContain("1400+ ordered from our supplier");
-    expect((await user.query(api.launch.prepare, { productId }))?.allowed).toMatchObject({ left: 9 });
+    expect((await user.query(api.launch.prepare, { productId }))?.allowed).toMatchObject({ left: 4, storesLeft: 3 }); // a product page uses a product, not a store
   });
 
   it("makes AI product photos from the real one and adds them to the Shopify product", async () => {
@@ -314,17 +314,13 @@ describe("Launch", () => {
     await expect(user.action(api.launchAds.make, { launchId })).rejects.toThrow(/3 times/);
   });
 
-  it("keeps Launch to paying plans, blocks big brands, and caps the trial at 2", async () => {
+  it("keeps Launch to paying plans, not the free trial, and blocks big brands", async () => {
     const free = await setup({});
     await expect(free.user.mutation(api.launch.start, { productId: free.productId, language: "English", tone: "bold", publish: "DRAFT" })).rejects.toThrow(/part of Pro/);
 
     const trial = await setup({ proTrialEndsAt: Date.now() + 86_400_000 });
-    expect((await trial.user.query(api.launch.prepare, { productId: trial.productId }))?.allowed).toEqual({ left: 2, limit: 2 });
-    await trial.t.run(async (ctx) => {
-      const u = (await ctx.db.query("users").collect())[0];
-      await ctx.db.insert("launchUsage", { userId: u._id, month: "2026-09", count: 2 });
-    });
-    await expect(trial.user.mutation(api.launch.start, { productId: trial.productId, language: "English", tone: "bold", publish: "DRAFT" })).rejects.toThrow(/used your 2 launches on the trial/);
+    expect(await trial.user.query(api.launch.prepare, { productId: trial.productId })).toMatchObject({ allowed: null, onTrial: true });
+    await expect(trial.user.mutation(api.launch.start, { productId: trial.productId, language: "English", tone: "bold", publish: "DRAFT" })).rejects.toThrow(/opens when you subscribe/);
 
     const pro = await setup({ plan: "pro", subscriptionStatus: "active" });
     await pro.t.run((ctx) => ctx.db.patch("products", pro.productId, { isBigBrand: true }));
@@ -343,6 +339,6 @@ describe("Launch", () => {
     const { launchId } = await user.mutation(api.launch.start, { productId, language: "English", tone: "premium", publish: "ACTIVE" });
     await settle(t);
     expect(await user.query(api.launch.get, { launchId })).toMatchObject({ status: "failed", error: "The AI isn't set up yet (missing ANTHROPIC_API_KEY)." });
-    expect((await user.query(api.launch.prepare, { productId }))?.allowed).toMatchObject({ left: 10 }); // failures don't use the quota
+    expect((await user.query(api.launch.prepare, { productId }))?.allowed).toEqual({ left: 5, limit: 5, storesLeft: 3, storesLimit: 3 }); // failures don't use the quota
   });
 });

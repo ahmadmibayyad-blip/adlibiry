@@ -28,7 +28,7 @@ const plans = [
       "Watch up to 5 competitor stores",
       "Save ads and products",
     ],
-    missing: ["Every result, no limits"],
+    missing: ["Every result, no limits", "Launch to Shopify"],
     popular: false,
   },
   {
@@ -38,6 +38,7 @@ const plans = [
     description: "Everything unlocked for serious sellers. Try it free for 7 days, no card needed.",
     features: [
       "Every result in every list, no limits",
+      "Launch 5 products to your Shopify store, 3 of them as full stores",
       "Full Ad Spy on all platforms",
       "All winning products, stores and trends",
       "Should I test this? verdicts and supplier matches",
@@ -46,6 +47,9 @@ const plans = [
       "Priority support",
     ],
     missing: [],
+    // The free trial (convex/lib/billing.ts tierOf; limits next to each feature).
+    trialNote:
+      "The 7-day free trial has every research tool with smaller daily limits: 10 AI requests, 5 offer searches, 20 store inspections and 10 watched stores. Launch opens when you subscribe.",
     popular: true,
   },
 ];
@@ -130,7 +134,7 @@ export default function Pricing() {
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">Simple pricing</h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
             Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
-            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly. Try Pro free for 7 days, no card needed.
+            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly. Try Pro's research tools free for 7 days, no card needed.
           </p>
           <div className="inline-flex items-center gap-1 bg-card border border-border rounded-full p-1 mt-8">
             {(["monthly", "yearly"] as const).map((p) => (
@@ -217,6 +221,11 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
+              {"trialNote" in plan && plan.trialNote && (
+                <p className="mt-6 rounded-xl border border-border bg-background/60 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+                  {plan.trialNote}
+                </p>
+              )}
             </motion.div>
           ))}
         </div>

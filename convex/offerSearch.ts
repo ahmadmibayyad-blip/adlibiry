@@ -3,7 +3,7 @@ import { action, internalAction, internalMutation, internalQuery, query } from "
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
-import { effectivePlan } from "./lib/billing";
+import { byTier } from "./lib/billing";
 import { budgetLeft } from "./lib/fusion";
 import { adLibrarySearchUrl, groupByStore, OFFER_COUNTRIES, OFFER_IDS, searchKey, searchPhrases, toSearchAd, type FoundStore, type OfferId } from "./lib/offerSearch";
 
@@ -15,6 +15,9 @@ import { adLibrarySearchUrl, groupByStore, OFFER_COUNTRIES, OFFER_IDS, searchKey
 
 export const FREE_SEARCHES_PER_DAY = 3;
 export const PRO_SEARCHES_PER_DAY = 30;
+export const TRIAL_SEARCHES_PER_DAY = 5; // each search is a paid Apify run
+const searchLimit = (user: Doc<"users">) =>
+  byTier(user, { admin: 1000, paid: PRO_SEARCHES_PER_DAY, trial: TRIAL_SEARCHES_PER_DAY, free: FREE_SEARCHES_PER_DAY });
 const MAX_ADS = 150;
 const CACHE_MS = 6 * 3_600_000;
 // The Ad Library scraper charges $0.00075 per ad: one search costs at most about $0.18.
@@ -35,7 +38,7 @@ export const before = internalQuery({
     const user = await signedInUser(ctx, args.token);
     if (!user) return null;
     const since = new Date(Date.now() - 86_400_000).toISOString();
-    const limit = user.role === "admin" ? 1000 : effectivePlan(user) === "none" ? FREE_SEARCHES_PER_DAY : PRO_SEARCHES_PER_DAY;
+    const limit = searchLimit(user);
     const today = (await ctx.db.query("offerSearches").withIndex("by_user", (q) => q.eq("userId", user._id).gt("createdAt", since)).take(limit + 50)).filter(
       (s) => !s.cachedFrom,
     );
@@ -90,7 +93,12 @@ export const start = action({
     if (b.used >= b.limit) {
       throw new ConvexError({
         code: "LIMIT",
-        message: b.limit === FREE_SEARCHES_PER_DAY ? `Free accounts get ${FREE_SEARCHES_PER_DAY} offer searches a day. Upgrade to Pro for ${PRO_SEARCHES_PER_DAY}.` : `That's ${b.limit} offer searches today. More tomorrow.`,
+        message:
+          b.limit === FREE_SEARCHES_PER_DAY
+            ? `Free accounts get ${FREE_SEARCHES_PER_DAY} offer searches a day. Upgrade to Pro for ${PRO_SEARCHES_PER_DAY}.`
+            : b.limit === TRIAL_SEARCHES_PER_DAY
+              ? `The free trial includes ${TRIAL_SEARCHES_PER_DAY} offer searches a day. Subscribe to Pro for ${PRO_SEARCHES_PER_DAY}.`
+              : `That's ${b.limit} offer searches today. More tomorrow.`,
       });
     }
     if (!process.env.APIFY_TOKEN) throw new ConvexError({ code: "NOT_SET_UP", message: "Offer Search isn't switched on yet (APIFY_TOKEN)." });
@@ -245,7 +253,7 @@ export const recent = query({
     if (!user) return null;
     const rows = await ctx.db.query("offerSearches").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").take(12);
     const since = new Date(Date.now() - 86_400_000).toISOString();
-    const limit = user.role === "admin" ? 1000 : effectivePlan(user) === "none" ? FREE_SEARCHES_PER_DAY : PRO_SEARCHES_PER_DAY;
+    const limit = searchLimit(user);
     return {
       used: rows.filter((r) => r.createdAt > since && !r.cachedFrom).length,
       limit,

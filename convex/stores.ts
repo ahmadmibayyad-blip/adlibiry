@@ -7,7 +7,7 @@ import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import { internal } from "./_generated/api";
-import { effectivePlan } from "./lib/billing";
+import { byTier, tierOf } from "./lib/billing";
 
 // ── Store search & profiles ─────────────────────────────────────────────────
 
@@ -164,6 +164,23 @@ export const getTrackedStores = query({
 
 export const FREE_WATCHED_STORES = 5;
 export const PRO_WATCHED_STORES = 50;
+export const TRIAL_WATCHED_STORES = 10; // each watched store is checked for sales every day
+
+type LimitUser = Parameters<typeof tierOf>[0];
+export const watchLimit = (user: LimitUser) =>
+  byTier(user, { admin: 500, paid: PRO_WATCHED_STORES, trial: TRIAL_WATCHED_STORES, free: FREE_WATCHED_STORES });
+
+export function watchLimitMessage(user: LimitUser): string {
+  const max = watchLimit(user);
+  switch (tierOf(user)) {
+    case "free":
+      return `Free accounts can watch ${max} stores. Start the free trial to watch up to ${TRIAL_WATCHED_STORES}, or Pro for ${PRO_WATCHED_STORES}.`;
+    case "trial":
+      return `The free trial can watch ${max} stores. Subscribe to Pro to watch up to ${PRO_WATCHED_STORES}.`;
+    default:
+      return `You can watch up to ${max} stores. Remove one first.`;
+  }
+}
 
 export const toggleTrackStore = mutation({
   args: { storeId: v.id("stores") },
@@ -186,12 +203,12 @@ export const toggleTrackStore = mutation({
       return { tracked: false };
     } else {
       // Watch limit: 5 stores on Free, 50 on Pro (and the trial), 500 for admins.
-      const max = user.role === "admin" ? 500 : effectivePlan(user) === "none" ? FREE_WATCHED_STORES : PRO_WATCHED_STORES;
+      const max = watchLimit(user);
       const count = (await ctx.db.query("trackedStores").withIndex("by_user", (q) => q.eq("userId", user._id)).take(max)).length;
       if (count >= max) {
         throw new ConvexError({
           code: "LIMIT",
-          message: max === FREE_WATCHED_STORES ? `Free accounts can watch ${max} stores. Upgrade to Pro (or start the free trial) to watch up to ${PRO_WATCHED_STORES}.` : `You can watch up to ${max} stores. Remove one first.`,
+          message: watchLimitMessage(user),
         });
       }
       await ctx.db.insert("trackedStores", {

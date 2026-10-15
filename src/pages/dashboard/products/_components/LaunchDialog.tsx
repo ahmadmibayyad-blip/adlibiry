@@ -19,6 +19,7 @@ import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
 import AdKit from "./AdKit.tsx";
 import StylePicker from "./StylePicker.tsx";
+import { LAUNCH_PRO_NOTE, LAUNCH_TRIAL_NOTE, launchQuotaLabel } from "@/lib/launchQuota.ts";
 
 // Launch (convex/launch.ts): the product becomes a written, priced product
 // page in the user's Shopify store, plus an ad kit from its winning ads. Full
@@ -450,6 +451,9 @@ function LaunchButton({
   const stillRunning = prep?.last && (prep.last.status === "generating" || prep.last.status === "publishing") ? prep.last._id : null;
   const shownLaunch = launchId ?? stillRunning;
   const needsReconnect = mode === "store" && (prep?.store?.missingStoreScopes?.length ?? 0) > 0;
+  // Pro builds 3 full stores; rebuilding this product's store doesn't use another (convex/lib/launchQuota.ts).
+  const storesUsedUp =
+    mode === "store" && prep?.allowed?.storesLeft === 0 && !(prep.last?.mode === "store" && prep.last.status !== "failed");
 
   const cost = prep?.suggested.cost;
   const priceNum = Number(price);
@@ -505,8 +509,8 @@ function LaunchButton({
             <p className="text-sm text-bad">{prep.blocked}</p>
           ) : !prep.allowed ? (
             <div className="space-y-2 text-sm">
-              <p>Launch is part of Pro. Start the free 7-day trial to launch 2 products.</p>
-              <Button asChild><Link to="/#pricing">See plans</Link></Button>
+              <p>{prep.onTrial ? LAUNCH_TRIAL_NOTE : LAUNCH_PRO_NOTE}</p>
+              <Button asChild><Link to="/#pricing">{prep.onTrial ? "Subscribe to Pro" : "See plans"}</Link></Button>
             </div>
           ) : !prep.store ? (
             status.appReady ? (
@@ -573,7 +577,7 @@ function LaunchButton({
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="text-xs text-muted-foreground">
                   Store: <strong className="text-foreground">{prep.store.shopName}</strong> ·{" "}
-                  {prep.allowed.left === null ? "unlimited launches" : `${prep.allowed.left} of ${prep.allowed.limit} launches left`}
+                  {launchQuotaLabel(prep.allowed)}
                 </p>
                 {mode === "store" && <StepIndicator step={step} onBack={goTo} />}
               </div>
@@ -581,6 +585,11 @@ function LaunchButton({
               {step === 1 && (
                 <>
                   <ModeSwitch mode={mode} onChange={setMode} />
+                  {storesUsedUp && (
+                    <p className="text-xs text-warn -mt-2">
+                      You've built {prep.allowed.storesLimit} full stores, the most Pro includes. Launch this one as a product page instead.
+                    </p>
+                  )}
                   {mode === "page" && mirrorUrl.trim() ? (
                     <p className="text-xs text-warn -mt-2">
                       Mirroring {mirrorUrl.replace(/^https?:\/\/(www\.)?/, "").split(/[/?]/)[0]}'s page needs Full store. Switch back to keep it; a single product page
@@ -797,7 +806,7 @@ function LaunchButton({
                       Next: {FORM_STEPS[step]}
                     </Button>
                   ) : (
-                    <Button type="submit" className="flex-1 h-10" disabled={busy || needsReconnect}>
+                    <Button type="submit" className="flex-1 h-10" disabled={busy || needsReconnect || storesUsedUp}>
                       {busy ? <Spinner /> : <Rocket className="w-4 h-4 mr-2" />}
                       {mode === "store" ? `Build my ${STORE_STYLES[style].name} store` : "Write and launch"}
                     </Button>
@@ -805,7 +814,7 @@ function LaunchButton({
                 </div>
                 {step >= lastStep ? (
                   <p className="text-xs text-muted-foreground text-center">
-                    {prep.allowed.left === null ? "Unlimited launches" : `Uses 1 of your ${prep.allowed.left} launches left`}
+                    {launchQuotaLabel(prep.allowed)}
                     {mode === "store" ? (
                       <>
                         {" · installs as a new theme — your live store doesn't change · "}

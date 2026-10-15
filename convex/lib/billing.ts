@@ -55,6 +55,25 @@ export function effectivePlan(user: PlanUser | null, now = Date.now()): Plan {
   return paid === "none" && onProTrial(user, now) ? "pro" : paid;
 }
 
+// Which allowance an account gets. "trial" is the 7-day Pro trial (or an old
+// Stripe "trialing" subscription) before any payment: Pro research, but no
+// Launch and smaller daily allowances for what costs us money per use (AI,
+// Apify searches, store inspections), see the TRIAL_* limits next to each feature.
+export type Tier = "admin" | "paid" | "trial" | "free";
+
+export function tierOf(user: PlanUser | null, now = Date.now()): Tier {
+  if (!user) return "free";
+  if (user.role === "admin") return "admin";
+  if (effectivePlan(user, now) === "none") return "free";
+  const paying = (user.subscriptionStatus === "active" || user.subscriptionStatus === "past_due") && paidPlan(user) !== "none";
+  return paying ? "paid" : "trial";
+}
+
+/** The value for the user's tier, e.g. a daily limit. */
+export function byTier<T>(user: PlanUser | null, values: Record<Tier, T>, now = Date.now()): T {
+  return values[tierOf(user, now)];
+}
+
 // Free accounts (and old Stripe "trialing" ones) see the first 10 results of
 // each list; paying customers (active, or past_due while Stripe retries),
 // accounts on the Pro free trial and admins see all.

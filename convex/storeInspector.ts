@@ -3,13 +3,13 @@ import { action, internalMutation, internalQuery, mutation, query, type QueryCtx
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
-import { effectivePlan } from "./lib/billing";
+import { byTier } from "./lib/billing";
 import { productUrl } from "./lib/productImport";
 import { firstProductPath, inspectHtml, mergeInspections, type Inspection } from "./lib/storeInspect";
 import { fetchPage as page, teardownAt } from "./lib/pageFetch";
 import type { Teardown } from "./lib/storeTeardown";
 import type { StoreAd, StoreAnalysis } from "./lib/storeAnalysis";
-import { FREE_WATCHED_STORES, PRO_WATCHED_STORES } from "./stores";
+import { watchLimit, watchLimitMessage } from "./stores";
 
 // Store Inspector: paste a store's link, see its theme and apps (lib/storeInspect.ts) and a
 // teardown of its main product page (lib/storeTeardown.ts: bundle tiers, reviews, price,
@@ -19,6 +19,7 @@ import { FREE_WATCHED_STORES, PRO_WATCHED_STORES } from "./stores";
 const CACHE_MS = 12 * 3_600_000;
 export const FREE_INSPECTIONS_PER_DAY = 5;
 export const PRO_INSPECTIONS_PER_DAY = 100;
+export const TRIAL_INSPECTIONS_PER_DAY = 20;
 
 async function userByToken(ctx: { db: QueryCtx["db"] }, token: string): Promise<Doc<"users"> | null> {
   return ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", token)).unique();
@@ -31,7 +32,7 @@ export const before = internalQuery({
     const user = await userByToken(ctx, args.token);
     if (!user) return null;
     const since = new Date(Date.now() - 86_400_000).toISOString();
-    const limit = user.role === "admin" ? 1000 : effectivePlan(user) === "none" ? FREE_INSPECTIONS_PER_DAY : PRO_INSPECTIONS_PER_DAY;
+    const limit = byTier(user, { admin: 1000, paid: PRO_INSPECTIONS_PER_DAY, trial: TRIAL_INSPECTIONS_PER_DAY, free: FREE_INSPECTIONS_PER_DAY });
     const today = await ctx.db
       .query("storeInspections")
       .withIndex("by_user", (q) => q.eq("userId", user._id).gt("inspectedAt", since))
@@ -154,12 +155,12 @@ export const track = mutation({
     }
     const already = await ctx.db.query("trackedStores").withIndex("by_user_and_store", (q) => q.eq("userId", user._id).eq("storeId", store._id)).unique();
     if (already) return { storeId: store._id, tracked: true };
-    const max = user.role === "admin" ? 500 : effectivePlan(user) === "none" ? FREE_WATCHED_STORES : PRO_WATCHED_STORES;
+    const max = watchLimit(user);
     const count = (await ctx.db.query("trackedStores").withIndex("by_user", (q) => q.eq("userId", user._id)).take(max)).length;
     if (count >= max) {
       throw new ConvexError({
         code: "LIMIT",
-        message: max === FREE_WATCHED_STORES ? `Free accounts can watch ${max} stores. Upgrade to Pro (or start the free trial) to watch up to ${PRO_WATCHED_STORES}.` : `You can watch up to ${max} stores. Remove one first.`,
+        message: watchLimitMessage(user),
       });
     }
     await ctx.db.insert("trackedStores", { userId: user._id, storeId: store._id, trackedAt: new Date().toISOString() });
