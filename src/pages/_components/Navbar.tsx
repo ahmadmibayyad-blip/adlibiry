@@ -8,6 +8,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import { Link } from "react-router-dom";
 
 const navLinks = [
+  { label: "Tour", href: "/#tour" },
   { label: "Features", href: "/#features" },
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Pricing", href: "/#pricing" },
