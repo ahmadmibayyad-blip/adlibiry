@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
+import { launchQuotaLabel } from "@/lib/launchQuota.ts";
 
 // Every product page launched to Shopify (convex/launch.ts), newest first, grouped by product
 // (the live one leads its group). The header shows the quota (api.launch.myQuota) and the
@@ -309,11 +310,11 @@ export default function LaunchesPage() {
             {quota.allowed ? (
               <span className="border border-border rounded-md px-2.5 h-8 inline-flex items-center gap-1.5">
                 <Rocket className="w-3.5 h-3.5 text-primary" />
-                {quota.allowed.left === null ? "Unlimited launches" : `${quota.allowed.left} of ${quota.allowed.limit} launches left`}
+                {launchQuotaLabel(quota.allowed)}
               </span>
             ) : (
               <Link to="/#pricing" className="border border-primary/20 bg-primary/10 rounded-md px-2.5 h-8 inline-flex items-center text-primary">
-                Launch is part of Pro — see plans
+                {quota.onTrial ? "Launch opens when you subscribe to Pro" : "Launch is part of Pro — see plans"}
               </Link>
             )}
             {quota.store && <StoreCheck />}

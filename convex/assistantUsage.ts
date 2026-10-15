@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { stableToken } from "./lib/authIdentity";
-import { effectivePlan } from "./lib/billing";
+import { tierOf } from "./lib/billing";
 
 const envNumber = (value: string | undefined, fallback: number) => Math.max(1, Number(value ?? fallback) || fallback);
 
@@ -10,7 +10,8 @@ type Claim = { allowed: boolean; used: number; signedIn: boolean; limit: number;
 // Daily cap on AI requests (assistant, AI tools, reports, image search,
 // agents), so no account can run up the AI bill. `limit` is the paid/trial
 // allowance (ASSISTANT_DAILY_LIMIT). Free accounts get AI_FREE_DAILY_LIMIT
-// (default 5) each, and all free accounts together share
+// (default 5) each, accounts on the free trial AI_TRIAL_DAILY_LIMIT (default 10),
+// and all free accounts together share
 // AI_FREE_GLOBAL_DAILY_LIMIT (default 300) a day, so mass sign-ups can't run
 // up the bill; paying customers never hit that shared ceiling. Checked and
 // counted in one mutation, so parallel requests can't slip past. Admins are
@@ -25,8 +26,14 @@ export const claimMessage = internalMutation({
       .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))
       .unique();
     if (!user) return { allowed: false, used: 0, signedIn: false, limit: args.limit };
-    const free = effectivePlan(user) === "none";
-    const limit = free ? Math.min(args.limit, envNumber(process.env.AI_FREE_DAILY_LIMIT, 5)) : args.limit;
+    const tier = tierOf(user);
+    const free = tier === "free";
+    const limit =
+      tier === "free"
+        ? Math.min(args.limit, envNumber(process.env.AI_FREE_DAILY_LIMIT, 5))
+        : tier === "trial"
+          ? Math.min(args.limit, envNumber(process.env.AI_TRIAL_DAILY_LIMIT, 10))
+          : args.limit;
     const day = new Date().toISOString().slice(0, 10);
     const row = await ctx.db
       .query("assistantUsage")
@@ -40,8 +47,10 @@ export const claimMessage = internalMutation({
         signedIn: true,
         limit,
         message: free
-          ? `Free accounts get ${limit} AI requests a day, and you've used them. Start your free trial for ${args.limit} a day.`
-          : `You've used all ${limit} AI requests for today. Come back tomorrow.`,
+          ? `Free accounts get ${limit} AI requests a day, and you've used them. Start your free trial for more.`
+          : tier === "trial" && limit < args.limit
+            ? `The free trial includes ${limit} AI requests a day, and you've used them. Subscribe to Pro for ${args.limit} a day.`
+            : `You've used all ${limit} AI requests for today. Come back tomorrow.`,
       };
     }
     if (free) {

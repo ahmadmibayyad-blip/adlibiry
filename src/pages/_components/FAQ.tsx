@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "Is there a free plan?",
-    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month, or €30 a month paid yearly (€360), and you can try it free for 7 days without a card.",
+    a: "Yes. The Free plan shows the first 10 results of every list, with no card needed. Pro unlocks every result for €35 a month, or €30 a month paid yearly (€360), and you can try it free for 7 days without a card. The trial has smaller daily limits and doesn't include Launch; with Pro you can launch 5 products to your Shopify store, 3 of them as full stores.",
   },
   {
     q: "How accurate is the ad spend data?",

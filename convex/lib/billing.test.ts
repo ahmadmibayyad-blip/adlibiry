@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectivePlan, planForPrice, priceIdForVariant } from "./billing";
+import { byTier, effectivePlan, planForPrice, priceIdForVariant, tierOf } from "./billing";
 
 const env = {
   STRIPE_PRICE_STARTER_MONTHLY: "price_s_m",
@@ -36,5 +36,21 @@ describe("billing rules", () => {
 
   it("gives admins full access without a subscription", () => {
     expect(effectivePlan({ role: "admin" })).toBe("agency");
+  });
+});
+
+describe("tierOf", () => {
+  const now = Date.parse("2026-10-15T00:00:00Z");
+  it("tells free, trial, paid and admin apart", () => {
+    expect(tierOf(null, now)).toBe("free");
+    expect(tierOf({}, now)).toBe("free");
+    expect(tierOf({ proTrialEndsAt: now + 86_400_000 }, now)).toBe("trial");
+    expect(tierOf({ proTrialEndsAt: now - 1 }, now)).toBe("free");
+    expect(tierOf({ plan: "pro", subscriptionStatus: "trialing" }, now)).toBe("trial");
+    expect(tierOf({ plan: "pro", subscriptionStatus: "active", proTrialEndsAt: now + 86_400_000 }, now)).toBe("paid");
+    expect(tierOf({ plan: "pro", subscriptionStatus: "past_due" }, now)).toBe("paid");
+    expect(tierOf({ plan: "pro", subscriptionStatus: "canceled", proTrialEndsAt: now + 86_400_000 }, now)).toBe("trial");
+    expect(tierOf({ role: "admin" }, now)).toBe("admin");
+    expect(byTier({ proTrialEndsAt: now + 1 }, { admin: 4, paid: 3, trial: 2, free: 1 }, now)).toBe(2);
   });
 });

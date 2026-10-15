@@ -44,7 +44,7 @@ export default function PlanSection() {
   };
 
   const renewNote = (() => {
-    if (onTrial) return `Free Pro trial until ${day(trial.endsAt!)}. Upgrade to keep Pro after that.`;
+    if (onTrial) return `Free Pro trial until ${day(trial.endsAt!)}, with smaller daily limits. Subscribe to keep Pro and open Launch.`;
     if (!isPro || !billing?.periodEnd) return "Every result is unlocked.";
     const amount = proCharge(billing.period);
     return billing.autoRenew

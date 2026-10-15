@@ -3,7 +3,8 @@ import { internalMutation, internalQuery, mutation, query, type MutationCtx, typ
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
-import { effectivePlan, onProTrial } from "./lib/billing";
+import { effectivePlan, tierOf } from "./lib/billing";
+import { UNLIMITED, overQuota, proAllowance, type LaunchAllowance } from "./lib/launchQuota";
 import { MAX_AI_PHOTOS, aiPhotosReady } from "./lib/aiPhotos";
 import { suggestPrice } from "./lib/launchCopy";
 import { bigBrandIn } from "./lib/productMatch";
@@ -21,11 +22,10 @@ import { MAX_WISHES, type DesignWishes } from "./lib/designWishes";
 // pages and menus, and installs our storefront theme (shopify-theme/) in the
 // chosen style as an unpublished theme; publishTheme() makes it the live one.
 // The page shows progress from the launches row.
-// Quota: Pro 10 published pages a month (LAUNCH_MONTHLY_PRO), Pro trial 2 in
-// total, agency plan and admins unlimited.
+// Quota (lib/launchQuota.ts): Pro 5 products in total, 3 of them as full
+// stores; agency plan and admins unlimited. Not on the free trial: it builds
+// with paid AI, so Launch opens once the user pays.
 
-const PRO_MONTHLY = () => Math.max(0, Number(process.env.LAUNCH_MONTHLY_PRO ?? 10) || 10);
-const TRIAL_TOTAL = 2;
 const month = () => new Date().toISOString().slice(0, 7);
 
 /** Units of `currency` per USD from the daily ECB rates (currency.ts); 1 for USD or an unknown currency. */
@@ -43,19 +43,25 @@ async function currentUser(ctx: QueryCtx) {
   return ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique();
 }
 
-/** How many launches are left this month (null: unlimited); undefined when Launch isn't in the plan. */
-async function allowance(ctx: QueryCtx, user: Doc<"users">): Promise<{ left: number | null; limit: number | null } | undefined> {
-  const plan = effectivePlan(user);
-  if (plan === "none") return undefined;
-  if (plan === "agency") return { left: null, limit: null };
-  if (onProTrial(user) && !user.subscriptionStatus) {
-    const all = await ctx.db.query("launchUsage").withIndex("by_user_month", (q) => q.eq("userId", user._id)).collect();
-    const used = all.reduce((s, r) => s + r.count, 0);
-    return { left: Math.max(0, TRIAL_TOTAL - used), limit: TRIAL_TOTAL };
-  }
-  const row = await ctx.db.query("launchUsage").withIndex("by_user_month", (q) => q.eq("userId", user._id).eq("month", month())).unique();
-  return { left: Math.max(0, PRO_MONTHLY() - (row?.count ?? 0)), limit: PRO_MONTHLY() };
+/** The user's launches, for the quota. */
+async function quotaLaunches(ctx: QueryCtx, user: Doc<"users">) {
+  const rows = await ctx.db.query("launches").withIndex("by_user", (q) => q.eq("userId", user._id)).collect();
+  return rows.map((l) => ({ productId: l.productId as string, status: l.status, mode: l.mode }));
 }
+
+/** Products and full stores left (null: unlimited); "trial" on the free trial; undefined when Launch isn't in the plan. */
+async function allowance(ctx: QueryCtx, user: Doc<"users">): Promise<LaunchAllowance | "trial" | undefined> {
+  const tier = tierOf(user);
+  if (tier === "free") return undefined;
+  if (tier === "trial") return "trial";
+  if (tier === "admin" || effectivePlan(user) === "agency") return UNLIMITED;
+  return proAllowance(await quotaLaunches(ctx, user));
+}
+
+/** For the app: `allowed` null when Launch isn't open to the user, `onTrial` says it opens when they pay. */
+const allowedFields = (a: LaunchAllowance | "trial" | undefined) => ({ allowed: a && a !== "trial" ? a : null, onTrial: a === "trial" });
+
+const TRIAL_MESSAGE = "Launch opens when you subscribe to Pro: 5 products, 3 of them as full stores. The free trial covers the research tools.";
 
 /** Why Launch is off for a big-brand product (flagged on import, or a brand in its title), or null. */
 function bigBrandBlock(p: Launchable): string | null {
@@ -80,7 +86,7 @@ export const prepare = query({
       .first();
     const currency = store?.currency ?? "USD";
     return {
-      allowed: (await allowance(ctx, user)) ?? null,
+      ...allowedFields(await allowance(ctx, user)),
       store: store
         ? {
             shopDomain: store.shopDomain,
@@ -188,8 +194,10 @@ export const relaunch = mutation({
 
 async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs): Promise<{ launchId: Id<"launches"> }> {
   const allowed = await allowance(ctx, user);
-  if (!allowed) throw new ConvexError({ code: "PLAN_REQUIRED", message: "Launch is part of Pro. Start the 7-day trial or upgrade to use it." });
-  if (allowed.left === 0) throw new ConvexError({ code: "LIMIT", message: `You've used your ${allowed.limit} launches${allowed.limit === TRIAL_TOTAL ? " on the trial" : " this month"}.` });
+  if (!allowed) throw new ConvexError({ code: "PLAN_REQUIRED", message: "Launch is part of Pro: 5 products, 3 of them as full stores." });
+  if (allowed === "trial") throw new ConvexError({ code: "TRIAL", message: TRIAL_MESSAGE });
+  const over = overQuota(await quotaLaunches(ctx, user), args.productId, args.mode === "store" ? "store" : "page", allowed);
+  if (over) throw new ConvexError({ code: "LIMIT", message: over });
   const product = await getLaunchProduct(ctx, args.productId, user._id);
   if (!product) throw new ConvexError({ code: "NOT_FOUND", message: "Product not found." });
   const blocked = bigBrandBlock(product);
@@ -282,9 +290,8 @@ export const myQuota = query({
     return {
       plan: effectivePlan(user),
       aiPhotosReady: aiPhotosReady(),
-      // null when Launch isn't in the plan; left/limit null = unlimited.
-      allowed: allowed ?? null,
-      used: allowed && allowed.limit !== null && allowed.left !== null ? allowed.limit - allowed.left : null,
+      // allowed null when Launch isn't open (onTrial: it opens once they pay); left/limit null = unlimited.
+      ...allowedFields(allowed),
       store: store
         ? { shopDomain: store.shopDomain, shopName: store.shopName, viaApp: store.via === "oauth", locale: store.locale ?? "en", currency: store.currency ?? "USD" }
         : null,
