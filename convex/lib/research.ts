@@ -50,7 +50,7 @@ const STOP = new Set(
     "women men womens mens kids size color colour black white red blue green pink large small mini big pro plus max " +
     "tiktok facebook instagram amazon aliexpress 2024 2025 2026 day days week year use easy make made " +
     "yourself again trial online better save start code stock feel meet try discount coupon promo deliver delivery " +
-    "der die das und mit fur til med och les des une pour con por para"
+    "every does nothing name sample starter service first looking good need want know see works thing things"
   ).split(" "),
 );
 
@@ -62,6 +62,14 @@ const VAGUE = new Set(
     "body face outdoor indoor travel"
   ).split(" "),
 );
+
+// Common words of other languages: trends list English product phrases, and
+// fragments of German or Danish ad copy read as nonsense there.
+const FOREIGN = new Set(
+  "und der das ist nicht mit fur sie ein eine til med og ikke det som les des pour avec une est por para con los las del una".split(" "),
+);
+export const isForeign = (title: string) =>
+  title.toLowerCase().normalize("NFKD").replace(/[^a-z ]+/g, " ").split(/\s+/).some((w) => FOREIGN.has(w));
 
 export function keywordsOf(title: string): string[] {
   const words = title
@@ -105,15 +113,14 @@ export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] 
   // phrases with enough of them: per-phrase maps for every phrase of 12 weeks
   // of ads ran the rebuild out of memory.
   // A phrase must also come from 3+ advertisers: one brand running many
-  // copies of an ad isn't a trend. Ads with no known advertiser count apart.
+  // copies of an ad isn't a trend. Ads with no known advertiser count by title.
   const recent = new Map<string, Set<string>>();
-  let unknown = 0;
   for (const ad of ads) {
     const w = weekOf(ad);
     if (w < 0) continue;
     totals[w]++;
-    if (w !== WEEKS - 1) continue;
-    const who = ad.advertiser?.toLowerCase() || `?${unknown++}`;
+    if (w !== WEEKS - 1 || isForeign(ad.title)) continue;
+    const who = ad.advertiser?.toLowerCase() || `?${ad.title.toLowerCase()}`;
     for (const k of keywordsOf(ad.title)) {
       let set = recent.get(k);
       if (!set) recent.set(k, (set = new Set()));
@@ -126,7 +133,7 @@ export function buildTrends(ads: AdLite[], now: number, limit = 36): TrendRow[] 
   const acc = new Map<string, Acc>();
   for (const ad of ads) {
     const week = weekOf(ad);
-    if (week < 0) continue;
+    if (week < 0 || isForeign(ad.title)) continue;
     for (const k of keywordsOf(ad.title)) {
       if (!keep.has(k)) continue;
       let a = acc.get(k);
