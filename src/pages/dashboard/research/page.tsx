@@ -105,7 +105,7 @@ function TrendsTab() {
           })}
         </div>
         <p className="text-xs text-muted-foreground">
-          Product words and phrases counted in new ads each week. Rising = more new ads this week than last. Updated every morning.
+          Product words and phrases in new ads from 3+ advertisers. Rising = a bigger share of this week's new ads than the 4 weeks before. Updated every morning.
         </p>
       </div>
 

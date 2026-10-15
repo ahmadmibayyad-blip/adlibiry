@@ -501,7 +501,7 @@ describe("Research tab", () => {
     await t.run(async (ctx) => {
       await ctx.db.insert("niches", { name: "Fake", icon: "Package", description: "demo", avgAiScore: 99, productCount: 999, trendDirection: "Rising", topCountries: [] });
       for (let i = 0; i < 4; i++) {
-        await ctx.db.insert("ads", ad({ firstSeenAt: "2026-09-28T00:00:00.000Z", landingPageUrl: `https://paws.example.com/products/dog-cooling-mat-${i}` }));
+        await ctx.db.insert("ads", ad({ advertiserName: `Shop ${i}`, firstSeenAt: "2026-09-28T00:00:00.000Z", landingPageUrl: `https://paws.example.com/products/dog-cooling-mat-${i}` }));
       }
     });
     await runPipeline(t);

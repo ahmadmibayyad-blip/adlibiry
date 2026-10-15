@@ -15,9 +15,15 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
   let trends = await ctx.db.query("trends").withIndex("by_updated").order("desc").take(200);
   if (args.niche) trends = trends.filter((t) => t.niche === args.niche);
   if (args.direction) trends = trends.filter((t) => t.direction === args.direction);
-  // Rising first (biggest gain first), then steady, then falling.
+  // Rising first, then steady, then falling; within each, the rebuild's own
+  // order (most new ads above usual first), else the biggest gain.
   const order: Record<string, number> = { Rising: 0, Stable: 1, Declining: 2 };
-  return trends.sort((a, b) => (order[a.direction] ?? 3) - (order[b.direction] ?? 3) || b.risingPercent - a.risingPercent);
+  return trends.sort(
+    (a, b) =>
+      (order[a.direction] ?? 3) - (order[b.direction] ?? 3) ||
+      (a.rank ?? Infinity) - (b.rank ?? Infinity) ||
+      b.risingPercent - a.risingPercent,
+  );
 };
 
 export const list = query({

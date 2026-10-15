@@ -60,6 +60,17 @@ describe("buildTrends", () => {
     expect(rows.find((r) => r.keyword === "dog cooling mat")).toMatchObject({ direction: "Stable", risingPercent: 0 });
   });
 
+  it("skips phrases from a single advertiser and ranks by new ads above usual", () => {
+    const ads = [
+      ...Array.from({ length: 20 }, () => ad("Synchro der Erbe Gummibärchen", 2, { advertiser: "Synchro" })),
+      ...Array.from({ length: 4 }, (_, i) => ad("Heated eye mask", 1, { advertiser: `Shop ${i}` })),
+      ...Array.from({ length: 2 }, () => ad("Heated eye mask", 1, { advertiser: "Shop 0" })),
+    ];
+    const rows = buildTrends(ads, NOW);
+    expect(rows.map((r) => r.keyword)).toEqual(["heated eye mask"]);
+    expect(rows[0].rank).toBe(0);
+  });
+
   it("lists vague single words only inside a phrase", () => {
     const rows = buildTrends(Array.from({ length: 4 }, () => ad("Custom phone case", 1)), NOW);
     expect(rows.map((r) => r.keyword)).toEqual(["custom phone case"]);
