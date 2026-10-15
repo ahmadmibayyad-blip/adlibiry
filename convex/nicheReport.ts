@@ -43,7 +43,7 @@ export const generate = action({
     const data = [
       stats
         ? `${stats.productCount} products tracked; average score of the top 20: ${stats.avgAiScore}/100; trend: ${stats.trendDirection}; ${stats.description}; top countries: ${stats.topCountries.join(", ") || "unknown"}.`
-        : "No aggregate stats for this niche yet.",
+        : "No aggregate stats for this category yet.",
       top.page.length
         ? `Top products by score:\n${top.page
             .map((p) => `- ${p.title} (score ${p.aiScore}${p.price !== undefined ? `, $${p.price}` : ""}${p.linkedAds ? `, ${p.linkedAds} ads` : ""})`)
@@ -60,11 +60,11 @@ export const generate = action({
         max_tokens: 16000,
         output_config: { effort: "low", format: zodOutputFormat(ReportSchema) },
         system:
-          "You are a dropshipping market analyst. Write a concise, specific niche report for a store owner, grounded in the data given. Don't invent numbers that aren't in the data. Up to 4 opportunities and up to 4 risks, each one sentence. Competition level reflects ad saturation, entry barriers and how commoditised the niche is.",
-        messages: [{ role: "user", content: `Niche: ${args.niche}\n\nData from AdSpy Pro:\n${data}` }],
+          "You are a dropshipping market analyst. Write a concise, specific category report for a store owner, grounded in the data given. Don't invent numbers that aren't in the data. Up to 4 opportunities and up to 4 risks, each one sentence. Competition level reflects ad saturation, entry barriers and how commoditised the category is. Call it a category, never a niche.",
+        messages: [{ role: "user", content: `Category: ${args.niche}\n\nData from AdSpy Pro:\n${data}` }],
       });
       if (response.stop_reason === "refusal" || !response.parsed_output) {
-        throw new ConvexError({ code: "AI_ERROR", message: "The AI couldn't write a report for this niche. Please try again." });
+        throw new ConvexError({ code: "AI_ERROR", message: "The AI couldn't write a report for this category. Please try again." });
       }
       const r = response.parsed_output;
       return { ...r, opportunities: r.opportunities.slice(0, 4), risks: r.risks.slice(0, 4) };
