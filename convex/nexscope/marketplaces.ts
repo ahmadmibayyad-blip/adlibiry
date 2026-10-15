@@ -91,9 +91,20 @@ export function nicheFromTikTokCategory(name: string | undefined): string | unde
   return name ? TIKTOK_CATEGORIES.find(([re]) => re.test(name))?.[1] : undefined;
 }
 
+// The US shop sends its currency as "USD" or just "$".
+const isUsd = (currency: string | undefined) => !currency || /^(usd|us\s?\$|\$)$/i.test(currency.trim());
+
+/** A dollar price kept as text ("40.3 $", "$40.30", "40.3 USD"), as older imports saved it; undefined for other currencies. */
+export function usdFromDollarText(text: string | undefined): number | undefined {
+  const m = text?.match(/^\s*(?:US\s?)?\$?\s*([\d,]+(?:\.\d+)?)\s*(\$|USD|US\s?\$)?\s*$/i);
+  if (!m || (!m[2] && !/\$/.test(text!))) return undefined;
+  const n = Number(m[1].replace(/,/g, ""));
+  return n > 0 ? Math.round(n * 100) / 100 : undefined;
+}
+
 export function fromTikTokShop(p: TikTokShopProduct): Discovered | null {
   if (!p.productId || !p.title || !p.imageUrl || p.offShelvesText === "Yes") return null;
-  const usd = !p.currency || p.currency.toUpperCase() === "USD";
+  const usd = isUsd(p.currency);
   const units = p.totalSale1dCnt ?? p.totalSale7dCnt;
   const category = classifyNiche({ title: p.title }, nicheFromTikTokCategory(p.categoryName));
   const sold = p.totalSaleCnt ? `${p.totalSaleCnt.toLocaleString("en-US")} sold in total` : "";
