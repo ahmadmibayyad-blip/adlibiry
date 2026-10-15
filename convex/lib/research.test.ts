@@ -3,8 +3,9 @@ import { buildDashboard, buildNiches, buildTrends, isHomepageUrl, keywordsOf, ty
 
 const NOW = Date.parse("2026-09-30T08:00:00Z");
 const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
+let shop = 0; // each ad from its own advertiser unless a test says otherwise
 const ad = (title: string, d: number, over: Partial<AdLite> = {}): AdLite => ({
-  title, niche: "Pet Supplies", platform: "TikTok", countries: ["US"], firstSeenAt: daysAgo(d), ...over,
+  title, niche: "Pet Supplies", platform: "TikTok", countries: ["US"], firstSeenAt: daysAgo(d), advertiser: `Shop ${shop++}`, ...over,
 });
 
 describe("keywords", () => {
@@ -69,6 +70,15 @@ describe("buildTrends", () => {
     const rows = buildTrends(ads, NOW);
     expect(rows.map((r) => r.keyword)).toEqual(["heated eye mask"]);
     expect(rows[0].rank).toBe(0);
+  });
+
+  it("skips foreign-language ads and copies of one ad with no advertiser", () => {
+    const ads = [
+      ...Array.from({ length: 5 }, (_, i) => ad("Synchro und das nutzlose Erbe", 2, { advertiser: `Seite ${i}` })),
+      ...Array.from({ length: 5 }, () => ad("Glod lys bar spar til", 2, { advertiser: undefined })),
+      ...Array.from({ length: 3 }, (_, i) => ad(`Whey protein shake ${["vanilla", "cocoa", "berry"][i]}`, 2, { advertiser: undefined })),
+    ];
+    expect(buildTrends(ads, NOW).map((r) => r.keyword)).toEqual(["whey protein shake"]);
   });
 
   it("lists vague single words only inside a phrase", () => {
