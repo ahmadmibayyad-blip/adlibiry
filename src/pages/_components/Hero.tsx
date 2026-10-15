@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -85,8 +85,12 @@ export default function Hero() {
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </a>
             </Button>
-            <a href="/#features" className="text-sm font-medium text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground">
-              See what's inside
+            <a
+              href="/#tour"
+              className="inline-flex items-center gap-2 min-h-11 text-sm font-medium text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground"
+            >
+              <Play className="w-4 h-4 fill-current" aria-hidden="true" />
+              Watch the tour (1:33)
             </a>
           </div>
         </div>

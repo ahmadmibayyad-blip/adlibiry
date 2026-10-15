@@ -58,6 +58,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Videos are fetched in ranges (206), which the cache can't store: leave them to the browser.
+  if (url.pathname.startsWith("/videos/") || event.request.headers.has("range")) {
+    return;
+  }
+
   // Network-first for other same-origin GET requests
   event.respondWith(
     fetch(event.request)

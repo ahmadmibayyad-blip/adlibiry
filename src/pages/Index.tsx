@@ -4,6 +4,8 @@ import Hero from "./_components/Hero.tsx";
 import StatsBar from "./_components/StatsBar.tsx";
 import Features from "./_components/Features.tsx";
 import HowItWorks from "./_components/HowItWorks.tsx";
+import VideoTour from "./_components/VideoTour.tsx";
+import Reels from "./_components/Reels.tsx";
 import AdSpy from "./_components/AdSpy.tsx";
 import Pricing from "./_components/Pricing.tsx";
 import Testimonials from "./_components/Testimonials.tsx";
@@ -29,7 +31,9 @@ export default function Index() {
       <HideOnError>
         <StatsBar />
       </HideOnError>
+      <VideoTour />
       <Features />
+      <Reels />
       <HowItWorks />
       <HideOnError>
         <AdSpy />
