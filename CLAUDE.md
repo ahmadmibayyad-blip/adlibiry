@@ -96,6 +96,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   (`SCREEN_PAGE_RUNS`, counted in `screenPageRuns`) plus the shared AI limit. The preview iframe is `sandbox="allow-scripts"` only: never give AI HTML the app origin.
 - Both take a link too: `pageShots.take` runs Apify's free `apify/screenshot-url` (full page, 1280 wide, ~20 s, ~$0.003) and returns the PNG to the browser,
   which cuts it like an upload. Daily limit `LINK_SHOTS` (table `pageShots`); needs `APIFY_TOKEN`. A sticky header can show up mid-image (scroll artefact).
+- Publish to Shopify (`screenPagesShopify.publish`): a Shopify page (templateSuffix `adspy-landing`) with the HTML as its body; the template
+  (`{% layout none %}{{ page.content }}`, also in both theme folders) is added to the live theme with `themeFilesUpsert` once. If Shopify refuses,
+  the error (code TEMPLATE_NEEDED) carries the template for the user to add by hand; no page is made then. Publishing again updates the same page.
 
 ## UI
 

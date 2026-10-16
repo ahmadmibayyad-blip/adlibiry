@@ -71,3 +71,15 @@ export function pageTitle(html: string): string {
   const h1 = decode(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? "");
   return (title || h1 || "Untitled page").slice(0, 80);
 }
+
+// "Publish to Shopify" (screenPagesShopify.ts): a Shopify page whose template shows its HTML as a whole document,
+// without the theme's header, footer or CSS (Tailwind's reset would restyle the theme otherwise).
+export const LANDING_TEMPLATE_SUFFIX = "adspy-landing";
+export const LANDING_TEMPLATE_FILE = `templates/page.${LANDING_TEMPLATE_SUFFIX}.liquid`;
+export const LANDING_TEMPLATE =
+  "{% layout none %}\n{% comment %}AdSpy Pro, Screenshot to page: the page HTML is a whole document of its own, shown without the theme.{% endcomment %}\n{{ page.content }}\n";
+
+/** What to do when Shopify won't let the app add the template: add it once by hand. */
+export const TEMPLATE_STEPS =
+  `Shopify didn't let AdSpy add the page template to your live theme, so add it once yourself: Online Store → Themes → ⋯ → Edit code → ` +
+  `Templates → Add a new template → page, type ${LANDING_TEMPLATE_SUFFIX}, .liquid → replace everything with the template below → Save. Then publish again.`;

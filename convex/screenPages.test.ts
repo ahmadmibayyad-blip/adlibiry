@@ -152,3 +152,75 @@ describe("screenshot from a link", () => {
     await expect(me.action(api.pageShots.take, { url: "https://store.com" })).rejects.toThrow(/taken 4 screenshots from links today/);
   });
 });
+
+describe("publish to Shopify", () => {
+  type Call = { query: string; variables: Record<string, unknown> };
+  function stubShopify(calls: Call[], { hasTemplate = false, refuseTemplate = false, body = page("Dream Pillow") } = {}) {
+    vi.stubGlobal("fetch", async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (!url.includes("my-store.myshopify.com/admin/api/")) return new Response("", { status: 404 });
+      const { query, variables } = JSON.parse(String(init?.body));
+      calls.push({ query, variables });
+      if (query.includes("MainTheme")) {
+        return Response.json({ data: { shop: { primaryDomain: { url: "https://mystore.com" } }, themes: { nodes: [{ id: "gid://shopify/OnlineStoreTheme/7", name: "Dawn", files: { nodes: hasTemplate ? [{ filename: "templates/page.adspy-landing.liquid" }] : [] } }] } } });
+      }
+      if (query.includes("themeFilesUpsert")) {
+        return refuseTemplate
+          ? Response.json({ errors: [{ message: "Access denied for themeFilesUpsert field. Required access: write_themes access scope. Also: requires an exemption" }] })
+          : Response.json({ data: { themeFilesUpsert: { upsertedThemeFiles: [{ filename: "templates/page.adspy-landing.liquid" }], userErrors: [] } } });
+      }
+      if (query.includes("pageCreate")) return Response.json({ data: { pageCreate: { page: { id: "gid://shopify/Page/55", handle: "dream-pillow" }, userErrors: [] } } });
+      if (query.includes("pageUpdate")) return Response.json({ data: { pageUpdate: { page: { id: "gid://shopify/Page/55", handle: "dream-pillow" }, userErrors: [] } } });
+      if (query.includes("PageBody")) return Response.json({ data: { page: { body } } });
+      return Response.json({ errors: [{ message: "unexpected" }] });
+    });
+  }
+
+  async function readyPage(store = true) {
+    const s = await setup();
+    const id = await s.t.run(async (ctx) => {
+      const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", "u1")).unique();
+      if (store) await ctx.db.insert("shopifyConnections", { userId: user!._id, shopDomain: "my-store.myshopify.com", shopName: "My Store", accessToken: "shpat_plain", connectedAt: "2026-10-01T00:00:00Z" });
+      return ctx.db.insert("screenPages", { userId: user!._id, title: "Dream Pillow", imageIds: [], html: page("Dream Pillow"), status: "ready", createdAt: 1, updatedAt: 1 });
+    });
+    return { ...s, id };
+  }
+
+  it("adds the template to the live theme once, creates the page, and updates it the next time", async () => {
+    const { me, id } = await readyPage();
+    const calls: Call[] = [];
+    stubShopify(calls);
+    const r = await me.action(api.screenPagesShopify.publish, { id });
+    expect(r).toEqual({ url: "https://mystore.com/pages/dream-pillow", adminUrl: "https://my-store.myshopify.com/admin/pages/55", updated: false });
+    const upsert = calls.find((c) => c.query.includes("themeFilesUpsert"))!;
+    expect(upsert.variables).toMatchObject({ themeId: "gid://shopify/OnlineStoreTheme/7", files: [{ filename: "templates/page.adspy-landing.liquid", body: { type: "TEXT" } }] });
+    expect(JSON.stringify(upsert.variables)).toContain("{% layout none %}");
+    const create = calls.find((c) => c.query.includes("pageCreate"))!;
+    expect(create.variables.page).toEqual({ title: "Dream Pillow", body: page("Dream Pillow"), templateSuffix: "adspy-landing", isPublished: true });
+    expect((await me.query(api.screenPages.get, { id }))?.shopify).toMatchObject({ pageId: "gid://shopify/Page/55", url: "https://mystore.com/pages/dream-pillow" });
+
+    // Again: the template is there now, and the same page is updated.
+    calls.length = 0;
+    stubShopify(calls, { hasTemplate: true });
+    expect(await me.action(api.screenPagesShopify.publish, { id })).toMatchObject({ updated: true });
+    expect(calls.some((c) => c.query.includes("themeFilesUpsert") || c.query.includes("pageCreate"))).toBe(false);
+    expect(calls.find((c) => c.query.includes("pageUpdate"))?.variables).toMatchObject({ id: "gid://shopify/Page/55" });
+  });
+
+  it("explains how to add the template when Shopify won't let the app, and needs a store", async () => {
+    const { me, id } = await readyPage();
+    const calls: Call[] = [];
+    stubShopify(calls, { refuseTemplate: true });
+    await expect(me.action(api.screenPagesShopify.publish, { id })).rejects.toThrow(/add it once yourself/);
+    expect(calls.some((c) => c.query.includes("pageCreate"))).toBe(false); // no page that would show the raw document
+
+    const noStore = await readyPage(false);
+    await expect(noStore.me.action(api.screenPagesShopify.publish, { id: noStore.id })).rejects.toThrow(/Connect your Shopify store/);
+  });
+
+  it("warns when Shopify strips the page's styling code", async () => {
+    const { me, id } = await readyPage();
+    stubShopify([], { hasTemplate: true, body: "<h1>Dream Pillow</h1>" });
+    expect((await me.action(api.screenPagesShopify.publish, { id })).note).toMatch(/removed the page's styling/);
+  });
+});
