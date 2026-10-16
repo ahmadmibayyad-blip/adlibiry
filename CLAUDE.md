@@ -115,6 +115,14 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   `withPegged` adds the dollar-pegged Gulf currencies (AED, SAR, QAR, BHD, OMR, JOD) the ECB doesn't publish. `toUsd(p, usdRates)` uses today's
   rates when an action passes them (`internal.currency.allRates`); the table in `lib/priceParse.ts` is only the fallback.
 
+- Store Inspector → Google & YouTube ads (`googleAds.forStore`, `lib/googleAds.ts`): Google's Ads Transparency Center through ScrapeCreators
+  (`SCRAPECREATORS_API_KEY`, header x-api-key; Google has no official API). `/v1/google/company/ads?domain=…&get_ad_details=true` costs 25 credits
+  (~$0.05); answers kept 24 h per store and platform (`googleAdLookups`), per-user daily limit `GOOGLE_AD_LOOKUPS` (`googleAdRuns`).
+- CJ Dropshipping (`cj.ts`, `lib/cj.ts`, `CJ_API_KEY`; optional `CJ_LOOKUPS_PER_DAY`, default 500): a second supplier. A product page without
+  `cjMatches` searches CJ's /product/listV2 by title once (retry after 7 days), matched like AliExpress. `cj.shipping` prices the best match
+  to the user's target country (/product/query → vid, /logistic/freightCalculate), from a CJ warehouse in that country when it has stock,
+  cached a week (`cjShipping`). CJ allows 1 request/second; the 180-day access token is kept in `cjAuth` and renewed with its refresh token.
+
 ## UI
 
 - Components: shadcn/ui in `src/components/ui`, icons from `lucide-react`, toasts via `sonner`, charts via `src/pages/dashboard/_components/charts.tsx`.

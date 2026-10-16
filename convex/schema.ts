@@ -131,6 +131,18 @@ export default defineSchema({
     costCheckedAt: v.optional(v.string()), // last AliExpress supplier search
     supplierLookupAt: v.optional(v.string()), // last on-demand supplier search when the product page opened (convex/aliexpress.ts findSuppliers)
     // Top 3 AliExpress suppliers by title match (convex/aliexpress.ts); url is the affiliate link when set up.
+    // CJ Dropshipping matches by title (cj.ts, lib/cj.ts) and when CJ was last searched for it.
+    cjMatches: v.optional(v.array(v.object({
+      pid: v.string(),
+      title: v.string(),
+      price: v.number(),
+      url: v.string(),
+      imageUrl: v.optional(v.string()),
+      listed: v.optional(v.number()),
+      inventory: v.optional(v.number()),
+      similarity: v.number(),
+    }))),
+    cjLookupAt: v.optional(v.string()),
     supplierMatches: v.optional(v.array(v.object({
       title: v.string(),
       price: v.number(),
@@ -619,6 +631,20 @@ export default defineSchema({
   // Public holidays per country and year from Nager.Date, for the selling calendar (sellingCalendar.ts).
   publicHolidays: defineTable({ country: v.string(), year: v.number(), days: v.array(v.object({ date: v.string(), name: v.string(), localName: v.string() })), fetchedAt: v.number() })
     .index("by_country_year", ["country", "year"]),
+  // CJ Dropshipping (cj.ts): the API access token, lookups per day, and shipping quotes per product and country.
+  cjAuth: defineTable({ accessToken: v.string(), accessExpiresAt: v.number(), refreshToken: v.string(), refreshExpiresAt: v.number() }),
+  cjLookupUsage: defineTable({ day: v.string(), count: v.number() }).index("by_day", ["day"]),
+  cjShipping: defineTable({
+    pid: v.string(),
+    country: v.string(),
+    from: v.string(),
+    cheapest: v.object({ method: v.string(), priceUsd: v.number(), days: v.string() }),
+    fastest: v.object({ method: v.string(), priceUsd: v.number(), days: v.string() }),
+    at: v.number(),
+  }).index("by_pid_country", ["pid", "country"]),
+  // Store Inspector → Google & YouTube ads (googleAds.ts): answers per store and platform, and lookups per user.
+  googleAdLookups: defineTable({ host: v.string(), platform: v.string(), result: v.any(), at: v.number() }).index("by_host_platform", ["host", "platform"]),
+  googleAdRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
   // A store theme's own home page template, saved before a landing page replaced it (screenPagesShopify.ts), to restore it.
   homeBackups: defineTable({ userId: v.id("users"), shopDomain: v.string(), themeId: v.string(), content: v.string(), savedAt: v.number() }).index("by_shop_theme", ["shopDomain", "themeId"]),
   // One row per page made or changed, for the daily limit (lib/screenPage.ts SCREEN_PAGE_RUNS).
