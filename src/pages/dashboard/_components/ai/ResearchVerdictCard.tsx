@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { AlertTriangle, ArrowRight, ClipboardList, Lightbulb, Microscope, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { FEE_FIXED, FEE_PCT, type EvidenceLabel, type Margin, type ResearchReport, type ReviewSample } from "@/convex/lib/researchReport.ts";
+import { formatMoney } from "@/convex/lib/currency.ts";
+import { withVat } from "@/convex/lib/vat.ts";
+import { whyLine, type Rules } from "@/convex/lib/verdictRules.ts";
+import type { OwnOrders } from "@/convex/ownOrders.ts";
+import ConnectShopify from "@/components/ConnectShopify.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
@@ -26,8 +32,6 @@ const LABEL: Record<EvidenceLabel, { text: string; style: string }> = {
   assumption: { text: "assumption", style: "bg-muted text-muted-foreground" },
   verify: { text: "check this", style: "bg-warn/15 text-warn" },
 };
-
-const usd = (n: number) => `$${n.toFixed(2)}`;
 
 // Where on the product page each next step can be started (ids set in products/[id].tsx).
 const NEXT_STEP: Partial<Record<ResearchReport["nextTask"], { target: string; label: string; needsSuppliers?: boolean }>> = {
@@ -67,6 +71,16 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
   const report = saved?.report as ResearchReport | undefined;
   const margin = saved?.margin as Margin | null | undefined;
   const reviews = saved?.reviews as ReviewSample | undefined;
+  const rules = saved?.rules as Rules | undefined;
+  const ownStore = saved?.ownStore as OwnOrders | undefined;
+  const vat = saved?.vat as { rate: number; country: string } | null | undefined;
+  const currency = useQuery(api.currency.mine, {});
+  const mine = useQuery(api.onboarding.mine, {});
+  const code = currency?.code ?? "USD";
+  const rate = currency?.rate ?? 1;
+  const usd = (n: number) => (code === "DKK" ? `${(n * rate).toFixed(2)} kr` : formatMoney(n, code, rate)); // Danish amounts end in kr
+  const afterVat = margin && vat ? withVat(margin, vat.rate) : null;
+  const fxDate = currency?.date;
   const step = report ? NEXT_STEP[report.nextTask] : undefined;
   const stepLink = step && (!step.needsSuppliers || hasSuppliers) ? step : undefined;
 
@@ -109,6 +123,18 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
               <p className="text-[11px] text-muted-foreground mt-1">{CALL[report.call].note}</p>
             </div>
 
+            {saved?.rulesVersion && rules ? (
+              <Section icon={ClipboardList} title="Why this verdict">
+                <p className="text-xs">{whyLine(rules, usd)}</p>
+                {report.call === "research" && rules.cappedBy && <p className="text-xs text-muted-foreground mt-1">Capped at research more: {rules.cappedBy}</p>}
+                {report.call === "skip" && rules.cappedBy && <p className="text-xs text-muted-foreground mt-1">Skipped: {rules.cappedBy}</p>}
+              </Section>
+            ) : (
+              <button type="button" onClick={run} disabled={busy} className="text-[11px] text-muted-foreground underline">
+                Made with older rules · Refresh
+              </button>
+            )}
+
             {report.reasons.length > 0 && (
               <Section icon={ClipboardList} title="Why">
                 <ul className="space-y-1.5">
@@ -130,16 +156,44 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                     <span className="text-muted-foreground">Supplier cost (landed)</span><span>−{usd(margin.cost)}</span>
                     <span className="text-muted-foreground">Card fees (assumed)</span><span>−{usd(margin.fees)}</span>
                     <span className="font-semibold">Left for ads</span><span className="font-semibold">{usd(margin.profit)} ({margin.profitPct}%)</span>
+                    {afterVat && (
+                      <>
+                        <span className="font-semibold">Left for ads after VAT</span>
+                        <span className="font-semibold">{usd(afterVat.profitAfterVat)}</span>
+                      </>
+                    )}
                   </div>
                   <p className="text-muted-foreground">
-                    So each sale may cost at most <strong className="text-foreground">{usd(margin.breakEvenAdCost)}</strong> in ads before you lose money. Fees assumed at{" "}
-                    {(FEE_PCT * 100).toFixed(1)}% + ${FEE_FIXED.toFixed(2)}; not counted: refunds, discounts, VAT, chargebacks, apps.
+                    So each sale may cost at most <strong className="text-foreground">{usd(afterVat ? afterVat.breakEvenAfterVat : margin.breakEvenAdCost)}</strong> in ads before you lose money
+                    {vat ? ` (after ${Math.round(vat.rate * 1000) / 10}% ${vat.country} VAT)` : ""}. Fees assumed at{" "}
+                    {(FEE_PCT * 100).toFixed(1)}% + ${FEE_FIXED.toFixed(2)}; not counted: refunds, discounts, {vat ? "" : "VAT, "}chargebacks, apps.
                   </p>
+                  {code !== "USD" && (
+                    <p className="text-muted-foreground">1 $ = {rate} {code}{fxDate ? `, rate of ${fxDate}` : ""}</p>
+                  )}
+                  {!vat && mine && !mine.targetCountry && (
+                    <p className="text-muted-foreground">
+                      <Link to="/dashboard/settings" className="underline">Set the country you sell to</Link> to see the margin after VAT.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">Can't be worked out yet: the selling price or supplier cost is missing. Add them in the profit calculator above to check your own numbers.</p>
               )}
             </Section>
+
+            {ownStore?.orders !== undefined && (
+              <p className="text-xs">Your store: {ownStore.orders}{ownStore.capped ? "+" : ""} orders in 30 days</p>
+            )}
+            {ownStore?.reason === "no_scope" && (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                <p className="text-sm">Reconnect your store to count your own sales</p>
+                <div className="max-w-sm"><ConnectShopify /></div>
+              </div>
+            )}
+            {ownStore?.reason === "pasted_token" && (
+              <p className="text-xs text-muted-foreground">Add read_orders to your app's access scopes</p>
+            )}
 
             {reviews && (
               <p className="text-xs text-muted-foreground">

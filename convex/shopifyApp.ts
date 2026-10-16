@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { httpAction, internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { missingOrderScope } from "./lib/ownOrders";
 import { authorizeUrl, encryptToken, missingStoreScopes, verifyQueryHmac, verifyWebhookHmac } from "./lib/shopifyOAuth";
 import { normalizeShopDomain } from "./lib/shopifyExport";
 import { fetchStoreInfo } from "./lib/shopifyStoreInfo";
@@ -50,6 +51,8 @@ export const status = query({
             currency: c.currency,
             // App installs from before Full store lack its scopes (pasted tokens: unknown).
             missingStoreScopes: c.via === "oauth" ? missingStoreScopes(c.scopes ?? "") : [],
+            // The research verdict counts the store's own sales with read_orders (pasted tokens: unknown, no prompt).
+            missingOrderScope: c.via === "oauth" && missingOrderScope(c.scopes ?? ""),
           }
         : null,
     };

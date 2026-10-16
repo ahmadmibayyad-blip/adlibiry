@@ -13,6 +13,7 @@ import { RESEARCH_SYSTEM, cleanReport, researchEvidence, reviewSample, type Rese
 import { RULES_VERSION, evaluateRules, finalCall } from "./lib/verdictRules";
 import { aliexpressId } from "./lib/supplierReviews";
 import type { Id } from "./_generated/dataModel";
+import type { OwnOrders } from "./ownOrders";
 import { claudeClient } from "./lib/claudeClient";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { STORE_ANALYSIS_SYSTEM, cleanAnalysis, storeEvidence, type StoreAnalysis } from "./lib/storeAnalysis";
@@ -125,7 +126,7 @@ export const researchProduct = action({
     }
     const evidence = { ...found.evidence, reviews };
     // Orders of a launched product in the user's own store; any failure leaves the verdict to run without it.
-    let ownStore: { orders?: number; capped?: boolean; reason?: string };
+    let ownStore: OwnOrders;
     try {
       ownStore = await ctx.runAction(internal.ownOrders.forProduct, { userId: found.userId as Id<"users">, productId: args.productId });
     } catch (e) {
