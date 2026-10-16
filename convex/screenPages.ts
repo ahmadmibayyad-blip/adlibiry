@@ -164,7 +164,7 @@ export const context = internalQuery({
 });
 
 export const finish = internalMutation({
-  args: { id: v.id("screenPages"), html: v.string() },
+  args: { id: v.id("screenPages"), html: v.string(), photoCredits: v.optional(v.array(v.object({ photographer: v.string(), photographerUrl: v.string(), pexelsUrl: v.string() }))) },
   handler: async (ctx, args) => {
     const p = await ctx.db.get("screenPages", args.id);
     if (!p) return;
@@ -172,6 +172,8 @@ export const finish = internalMutation({
       html: args.html,
       previousHtml: p.html,
       lastChange: p.pending,
+      // Photos kept from earlier versions keep their credit.
+      ...(args.photoCredits ? { photoCredits: [...(p.photoCredits ?? []), ...args.photoCredits].filter((c, i, all) => all.findIndex((x) => x.photographerUrl === c.photographerUrl) === i) } : {}),
       pending: undefined,
       title: p.html ? p.title : pageTitle(args.html),
       status: "ready",

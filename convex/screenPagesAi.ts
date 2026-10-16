@@ -11,6 +11,7 @@ import { claudeClient } from "./lib/claudeClient";
 import { claimAiRequest } from "./lib/aiQuota";
 import { MAX_NOTES, SCREEN_PAGE_SYSTEM, createPrompt, editPrompt, extractHtml } from "./lib/screenPage";
 import { partsNote, screenshotProblem } from "./lib/screenshots";
+import { pexelsSearchUrl, pickPhoto, placeholders, withPhotos, type PhotoCredit } from "./lib/pexels";
 
 // Screenshot to page: create() keeps the screenshot parts in Convex storage and starts run(), which asks
 // Claude for the page; edit() asks for a change to a page. The page shows progress from screenPages.get.
@@ -61,6 +62,33 @@ export const edit = action({
   },
 });
 
+/** The page's placeholder photos swapped for matching Pexels photos (lib/pexels.ts); as it was without PEXELS_API_KEY. */
+async function realPhotos(html: string): Promise<{ html: string; credits: PhotoCredit[] }> {
+  const key = process.env.PEXELS_API_KEY?.trim();
+  const wanted = placeholders(html).slice(0, 12);
+  if (!key || !wanted.length) return { html, credits: [] };
+  const used = new Set<number>();
+  const photos = new Map<string, string>();
+  const credits: PhotoCredit[] = [];
+  for (const p of wanted) {
+    try {
+      const res = await fetch(pexelsSearchUrl(p), { headers: { Authorization: key }, signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) {
+        console.warn("Pexels:", res.status);
+        if (res.status === 429 || res.status === 401) break; // out of searches this hour, or a bad key
+        continue;
+      }
+      const picked = pickPhoto(await res.json().catch(() => null), p, used);
+      if (!picked) continue;
+      photos.set(p.url, picked.src);
+      if (!credits.some((c) => c.photographerUrl === picked.credit.photographerUrl)) credits.push(picked.credit);
+    } catch {
+      // keep this placeholder
+    }
+  }
+  return { html: withPhotos(html, photos), credits };
+}
+
 /** Makes the page (or applies the pending change) and saves it; a failure is saved on the page. */
 export const run = internalAction({
   args: { id: v.id("screenPages") },
@@ -96,7 +124,8 @@ export const run = internalAction({
         await ctx.runMutation(internal.screenPages.fail, { id: args.id, error: "The AI didn't return a page. Try again, or try a clearer screenshot." });
         return;
       }
-      await ctx.runMutation(internal.screenPages.finish, { id: args.id, html });
+      const real = await realPhotos(html);
+      await ctx.runMutation(internal.screenPages.finish, { id: args.id, html: real.html, ...(real.credits.length ? { photoCredits: real.credits } : {}) });
     } catch (error) {
       console.error("Screenshot to page failed", error);
       const reason = error instanceof Anthropic.APIError ? claudeErrorMessage(error, isAdmin) : "Something went wrong while making the page. Try again.";

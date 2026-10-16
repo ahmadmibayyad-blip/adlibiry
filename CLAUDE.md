@@ -123,6 +123,15 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   to the user's target country (/product/query → vid, /logistic/freightCalculate), from a CJ warehouse in that country when it has stock,
   cached a week (`cjShipping`). CJ allows 1 request/second; the 180-day access token is kept in `cjAuth` and renewed with its refresh token.
 
+- Store Inspector → domain registered (`domainInfo.registered`, Node: whois over TCP port 43): RDAP from IANA's bootstrap (rdap.org as backup;
+  it blocks clients without a User-Agent) for .com etc.; whois for country domains without RDAP (`WHOIS_SERVERS`: .se, .dk, .no, …). .de
+  publishes no dates. `DOMAIN_LOOKUPS=off` turns it off; tests set it because fetch stubs can't catch TCP.
+- Store Inspector → Speed (`storeSpeed.check`, `PAGESPEED_API_KEY`, required: no key = 429): phone + desktop, 24 h cache per store (`storeSpeeds`).
+- Product page → On YouTube (`youtube.productVideosFor`, `YOUTUBE_API_KEY`): a search is 100 of the 10,000 daily quota units, so
+  `YOUTUBE_SEARCHES_PER_DAY` (default 90); saved on the product (`youtube`), refreshed after 14 days. The same Google key can serve PageSpeed.
+- Screenshot to page → photos: placehold.co placeholders with a text get a Pexels photo (`lib/pexels.ts`, `PEXELS_API_KEY`, 200 searches/hour),
+  cropped via Pexels' CDN params; credits saved in `screenPages.photoCredits` and shown with a link to Pexels (their API terms).
+
 ## UI
 
 - Components: shadcn/ui in `src/components/ui`, icons from `lucide-react`, toasts via `sonner`, charts via `src/pages/dashboard/_components/charts.tsx`.
