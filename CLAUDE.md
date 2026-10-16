@@ -92,7 +92,7 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Launch → "Match a screenshot" (Full store): `screenshotLook.read` reads a screenshot's colors, fonts and shapes before launch; `launch.start`
   saves it as `launches.look`, and launchRun merges the special requests' look over it (`mergeDesign`) into `launches.design`. Dawn takes colors and corners, not fonts.
 - Screenshot to page (`/dashboard/page-builder`, `screenPages.ts` + `screenPagesAi.ts`, prompts in `lib/screenPage.ts`): a screenshot (cut into up to 6
-  parts by `src/lib/screenshotParts.ts`, kept in storage) becomes one Tailwind HTML file; changes in plain words, one-step undo. Daily limit per tier
+  parts by `src/lib/screenshotParts.ts`, kept in storage) becomes one Tailwind HTML file; changes in plain words, one-step undo. Optional products (up to 6, read by `productImport.importLink` into importedProducts, `screenPages.productIds`) replace the screenshot's: names, `shownPrice` (store currency), photos and links go into the brief (`productsBrief`). Daily limit per tier
   (`SCREEN_PAGE_RUNS`, counted in `screenPageRuns`) plus the shared AI limit. The preview iframe is `sandbox="allow-scripts"` only: never give AI HTML the app origin.
 - Both take a link too: `pageShots.take` runs Apify's free `apify/screenshot-url` (full page, 1280 wide, ~20 s, ~$0.003) and returns the PNG to the browser,
   which cuts it like an upload. Daily limit `LINK_SHOTS` (table `pageShots`); needs `APIFY_TOKEN`. A sticky header can show up mid-image (scroll artefact).

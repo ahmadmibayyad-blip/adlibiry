@@ -24,7 +24,7 @@ async function signedIn(ctx: ActionCtx): Promise<string> {
 }
 
 export const create = action({
-  args: { images: v.array(imageArg), notes: v.optional(v.string()) },
+  args: { images: v.array(imageArg), notes: v.optional(v.string()), productIds: v.optional(v.array(v.id("importedProducts"))) },
   handler: async (ctx, args): Promise<{ id: Id<"screenPages"> }> => {
     const problem = screenshotProblem(args.images);
     if (problem) throw new ConvexError({ code: "BAD_REQUEST", message: problem });
@@ -35,7 +35,12 @@ export const create = action({
     await claimAiRequest(ctx);
     const imageIds = await Promise.all(args.images.map((p) => ctx.storage.store(new Blob([Buffer.from(p.data, "base64")], { type: p.mediaType }))));
     const notes = args.notes?.trim().slice(0, MAX_NOTES);
-    const id = await ctx.runMutation(internal.screenPages.insert, { userId: pre.userId, imageIds, ...(notes ? { notes } : {}) });
+    const id = await ctx.runMutation(internal.screenPages.insert, {
+      userId: pre.userId,
+      imageIds,
+      ...(notes ? { notes } : {}),
+      ...(args.productIds?.length ? { productIds: args.productIds } : {}),
+    });
     await ctx.scheduler.runAfter(0, internal.screenPagesAi.run, { id });
     return { id };
   },
@@ -62,7 +67,7 @@ export const run = internalAction({
   handler: async (ctx, args): Promise<void> => {
     const c = await ctx.runQuery(internal.screenPages.context, { id: args.id });
     if (!c || c.page.status !== "making") return;
-    const { page, isAdmin } = c;
+    const { page, products, isAdmin } = c;
     try {
       const images: Anthropic.ImageBlockParam[] = [];
       for (const id of page.imageIds) {
@@ -76,7 +81,7 @@ export const run = internalAction({
         return;
       }
       const note = partsNote(images.length);
-      const prompt = page.pending && page.html ? editPrompt(page.html, page.pending, note) : createPrompt(note, page.notes);
+      const prompt = page.pending && page.html ? editPrompt(page.html, page.pending, note) : createPrompt(note, page.notes, products);
       // About 450 s at most for 16k tokens: inside the SDK's and Convex's 10-minute limits.
       const message = await claudeClient().messages.create({
         model: "claude-opus-5-5",

@@ -70,6 +70,25 @@ describe("screenshot to page", () => {
     expect(await me.query(api.screenPages.get, { id })).toBeNull();
   });
 
+  it("builds the page with the user's products: names, prices, photos and links", async () => {
+    const { t, me } = await setup({ role: "admin" });
+    const [mine, theirs] = await t.run(async (ctx) => {
+      const users = await ctx.db.query("users").collect();
+      const product = (userId: (typeof users)[number]["_id"], title: string) =>
+        ctx.db.insert("importedProducts", { userId, url: `https://mystore.com/products/${title.toLowerCase()}`, source: "shopify", title, description: "", category: "Other",
+          imageUrl: `https://cdn.shopify.com/${title}.jpg`, images: [`https://cdn.shopify.com/${title}-2.jpg`], shownPrice: { amount: 349, currency: "DKK" }, createdAt: "2026-10-16" });
+      return [await product(users[0]._id, "Pillow"), await product(users[1]._id, "Secret")];
+    });
+    const asked = stubClaude([page("Pillow page")]);
+    const { id } = await me.action(api.screenPagesAi.create, { images: shot, productIds: [mine, theirs, mine] });
+    await settle(t);
+    const prompt = String(asked[0].messages[0].content[1].text);
+    expect(prompt).toContain("The page sells this product instead of the screenshot's:");
+    expect(prompt).toContain("1. Pillow | price 349.00 DKK | photos: https://cdn.shopify.com/Pillow.jpg https://cdn.shopify.com/Pillow-2.jpg | link: https://mystore.com/products/pillow");
+    expect(prompt).not.toContain("Secret"); // someone else's product is left out
+    expect((await me.query(api.screenPages.get, { id }))?.products).toEqual([{ title: "Pillow", imageUrl: "https://cdn.shopify.com/Pillow.jpg", url: "https://mystore.com/products/pillow" }]);
+  });
+
   it("saves why a page failed and keeps the page when a change fails", async () => {
     const { t, me } = await setup({ role: "admin" });
     stubClaude(["Sorry, I can't build that.", page("Second try"), "no html"]);

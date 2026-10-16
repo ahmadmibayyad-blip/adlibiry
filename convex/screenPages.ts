@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation, query, type QueryCtx } from 
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { byTier } from "./lib/billing";
-import { SCREEN_PAGE_RUNS, pageTitle } from "./lib/screenPage";
+import { MAX_PAGE_PRODUCTS, SCREEN_PAGE_RUNS, pageTitle, type PageProduct } from "./lib/screenPage";
 import { LINK_SHOTS } from "./lib/screenshots";
 
 // Screenshot to page (/dashboard/page-builder): the pages a user made from screenshots, and how many
@@ -50,7 +50,10 @@ export const get = query({
     const p = await ctx.db.get("screenPages", args.id);
     if (!p || !user || p.userId !== user._id) return null;
     const imageUrls = (await Promise.all(p.imageIds.map((id) => ctx.storage.getUrl(id)))).filter((u): u is string => !!u);
-    return { ...p, imageUrls, canUndo: !!p.previousHtml };
+    const products = (await Promise.all((p.productIds ?? []).map((id) => ctx.db.get("importedProducts", id))))
+      .filter((r) => !!r)
+      .map((r) => ({ title: r.title, imageUrl: r.imageUrl, url: r.url }));
+    return { ...p, imageUrls, products, canUndo: !!p.previousHtml };
   },
 });
 
@@ -108,11 +111,26 @@ export const claimShot = internalMutation({
 });
 
 export const insert = internalMutation({
-  args: { userId: v.id("users"), imageIds: v.array(v.id("_storage")), notes: v.optional(v.string()) },
+  args: { userId: v.id("users"), imageIds: v.array(v.id("_storage")), notes: v.optional(v.string()), productIds: v.optional(v.array(v.id("importedProducts"))) },
   handler: async (ctx, args): Promise<Id<"screenPages">> => {
     const now = Date.now();
+    // Only the user's own products, each once.
+    const productIds: Id<"importedProducts">[] = [];
+    for (const id of [...new Set(args.productIds ?? [])].slice(0, MAX_PAGE_PRODUCTS)) {
+      const p = await ctx.db.get("importedProducts", id);
+      if (p?.userId === args.userId) productIds.push(id);
+    }
     await ctx.db.insert("screenPageRuns", { userId: args.userId, at: now });
-    return ctx.db.insert("screenPages", { ...args, title: "New page", status: "making", createdAt: now, updatedAt: now });
+    return ctx.db.insert("screenPages", {
+      userId: args.userId,
+      imageIds: args.imageIds,
+      ...(args.notes ? { notes: args.notes } : {}),
+      ...(productIds.length ? { productIds } : {}),
+      title: "New page",
+      status: "making",
+      createdAt: now,
+      updatedAt: now,
+    });
   },
 });
 
@@ -136,7 +154,12 @@ export const context = internalQuery({
     const p = await ctx.db.get("screenPages", args.id);
     if (!p) return null;
     const user = await ctx.db.get("users", p.userId);
-    return { page: p, isAdmin: user?.role === "admin" };
+    const products: PageProduct[] = [];
+    for (const id of p.productIds ?? []) {
+      const r = await ctx.db.get("importedProducts", id);
+      if (r) products.push({ title: r.title, url: r.url, images: [r.imageUrl, ...r.images].filter(Boolean), ...(r.shownPrice ? { price: r.shownPrice } : {}) });
+    }
+    return { page: p, products, isAdmin: user?.role === "admin" };
   },
 });
 
