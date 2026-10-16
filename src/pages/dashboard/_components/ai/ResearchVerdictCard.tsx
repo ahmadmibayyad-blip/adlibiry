@@ -78,7 +78,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
   const mine = useQuery(api.onboarding.mine, {});
   const code = currency?.code ?? "USD";
   const rate = currency?.rate ?? 1;
-  const usd = (n: number) => (code === "DKK" ? `${(n * rate).toFixed(2)} kr` : formatMoney(n, code, rate)); // Danish amounts end in kr
+  const usd = (n: number) => formatMoney(n, code, rate);
   const afterVat = margin && vat ? withVat(margin, vat.rate) : null;
   const fxDate = currency?.date;
   const step = report ? NEXT_STEP[report.nextTask] : undefined;
@@ -171,14 +171,14 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                   {code !== "USD" && (
                     <p className="text-muted-foreground">1 $ = {rate} {code}{fxDate ? `, rate of ${fxDate}` : ""}</p>
                   )}
-                  {!vat && mine && !mine.targetCountry && (
-                    <p className="text-muted-foreground">
-                      <Link to="/dashboard/settings" className="underline">Set the country you sell to</Link> to see the margin after VAT.
-                    </p>
-                  )}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">Can't be worked out yet: the selling price or supplier cost is missing. Add them in the profit calculator above to check your own numbers.</p>
+              )}
+              {!vat && mine && !mine.targetCountry && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  <Link to="/dashboard/settings" className="underline">Set the country you sell to</Link> to see the margin after VAT.
+                </p>
               )}
             </Section>
 

@@ -85,7 +85,7 @@ describe("ResearchVerdictCard", () => {
     expect(screen.getAllByText(/after VAT/).length).toBeGreaterThan(0);
     expect(screen.getByText(/1 \$ = 6\.93 DKK, rate of 2026-10-15/)).toBeInTheDocument();
     const breakEven = screen.getByText(/break-even/);
-    expect(breakEven.textContent).toMatch(/kr/);
+    expect(breakEven.textContent?.replace(/\s/g, " ")).toContain("DKK 110.88");
   });
 
   it("says what capped a research call", () => {
@@ -116,6 +116,11 @@ describe("ResearchVerdictCard", () => {
   it("shows the store's own orders", () => {
     show(row({ ownStore: { orders: 7 } }));
     expect(screen.getByText("Your store: 7 orders in 30 days")).toBeInTheDocument();
+  });
+
+  it("asks for the country even when there is no margin", () => {
+    show(row({ vat: null, margin: null }), {});
+    expect(screen.getByText("Set the country you sell to")).toBeInTheDocument();
   });
 
   it("asks for the country when VAT is unknown", () => {
