@@ -123,6 +123,7 @@ import type * as saturation_compare from "../saturation/compare.js";
 import type * as saturation_mutations from "../saturation/mutations.js";
 import type * as screenPages from "../screenPages.js";
 import type * as screenPagesAi from "../screenPagesAi.js";
+import type * as screenPagesShopify from "../screenPagesShopify.js";
 import type * as screenshotLook from "../screenshotLook.js";
 import type * as shopifyApp from "../shopifyApp.js";
 import type * as shopifyImport from "../shopifyImport.js";
@@ -264,6 +265,7 @@ declare const fullApi: ApiFromModules<{
   "saturation/mutations": typeof saturation_mutations;
   screenPages: typeof screenPages;
   screenPagesAi: typeof screenPagesAi;
+  screenPagesShopify: typeof screenPagesShopify;
   screenshotLook: typeof screenshotLook;
   shopifyApp: typeof shopifyApp;
   shopifyImport: typeof shopifyImport;

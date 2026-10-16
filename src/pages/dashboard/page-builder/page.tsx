@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { ConvexError } from "convex/values";
 import { useAction, useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Code2, Copy, Download, Eye, ImageIcon, ImageUp, Monitor, Smartphone, Trash2, Undo2, Wand2, X } from "lucide-react";
+import { Code2, Copy, Download, ExternalLink, Eye, ImageIcon, ImageUp, Monitor, ShoppingBag, Smartphone, Trash2, Undo2, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
@@ -70,7 +71,7 @@ export default function PageBuilderPage() {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Upload a screenshot of a landing or product page you like, or paste its link. The AI builds it as one HTML page with Tailwind that you can preview, change in your own words and
-          download. Photos become placeholders: put in your own.
+          download, or publish it to your Shopify store as its own page. Photos become placeholders: put in your own.
         </p>
       </div>
 
@@ -161,6 +162,9 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
   const [change, setChange] = useState("");
   const [sending, setSending] = useState(false);
+  const publishPage = useAction(api.screenPagesShopify.publish);
+  const [publishing, setPublishing] = useState(false);
+  const [publishProblem, setPublishProblem] = useState<{ message: string; code?: string; template?: string } | null>(null);
 
   const making = page.status === "making";
   const html = page.html ?? "";
@@ -187,6 +191,23 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
     }
   };
 
+  const publish = async () => {
+    setPublishing(true);
+    setPublishProblem(null);
+    try {
+      const r = await publishPage({ id: page._id });
+      if (r.note) toast.warning(r.note);
+      else toast.success(r.updated ? "Updated in your Shopify store" : "Published in your Shopify store");
+    } catch (e) {
+      const data = e instanceof ConvexError ? (e.data as { code?: string; message?: string; template?: string }) : null;
+      setPublishProblem({ message: errorMessage(e, "The page couldn't be published"), code: data?.code, template: data?.template });
+    } finally {
+      setPublishing(false);
+    }
+  };
+  // Changed since it went to Shopify (made, changed or undone later).
+  const outdated = !!page.shopify && page.updatedAt > page.shopify.publishedAt;
+
   const tabButton = (value: typeof tab, label: string, Icon: typeof Eye) => (
     <button
       type="button"
@@ -212,6 +233,12 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
               </Button>
             </>
           ) : null}
+          {html && !making ? (
+            <Button size="sm" onClick={() => void publish()} disabled={publishing} variant={page.shopify && !outdated ? "outline" : "default"}>
+              {publishing ? <Spinner className="w-4 h-4 mr-1.5" /> : <ShoppingBag className="w-4 h-4 mr-1.5" />}
+              {page.shopify ? (outdated ? "Update in Shopify" : "Publish again") : "Publish to Shopify"}
+            </Button>
+          ) : null}
           {page.canUndo && !making ? (
             <Button size="sm" variant="outline" onClick={() => void undo({ id: page._id })}>
               <Undo2 className="w-4 h-4 mr-1.5" /> Undo change
@@ -235,6 +262,31 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
         </p>
       ) : null}
       {page.error ? <p className={cn("text-sm", page.status === "failed" ? "text-destructive" : "text-warn")}>{page.status === "failed" ? page.error : `The last change didn't work: ${page.error}`}</p> : null}
+      {page.shopify ? (
+        <p className="text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-muted-foreground">{outdated ? "In your store (older version):" : "In your store:"}</span>
+          <a href={page.shopify.url} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+            {page.shopify.url.replace(/^https?:\/\//, "")} <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+          <a href={page.shopify.adminUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground hover:underline">Edit in Shopify</a>
+        </p>
+      ) : null}
+      {publishProblem ? (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-sm">
+          <p className="text-destructive">{publishProblem.message}</p>
+          {publishProblem.code === "NO_STORE" || publishProblem.code === "RECONNECT" ? (
+            <Link to="/dashboard/settings" className="text-primary hover:underline">Go to Settings → Shopify</Link>
+          ) : null}
+          {publishProblem.template ? (
+            <>
+              <pre className="rounded-md bg-background border border-border p-2 text-xs whitespace-pre-wrap">{publishProblem.template}</pre>
+              <Button size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(publishProblem.template!).then(() => toast.success("Template copied"))}>
+                <Copy className="w-4 h-4 mr-1.5" /> Copy template
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
       {page.lastChange && !making ? <p className="text-xs text-muted-foreground">Last change: “{page.lastChange}”</p> : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
