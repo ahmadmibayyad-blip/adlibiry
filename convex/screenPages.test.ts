@@ -138,7 +138,7 @@ describe("screenshot from a link", () => {
     const r = await me.action(api.pageShots.take, { url: "www.store.com/products/pillow" });
     expect(r).toEqual({ data: png.toString("base64"), mediaType: "image/png", host: "store.com" });
     expect(calls[0].url).toContain("token=apify_test");
-    expect(calls[0].body).toMatchObject({ urls: [{ url: "https://www.store.com/products/pillow" }], viewportWidth: 1280, scrollToBottom: true });
+    expect(calls[0].body).toMatchObject({ urls: [{ url: "https://www.store.com/products/pillow" }], viewportWidth: 1280, scrollToBottom: true, waitUntil: "domcontentloaded" });
     expect(calls[1].auth).toBe("Bearer apify_test");
     await expect(me.action(api.pageShots.take, { url: "http://localhost:3000" })).rejects.toThrow(/full address/);
   });

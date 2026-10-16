@@ -11,16 +11,20 @@ export const LINK_SHOTS = { admin: 300, paid: 60, trial: 10, free: 4 } as const;
 /** Bigger screenshots (very long pages) don't fit in the answer to the browser. */
 export const MAX_SHOT_BYTES = 7_000_000;
 
-/** What apify/screenshot-url is asked: the whole page at desktop width, after scrolling so lazy images load. */
+/**
+ * What apify/screenshot-url is asked: the whole page at desktop width. It starts once the page is there
+ * ("load" waits for every tracker and can hang past the time limit, customlove.se did) and scrolls down
+ * with pauses so lazy images load.
+ */
 export function shotInput(url: string) {
   return {
     urls: [{ url }],
     format: "png",
-    waitUntil: "load",
-    delay: 1500,
+    waitUntil: "domcontentloaded",
+    delay: 2500,
     viewportWidth: 1280,
     scrollToBottom: true,
-    delayAfterScrolling: 1500,
+    delayAfterScrolling: 2500,
     proxy: { useApifyProxy: true },
   };
 }
