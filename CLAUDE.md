@@ -106,7 +106,7 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 
 - Store Inspector → Store age: the Wayback Machine CDX API (free, no key, slow: 8–30 s, asked alongside the pages, 35 s timeout) gives the
   first/last saved copy and one per year (`lib/storeHistory.ts`, `Inspection.history`; null = archive didn't answer, cached like the rest).
-- Selling calendar (dashboard home, `SellingCalendar.tsx`): gift and deal days per country computed in `lib/sellingCalendar.ts` (Mother`s/Father`s
+- Selling calendar (dashboard home, `SellingCalendar.tsx`): gift and deal days per country computed in `lib/sellingCalendar.ts` (Mother's/Father's
   Day rules differ per country; `readyBy` = when ads should run) plus public holidays from Nager.Date cached in `publicHolidays` (`sellingCalendar.load`,
   30-day refresh). The app merges them (`upcoming`) because a query doesn't re-run when the date changes.
 
