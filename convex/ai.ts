@@ -10,6 +10,7 @@ import { claimAiRequest } from "./lib/aiQuota";
 import { isDemoAd, isDemoStore, productFacts } from "./lib/aiFacts";
 import { stableToken } from "./lib/authIdentity";
 import { RESEARCH_SYSTEM, cleanReport, researchEvidence, reviewSample, type ResearchReport } from "./lib/researchReport";
+import { RULES_VERSION, evaluateRules, finalCall } from "./lib/verdictRules";
 import { aliexpressId } from "./lib/supplierReviews";
 import type { Id } from "./_generated/dataModel";
 import { claudeClient } from "./lib/claudeClient";
@@ -123,14 +124,22 @@ export const researchProduct = action({
       }
     }
     const evidence = { ...found.evidence, reviews };
-    const raw = await askClaude(ctx, ResearchSchema, RESEARCH_SYSTEM, `${researchEvidence(evidence)}\n\nWrite the first-pass research report.`);
-    const report = cleanReport(raw);
+    const rules = evaluateRules(found.ruleInput);
+    const raw = await askClaude(ctx, ResearchSchema, RESEARCH_SYSTEM, `${researchEvidence(evidence, rules, found.vat)}\n\nWrite the first-pass research report.`);
+    const aiReport = cleanReport(raw);
+    // Code sets the ceiling: the AI's call can only go down, and a blocker (its own or the rules') means skip.
+    const final = finalCall(aiReport.call, aiReport.risks.some((r) => r.blocker), rules);
+    const report = { ...aiReport, call: final.call };
     await ctx.runMutation(internal.researchReports.save, {
       userId: found.userId as Id<"users">,
       productId: args.productId,
       report,
       margin: evidence.margin,
       ...(reviews ? { reviews } : {}),
+      aiCall: aiReport.call,
+      rules: { ...rules, cappedBy: final.cappedBy ?? null },
+      rulesVersion: RULES_VERSION,
+      vat: found.vat ?? null,
     });
     return report;
   },

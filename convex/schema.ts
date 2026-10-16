@@ -756,6 +756,10 @@ export default defineSchema({
     report: v.any(),                  // lib/researchReport.ts ResearchReport
     margin: v.any(),                  // lib/researchReport.ts Margin | null
     reviews: v.optional(v.any()),     // lib/researchReport.ts ReviewSample
+    rules: v.optional(v.any()),       // lib/verdictRules.ts Rules (with cappedBy when the ceiling lowered the AI's call)
+    rulesVersion: v.optional(v.number()),
+    aiCall: v.optional(v.string()),   // what the AI said before the rules capped it; report.call is the final call
+    vat: v.optional(v.any()),         // { rate, country } the VAT line used, or null
     createdAt: v.string(),
   }).index("by_user_product", ["userId", "productId"]),
 

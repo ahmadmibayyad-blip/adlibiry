@@ -75,6 +75,63 @@ describe("AI research verdict", () => {
     expect(await t.withIdentity({ subject: "u2|s" }).query(api.researchReports.latest, { productId })).toBeNull(); // someone else's report stays theirs
   });
 
+  // Stubs Claude (returns `call`) and the supplier reviews; `seen.prompt` is the last prompt Claude got.
+  function stubClaude(call: string) {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    const seen = { prompt: "" };
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("feedback.aliexpress.com")) return json({ data: {} });
+      seen.prompt = JSON.parse(String(init?.body)).messages[0].content;
+      const answer = { call, bottomLine: "x", reasons: [], risks: [], fixes: [], missing: [], checklist: [], nextTask: "supplier vetting", nextTaskWhy: "y" };
+      return json({ id: "m", type: "message", role: "assistant", model: "claude-opus-5-5", stop_reason: "end_turn", stop_sequence: null,
+        content: [{ type: "text", text: JSON.stringify(answer) }], usage: { input_tokens: 1, output_tokens: 1 } });
+    }));
+    return seen;
+  }
+
+  async function seedAds(t: ReturnType<typeof convexTest>, product: Record<string, unknown>) {
+    return t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "u1", role: "admin", targetCountry: "DK" });
+      const id = await ctx.db.insert("products", {
+        description: "", imageUrl: "", category: "Pet Supplies", tags: [], aiScore: 70, saturation: "Medium", trend: "Rising",
+        supplierUrl: "", adExamples: [], isWinnerOfDay: false, publishedAt: "2026-10-01T00:00:00Z", price: 24.99,
+        title: "Pet brush", ...product,
+      } as never);
+      for (let i = 0; i < 2; i++) {
+        await ctx.db.insert("ads", {
+          advertiserName: `Shop ${i}`, platform: "Facebook", country: "DK", niche: "Pet Supplies", headline: `Hook ${i}`, bodyText: "Great",
+          creativeUrl: "", landingPageUrl: "", spendEstimate: "Unknown", likes: i, views: "0", daysRunning: 30, aiScore: 50, firstSeenAt: "2026-09-01T00:00:00Z",
+          targeting: { ageRange: "18-65", gender: "All", interests: [] }, source: "apify", productId: id,
+        });
+      }
+      return id;
+    });
+  }
+
+  it("caps the AI's test when the cost is unknown", async () => {
+    stubClaude("test");
+    const t = convexTest(schema, modules);
+    const productId = await seedAds(t, {
+      supplierMatches: [{ title: "Pet brush", price: 1.09, url: "https://www.aliexpress.com/item/1005012573349832.html", orders: 1000, similarity: 0.6 }],
+    });
+    const me = t.withIdentity({ subject: "u1|s" });
+    const r = await me.action(api.ai.researchProduct, { productId });
+    expect(r.call).toBe("research");
+    const saved = await me.query(api.researchReports.latest, { productId });
+    expect(saved).toMatchObject({ report: { call: "research" }, aiCall: "test", rulesVersion: 2, rules: { cappedBy: "supplier cost unknown" }, vat: { rate: 0.25, country: "DK" } });
+  });
+
+  it("skips a famous brand and tells the AI", async () => {
+    const seen = stubClaude("test");
+    const t = convexTest(schema, modules);
+    const productId = await seedAds(t, { title: "Stanley Quencher 40oz", cost: 5, costSource: "aliexpress" });
+    const me = t.withIdentity({ subject: "u1|s" });
+    const r = await me.action(api.ai.researchProduct, { productId });
+    expect(r.call).toBe("skip");
+    expect(seen.prompt).toContain("HARD BLOCKER: Famous brand: Stanley");
+  });
+
   it("lists the user's latest verdict per product, for the badges in product lists", async () => {
     const t = convexTest(schema, modules);
     const [a, b] = await t.run(async (ctx) => {

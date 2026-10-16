@@ -4,6 +4,8 @@ import { stableToken } from "./lib/authIdentity";
 import { marginMath, type ResearchCall, type ResearchEvidence } from "./lib/researchReport";
 import type { Id } from "./_generated/dataModel";
 import { countAngles, verdict } from "./lib/verdict";
+import type { RuleInput } from "./lib/verdictRules";
+import { vatRate } from "./lib/vat";
 
 // Saved AI research verdicts (ai.ts researchProduct), one per user and product,
 // and the AdSpy evidence the AI gets (lib/researchReport.ts).
@@ -32,7 +34,7 @@ export const latest = query({
 /** Everything AdSpy knows about the product that bears on "should I test it?", for the signed-in user's market. */
 export const evidence = internalQuery({
   args: { productId: v.id("products"), token: v.string() },
-  handler: async (ctx, args): Promise<{ userId: string; evidence: ResearchEvidence; supplierUrl?: string } | null> => {
+  handler: async (ctx, args): Promise<{ userId: string; evidence: ResearchEvidence; supplierUrl?: string; ruleInput: Omit<RuleInput, "ownOrders">; vat?: { rate: number; country: string } } | null> => {
     const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
     const p = await ctx.db.get("products", args.productId);
     if (!user || !p) return null;
@@ -45,8 +47,23 @@ export const evidence = internalQuery({
       .slice(0, 4)
       .map((a) => `${a.headline} — ${a.bodyText}`.replace(/\s+/g, " ").slice(0, 280));
     const quick = verdict({ ...p, angleCount: countAngles(ads.map((a) => a.headline)), targetCountry: target });
+    const margin = marginMath(p.price, p.cost);
+    const rate = vatRate(target);
+    const adStats = { advertisers: new Set(ads.map((a) => a.advertiserName)).size, longestDays: ads.reduce((m, a) => Math.max(m, a.daysRunning), 0) };
+    const ruleInput: Omit<RuleInput, "ownOrders"> = {
+      margin,
+      priceAssumed: !p.price || p.priceSource === "estimated_market",
+      vatRate: rate,
+      ads: adStats,
+      ...(best?.orders ? { supplierOrders: best.orders } : {}),
+      adspyDemandOk: quick.checks.find((c) => c.key === "demand")?.ok ?? null,
+      ...(p.source === "tiktok_shop" && p.unitsPerMonth ? { tiktokUnits: p.unitsPerMonth } : {}),
+      brandText: `${p.title} ${p.description}`,
+    };
     return {
       userId: user._id,
+      ruleInput,
+      ...(target && rate !== null ? { vat: { rate, country: target.toUpperCase() } } : {}),
       ...(best?.url ? { supplierUrl: best.url } : {}),
       evidence: {
         title: p.title,
@@ -57,12 +74,11 @@ export const evidence = internalQuery({
         ...(p.priceSource && PRICE_SOURCE[p.priceSource] ? { retailPriceSource: PRICE_SOURCE[p.priceSource] } : {}),
         ...(p.cost ? { cost: p.cost } : {}),
         ...(p.costSource ? { costSource: p.costSource } : {}),
-        margin: marginMath(p.price, p.cost),
+        margin,
         ...(best ? { supplier: { title: best.title, price: best.price, url: best.url, ...(best.orders ? { orders: best.orders } : {}), ...(best.rating ? { rating: best.rating } : {}) } } : {}),
         ads: {
           count: ads.length,
-          advertisers: new Set(ads.map((a) => a.advertiserName)).size,
-          longestDays: ads.reduce((m, a) => Math.max(m, a.daysRunning), 0),
+          ...adStats,
           platforms: [...new Set(ads.map((a) => a.platform))],
           countries: [...new Set(ads.flatMap((a) => a.countries ?? [a.country]))],
           samples,
@@ -80,7 +96,17 @@ export const evidence = internalQuery({
 });
 
 export const save = internalMutation({
-  args: { userId: v.id("users"), productId: v.id("products"), report: v.any(), margin: v.any(), reviews: v.optional(v.any()) },
+  args: {
+    userId: v.id("users"),
+    productId: v.id("products"),
+    report: v.any(),
+    margin: v.any(),
+    reviews: v.optional(v.any()),
+    rules: v.optional(v.any()),
+    rulesVersion: v.optional(v.number()),
+    aiCall: v.optional(v.string()),
+    vat: v.optional(v.any()),
+  },
   handler: async (ctx, args) => {
     await ctx.db.insert("researchReports", { ...args, createdAt: new Date().toISOString() });
   },
