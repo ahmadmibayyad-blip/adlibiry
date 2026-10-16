@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import type { Inspection } from "@/convex/lib/storeInspect.ts";
 import { ageLabel } from "@/convex/lib/storeHistory.ts";
+import { anyCountryName, flagOf } from "@/lib/countries.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
@@ -36,7 +37,7 @@ function Result({ shown, tracked, analysis, onClose }: { shown: Shown; tracked: 
           </a>
           <div className="text-xs text-muted-foreground">
             {host}
-            {r.country ? ` · ${r.country}` : ""}
+            {r.country ? ` · ${flagOf(r.country)} ${anyCountryName(r.country)}` : ""}
             {r.currency ? ` · ${r.currency}` : ""}
             {r.locale ? ` · ${r.locale}` : ""}
           </div>

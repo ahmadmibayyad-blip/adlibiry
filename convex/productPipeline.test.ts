@@ -481,7 +481,7 @@ describe("prices for products found in ads", () => {
     await t.run((ctx) => ctx.db.insert("ads", ad({})));
     await runPipeline(t);
     const [p] = await t.run((ctx) => ctx.db.query("products").collect());
-    expect(p).toMatchObject({ price: 43.36, priceSource: "landing_page", originalPrice: "DKK 299.00" });
+    expect(p).toMatchObject({ price: 44.83, priceSource: "landing_page", originalPrice: "DKK 299.00" });
     expect(p.priceCheckedAt).toBeDefined();
   });
 

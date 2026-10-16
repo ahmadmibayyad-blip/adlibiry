@@ -49,7 +49,9 @@ export function nthWeekday(year: number, month: number, weekday: number, n: numb
 
 const SUN = 0;
 const THU = 4;
-const NO_CHRISTMAS = new Set(["AE", "SA"]);
+// Muslim-majority countries where Christmas isn't a selling day; Halloween only where it's a real one.
+const NO_CHRISTMAS = new Set(["AE", "SA", "QA", "KW", "BH", "OM", "JO", "EG", "MA", "DZ", "TN", "TR", "PK", "BD", "ID", "MY", "AZ", "KZ", "UZ", "AL", "XK"]);
+const HALLOWEEN = new Set(["US", "CA", "GB", "IE", "AU", "NZ", "DE", "AT", "CH", "NL", "BE", "LU", "DK", "SE", "NO", "FI", "IS", "FR", "ES", "IT", "PT", "PL", "CZ", "MX"]);
 const CHRISTMAS_EVE = new Set(["DK", "SE", "NO", "DE"]); // the evening presents are opened
 
 function mothersDay(country: string, year: number): Date | null {
@@ -120,7 +122,7 @@ export function sellingDays(country: string, year: number): CalendarDay[] {
   add(utc(year, 2, 14), "Valentine's Day", "gift", 21);
   add(mothersDay(country, year), "Mother's Day", "gift", 21);
   add(fathersDay(country, year), "Father's Day", "gift", 21);
-  if (!NO_CHRISTMAS.has(country)) add(utc(year, 10, 31), "Halloween", "gift", 21);
+  if (HALLOWEEN.has(country)) add(utc(year, 10, 31), "Halloween", "gift", 21);
   add(utc(year, 11, 11), "Singles' Day (11.11)", "sale", 14);
   add(blackFriday, "Black Friday", "sale", 21);
   add(plus(blackFriday, 3), "Cyber Monday", "sale", 21);

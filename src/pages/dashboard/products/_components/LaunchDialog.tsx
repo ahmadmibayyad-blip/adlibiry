@@ -21,6 +21,7 @@ import AdKit from "./AdKit.tsx";
 import StylePicker from "./StylePicker.tsx";
 import ScreenshotLook from "./ScreenshotLook.tsx";
 import { LAUNCH_PRO_NOTE, LAUNCH_TRIAL_NOTE, launchQuotaLabel } from "@/lib/launchQuota.ts";
+import { countryLanguage } from "@/lib/countries.ts";
 
 // Launch (convex/launch.ts): the product becomes a written, priced product
 // page in the user's Shopify store, plus an ad kit from its winning ads. Full
@@ -419,6 +420,7 @@ function LaunchButton({
   // null: not touched yet, so the suggested price and the store's language apply.
   const [priceInput, setPrice] = useState<string | null>(null);
   const [languageInput, setLanguage] = useState<string | null>(null);
+  const mine = useQuery(api.onboarding.mine, {});
   const [tone, setTone] = useState<(typeof TONES)[number][0]>("friendly");
   const [publishInput, setPublish] = useState<"DRAFT" | "ACTIVE" | null>(null);
   // A single product page as a draft is the safe start; mirroring a page needs Full store.
@@ -445,7 +447,9 @@ function LaunchButton({
   const aiPhotos = prep?.aiPhotosReady ? (aiPhotosInput ?? 4) : 0;
   const reviewsUrl = reviewsInput ?? prep?.supplierUrl ?? "";
   const storeLocale = prep?.store?.locale && prep.store.locale !== "en" ? prep.store.locale.slice(0, 2) : undefined;
-  const language = languageInput ?? (storeLocale && LANGUAGES[storeLocale]) ?? CURRENCY_LANGUAGE[prep?.store?.currency ?? ""] ?? "English";
+  // The store's own language, else the country they sell to (Settings), else the store's currency.
+  const language =
+    languageInput ?? (storeLocale && LANGUAGES[storeLocale]) ?? countryLanguage(mine?.targetCountry) ?? CURRENCY_LANGUAGE[prep?.store?.currency ?? ""] ?? "English";
   const brand = brandInput ?? prep?.store?.shopName ?? "";
   // A full store shows the product on its home page, so it goes live by default (the store itself can stay password-protected).
   const publish = publishInput ?? (mode === "store" ? "ACTIVE" : "DRAFT");

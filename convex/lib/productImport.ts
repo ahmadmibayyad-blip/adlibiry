@@ -51,13 +51,13 @@ const meta = (html: string, name: string) =>
 const unique = (urls: string[]) => [...new Set(urls)].slice(0, 12);
 
 /** A Shopify store's /products/<handle>.js; `currency` from its /cart.js. */
-export function fromShopifyJs(body: unknown, pageUrl: string, currency?: string): ImportedProduct | null {
+export function fromShopifyJs(body: unknown, pageUrl: string, currency?: string, usdRates?: Record<string, number>): ImportedProduct | null {
   const b = body as { title?: string; description?: string; price?: number; type?: string } | null;
   const title = b?.title?.trim();
   if (!title) return null;
   const images = unique(imagesFromShopifyJs(body, pageUrl));
   const amount = typeof b?.price === "number" ? b.price / 100 : undefined;
-  const price = amount && currency ? toUsd({ amount, currency }) : undefined;
+  const price = amount && currency ? toUsd({ amount, currency }, usdRates) : undefined;
   return {
     source: "shopify",
     title: title.slice(0, 200),
@@ -81,7 +81,7 @@ export function fromAliExpressHtml(html: string): ImportedProduct | null {
 }
 
 /** Any other shop's product page, from its og:/twitter:/JSON-LD tags. */
-export function fromProductHtml(html: string, pageUrl: string): ImportedProduct | null {
+export function fromProductHtml(html: string, pageUrl: string, usdRates?: Record<string, number>): ImportedProduct | null {
   let ldName: string | undefined;
   let ldDescription: string | undefined;
   for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
@@ -108,7 +108,7 @@ export function fromProductHtml(html: string, pageUrl: string): ImportedProduct 
   const isProduct = !!ldName || /product/i.test(meta(html, "og:type") ?? "") || !!found;
   if (!title || !isProduct) return null;
   const images = unique(imagesFromHtml(html, pageUrl));
-  const price = found ? toUsd(found) : undefined;
+  const price = found ? toUsd(found, usdRates) : undefined;
   return {
     source: "web",
     title: title.slice(0, 200),
@@ -123,7 +123,7 @@ export function fromProductHtml(html: string, pageUrl: string): ImportedProduct 
  * The product from an Apify AliExpress reader run (ALIEXPRESS_IMPORT_ACTOR, default zen-studio/aliexpress-scraper):
  * it reads AliExpress in a way AliExpress doesn't block, as it blocks servers. Price in `currency` (we ask for USD).
  */
-export function fromApifyAliExpress(items: unknown): { title?: string; images: string[]; cost?: number } | null {
+export function fromApifyAliExpress(items: unknown, usdRates?: Record<string, number>): { title?: string; images: string[]; cost?: number } | null {
   if (!Array.isArray(items)) return null;
   const p = items.find((i) => i && typeof i === "object" && (i as { recordType?: string }).recordType !== "review" && typeof (i as { title?: unknown }).title === "string") as
     | Record<string, unknown>
@@ -132,7 +132,7 @@ export function fromApifyAliExpress(items: unknown): { title?: string; images: s
   const list = (k: string) => (Array.isArray(p[k]) ? (p[k] as unknown[]).filter((u): u is string => typeof u === "string") : []);
   const images = unique([String(p.imageUrl ?? ""), ...list("images"), ...list("imageUrls"), ...list("gallery")].map((u) => (u.startsWith("//") ? `https:${u}` : u)).filter((u) => u.startsWith("https:")));
   const price = Number(p.price);
-  const cost = Number.isFinite(price) && price > 0 ? (String(p.currency ?? "USD").toUpperCase() === "USD" ? price : toUsd({ amount: price, currency: String(p.currency) })) : undefined;
+  const cost = Number.isFinite(price) && price > 0 ? (String(p.currency ?? "USD").toUpperCase() === "USD" ? price : toUsd({ amount: price, currency: String(p.currency) }, usdRates)) : undefined;
   return { title: String(p.title).trim().slice(0, 200), images, ...(cost ? { cost: Math.round(cost * 100) / 100 } : {}) };
 }
 

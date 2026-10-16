@@ -14,6 +14,7 @@ import { productUrl } from "./lib/productImport";
 import { isBaseTheme, isStoreStyle } from "./lib/storeStyles";
 import type { PageMirror } from "./lib/pageMirror";
 import { MAX_WISHES, cleanDesign, type DesignWishes } from "./lib/designWishes";
+import { PEGGED_PER_USD } from "./lib/currency";
 
 // ── Launch: winning product → product page (or a full store) in the user's Shopify store ──
 // start() checks the plan, the monthly quota and the product, then schedules
@@ -28,12 +29,12 @@ import { MAX_WISHES, cleanDesign, type DesignWishes } from "./lib/designWishes";
 
 const month = () => new Date().toISOString().slice(0, 7);
 
-/** Units of `currency` per USD from the daily ECB rates (currency.ts); 1 for USD or an unknown currency. */
+/** Units of `currency` per USD from the daily ECB rates (currency.ts) or a dollar peg; 1 for USD or an unknown currency. */
 async function usdRate(ctx: QueryCtx, currency: string): Promise<number> {
   if (currency === "USD") return 1;
   const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "fxRates")).unique();
   const data = (doc?.data as { all?: Record<string, number>; rates?: Record<string, number> } | undefined) ?? {};
-  const rate = data.all?.[currency] ?? data.rates?.[currency];
+  const rate = data.all?.[currency] ?? data.rates?.[currency] ?? PEGGED_PER_USD[currency];
   return rate && rate > 0 ? rate : 1;
 }
 

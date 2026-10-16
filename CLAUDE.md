@@ -109,6 +109,11 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Selling calendar (dashboard home, `SellingCalendar.tsx`): gift and deal days per country computed in `lib/sellingCalendar.ts` (Mother's/Father's
   Day rules differ per country; `readyBy` = when ads should run) plus public holidays from Nager.Date cached in `publicHolidays` (`sellingCalendar.load`,
   30-day refresh). The app merges them (`upcoming`) because a query doesn't re-run when the date changes.
+  Countries: every Nager.Date country plus AE/SA (`lib/calendarCountries.ts`, a snapshot of its AvailableCountries); flags and names come from
+  the browser (`flagOf`, `anyCountryName` in `src/lib/countries.ts`). REST Countries v3 is retired and v5 needs a key, so it isn't used.
+- Exchange rates (`currency.ts refreshRates`, daily): the ECB's XML, else the same ECB rates from Frankfurter (api.frankfurter.dev/v1, no key);
+  `withPegged` adds the dollar-pegged Gulf currencies (AED, SAR, QAR, BHD, OMR, JOD) the ECB doesn't publish. `toUsd(p, usdRates)` uses today's
+  rates when an action passes them (`internal.currency.allRates`); the table in `lib/priceParse.ts` is only the fallback.
 
 ## UI
 
