@@ -143,6 +143,9 @@ export default defineSchema({
       similarity: v.number(),
     }))),
     cjLookupAt: v.optional(v.string()),
+    // Review videos on YouTube (youtube.ts, lib/youtube.ts ProductVideos) and when they were last looked for.
+    youtube: v.optional(v.any()),
+    youtubeCheckedAt: v.optional(v.string()),
     supplierMatches: v.optional(v.array(v.object({
       title: v.string(),
       price: v.number(),
@@ -619,6 +622,8 @@ export default defineSchema({
     pending: v.optional(v.string()), // the change being made
     lastChange: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Pexels photographers whose photos replaced its placeholders (lib/pexels.ts), credited on the page.
+    photoCredits: v.optional(v.array(v.object({ photographer: v.string(), photographerUrl: v.string(), pexelsUrl: v.string() }))),
     // Products the page shows instead of the screenshot's (Launch from a link reads them: productImport.importLink).
     productIds: v.optional(v.array(v.id("importedProducts"))),
     // Published to the user's Shopify store as a page (screenPagesShopify.ts).
@@ -645,6 +650,9 @@ export default defineSchema({
   // Store Inspector → Google & YouTube ads (googleAds.ts): answers per store and platform, and lookups per user.
   googleAdLookups: defineTable({ host: v.string(), platform: v.string(), result: v.any(), at: v.number() }).index("by_host_platform", ["host", "platform"]),
   googleAdRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
+  // PageSpeed results per store (storeSpeed.ts), and YouTube searches per day (youtube.ts).
+  storeSpeeds: defineTable({ host: v.string(), result: v.any(), at: v.number() }).index("by_host", ["host"]),
+  youtubeUsage: defineTable({ day: v.string(), count: v.number() }).index("by_day", ["day"]),
   // A store theme's own home page template, saved before a landing page replaced it (screenPagesShopify.ts), to restore it.
   homeBackups: defineTable({ userId: v.id("users"), shopDomain: v.string(), themeId: v.string(), content: v.string(), savedAt: v.number() }).index("by_shop_theme", ["shopDomain", "themeId"]),
   // One row per page made or changed, for the daily limit (lib/screenPage.ts SCREEN_PAGE_RUNS).

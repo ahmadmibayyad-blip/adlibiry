@@ -27,6 +27,9 @@ async function setup(plan: "free" | "pro" = "pro") {
   return { t, user: t.withIdentity({ subject: "u1|s" }) };
 }
 
+// Domain registration lookups use whois over plain TCP, which fetch stubs can't catch.
+process.env.DOMAIN_LOOKUPS = "off";
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Store Inspector", () => {

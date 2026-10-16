@@ -37,6 +37,7 @@ import type * as crons from "../crons.js";
 import type * as currency from "../currency.js";
 import type * as dashboard from "../dashboard.js";
 import type * as digest from "../digest.js";
+import type * as domainInfo from "../domainInfo.js";
 import type * as emailSender from "../emailSender.js";
 import type * as events from "../events.js";
 import type * as follows from "../follows.js";
@@ -136,6 +137,7 @@ import type * as stats from "../stats.js";
 import type * as storeCheck from "../storeCheck.js";
 import type * as storeInspector from "../storeInspector.js";
 import type * as storeSales from "../storeSales.js";
+import type * as storeSpeed from "../storeSpeed.js";
 import type * as storeThemeHttp from "../storeThemeHttp.js";
 import type * as stores from "../stores.js";
 import type * as submittedAds from "../submittedAds.js";
@@ -145,6 +147,7 @@ import type * as users from "../users.js";
 import type * as videoDownload from "../videoDownload.js";
 import type * as winners from "../winners.js";
 import type * as winninghunter from "../winninghunter.js";
+import type * as youtube from "../youtube.js";
 
 import type {
   ApiFromModules,
@@ -182,6 +185,7 @@ declare const fullApi: ApiFromModules<{
   currency: typeof currency;
   dashboard: typeof dashboard;
   digest: typeof digest;
+  domainInfo: typeof domainInfo;
   emailSender: typeof emailSender;
   events: typeof events;
   follows: typeof follows;
@@ -281,6 +285,7 @@ declare const fullApi: ApiFromModules<{
   storeCheck: typeof storeCheck;
   storeInspector: typeof storeInspector;
   storeSales: typeof storeSales;
+  storeSpeed: typeof storeSpeed;
   storeThemeHttp: typeof storeThemeHttp;
   stores: typeof stores;
   submittedAds: typeof submittedAds;
@@ -290,6 +295,7 @@ declare const fullApi: ApiFromModules<{
   videoDownload: typeof videoDownload;
   winners: typeof winners;
   winninghunter: typeof winninghunter;
+  youtube: typeof youtube;
 }>;
 
 /**

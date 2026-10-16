@@ -78,7 +78,7 @@ export default function PageBuilderPage() {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Upload a screenshot of a landing or product page you like, or paste its link. The AI builds it as one HTML page with Tailwind that you can preview, change in your own words and
-          download, or publish it to your Shopify store as its own page. Photos become placeholders: put in your own.
+          download, or publish it to your Shopify store as its own page. Photos are matching free stock photos from Pexels: swap in your own product photos.
         </p>
       </div>
 
@@ -344,6 +344,20 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
         </p>
       ) : null}
       {page.lastChange && !making ? <p className="text-xs text-muted-foreground">Last change: “{page.lastChange}”</p> : null}
+      {page.photoCredits?.length ? (
+        <p className="text-xs text-muted-foreground">
+          Photos by{" "}
+          {page.photoCredits.map((c, i) => (
+            <span key={c.photographerUrl}>
+              {i ? ", " : ""}
+              <a href={c.photographerUrl} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">{c.photographer}</a>
+            </span>
+          ))}{" "}
+          on{" "}
+          <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">Pexels</a>
+          , free to use.
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
         <div className="flex gap-1">
