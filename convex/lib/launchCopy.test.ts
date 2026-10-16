@@ -176,13 +176,15 @@ describe("Shopify app security", () => {
     expect(await decryptToken("shpat_plain", undefined)).toBe("shpat_plain");
   });
 
-  it("asks only for the scopes Launch needs", () => {
+  it("asks only for the scopes Launch and the research verdict need", () => {
     const url = new URL(authorizeUrl("my-store.myshopify.com", "client123", "https://x.convex.site/shopify/callback", "st"));
     expect(url.origin).toBe("https://my-store.myshopify.com");
     expect(url.searchParams.get("scope")).toBe(
       "write_products,read_products,write_publications,read_publications," +
         "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation," +
-        "read_shipping,read_legal_policies,write_discounts,read_discounts",
+        "read_shipping,read_legal_policies,write_discounts,read_discounts," +
+        // read_orders is for counting orders of launched products (research verdict).
+        "read_orders",
     );
     expect(url.searchParams.get("state")).toBe("st");
   });
