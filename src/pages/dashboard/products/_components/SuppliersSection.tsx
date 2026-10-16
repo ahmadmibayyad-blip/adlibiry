@@ -8,11 +8,12 @@ import ProductImage from "@/components/ProductImage.tsx";
 import { price } from "@/lib/money.ts";
 import { WHOLESALE_MIN_SHARE } from "@/convex/lib/marketplaceMatch.ts";
 import { Spinner } from "@/components/ui/spinner.tsx";
+import CjSuppliers from "./CjSuppliers.tsx";
 
 // Top AliExpress suppliers for the product (convex/aliexpress.ts), matched by
 // title, and 1688 wholesale offers matched by image (convex/fusion.ts, via
 // Nexscope). A product without AliExpress suppliers gets searched when its
-// page opens (aliexpress.findSuppliers); the matches then appear here.
+// page opens (aliexpress.findSuppliers); the matches then appear here. CJ Dropshipping matches below (CjSuppliers.tsx).
 export default function SuppliersSection({ product }: { product: Doc<"products"> }) {
   const track = useMutation(api.events.track);
   const findSuppliers = useAction(api.aliexpress.findSuppliers);
@@ -35,7 +36,8 @@ export default function SuppliersSection({ product }: { product: Doc<"products">
       .catch(() => setLookup("unavailable"));
   }, [needsLookup, product._id, findSuppliers]);
 
-  if (product.isService || (!matches.length && !wholesale.length && lookup === "idle")) return null;
+  if (product.isService) return null;
+  if (!matches.length && !wholesale.length && lookup === "idle") return <CjSuppliers product={product} />;
   const searchUrl = `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(product.title.slice(0, 80))}`;
   const opened = () => track({ type: "supplier_click", productId: product._id }).catch(() => {});
   return (
@@ -137,6 +139,7 @@ export default function SuppliersSection({ product }: { product: Doc<"products">
           </ul>
         </div>
       )}
+      <CjSuppliers product={product} embedded />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import StoreTeardown from "./StoreTeardown.tsx";
+import GoogleAdsSection from "./GoogleAdsSection.tsx";
 import StoreAnalysisCard from "./StoreAnalysisCard.tsx";
 import type { StoreAnalysis } from "@/convex/lib/storeAnalysis.ts";
 
@@ -150,6 +151,9 @@ function Result({ shown, tracked, analysis, onClose }: { shown: Shown; tracked: 
       ) : (
         <p className="text-xs text-muted-foreground border-t border-border pt-3">We couldn't find a product page to tear down. Paste a product link to inspect one.</p>
       )}
+      <div className="border-t border-border pt-3">
+        <GoogleAdsSection key={host} host={host} />
+      </div>
     </div>
   );
 }
