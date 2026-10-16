@@ -610,6 +610,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId", "updatedAt"]),
+  // One row per screenshot taken from a link (pageShots.ts), for the daily limit (lib/screenshots.ts LINK_SHOTS).
+  pageShots: defineTable({ userId: v.id("users"), at: v.number(), host: v.string() }).index("by_user", ["userId", "at"]),
   // One row per page made or changed, for the daily limit (lib/screenPage.ts SCREEN_PAGE_RUNS).
   screenPageRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
 

@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
+import LinkScreenshot from "@/components/LinkScreenshot.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { pastedImage, screenshotParts, type ScreenshotPart } from "@/lib/screenshotParts.ts";
 import { cn } from "@/lib/utils.ts";
@@ -68,7 +69,7 @@ export default function PageBuilderPage() {
           <Wand2 className="w-6 h-6 text-primary" /> Screenshot to page
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload a screenshot of a landing or product page you like. The AI builds it as one HTML page with Tailwind that you can preview, change in your own words and
+          Upload a screenshot of a landing or product page you like, or paste its link. The AI builds it as one HTML page with Tailwind that you can preview, change in your own words and
           download. Photos become placeholders: put in your own.
         </p>
       </div>
@@ -111,6 +112,7 @@ export default function PageBuilderPage() {
             Drop, paste (Ctrl+V) or choose a screenshot · a full-page screenshot works best
           </button>
         )}
+        {!shot ? <LinkScreenshot onShot={pick} /> : null}
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

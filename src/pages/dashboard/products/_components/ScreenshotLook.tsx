@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api.js";
 import type { DesignWishes } from "@/convex/lib/designWishes.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
+import LinkScreenshot from "@/components/LinkScreenshot.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { pastedImage, screenshotParts } from "@/lib/screenshotParts.ts";
 
@@ -91,6 +92,7 @@ export default function ScreenshotLook({ value, onChange, dawn }: { value: Desig
           Upload or paste a screenshot of a store you like
         </button>
       )}
+      {!value && !busy ? <div className="mt-2"><LinkScreenshot onShot={use} /></div> : null}
       {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
       <span className="block mt-1 text-xs text-muted-foreground">
         {dawn

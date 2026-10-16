@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { byTier } from "./lib/billing";
 import { SCREEN_PAGE_RUNS, pageTitle } from "./lib/screenPage";
+import { LINK_SHOTS } from "./lib/screenshots";
 
 // Screenshot to page (/dashboard/page-builder): the pages a user made from screenshots, and how many
 // they may make or change a day. The AI work is in screenPagesAi.ts.
@@ -84,6 +85,25 @@ export const before = internalQuery({
     if (!user) return null;
     const u = await usage(ctx, user);
     return { userId: user._id, ...u, message: u.used >= u.limit ? limitMessage(u.limit) : null };
+  },
+});
+
+/** Counts a screenshot taken from a link (pageShots.ts); the reason when today's are used up. */
+export const claimShot = internalMutation({
+  args: { token: v.string(), host: v.string() },
+  handler: async (ctx, args): Promise<{ ok: true } | { ok: false; message: string }> => {
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
+    if (!user) return { ok: false, message: "Please sign in first." };
+    const limit = byTier(user, LINK_SHOTS);
+    const today = await ctx.db
+      .query("pageShots")
+      .withIndex("by_user", (q) => q.eq("userId", user._id).gt("at", Date.now() - DAY_MS))
+      .take(limit);
+    if (today.length >= limit) {
+      return { ok: false, message: limit <= LINK_SHOTS.trial ? `You've taken ${limit} screenshots from links today. Upgrade to Pro for ${LINK_SHOTS.paid} a day, or upload a screenshot.` : `You've taken ${limit} screenshots from links today. Upload one instead, or try again tomorrow.` };
+    }
+    await ctx.db.insert("pageShots", { userId: user._id, at: Date.now(), host: args.host });
+    return { ok: true };
   },
 });
 
