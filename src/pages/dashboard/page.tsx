@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import ProductImage from "@/components/ProductImage.tsx";
 import { moneyCompact, price } from "@/lib/money.ts";
 import LaunchDialog from "./products/_components/LaunchDialog.tsx";
+import SellingCalendar from "./_components/SellingCalendar.tsx";
 
 // Home dashboard: today's top winner and its next step first, then the
 // winners, then the rest. The charts come from api.dashboard.overview, saved
@@ -551,6 +552,9 @@ export default function DashboardHome() {
           </div>
         </section>
       )}
+
+      {/* Gift and deal days coming up in the country they sell to */}
+      <SellingCalendar />
 
       {/* Winners */}
       <WinnersGrid fallback={top} />

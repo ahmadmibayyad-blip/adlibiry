@@ -125,6 +125,7 @@ import type * as screenPages from "../screenPages.js";
 import type * as screenPagesAi from "../screenPagesAi.js";
 import type * as screenPagesShopify from "../screenPagesShopify.js";
 import type * as screenshotLook from "../screenshotLook.js";
+import type * as sellingCalendar from "../sellingCalendar.js";
 import type * as shopifyApp from "../shopifyApp.js";
 import type * as shopifyImport from "../shopifyImport.js";
 import type * as sourceConflicts from "../sourceConflicts.js";
@@ -267,6 +268,7 @@ declare const fullApi: ApiFromModules<{
   screenPagesAi: typeof screenPagesAi;
   screenPagesShopify: typeof screenPagesShopify;
   screenshotLook: typeof screenshotLook;
+  sellingCalendar: typeof sellingCalendar;
   shopifyApp: typeof shopifyApp;
   shopifyImport: typeof shopifyImport;
   sourceConflicts: typeof sourceConflicts;

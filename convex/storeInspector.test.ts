@@ -35,6 +35,7 @@ describe("Store Inspector", () => {
     vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request) => {
       const url = String(u instanceof Request ? u.url : u).replace("://www.", "://"); // the store answers on both
       fetched.push(url);
+      if (url.startsWith("https://web.archive.org/cdx/")) return Response.json([["timestamp", "statuscode"], ["20240305101010", "200"]]);
       if (url === "https://ekohemshop.dk/") return new Response(homeHtml);
       if (url === "https://ekohemshop.dk/products/bivoks-brodpose") return new Response(productHtml);
       if (url === "https://ekohemshop.dk/products/bivoks-brodpose.js") return new Response(JSON.stringify({ id: 1, title: "Bivoks brødpose", price: 14900, compare_at_price: 29900, variants: [] }));
@@ -45,7 +46,9 @@ describe("Store Inspector", () => {
     expect(r.host).toBe("ekohemshop.dk");
     expect(r.result.theme).toMatchObject({ schemaName: "Cello", version: "3.0.2" });
     expect(r.result.apps.map((a) => a.name)).toEqual(["Kaching Bundles", "Klarna On-site Messaging"]);
-    expect(fetched).toEqual(["https://ekohemshop.dk/", "https://ekohemshop.dk/products/bivoks-brodpose", "https://ekohemshop.dk/products/bivoks-brodpose.js"]);
+    expect(fetched.filter((u) => !u.includes("web.archive.org"))).toEqual(["https://ekohemshop.dk/", "https://ekohemshop.dk/products/bivoks-brodpose", "https://ekohemshop.dk/products/bivoks-brodpose.js"]);
+    // Its age, from the Wayback Machine (asked at the same time as the pages).
+    expect(r.result.history).toMatchObject({ months: 1, firstSeen: "2024-03-05" });
     // The main product's teardown: its price from /products/<handle>.js and its bundle tiers.
     expect(r.result.teardown).toMatchObject({
       productPath: "/products/bivoks-brodpose",
