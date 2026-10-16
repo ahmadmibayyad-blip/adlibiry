@@ -1,0 +1,17 @@
+{%- comment -%}
+  AdSpy Pro, Screenshot to page: the page's HTML is a whole document (AdSpy sends it starting with <!DOCTYPE html>).
+  A section around it (the home page) adds Shopify's wrapper div first: start at the doctype. Shopify's own
+  scripts (analytics, pixels) go into the document's head. head_end is written in two halves: Theme Check reads a
+  literal closing head tag as unmatched HTML.
+{%- endcomment -%}
+{%- assign doc = content_for_layout -%}
+{%- if doc contains '<!DOCTYPE html>' -%}
+  {%- assign doc = doc | split: '<!DOCTYPE html>' | last | prepend: '<!DOCTYPE html>' -%}
+{%- endif -%}
+{%- assign head_end = '</he' | append: 'ad>' -%}
+{%- if doc contains head_end -%}
+  {%- assign head = doc | split: head_end | first -%}
+{{ head }}{{ content_for_header }}{{ head_end }}{{ doc | remove_first: head | remove_first: head_end }}
+{%- else -%}
+{{ content_for_header }}{{ doc }}
+{%- endif -%}

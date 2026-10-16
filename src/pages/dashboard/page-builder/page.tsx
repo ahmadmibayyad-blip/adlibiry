@@ -164,7 +164,11 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
   const [sending, setSending] = useState(false);
   const publishPage = useAction(api.screenPagesShopify.publish);
   const [publishing, setPublishing] = useState(false);
-  const [publishProblem, setPublishProblem] = useState<{ message: string; code?: string; template?: string } | null>(null);
+  const [publishProblem, setPublishProblem] = useState<{ message: string; code?: string; files?: Record<string, string> } | null>(null);
+  const restoreHome = useAction(api.screenPagesShopify.restoreHome);
+  const [asHomeInput, setAsHome] = useState<boolean | null>(null);
+  const asHome = asHomeInput ?? !!page.shopify?.home;
+  const [restoring, setRestoring] = useState(false);
 
   const making = page.status === "making";
   const html = page.html ?? "";
@@ -195,14 +199,27 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
     setPublishing(true);
     setPublishProblem(null);
     try {
-      const r = await publishPage({ id: page._id });
+      const r = await publishPage({ id: page._id, ...(asHome ? { asHome: true } : {}) });
+      const linked = r.linked ? ` ${r.linked} links now go to your store's pages.` : "";
       if (r.note) toast.warning(r.note);
-      else toast.success(r.updated ? "Updated in your Shopify store" : "Published in your Shopify store");
+      else toast.success(`${r.home ? "It's your store's home page now." : r.updated ? "Updated in your Shopify store." : "Published in your Shopify store."}${linked}`);
     } catch (e) {
-      const data = e instanceof ConvexError ? (e.data as { code?: string; message?: string; template?: string }) : null;
-      setPublishProblem({ message: errorMessage(e, "The page couldn't be published"), code: data?.code, template: data?.template });
+      const data = e instanceof ConvexError ? (e.data as { code?: string; message?: string; files?: Record<string, string> }) : null;
+      setPublishProblem({ message: errorMessage(e, "The page couldn't be published"), code: data?.code, files: data?.files });
     } finally {
       setPublishing(false);
+    }
+  };
+  const restore = async () => {
+    setRestoring(true);
+    try {
+      await restoreHome({ id: page._id });
+      setAsHome(false);
+      toast.success("Your store's earlier home page is back.");
+    } catch (e) {
+      toast.error(errorMessage(e, "The home page couldn't be restored"));
+    } finally {
+      setRestoring(false);
     }
   };
   // Changed since it went to Shopify (made, changed or undone later).
@@ -262,13 +279,29 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
         </p>
       ) : null}
       {page.error ? <p className={cn("text-sm", page.status === "failed" ? "text-destructive" : "text-warn")}>{page.status === "failed" ? page.error : `The last change didn't work: ${page.error}`}</p> : null}
+      {html && !making ? (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={asHome} onChange={(e) => setAsHome(e.target.checked)} />
+          <span>
+            Make it my store's home page
+            <span className="block text-xs text-muted-foreground">
+              Your theme's current home page is saved in AdSpy first, so you can bring it back. The menu bar and buttons are linked to your store's pages when you publish.
+            </span>
+          </span>
+        </label>
+      ) : null}
       {page.shopify ? (
         <p className="text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-muted-foreground">{outdated ? "In your store (older version):" : "In your store:"}</span>
+          <span className="text-muted-foreground">{page.shopify.home ? "Your home page:" : outdated ? "In your store (older version):" : "In your store:"}</span>
           <a href={page.shopify.url} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
             {page.shopify.url.replace(/^https?:\/\//, "")} <ExternalLink className="w-3.5 h-3.5" />
           </a>
           <a href={page.shopify.adminUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground hover:underline">Edit in Shopify</a>
+          {page.shopify.home ? (
+            <Button size="sm" variant="ghost" className="h-7" onClick={() => void restore()} disabled={restoring}>
+              {restoring ? <Spinner className="w-4 h-4 mr-1.5" /> : <Undo2 className="w-4 h-4 mr-1.5" />} Restore my old home page
+            </Button>
+          ) : null}
         </p>
       ) : null}
       {publishProblem ? (
@@ -277,14 +310,19 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
           {publishProblem.code === "NO_STORE" || publishProblem.code === "RECONNECT" ? (
             <Link to="/dashboard/settings" className="text-primary hover:underline">Go to Settings → Shopify</Link>
           ) : null}
-          {publishProblem.template ? (
-            <>
-              <pre className="rounded-md bg-background border border-border p-2 text-xs whitespace-pre-wrap">{publishProblem.template}</pre>
-              <Button size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(publishProblem.template!).then(() => toast.success("Template copied"))}>
-                <Copy className="w-4 h-4 mr-1.5" /> Copy template
-              </Button>
-            </>
-          ) : null}
+          {publishProblem.files
+            ? Object.entries(publishProblem.files).map(([name, content]) => (
+                <div key={name} className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="text-xs font-semibold">{name}</code>
+                    <Button size="sm" variant="outline" className="h-7" onClick={() => void navigator.clipboard.writeText(content).then(() => toast.success(`${name} copied`))}>
+                      <Copy className="w-4 h-4 mr-1.5" /> Copy
+                    </Button>
+                  </div>
+                  <pre className="rounded-md bg-background border border-border p-2 text-xs whitespace-pre-wrap max-h-40 overflow-auto">{content}</pre>
+                </div>
+              ))
+            : null}
         </div>
       ) : null}
       {page.lastChange && !making ? <p className="text-xs text-muted-foreground">Last change: “{page.lastChange}”</p> : null}

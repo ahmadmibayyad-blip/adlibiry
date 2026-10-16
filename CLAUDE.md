@@ -96,9 +96,13 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   (`SCREEN_PAGE_RUNS`, counted in `screenPageRuns`) plus the shared AI limit. The preview iframe is `sandbox="allow-scripts"` only: never give AI HTML the app origin.
 - Both take a link too: `pageShots.take` runs Apify's free `apify/screenshot-url` (full page, 1280 wide, ~20 s, ~$0.003) and returns the PNG to the browser,
   which cuts it like an upload. Daily limit `LINK_SHOTS` (table `pageShots`); needs `APIFY_TOKEN`. A sticky header can show up mid-image (scroll artefact).
-- Publish to Shopify (`screenPagesShopify.publish`): a Shopify page (templateSuffix `adspy-landing`) with the HTML as its body; the template
-  (`{% layout none %}{{ page.content }}`, also in both theme folders) is added to the live theme with `themeFilesUpsert` once. If Shopify refuses,
-  the error (code TEMPLATE_NEEDED) carries the template for the user to add by hand; no page is made then. Publishing again updates the same page.
+- Publish to Shopify (`screenPagesShopify.publish`, pure parts in `lib/landingShopify.ts`): a Shopify page (templateSuffix `adspy-landing`) with
+  the HTML as its body. Three theme files (`LANDING_FILES`, generated from `shopify-theme/` by build-theme.mjs and in both theme folders) go into
+  the live theme with `themeFilesUpsert`: layout `adspy-landing` (the page as a whole document, `content_for_header` put into its head for
+  analytics and pixels), the page template, and section `adspy-landing-home`. `asHome` writes `templates/index.json` pointing at the page, after
+  saving the theme's own in `homeBackups` (never a landing one); `restoreHome` writes it back. Links that go nowhere (`#`) are pointed at the
+  store's menu, collections, pages and products by a small AI request, only to paths the store has. If Shopify refuses the files, the error
+  (code TEMPLATE_NEEDED) carries them for the user to add by hand, and no page is made. Publishing again updates the same page.
 
 ## UI
 
