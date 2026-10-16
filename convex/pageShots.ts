@@ -30,12 +30,12 @@ export const take = action({
     const failed = `We couldn't take a screenshot of ${host}. Check the link, or upload a screenshot instead.`;
     let shotUrl: string | undefined;
     try {
-      const q = new URLSearchParams({ token, timeout: "90", memory: "2048" });
+      const q = new URLSearchParams({ token, timeout: "150", memory: "2048" });
       const res = await fetch(`https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?${q}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(shotInput(u.toString())),
-        signal: AbortSignal.timeout(110_000),
+        signal: AbortSignal.timeout(170_000),
       });
       if (!res.ok) {
         const text = (await res.text()).slice(0, 300);
@@ -46,6 +46,7 @@ export const take = action({
         throw new ConvexError({ code: "SHOT_FAILED", message: failed });
       }
       const items = (await res.json().catch(() => null)) as { screenshotUrl?: unknown }[] | null;
+      // A run that ran out of time answers with no items.
       shotUrl = typeof items?.[0]?.screenshotUrl === "string" ? items[0].screenshotUrl : undefined;
     } catch (e) {
       if (e instanceof ConvexError) throw e;

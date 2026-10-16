@@ -54,7 +54,7 @@ export default function LinkScreenshot({ onShot, disabled }: { onShot: (image: B
           {busy ? "Taking it…" : "Take screenshot"}
         </Button>
       </div>
-      {busy ? <p className="text-xs text-muted-foreground">Opening the page and taking a full-page screenshot: about 20 seconds.</p> : null}
+      {busy ? <p className="text-xs text-muted-foreground">Opening the page and taking a full-page screenshot: usually 20–40 seconds.</p> : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
