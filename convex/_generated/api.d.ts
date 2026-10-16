@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as adQueue from "../adQueue.js";
+import type * as adQueueAi from "../adQueueAi.js";
 import type * as adlibrary_client from "../adlibrary/client.js";
 import type * as adlibrary_productSync from "../adlibrary/productSync.js";
 import type * as adlibrary_sync from "../adlibrary/sync.js";
@@ -105,6 +107,7 @@ import type * as nexscope_productDiscovery from "../nexscope/productDiscovery.js
 import type * as nexscope_tiktokAds from "../nexscope/tiktokAds.js";
 import type * as nicheReport from "../nicheReport.js";
 import type * as onboarding from "../onboarding.js";
+import type * as orders from "../orders.js";
 import type * as pageShots from "../pageShots.js";
 import type * as pipispy from "../pipispy.js";
 import type * as notifications from "../notifications.js";
@@ -115,6 +118,7 @@ import type * as productImages from "../productImages.js";
 import type * as productImport from "../productImport.js";
 import type * as productPipeline from "../productPipeline.js";
 import type * as products from "../products.js";
+import type * as profit from "../profit.js";
 import type * as publicApi from "../publicApi.js";
 import type * as pushIdentities from "../pushIdentities.js";
 import type * as pushNotifications from "../pushNotifications.js";
@@ -156,6 +160,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adQueue: typeof adQueue;
+  adQueueAi: typeof adQueueAi;
   "adlibrary/client": typeof adlibrary_client;
   "adlibrary/productSync": typeof adlibrary_productSync;
   "adlibrary/sync": typeof adlibrary_sync;
@@ -253,6 +259,7 @@ declare const fullApi: ApiFromModules<{
   "nexscope/tiktokAds": typeof nexscope_tiktokAds;
   nicheReport: typeof nicheReport;
   onboarding: typeof onboarding;
+  orders: typeof orders;
   pageShots: typeof pageShots;
   pipispy: typeof pipispy;
   notifications: typeof notifications;
@@ -263,6 +270,7 @@ declare const fullApi: ApiFromModules<{
   productImport: typeof productImport;
   productPipeline: typeof productPipeline;
   products: typeof products;
+  profit: typeof profit;
   publicApi: typeof publicApi;
   pushIdentities: typeof pushIdentities;
   pushNotifications: typeof pushNotifications;

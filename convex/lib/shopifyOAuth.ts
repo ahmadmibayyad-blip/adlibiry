@@ -13,7 +13,10 @@ export const SHOPIFY_SCOPES =
   // "Ready to sell?" (storeCheck.ts) reads these; without them it asks to reconnect.
   "read_shipping,read_legal_policies," +
   // Full store's bundle deals (launchRun.ts): automatic discounts. Older installs get none until they reconnect.
-  "write_discounts,read_discounts";
+  "write_discounts,read_discounts," +
+  // Profit (profit.ts: orders, cost per item) and the CJ order autopilot (orders.ts: orders with the shipping address,
+  // tracking on fulfillments). Older installs reconnect for these; the rest of the app works without them.
+  "read_orders,read_inventory,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders";
 
 /** Store scopes an app install is missing (a write scope implies its read scope). Unknown scopes (pasted tokens): none. */
 export function missingStoreScopes(granted: string | undefined): string[] {

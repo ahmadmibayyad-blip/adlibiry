@@ -37,7 +37,10 @@ export const sendMorningDigests = internalAction({
     for (const r of page.due) {
       const winners = pickDigestWinners(rows, r.niches, r.day);
       const alerts = await ctx.runQuery(internal.digest.recentAlerts, { userId: r.userId, sinceIso });
-      if (!winners.length && !alerts.length) {
+      // Yesterday in their own store, when it had orders (profit.ts).
+      const yesterday = new Date(Date.parse(`${r.day}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+      const profit = await ctx.runQuery(internal.profit.yesterdayFor, { userId: r.userId, day: yesterday });
+      if (!winners.length && !alerts.length && !profit) {
         // Nothing new today: no empty email, and no new check until tomorrow.
         await ctx.runMutation(internal.digest.markSent, { userId: r.userId, day: r.day });
         skipped++;
@@ -49,8 +52,8 @@ export const sendMorningDigests = internalAction({
         await hercules.email.send({
           from: DIGEST_SENDER,
           to: r.email,
-          subject: winners.length ? `${winners.length} new winning product${winners.length === 1 ? "" : "s"} this morning` : "Your AdSpy Pro alerts",
-          html: renderDigestHtml({ winners, alerts, appUrl, unsubscribeUrl, niches: r.niches }),
+          subject: winners.length ? `${winners.length} new winning product${winners.length === 1 ? "" : "s"} this morning` : profit ? `Yesterday: ${profit.orders} order${profit.orders === 1 ? "" : "s"} in ${profit.shopName}` : "Your AdSpy Pro alerts",
+          html: renderDigestHtml({ winners, alerts, appUrl, unsubscribeUrl, niches: r.niches, profit }),
           headers: {
             "List-Unsubscribe": `<${site ? `${site}/email/unsubscribe?token=${token}` : unsubscribeUrl}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
