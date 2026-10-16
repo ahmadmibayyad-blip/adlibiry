@@ -1,4 +1,5 @@
 import { estimateProduct, pointEstimate, unitsPerMonthFromText } from "./lib/estimates";
+import { usdFromDollarText } from "./nexscope/marketplaces";
 import { HISTOGRAM_BINS, binOf, medianOf, percentileOf, rawScore, scoreFromPercentile, scoreParts, shareAtLeast } from "./lib/productScore";
 import { passesKnownGates, passesWinnerGates } from "./lib/winnerGates";
 import { fusion, isVerifiedWinner } from "./lib/fusion";
@@ -914,8 +915,10 @@ function estimatesFor(
   factors?: Calibrations,
 ): Partial<Doc<"products">> {
   const units = p.unitsPerMonth ?? unitsPerMonthFromText(p.description ?? "");
+  // TikTok Shop imports that read "$" as a foreign currency kept the price as text ("40.3 $").
+  const dollars = p.price === undefined && p.source === "tiktok_shop" ? usdFromDollarText(p.originalPrice) : undefined;
   const e = estimateProduct({
-    price: p.price,
+    price: p.price ?? dollars,
     views: ads?.views ?? p.linkedViews,
     likes: ads?.likes ?? p.likes,
     comments: ads?.comments ?? p.linkedComments,
@@ -927,6 +930,7 @@ function estimatesFor(
   const f = factorFor(factors, e.revenueBasis);
   if (e.revenue && f !== 1) e.revenue = { low: Math.round(e.revenue.low * f), high: Math.round(e.revenue.high * f) };
   return {
+    ...(dollars !== undefined ? { price: dollars, priceSource: "exact" as const, originalPrice: undefined } : {}),
     ...(units !== undefined ? { unitsPerMonth: units } : {}),
     estImpressions: e.impressions,
     estAdSpend: e.adSpend,

@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { absoluteUrl, fromShopify, fromTikTokShop, nicheFromTikTokCategory, normalizeShopify, storeFromShopify, trendFromGrowthPercent } from "./marketplaces";
+import { absoluteUrl, fromShopify, fromTikTokShop, nicheFromTikTokCategory, normalizeShopify, storeFromShopify, trendFromGrowthPercent, usdFromDollarText } from "./marketplaces";
 
 describe("Nexscope marketplaces", () => {
   it("maps a TikTok Shop best-seller", () => {
     const d = fromTikTokShop({ productId: "1", title: "Magic cleaning sponge", price: 9.99, currency: "USD", totalSale1dCnt: 4000, totalSaleCnt: 400_000, growthRate: 80, imageUrl: "i", categoryName: "Home Supplies" });
     expect(d).toMatchObject({ externalId: "tts_1", price: 9.99, category: "Home & Living", trend: "Rising" });
     expect(d!.aiScore).toBeGreaterThan(80);
+  });
+
+  it("reads a \"$\" currency as US dollars, also from prices saved as text", () => {
+    expect(fromTikTokShop({ productId: "5", title: "x", price: 40.3, currency: "$", imageUrl: "i" })).toMatchObject({ price: 40.3, originalPrice: undefined });
+    expect(usdFromDollarText("40.3 $")).toBe(40.3);
+    expect(usdFromDollarText("$1,240.5")).toBe(1240.5);
+    expect(usdFromDollarText("12 USD")).toBe(12);
+    expect(usdFromDollarText("150 MXN")).toBeUndefined();
+    expect(usdFromDollarText("75700")).toBeUndefined(); // no currency: can't tell
+    expect(usdFromDollarText(undefined)).toBeUndefined();
   });
 
   it("keeps a non-USD TikTok price as text and skips delisted or incomplete products", () => {
