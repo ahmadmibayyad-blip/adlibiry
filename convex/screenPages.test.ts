@@ -114,3 +114,41 @@ describe("match a screenshot (Launch)", () => {
     expect(await me.action(api.screenshotLook.read, { images: shot })).toEqual({ look: null, message: expect.stringContaining("doesn't look like a web page") });
   });
 });
+
+describe("screenshot from a link", () => {
+  const png = Buffer.from("\x89PNG fake image bytes", "binary");
+  function stubApify(calls: { url: string; body?: unknown; auth?: string | null }[], { fail = false } = {}) {
+    vi.stubGlobal("fetch", async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      calls.push({ url, body: init?.body ? JSON.parse(String(init.body)) : undefined, auth: new Headers(init?.headers).get("authorization") });
+      if (url.includes("/acts/apify~screenshot-url/run-sync-get-dataset-items")) {
+        if (fail) return new Response(JSON.stringify({ error: { message: "Monthly usage hard limit exceeded" } }), { status: 402 });
+        return Response.json([{ url: "https://store.com/", screenshotUrl: "https://api.apify.com/v2/key-value-stores/s1/records/shot?signature=x" }]);
+      }
+      if (url.startsWith("https://api.apify.com/v2/key-value-stores/s1/records/shot")) return new Response(png, { headers: { "content-type": "image/png" } });
+      return new Response("", { status: 404 });
+    });
+  }
+
+  it("takes a full-page screenshot of the page with Apify and sends it back", async () => {
+    process.env.APIFY_TOKEN = "apify_test";
+    const { me } = await setup();
+    const calls: { url: string; body?: unknown; auth?: string | null }[] = [];
+    stubApify(calls);
+    const r = await me.action(api.pageShots.take, { url: "www.store.com/products/pillow" });
+    expect(r).toEqual({ data: png.toString("base64"), mediaType: "image/png", host: "store.com" });
+    expect(calls[0].url).toContain("token=apify_test");
+    expect(calls[0].body).toMatchObject({ urls: [{ url: "https://www.store.com/products/pillow" }], viewportWidth: 1280, scrollToBottom: true });
+    expect(calls[1].auth).toBe("Bearer apify_test");
+    await expect(me.action(api.pageShots.take, { url: "http://localhost:3000" })).rejects.toThrow(/full address/);
+  });
+
+  it("limits free accounts and explains when Apify is out of credit", async () => {
+    process.env.APIFY_TOKEN = "apify_test";
+    const { me } = await setup();
+    stubApify([], { fail: true });
+    await expect(me.action(api.pageShots.take, { url: "https://store.com" })).rejects.toThrow(/used this month's credit/);
+    for (let i = 0; i < 3; i++) await me.action(api.pageShots.take, { url: "https://store.com" }).catch(() => {});
+    await expect(me.action(api.pageShots.take, { url: "https://store.com" })).rejects.toThrow(/taken 4 screenshots from links today/);
+  });
+});

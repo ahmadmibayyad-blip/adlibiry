@@ -6,6 +6,25 @@ export const MAX_PART_BYTES = 4_000_000; // base64 length of one part
 
 export type ScreenshotPart = { data: string; mediaType: string };
 
+/** Screenshots taken from a link per day, by tier (lib/billing.ts byTier): each is one Apify run (about $0.003). */
+export const LINK_SHOTS = { admin: 300, paid: 60, trial: 10, free: 4 } as const;
+/** Bigger screenshots (very long pages) don't fit in the answer to the browser. */
+export const MAX_SHOT_BYTES = 7_000_000;
+
+/** What apify/screenshot-url is asked: the whole page at desktop width, after scrolling so lazy images load. */
+export function shotInput(url: string) {
+  return {
+    urls: [{ url }],
+    format: "png",
+    waitUntil: "load",
+    delay: 1500,
+    viewportWidth: 1280,
+    scrollToBottom: true,
+    delayAfterScrolling: 1500,
+    proxy: { useApifyProxy: true },
+  };
+}
+
 /** Why these parts can't go to the AI, or null when they can. */
 export function screenshotProblem(parts: ScreenshotPart[]): string | null {
   if (!parts.length) return "Add a screenshot first.";
