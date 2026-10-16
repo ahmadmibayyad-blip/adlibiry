@@ -616,6 +616,9 @@ export default defineSchema({
   }).index("by_user", ["userId", "updatedAt"]),
   // One row per screenshot taken from a link (pageShots.ts), for the daily limit (lib/screenshots.ts LINK_SHOTS).
   pageShots: defineTable({ userId: v.id("users"), at: v.number(), host: v.string() }).index("by_user", ["userId", "at"]),
+  // Public holidays per country and year from Nager.Date, for the selling calendar (sellingCalendar.ts).
+  publicHolidays: defineTable({ country: v.string(), year: v.number(), days: v.array(v.object({ date: v.string(), name: v.string(), localName: v.string() })), fetchedAt: v.number() })
+    .index("by_country_year", ["country", "year"]),
   // A store theme's own home page template, saved before a landing page replaced it (screenPagesShopify.ts), to restore it.
   homeBackups: defineTable({ userId: v.id("users"), shopDomain: v.string(), themeId: v.string(), content: v.string(), savedAt: v.number() }).index("by_shop_theme", ["shopDomain", "themeId"]),
   // One row per page made or changed, for the daily limit (lib/screenPage.ts SCREEN_PAGE_RUNS).

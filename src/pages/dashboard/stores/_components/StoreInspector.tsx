@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Bookmark, BookmarkCheck, ExternalLink, Palette, Puzzle, Radar, Radio, X } from "lucide-react";
+import { Bookmark, BookmarkCheck, ExternalLink, History, Palette, Puzzle, Radar, Radio, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import type { Inspection } from "@/convex/lib/storeInspect.ts";
+import { ageLabel } from "@/convex/lib/storeHistory.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
@@ -88,6 +89,23 @@ function Result({ shown, tracked, analysis, onClose }: { shown: Shown; tracked: 
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Couldn't read the theme.</p>
+          )}
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2 flex items-center gap-1.5"><History className="w-3.5 h-3.5" />Store age</h4>
+          {r.history ? (
+            <div className="space-y-1 text-sm">
+              <div className="font-medium">{ageLabel(r.history)}</div>
+              {r.history.years.length ? (
+                <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span>Saved copies:</span>
+                  {r.history.years.map((y) => (
+                    <a key={y.year} href={y.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{y.year}</a>
+                  ))}
+                </div>
+              ) : null}
+              <div className="text-xs text-muted-foreground">From the Internet Archive. The store can be older than its first saved copy.</div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{r.history === null ? "The Internet Archive didn't answer in time. Inspect again later." : "Inspect again to see it."}</p>
           )}
           <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2 flex items-center gap-1.5"><Radio className="w-3.5 h-3.5" />Ad pixels</h4>
           {r.pixels.length ? (
