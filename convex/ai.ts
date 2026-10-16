@@ -124,7 +124,15 @@ export const researchProduct = action({
       }
     }
     const evidence = { ...found.evidence, reviews };
-    const rules = evaluateRules(found.ruleInput);
+    // Orders of a launched product in the user's own store; any failure leaves the verdict to run without it.
+    let ownStore: { orders?: number; capped?: boolean; reason?: string };
+    try {
+      ownStore = await ctx.runAction(internal.ownOrders.forProduct, { userId: found.userId as Id<"users">, productId: args.productId });
+    } catch (e) {
+      console.warn("Research: own-store orders failed", e);
+      ownStore = { reason: "error" };
+    }
+    const rules = evaluateRules({ ...found.ruleInput, ownOrders: ownStore.orders });
     const raw = await askClaude(ctx, ResearchSchema, RESEARCH_SYSTEM, `${researchEvidence(evidence, rules, found.vat)}\n\nWrite the first-pass research report.`);
     const aiReport = cleanReport(raw);
     // Code sets the ceiling: the AI's call can only go down, and a blocker (its own or the rules') means skip.
@@ -140,6 +148,7 @@ export const researchProduct = action({
       rules: { ...rules, cappedBy: final.cappedBy ?? null },
       rulesVersion: RULES_VERSION,
       vat: found.vat ?? null,
+      ownStore,
     });
     return report;
   },

@@ -49,7 +49,7 @@ export function evaluateRules(i: RuleInput): Rules {
       detail: i.adspyDemandOk === null ? "no demand check" : i.adspyDemandOk ? "demand confirmed" : "demand not confirmed",
     },
     { key: "tiktok", seen: (i.tiktokUnits ?? 0) >= 1000, detail: `${i.tiktokUnits ?? 0} TikTok units` },
-    { key: "ownStore", seen: (i.ownOrders ?? 0) >= 3, detail: `${i.ownOrders ?? 0} own-store orders` },
+    { key: "ownStore", seen: (i.ownOrders ?? 0) >= 3, detail: i.ownOrders === undefined ? "not measured" : `${i.ownOrders} own-store orders` },
   ];
   const seenCount = signals.filter((s) => s.seen).length;
 

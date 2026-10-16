@@ -130,6 +130,10 @@ describe("AI research verdict", () => {
     const r = await me.action(api.ai.researchProduct, { productId });
     expect(r.call).toBe("skip");
     expect(seen.prompt).toContain("HARD BLOCKER: Famous brand: Stanley");
+    // No launched product, so own-store orders were not measured: unknown, not zero.
+    expect(seen.prompt).toContain("ownStore (not measured)");
+    expect(seen.prompt).not.toContain("0 own-store orders");
+    expect(await me.query(api.researchReports.latest, { productId })).toMatchObject({ ownStore: { reason: "no_launch" } });
   });
 
   it("lists the user's latest verdict per product, for the badges in product lists", async () => {

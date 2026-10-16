@@ -106,6 +106,7 @@ export const save = internalMutation({
     rulesVersion: v.optional(v.number()),
     aiCall: v.optional(v.string()),
     vat: v.optional(v.any()),
+    ownStore: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("researchReports", { ...args, createdAt: new Date().toISOString() });
