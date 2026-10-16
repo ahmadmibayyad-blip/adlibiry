@@ -19,7 +19,7 @@ describe("Launch from a link", () => {
       "https://pets-dreams.uk/products/snufflemaster",
       "USD",
     );
-    expect(p).toEqual({ source: "shopify", title: "SnuffleMaster", description: "Hide treats & let your dog sniff .", imageUrl: "https://cdn.shopify.com/a.jpg", images: ["https://cdn.shopify.com/b.jpg"], price: 29.99 });
+    expect(p).toEqual({ source: "shopify", title: "SnuffleMaster", description: "Hide treats & let your dog sniff .", imageUrl: "https://cdn.shopify.com/a.jpg", images: ["https://cdn.shopify.com/b.jpg"], price: 29.99, shownPrice: { amount: 29.99, currency: "USD" } });
     expect(fromShopifyJs({ title: "" }, "https://x.com/products/y")).toBeNull();
   });
 

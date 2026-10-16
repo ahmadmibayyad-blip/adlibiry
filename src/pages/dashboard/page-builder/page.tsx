@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import LinkScreenshot from "@/components/LinkScreenshot.tsx";
+import PageProducts, { type PickedProduct } from "./PageProducts.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { pastedImage, screenshotParts, type ScreenshotPart } from "@/lib/screenshotParts.ts";
 import { cn } from "@/lib/utils.ts";
@@ -29,6 +30,7 @@ export default function PageBuilderPage() {
   const input = useRef<HTMLInputElement>(null);
   const [shot, setShot] = useState<{ parts: ScreenshotPart[]; preview: string } | null>(null);
   const [notes, setNotes] = useState("");
+  const [products, setProducts] = useState<PickedProduct[]>([]);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -50,10 +52,15 @@ export default function PageBuilderPage() {
     if (!shot) return;
     setBusy(true);
     try {
-      const r = await create({ images: shot.parts, ...(notes.trim() ? { notes: notes.trim() } : {}) });
+      const r = await create({
+        images: shot.parts,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(products.length ? { productIds: products.map((p) => p.productId) } : {}),
+      });
       setParams({ id: r.id });
       setShot(null);
       setNotes("");
+      setProducts([]);
     } catch (e) {
       toast.error(errorMessage(e, "The page couldn't be started"));
     } finally {
@@ -114,6 +121,7 @@ export default function PageBuilderPage() {
           </button>
         )}
         {!shot ? <LinkScreenshot onShot={pick} /> : null}
+        <PageProducts value={products} onChange={setProducts} />
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -324,6 +332,16 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
               ))
             : null}
         </div>
+      ) : null}
+      {page.products.length ? (
+        <p className="text-xs text-muted-foreground">
+          Products: {page.products.map((p, i) => (
+            <span key={p.url}>
+              {i ? ", " : ""}
+              <a href={p.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">{p.title}</a>
+            </span>
+          ))}
+        </p>
       ) : null}
       {page.lastChange && !making ? <p className="text-xs text-muted-foreground">Last change: “{page.lastChange}”</p> : null}
 

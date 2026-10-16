@@ -607,6 +607,8 @@ export default defineSchema({
     pending: v.optional(v.string()), // the change being made
     lastChange: v.optional(v.string()),
     error: v.optional(v.string()),
+    // Products the page shows instead of the screenshot's (Launch from a link reads them: productImport.importLink).
+    productIds: v.optional(v.array(v.id("importedProducts"))),
     // Published to the user's Shopify store as a page (screenPagesShopify.ts).
     shopify: v.optional(v.object({ shopDomain: v.string(), pageId: v.string(), url: v.string(), adminUrl: v.string(), publishedAt: v.number(), home: v.optional(v.boolean()) })),
     createdAt: v.number(),
@@ -748,6 +750,7 @@ export default defineSchema({
     images: v.array(v.string()),
     price: v.optional(v.number()),    // the page's selling price, USD
     cost: v.optional(v.number()),     // the supplier's price, USD (AliExpress)
+    shownPrice: v.optional(v.object({ amount: v.number(), currency: v.string() })), // as the store shows it (Shopify stores)
     createdAt: v.string(),
   })
     .index("by_user", ["userId"])

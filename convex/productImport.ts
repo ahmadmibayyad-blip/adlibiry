@@ -142,6 +142,7 @@ export const save = internalMutation({
       images: v.array(v.string()),
       price: v.optional(v.number()),
       cost: v.optional(v.number()),
+      shownPrice: v.optional(v.object({ amount: v.number(), currency: v.string() })),
     }),
   },
   handler: async (ctx, args): Promise<Id<"importedProducts"> | null> => {
@@ -167,7 +168,7 @@ export const save = internalMutation({
 
 export const importLink = action({
   args: { url: v.string() },
-  handler: async (ctx, args): Promise<{ productId: Id<"importedProducts">; title: string; imageUrl: string }> => {
+  handler: async (ctx, args): Promise<{ productId: Id<"importedProducts">; title: string; imageUrl: string; url: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     const u = productUrl(args.url);
@@ -189,6 +190,6 @@ export const importLink = action({
     }
     const productId = await ctx.runMutation(internal.productImport.save, { token: stableToken(identity), url, product });
     if (!productId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
-    return { productId, title: product.title, imageUrl: product.imageUrl };
+    return { productId, title: product.title, imageUrl: product.imageUrl, url };
   },
 });

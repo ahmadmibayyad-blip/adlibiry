@@ -18,6 +18,8 @@ export type ImportedProduct = {
   price?: number;
   /** The supplier's price in USD (AliExpress), when known. */
   cost?: number;
+  /** The price as the store shows it, in its own currency (Shopify stores). */
+  shownPrice?: { amount: number; currency: string };
 };
 
 /** A clean public product link, or null (not http(s), or a local/internal host). */
@@ -56,7 +58,15 @@ export function fromShopifyJs(body: unknown, pageUrl: string, currency?: string)
   const images = unique(imagesFromShopifyJs(body, pageUrl));
   const amount = typeof b?.price === "number" ? b.price / 100 : undefined;
   const price = amount && currency ? toUsd({ amount, currency }) : undefined;
-  return { source: "shopify", title: title.slice(0, 200), description: plain(b?.description ?? "", 1500), imageUrl: images[0] ?? "", images: images.slice(1), ...(price ? { price } : {}) };
+  return {
+    source: "shopify",
+    title: title.slice(0, 200),
+    description: plain(b?.description ?? "", 1500),
+    imageUrl: images[0] ?? "",
+    images: images.slice(1),
+    ...(price ? { price } : {}),
+    ...(amount && currency ? { shownPrice: { amount, currency } } : {}),
+  };
 }
 
 /** An AliExpress item page: its title and photo list (no price: the page loads that in the browser). */

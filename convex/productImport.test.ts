@@ -50,6 +50,8 @@ describe("Launch from a link", () => {
 
     const imported = await user.action(api.productImport.importLink, { url: "https://pets-dreams.uk/collections/dogs/products/snufflemaster?variant=1#top" });
     expect(imported).toMatchObject({ title: "SnuffleMaster snuffle mat", imageUrl: "https://cdn.shopify.com/s/a.jpg" });
+    // The price as the store shows it, for pages built with it (Screenshot to page).
+    expect(await t.run((ctx) => ctx.db.get("importedProducts", imported.productId))).toMatchObject({ shownPrice: { amount: 29.99, currency: "USD" } });
     // Pasting the same link again updates the same product.
     expect((await user.action(api.productImport.importLink, { url: "https://pets-dreams.uk/collections/dogs/products/snufflemaster?variant=1" })).productId).toBe(imported.productId);
     // It never reaches the shared catalog.
