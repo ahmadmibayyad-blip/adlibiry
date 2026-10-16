@@ -98,6 +98,11 @@ describe("ResearchVerdictCard", () => {
     expect(screen.getByText("Skipped: Shipping over 15 days")).toBeInTheDocument();
   });
 
+  it("says what the AI skipped on when no cap applied", () => {
+    show(row({ rules: { ...rules, cappedBy: undefined, blockers: ["Famous brand: Stanley"] }, report: { ...report, call: "skip" } }));
+    expect(screen.getByText("Skipped: Famous brand: Stanley")).toBeInTheDocument();
+  });
+
   it("offers a refresh on a row made with older rules", () => {
     show(row({ rulesVersion: undefined, rules: undefined }));
     expect(screen.getByText("Made with older rules · Refresh")).toBeInTheDocument();

@@ -70,11 +70,30 @@ describe("Own-store orders", () => {
   });
 
   it("stops at 1000 orders and says so", async () => {
-    const f = vi.fn(async () => json({ data: { orders: { nodes: Array.from({ length: 250 }, () => order(true)), pageInfo: { hasNextPage: true, endCursor: "c" } } } }));
+    const f = vi.fn(async () => json({ data: { orders: { nodes: Array.from({ length: 50 }, () => order(true)), pageInfo: { hasNextPage: true, endCursor: "c" } } } }));
     vi.stubGlobal("fetch", f);
     const { t, userId, productId } = await setup();
     expect(await t.action(internal.ownOrders.forProduct, { userId, productId })).toEqual({ orders: 1000, capped: true });
-    expect(f).toHaveBeenCalledTimes(4);
+    expect(f).toHaveBeenCalledTimes(20);
+  });
+
+  it("sends a quoted date filter, newest first, with a query cost under 1000", async () => {
+    const f = vi.fn(async (_url: unknown, _init?: { body?: string }) => json({ data: { orders: { nodes: [order(true)], pageInfo: { hasNextPage: false, endCursor: null } } } }));
+    vi.stubGlobal("fetch", f);
+    const { t, userId, productId } = await setup();
+    await t.action(internal.ownOrders.forProduct, { userId, productId });
+    const body = JSON.parse(String(f.mock.calls[0][1]?.body));
+    expect(body.variables.q).toMatch(/^created_at:>='\d{4}-\d\d-\d\dT[\d:.]+Z'$/);
+    expect(body.query).toContain("sortKey: CREATED_AT");
+    expect(body.query).toContain("reverse: true");
+    expect(body.query).toContain("orders(first: 50");
+    expect(body.query).toContain("lineItems(first: 8)");
+  });
+
+  it("says error, not no_scope, when read_orders is granted but Shopify still refuses", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ errors: "Access denied for orders field. Required access: read_orders and protected customer data" }, 200)));
+    const { t, userId, productId } = await setup();
+    expect(await t.action(internal.ownOrders.forProduct, { userId, productId })).toEqual({ reason: "error" });
   });
 
   it("returns error when Shopify fails", async () => {

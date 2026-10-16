@@ -61,6 +61,11 @@ describe("AI research verdict", () => {
 
     // The AI got AdSpy's evidence, the money maths, the supplier's reviews and the user's market; the ad claims marked as such.
     expect(system).toContain("skeptical");
+    expect(system).toContain("A thin margin on an estimated (category benchmark) price is not a hard blocker");
+    // VAT is applied: the margin line must not list it as left out, and the break-even is the after-VAT profit.
+    expect(prompt).not.toContain("VAT/tax");
+    expect(prompt).toContain("Not included: refunds, discounts, chargebacks, apps.");
+    expect(prompt).toContain("The break-even ad cost per sale is the profit after DK VAT, given in the RULES block.");
     expect(prompt).toContain("The user sells to: DK");
     expect(prompt).toContain("6 ads by 3 advertisers, longest running 40 days");
     expect(prompt).toContain("Competition in DK: 3 advertisers this week (Low)");

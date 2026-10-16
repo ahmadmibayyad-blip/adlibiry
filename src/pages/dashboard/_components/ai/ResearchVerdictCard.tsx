@@ -127,7 +127,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
               <Section icon={ClipboardList} title="Why this verdict">
                 <p className="text-xs">{whyLine(rules, usd)}</p>
                 {report.call === "research" && rules.cappedBy && <p className="text-xs text-muted-foreground mt-1">Capped at research more: {rules.cappedBy}</p>}
-                {report.call === "skip" && rules.cappedBy && <p className="text-xs text-muted-foreground mt-1">Skipped: {rules.cappedBy}</p>}
+                {report.call === "skip" && (rules.cappedBy ?? rules.blockers[0]) && <p className="text-xs text-muted-foreground mt-1">Skipped: {rules.cappedBy ?? rules.blockers[0]}</p>}
               </Section>
             ) : (
               <button type="button" onClick={run} disabled={busy} className="text-[11px] text-muted-foreground underline">
