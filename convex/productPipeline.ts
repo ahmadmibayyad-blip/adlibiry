@@ -20,6 +20,7 @@ import { markStatsDirty } from "./stats";
 import { requireAdmin } from "./admin/helpers";
 import { NICHES } from "./lib/category";
 import { parseRangeUpperBound } from "./lib/rangeParsing";
+import { withPegged } from "./lib/currency";
 import { priceFromAdText, priceLabel, toUsd } from "./lib/priceParse";
 import {
   adSellsProduct, gmvFromText, parseCompact, productFlags, productTitleForAd, roundRobin, saturationFromCompetition, titleKey, urlKey, isProductPage,
@@ -767,6 +768,12 @@ async function mergeGroup(ctx: MutationCtx, group: Doc<"products">[]): Promise<n
 
 // Adds up a product's ads. Products that exist only because of ads ("ads"
 // source) also take their score, likes, image and trend from them.
+/** Today's exchange rates (convex/currency.ts), units per USD; {} until the first daily refresh. */
+async function todaysRates(ctx: MutationCtx): Promise<Record<string, number>> {
+  const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "fxRates")).unique();
+  return withPegged((doc?.data as { all?: Record<string, number> } | undefined)?.all ?? {});
+}
+
 export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: string, model: "v1" | "v2" = "v1", factors?: Calibrations) {
   const ads = (await Promise.all((p.adIds ?? []).map((id) => ctx.db.get("ads", id)))).filter(
     (a): a is Doc<"ads"> => !!a && a.productId === p._id,
@@ -800,9 +807,11 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
   };
   // A price an import wrote into the ad text ("Product Price: $12.61").
   if (p.price === undefined) {
+    let usdRates: Record<string, number> | undefined;
     for (const ad of ads) {
       const found = priceFromAdText(ad.bodyText ?? "");
-      const usd = found ? toUsd(found) : undefined;
+      if (found && found.currency !== "USD" && !usdRates) usdRates = await todaysRates(ctx);
+      const usd = found ? toUsd(found, usdRates) : undefined;
       if (found && usd !== undefined) {
         patch.price = usd;
         patch.priceSource = "ad_data";

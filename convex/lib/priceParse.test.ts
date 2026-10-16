@@ -27,7 +27,7 @@ describe("price parsing", () => {
 
   it("converts known currencies and skips unknown ones", () => {
     expect(toUsd({ amount: 100, currency: "USD" })).toBe(100);
-    expect(toUsd({ amount: 100, currency: "EUR" })).toBe(108);
+    expect(toUsd({ amount: 100, currency: "EUR" })).toBe(112.1);
     expect(toUsd({ amount: 100, currency: "XYZ" })).toBeUndefined();
   });
 

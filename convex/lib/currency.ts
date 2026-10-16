@@ -8,7 +8,26 @@ export type CurrencyCode = (typeof CURRENCIES)[number];
 export const isCurrency = (c: string | undefined): c is CurrencyCode => CURRENCIES.includes(c as CurrencyCode);
 
 // Used until the first daily refresh, so amounts are never shown unconverted.
-export const FALLBACK_RATES: Record<CurrencyCode, number> = { USD: 1, EUR: 0.86, GBP: 0.74, DKK: 6.4 };
+export const FALLBACK_RATES: Record<CurrencyCode, number> = { USD: 1, EUR: 0.89, GBP: 0.75, DKK: 6.67 };
+
+// Currencies the ECB doesn't publish that are pegged to the dollar (units per USD): exact without a feed.
+export const PEGGED_PER_USD: Record<string, number> = { AED: 3.6725, SAR: 3.75, QAR: 3.64, BHD: 0.376, OMR: 0.3845, JOD: 0.709 };
+
+/** USD → currency rates with the dollar-pegged Gulf currencies added. */
+export const withPegged = (all: Record<string, number>): Record<string, number> => ({ ...PEGGED_PER_USD, ...all });
+
+/**
+ * The same ECB rates from Frankfurter (api.frankfurter.dev, free, no key), for days the ECB's own file can't be
+ * read: { amount: 1, base: "USD", rates: { EUR: 0.89, … } }. Null if it can't be read.
+ */
+export function ratesFromFrankfurter(body: unknown): { rates: Record<CurrencyCode, number>; all: Record<string, number>; date: string } | null {
+  const b = body as { base?: string; date?: string; rates?: Record<string, unknown> } | null;
+  if (b?.base !== "USD" || !b.rates) return null;
+  const all: Record<string, number> = { USD: 1 };
+  for (const [c, r] of Object.entries(b.rates)) if (/^[A-Z]{3}$/.test(c) && typeof r === "number" && r > 0) all[c] = r;
+  if (!all.EUR || !all.GBP || !all.DKK) return null;
+  return { rates: { USD: 1, EUR: all.EUR, GBP: all.GBP, DKK: all.DKK }, all, date: typeof b.date === "string" ? b.date : new Date().toISOString().slice(0, 10) };
+}
 
 /** USD → currency rates from the ECB daily XML (which is EUR-based). Null if it can't be read. */
 export function ratesFromEcbXml(xml: string): Record<CurrencyCode, number> | null {

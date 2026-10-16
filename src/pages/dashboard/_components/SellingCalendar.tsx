@@ -4,11 +4,14 @@ import { useAction, useQuery } from "convex/react";
 import { CalendarDays, Gift, PartyPopper, Tag } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { daysUntil, upcoming, type CalendarKind } from "@/convex/lib/sellingCalendar.ts";
-import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
+import { CALENDAR_COUNTRIES } from "@/convex/lib/calendarCountries.ts";
+import { flagOf } from "@/lib/countries.ts";
 import { cn } from "@/lib/utils.ts";
 
 // Selling calendar on the dashboard home: the next gift and deal days in the country the user sells to
 // (convex/lib/sellingCalendar.ts), when ads should be running for each, and the public holidays (Nager.Date).
+
+const COUNTRY_OPTIONS = Object.entries(CALENDAR_COUNTRIES).sort((a, b) => a[1].localeCompare(b[1]));
 
 const KIND: Record<CalendarKind, { label: string; icon: typeof Gift; tint: string }> = {
   gift: { label: "Gift day", icon: Gift, tint: "bg-brand/10 text-brand-ink" },
@@ -25,7 +28,7 @@ const nice = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString(
 export default function SellingCalendar() {
   const mine = useQuery(api.onboarding.mine, {});
   const [picked, setPicked] = useState<string | null>(null);
-  const known = mine?.targetCountry && SATURATION_COUNTRIES.some((c) => c.code === mine.targetCountry) ? mine.targetCountry : null;
+  const known = mine?.targetCountry && CALENDAR_COUNTRIES[mine.targetCountry] ? mine.targetCountry : null;
   const country = picked ?? known ?? "US";
   const today = localToday();
   const year = Number(today.slice(0, 4));
@@ -57,8 +60,8 @@ export default function SellingCalendar() {
           aria-label="Country"
           className="h-8 rounded-md border border-border bg-background px-2 text-sm"
         >
-          {SATURATION_COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>{c.name}</option>
+          {COUNTRY_OPTIONS.map(([code, name]) => (
+            <option key={code} value={code}>{`${flagOf(code)} ${name}`}</option>
           ))}
         </select>
       </div>

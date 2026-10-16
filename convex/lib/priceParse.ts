@@ -8,15 +8,20 @@ export type FoundPrice = { amount: number; currency: string };
 
 const SYMBOLS: Record<string, string> = { $: "USD", "€": "EUR", "£": "GBP", "¥": "JPY", kr: "DKK" };
 
-// Approximate USD rates, used only to show foreign prices in dollars; the
-// store's own amount and currency are kept alongside (originalPrice).
+// Approximate USD rates (October 2026; the dollar-pegged Gulf currencies exact), for when today's rates aren't
+// passed to toUsd; the store's own amount and currency are kept alongside (originalPrice).
 const USD_PER: Record<string, number> = {
-  USD: 1, EUR: 1.08, GBP: 1.27, DKK: 0.145, SEK: 0.095, NOK: 0.093, CAD: 0.73, AUD: 0.66,
-  NZD: 0.6, CHF: 1.12, PLN: 0.25, CZK: 0.043, JPY: 0.0067, INR: 0.012, AED: 0.27, SGD: 0.74, MXN: 0.055,
+  USD: 1, EUR: 1.121, GBP: 1.325, DKK: 0.15, SEK: 0.1003, NOK: 0.1052, CAD: 0.7039, AUD: 0.6911,
+  NZD: 0.5601, CHF: 1.2045, PLN: 0.2565, CZK: 0.046, JPY: 0.00633, INR: 0.01052, SGD: 0.7795, MXN: 0.054,
+  AED: 0.2723, SAR: 0.2667, QAR: 0.2747,
 };
 
-export function toUsd(p: FoundPrice): number | undefined {
-  const rate = USD_PER[p.currency.toUpperCase()];
+/** The price in USD: with today's rates when given (units per USD, convex/currency.ts allRates), else the table above. */
+export function toUsd(p: FoundPrice, usdRates?: Record<string, number>): number | undefined {
+  const code = p.currency.toUpperCase();
+  const live = usdRates?.[code];
+  if (live && live > 0) return Math.round((p.amount / live) * 100) / 100;
+  const rate = USD_PER[code];
   return rate ? Math.round(p.amount * rate * 100) / 100 : undefined;
 }
 
