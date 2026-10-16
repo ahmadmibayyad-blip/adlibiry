@@ -11,6 +11,7 @@ import ProductDetail from "./pages/dashboard/products/[id].tsx";
 import SavedProducts from "./pages/dashboard/saved/page.tsx";
 import AdSpyPage from "./pages/dashboard/ad-spy/page.tsx";
 import OfferSearchPage from "./pages/dashboard/offer-search/page.tsx";
+import PageBuilderPage from "./pages/dashboard/page-builder/page.tsx";
 import AdDetailPage from "./pages/dashboard/ads/[id].tsx";
 import WinnersPage from "./pages/dashboard/winners/page.tsx";
 import AgentsPage from "./pages/dashboard/agents/page.tsx";
@@ -114,6 +115,7 @@ export default function App() {
             <Route path="launch" element={<LaunchesPage />} />
             <Route path="launch/shopify-callback" element={<LaunchesPage />} />
             <Route path="launches" element={<LaunchesPage />} />
+            <Route path="page-builder" element={<PageBuilderPage />} />
             <Route path="extension" element={<ExtensionPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />

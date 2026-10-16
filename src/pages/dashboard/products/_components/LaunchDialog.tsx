@@ -19,6 +19,7 @@ import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
 import AdKit from "./AdKit.tsx";
 import StylePicker from "./StylePicker.tsx";
+import ScreenshotLook from "./ScreenshotLook.tsx";
 import { LAUNCH_PRO_NOTE, LAUNCH_TRIAL_NOTE, launchQuotaLabel } from "@/lib/launchQuota.ts";
 
 // Launch (convex/launch.ts): the product becomes a written, priced product
@@ -436,6 +437,7 @@ function LaunchButton({
   const [reviewsInput, setReviewsUrl] = useState<string | null>(reviewsStart || null);
   const [mirrorUrl, setMirrorUrl] = useState(mirrorStart ?? "");
   const [wishes, setWishes] = useState("");
+  const [look, setLook] = useState<DesignWishes | null>(null);
   const [launchId, setLaunchId] = useState<Id<"launches"> | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -557,6 +559,7 @@ function LaunchButton({
                           // Only our theme copies a store's home page, colors and fonts.
                           baseTheme: mirrorUrl.trim() ? "adspy" : baseTheme,
                           brandName: brand,
+                          ...(look ? { look } : {}),
                           facts: {
                             shippingTime,
                             returnDays: Number.isFinite(days) ? days : 30,
@@ -611,7 +614,7 @@ function LaunchButton({
                     />
                     <span className="text-xs text-muted-foreground">
                       The AI follows these when it writes your {mode === "store" ? "store" : "product page"}
-                      {mode === "store" && baseTheme !== "dawn" ? ", and changes colors, fonts and shapes if you ask" : ""}. It won't make up reviews, numbers or
+                      {mode === "store" ? (baseTheme === "dawn" && !mirrorUrl.trim() ? ", and changes colors and shapes if you ask" : ", and changes colors, fonts and shapes if you ask") : ""}. It won't make up reviews, numbers or
                       guarantees.
                     </span>
                   </label>
@@ -662,6 +665,7 @@ function LaunchButton({
                       <p className="text-xs text-muted-foreground">You can change colors, fonts and sections afterwards in Shopify's theme editor.</p>
                     </>
                   )}
+                  <ScreenshotLook value={look} onChange={setLook} dawn={baseTheme === "dawn" && !mirrorUrl.trim()} />
                   <label className="block text-sm">
                     <span className="font-medium flex items-center gap-1.5"><CopyCheck className="w-4 h-4 text-primary" /> Mirror a page</span>
                     <Input

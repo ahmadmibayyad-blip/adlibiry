@@ -13,7 +13,7 @@ import { missingStoreScopes } from "./lib/shopifyOAuth";
 import { productUrl } from "./lib/productImport";
 import { isBaseTheme, isStoreStyle } from "./lib/storeStyles";
 import type { PageMirror } from "./lib/pageMirror";
-import { MAX_WISHES, type DesignWishes } from "./lib/designWishes";
+import { MAX_WISHES, cleanDesign, type DesignWishes } from "./lib/designWishes";
 
 // ── Launch: winning product → product page (or a full store) in the user's Shopify store ──
 // start() checks the plan, the monthly quota and the product, then schedules
@@ -129,6 +129,8 @@ const startArgs = {
   mirrorUrl: v.optional(v.string()),
   /** What the owner asks the AI for, in their words (lib/designWishes.ts). */
   wishes: v.optional(v.string()),
+  /** Full store: the look read from a screenshot (screenshotLook.ts), checked again here. */
+  look: v.optional(v.any()),
   facts: v.optional(
     v.object({ shippingTime: v.string(), returnDays: v.number(), freeShippingFrom: v.optional(v.number()), supportEmail: v.optional(v.string()) }),
   ),
@@ -168,6 +170,7 @@ export const relaunch = mutation({
             style: old.style,
             ...(isBaseTheme(old.baseTheme) ? { baseTheme: old.baseTheme } : {}),
             brandName: old.brandName,
+            ...(old.look ? { look: old.look } : {}),
             ...(facts
               ? {
                   facts: {
@@ -224,12 +227,14 @@ async function startLaunch(ctx: MutationCtx, user: Doc<"users">, args: StartArgs
     const email = f?.supportEmail?.trim().slice(0, 120);
     const mirror = args.mirrorUrl?.trim() ? productUrl(/^https?:\/\//i.test(args.mirrorUrl.trim()) ? args.mirrorUrl.trim() : `https://${args.mirrorUrl.trim()}`) : null;
     if (args.mirrorUrl?.trim() && !mirror) throw new ConvexError({ code: "BAD_LINK", message: "The page to copy needs a full link, like https://store.com/products/…" });
+    const look = args.look ? cleanDesign(args.look) : undefined;
     storeFields = {
       mode: "store",
       style: args.style,
       ...(args.baseTheme === "dawn" ? { baseTheme: "dawn" } : {}),
       brandName: (args.brandName?.trim() || store.shopName).slice(0, 60),
       ...(mirror ? { mirrorUrl: mirror.toString().slice(0, 2000) } : {}),
+      ...(look ? { look } : {}),
       facts: {
         shippingTime: (f?.shippingTime.trim() || "5–10 business days").slice(0, 60),
         returnDays: Math.min(365, Math.max(0, Math.round(f?.returnDays ?? 30))),

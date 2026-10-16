@@ -87,8 +87,13 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   both themes' product templates follow it and the bundle discounts use its quantities (`bundleQty`). Structure only, never text or photos.
   A home page link (or the product page's store) also copies the home page: `lib/siteMirror.ts` maps its sections to ours (`mirror.home`, incl. the
   `timeline` and `marquee` sections) and reads its colors and Google fonts (`mirror.look` → theme settings `custom_head_font`/`custom_body_font`); our theme only, not Dawn.
-- Launch → "Special requests" (`launches.wishes`): added to every AI brief in launchRun; for a Full store on our theme a small request reads
+- Launch → "Special requests" (`launches.wishes`): added to every AI brief in launchRun; for a Full store (Dawn: colors and corners only) a small request reads
   look changes from it (`lib/designWishes.ts`, saved as `launches.design`), applied over the style and a mirrored look.
+- Launch → "Match a screenshot" (Full store): `screenshotLook.read` reads a screenshot's colors, fonts and shapes before launch; `launch.start`
+  saves it as `launches.look`, and launchRun merges the special requests' look over it (`mergeDesign`) into `launches.design`. Dawn takes colors and corners, not fonts.
+- Screenshot to page (`/dashboard/page-builder`, `screenPages.ts` + `screenPagesAi.ts`, prompts in `lib/screenPage.ts`): a screenshot (cut into up to 6
+  parts by `src/lib/screenshotParts.ts`, kept in storage) becomes one Tailwind HTML file; changes in plain words, one-step undo. Daily limit per tier
+  (`SCREEN_PAGE_RUNS`, counted in `screenPageRuns`) plus the shared AI limit. The preview iframe is `sandbox="allow-scripts"` only: never give AI HTML the app origin.
 
 ## UI
 

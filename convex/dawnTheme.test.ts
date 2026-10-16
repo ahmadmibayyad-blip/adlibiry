@@ -90,6 +90,13 @@ describe("Dawn theme", () => {
     }
   });
 
+  it("takes the colors and corners of a screenshot's look, not its fonts", () => {
+    const design = { accent: "#ff5500", background: "#101820", text: "#f5f5f5", roundness: "round" as const, headingFont: "Anton", changed: [] };
+    const settings = JSON.parse(dawnOverrides({ ...input("fresh"), design })["config/settings_data.json"]).current;
+    expect(settings.color_schemes["scheme-1"].settings).toMatchObject({ background: "#101820", text: "#f5f5f5", button: "#ff5500", button_label: "#111111" });
+    expect(settings).toMatchObject({ buttons_radius: 40, card_corner_radius: 22, type_header_font: DAWN_FONTS.fresh.head });
+  });
+
   it("fills Dawn's home page with the store copy and links the product and pages", () => {
     const files = dawnOverrides(input());
     const home = JSON.parse(files["templates/index.json"]);

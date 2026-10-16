@@ -442,10 +442,14 @@ describe("Launch → Full store", () => {
     const { t, productId, user } = await setup();
     const { launchId } = await user.mutation(api.launch.start, {
       productId, language: "Danish", tone: "friendly", publish: "DRAFT", mode: "store", style: "playful", facts: { shippingTime: "5–8 dage", returnDays: 30 },
+      // "Match a screenshot": checked again on the way in (an unknown font drops out).
+      look: { accent: "#E4572E", roundness: "round", headingFont: "Wingdings", changed: ["anything"] },
     });
     await settle(t);
     const l = await user.query(api.launch.get, { launchId });
     expect(storeCalls).toBe(2);
+    expect(l?.look).toEqual({ accent: "#e4572e", roundness: "round", changed: ["Accent color #e4572e", "Shapes: round"] });
+    expect(l?.design).toEqual(l?.look); // no special requests: the store takes the screenshot's look
     expect(l?.store).toMatchObject({ hero: { heading: "Sit straighter, all day" }, trust: [{ icon: "truck" }] });
     expect(l?.error).toContain("stop here"); // got past the AI step
   });

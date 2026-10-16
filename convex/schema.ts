@@ -595,6 +595,24 @@ export default defineSchema({
   }),
 
   // Store Inspector (convex/storeInspector.ts): a store's theme and apps as one user saw them.
+  // Screenshot to page (screenPages.ts): a page built from screenshots, its parts in storage.
+  screenPages: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    notes: v.optional(v.string()),
+    imageIds: v.array(v.id("_storage")),
+    html: v.optional(v.string()),
+    previousHtml: v.optional(v.string()), // before the last change, for Undo
+    status: v.string(), // "making" | "ready" | "failed"
+    pending: v.optional(v.string()), // the change being made
+    lastChange: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId", "updatedAt"]),
+  // One row per page made or changed, for the daily limit (lib/screenPage.ts SCREEN_PAGE_RUNS).
+  screenPageRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
+
   storeInspections: defineTable({
     userId: v.id("users"),
     host: v.string(),        // "store.com"
@@ -704,6 +722,8 @@ export default defineSchema({
     // "Special requests" the owner typed for the AI, and the look changes read from them (lib/designWishes.ts DesignWishes).
     wishes: v.optional(v.string()),
     design: v.optional(v.any()),
+    // "Match a screenshot": the look read from a store the owner likes (lib/designWishes.ts DesignWishes), under the special requests'.
+    look: v.optional(v.any()),
     // A relaunch that replaces this earlier launch (its theme and row go once this one is ready).
     replacesLaunchId: v.optional(v.id("launches")),
   })
