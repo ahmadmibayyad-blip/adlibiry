@@ -87,3 +87,17 @@ export function cjShippingOptions(body: unknown): { cheapest: CjShipping; fastes
   const fastest = [...options].sort((a, b) => maxDays(a) - maxDays(b) || a.priceUsd - b.priceUsd)[0];
   return { cheapest, fastest };
 }
+
+export type CjVariantOption = { vid: string; name: string; price?: number; imageUrl?: string };
+
+/** Every variant of a product (from /product/query), to link a Shopify variant to. */
+export function cjVariants(body: unknown): CjVariantOption[] {
+  const list = (body as { data?: { variants?: Record<string, unknown>[] } } | null)?.data?.variants ?? [];
+  return list.flatMap((x) => {
+    const vid = typeof x.vid === "string" || typeof x.vid === "number" ? String(x.vid) : "";
+    if (!vid) return [];
+    const name = String(x.variantNameEn ?? x.variantKey ?? x.variantSku ?? vid).slice(0, 120);
+    const price = num(x.variantSellPrice);
+    return [{ vid, name, ...(price ? { price } : {}), ...(typeof x.variantImage === "string" && x.variantImage.startsWith("http") ? { imageUrl: x.variantImage } : {}) }];
+  });
+}

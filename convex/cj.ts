@@ -3,7 +3,7 @@ import { action, internalMutation, internalQuery, type ActionCtx } from "./_gene
 import { internal } from "./_generated/api";
 import { stableToken } from "./lib/authIdentity";
 import { searchKeywords } from "./lib/aliexpress";
-import { CJ_API, cjMatches, cjProducts, cjShippingOptions, cjVariant, type CjShipping } from "./lib/cj";
+import { CJ_API, cjMatches, cjProducts, cjShippingOptions, cjVariant, cjVariants, type CjShipping } from "./lib/cj";
 
 // CJ Dropshipping as a second supplier (lib/cj.ts). Needs Convex env CJ_API_KEY (CJ → My CJ → Authorization →
 // API → create a key). When a product page opens, findSuppliers searches CJ by title once (again after 7 days if
@@ -13,7 +13,7 @@ import { CJ_API, cjMatches, cjProducts, cjShippingOptions, cjVariant, type CjShi
 const RETRY_DAYS = 7;
 const SHIPPING_CACHE_MS = 7 * 86_400_000;
 const DAY_MS = 86_400_000;
-const pause = () => new Promise((r) => setTimeout(r, 1100)); // CJ: 1 request per second
+export const pause = () => new Promise((r) => setTimeout(r, 1100)); // CJ: 1 request per second
 
 const matchValidator = v.object({
   pid: v.string(),
@@ -47,7 +47,7 @@ const expiry = (s: unknown, fallbackDays: number) => {
 };
 
 /** A working access token: the saved one, renewed with the refresh token, or a new one from the API key. */
-async function accessToken(ctx: ActionCtx): Promise<string | null> {
+export async function accessToken(ctx: ActionCtx): Promise<string | null> {
   const key = process.env.CJ_API_KEY?.trim();
   if (!key) return null;
   const saved = await ctx.runQuery(internal.cj.auth, {});
@@ -75,7 +75,8 @@ async function accessToken(ctx: ActionCtx): Promise<string | null> {
   return d.accessToken;
 }
 
-async function cj(token: string, path: string, init?: { method?: string; body?: unknown }): Promise<unknown> {
+/** One CJ API call; null when it failed (logged). Callers keep to 1 request a second. */
+export async function cj(token: string, path: string, init?: { method?: string; body?: unknown }): Promise<unknown> {
   const res = await fetch(`${CJ_API}${path}`, {
     method: init?.method ?? "GET",
     headers: { "CJ-Access-Token": token, ...(init?.body ? { "Content-Type": "application/json" } : {}) },
@@ -175,5 +176,28 @@ export const shipping = action({
     if (!options) return null;
     await ctx.runMutation(internal.cj.saveShipping, { pid: args.pid, country, from, ...options });
     return { from, ...options };
+  },
+});
+
+/** CJ products for a search (the order page's "Link to CJ"). */
+export const searchProducts = action({
+  args: { keyword: v.string() },
+  handler: async (ctx, args) => {
+    if (!(await ctx.auth.getUserIdentity())) return [];
+    const token = await accessToken(ctx);
+    if (!token || !args.keyword.trim()) return [];
+    const body = await cj(token, `/product/listV2?${new URLSearchParams({ keyWord: args.keyword.trim().slice(0, 100), page: "1", size: "20" })}`);
+    return body ? cjProducts(body).slice(0, 20) : [];
+  },
+});
+
+/** A CJ product's variants to pick from (colour, size…). */
+export const variants = action({
+  args: { pid: v.string() },
+  handler: async (ctx, args) => {
+    if (!(await ctx.auth.getUserIdentity()) || !/^[\w-]{4,64}$/.test(args.pid)) return [];
+    const token = await accessToken(ctx);
+    if (!token) return [];
+    return cjVariants(await cj(token, `/product/query?${new URLSearchParams({ pid: args.pid })}`));
   },
 });

@@ -162,8 +162,10 @@ export const forgetShop = internalMutation({
 
 /**
  * Webhooks: app/uninstalled (forget the token at once) and Shopify's mandatory
- * privacy topics. We keep no customer data, so customers/data_request and
- * customers/redact need no action; shop/redact removes the store.
+ * privacy topics. The only customer data kept is the order autopilot's shipping
+ * address until the order is at CJ (orders.ts): customers/redact deletes that
+ * customer's orders, shop/redact the store and all its order data.
+ * customers/data_request needs nothing sent: the store has the same data.
  */
 export const webhook = httpAction(async (ctx, request) => {
   const secret = process.env.SHOPIFY_API_SECRET?.trim();
@@ -174,6 +176,12 @@ export const webhook = httpAction(async (ctx, request) => {
   const topic = request.headers.get("X-Shopify-Topic") ?? "";
   const shop = normalizeShopDomain(request.headers.get("X-Shopify-Shop-Domain") ?? "");
   if (shop && (topic === "app/uninstalled" || topic === "shop/redact")) await ctx.runMutation(internal.shopifyApp.forgetShop, { shopDomain: shop });
+  if (shop && topic === "shop/redact") await ctx.runMutation(internal.orders.redact, { shopDomain: shop });
+  if (shop && topic === "customers/redact") {
+    const body = JSON.parse(raw || "{}") as { orders_to_redact?: (number | string)[] };
+    const ids = (body.orders_to_redact ?? []).map((id) => `gid://shopify/Order/${id}`);
+    if (ids.length) await ctx.runMutation(internal.orders.redact, { shopDomain: shop, shopifyOrderIds: ids });
+  }
   return new Response(null, { status: 200 });
 });
 

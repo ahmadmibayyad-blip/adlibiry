@@ -653,6 +653,82 @@ export default defineSchema({
   // PageSpeed results per store (storeSpeed.ts), and YouTube searches per day (youtube.ts).
   storeSpeeds: defineTable({ host: v.string(), result: v.any(), at: v.number() }).index("by_host", ["host"]),
   youtubeUsage: defineTable({ day: v.string(), count: v.number() }).index("by_day", ["day"]),
+  // Profit (profit.ts): each day's numbers per store, with the ad spend the user typed in; and their cost settings.
+  profitDays: defineTable({
+    userId: v.id("users"),
+    shopDomain: v.string(),
+    day: v.string(), // the store's own calendar day
+    currency: v.string(),
+    orders: v.number(),
+    revenue: v.number(),
+    productCost: v.number(),
+    shippingCost: v.number(),
+    fees: v.number(),
+    missingCost: v.number(), // items no cost is known for
+    top: v.array(v.object({ title: v.string(), units: v.number(), revenue: v.number() })),
+    adSpend: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_shop_day", ["shopDomain", "day"]),
+  profitSettings: defineTable({ userId: v.id("users"), feePercent: v.number(), feeFixed: v.number(), shippingPerOrder: v.number() }).index("by_user", ["userId"]),
+  // Order autopilot (orders.ts): settings, Shopify variants linked to CJ variants, and the orders on their way.
+  orderSettings: defineTable({ userId: v.id("users"), autopilot: v.boolean(), payFromBalance: v.boolean() }).index("by_user", ["userId"]),
+  cjLinks: defineTable({
+    userId: v.id("users"),
+    shopDomain: v.string(),
+    shopifyVariantId: v.string(),
+    title: v.string(),
+    cjPid: v.string(),
+    cjVid: v.string(),
+    cjName: v.string(),
+    cjImage: v.optional(v.string()),
+  })
+    .index("by_user_variant", ["userId", "shopifyVariantId"])
+    .index("by_shop", ["shopDomain"]),
+  cjOrders: defineTable({
+    userId: v.id("users"),
+    shopDomain: v.string(),
+    shopifyOrderId: v.string(),
+    orderName: v.string(),
+    createdAt: v.string(),
+    // "needs_link" | "no_address" | "quoting" | "waiting" (for the user's OK) | "placing" | "placed" | "shipped" | "rejected" | "failed"
+    status: v.string(),
+    // The customer's address: only until the order is at CJ (or rejected).
+    shipTo: v.optional(v.object({
+      name: v.string(), address1: v.string(), address2: v.optional(v.string()), city: v.string(), province: v.optional(v.string()), zip: v.optional(v.string()),
+      country: v.string(), countryCode: v.string(), phone: v.optional(v.string()), email: v.optional(v.string()),
+    })),
+    shipToLabel: v.optional(v.string()), // "Malmö, SE": kept
+    items: v.array(v.object({ lineItemId: v.string(), variantId: v.string(), productId: v.optional(v.string()), title: v.string(), quantity: v.number(), cjVid: v.optional(v.string()), cjName: v.optional(v.string()) })),
+    shipping: v.optional(v.object({ method: v.string(), priceUsd: v.number(), days: v.string(), from: v.string() })),
+    cjOrderId: v.optional(v.string()),
+    cjCostUsd: v.optional(v.number()),
+    paid: v.optional(v.boolean()),
+    tracking: v.optional(v.object({ number: v.string(), company: v.optional(v.string()), url: v.optional(v.string()) })),
+    error: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId", "updatedAt"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_status", ["status"])
+    .index("by_shop_order", ["shopDomain", "shopifyOrderId"]),
+  // Ad approval queue (adQueue.ts): Launch's ads and their AI variations, waiting for the user's OK.
+  adDrafts: defineTable({
+    userId: v.id("users"),
+    launchId: v.id("launches"),
+    adIndex: v.number(), // which ad of the launch's kit (its image: launches.adImages[].ad)
+    angle: v.string(),
+    hook: v.string(),
+    primaryText: v.string(),
+    headline: v.string(),
+    source: v.string(), // "launch" | "variation"
+    variationOf: v.optional(v.id("adDrafts")),
+    status: v.string(), // "pending" | "approved" | "rejected"
+    createdAt: v.number(),
+    editedAt: v.optional(v.number()),
+    decidedAt: v.optional(v.number()),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_launch", ["launchId"]),
   // A store theme's own home page template, saved before a landing page replaced it (screenPagesShopify.ts), to restore it.
   homeBackups: defineTable({ userId: v.id("users"), shopDomain: v.string(), themeId: v.string(), content: v.string(), savedAt: v.number() }).index("by_shop_theme", ["shopDomain", "themeId"]),
   // One row per page made or changed, for the daily limit (lib/screenPage.ts SCREEN_PAGE_RUNS).
