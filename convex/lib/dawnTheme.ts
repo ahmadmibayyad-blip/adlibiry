@@ -6,6 +6,7 @@
 import { STORE_MENU_HANDLES, STORE_PAGE_HANDLES, bundleDeals, bundleSettings, type StoreCopy, type ThemeInput } from "./storeKit";
 import { DEFAULT_SECTIONS } from "./pageMirror";
 import { STORE_STYLES, type StoreStyleId } from "./storeStyles";
+import { designSettings } from "./designWishes";
 import { DAWN_BINARY, DAWN_FILES } from "./dawnFiles.generated";
 
 /** Each style's fonts from Shopify's font library (Cormorant Garamond isn't in it; Cormorant is). */
@@ -49,7 +50,9 @@ const plainCopy = (c: StoreCopy) => plain(c) as StoreCopy;
 export function dawnSettings(t: ThemeInput): Record<string, unknown> {
   const original = JSON.parse(DAWN_FILES["config/settings_data.json"]) as { presets: Record<string, Record<string, unknown>> };
   const base = original.presets.Dawn ?? {};
-  const c = STORE_STYLES[t.style].settings;
+  const style = STORE_STYLES[t.style].settings;
+  // The look from a screenshot or the special requests (lib/designWishes.ts): its colors and corners. Dawn keeps its own fonts.
+  const c = { ...style, ...(t.design ? designSettings(t.design, style) : {}) } as typeof style;
   const scheme = (background: string, text: string, button: string, label: string) => ({
     settings: { background, background_gradient: "", text, button, button_label: label, secondary_button_label: text, shadow: text },
   });

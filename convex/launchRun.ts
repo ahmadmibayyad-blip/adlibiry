@@ -40,7 +40,7 @@ import {
 import { STORE_STYLES, isStoreStyle } from "./lib/storeStyles";
 import { fetchStore } from "./lib/pageFetch";
 import { homePlan, lookNote, siteLook } from "./lib/siteMirror";
-import { DESIGN_GUIDE, cleanDesign } from "./lib/designWishes";
+import { DESIGN_GUIDE, mergeDesign, type DesignWishes } from "./lib/designWishes";
 import { mirrorPlan, type MirrorTier, type PageMirror } from "./lib/pageMirror";
 import { productUrl } from "./lib/productImport";
 
@@ -328,9 +328,9 @@ ${TIMELINE_GUIDE}` }],
             return null;
           }
         };
-        // The look changes in the special requests, for our theme; a failure keeps the style's look.
+        // The look changes in the special requests; a failure keeps the style's look (Dawn takes their colors and corners).
         const readDesign = async (): Promise<unknown> => {
-          if (!launch.wishes || launch.baseTheme === "dawn") return null;
+          if (!launch.wishes) return null;
           try {
             const message = await claudeClient().messages.parse({
               model: MODEL,
@@ -347,7 +347,8 @@ ${TIMELINE_GUIDE}` }],
         };
         // Five requests at once: the product page, the rest of the store, our theme's product page sections, a mirrored timeline and the requested look.
         const [page, storeOut, productPage, timeline, designOut] = await Promise.all([writePage(), writeStore(), writeProductPage(), writeTimeline(), readDesign()]);
-        const design = cleanDesign(designOut);
+        // Over the look read from a screenshot (Launch → "Match a screenshot"), if any.
+        const design = mergeDesign(launch.look as DesignWishes | undefined, designOut);
         if (design) await ctx.runMutation(internal.launch.setStatus, { launchId: args.launchId, status: "generating", design });
         if (!page || !storeOut) return fail("The AI couldn't write this store. Try again or pick another product.");
         copy = cleanCopy(page).copy;

@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   Puzzle,
   Trophy,
-  ShoppingBag, Rocket, Menu, BookOpen, Tags } from "lucide-react";
+  ShoppingBag, Rocket, Menu, BookOpen, Tags, Wand2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import { useEffect, useState } from "react";
@@ -57,6 +57,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: "Launch",
     items: [
       { icon: Rocket, label: "Launch", href: "/dashboard/launch" },
+      { icon: Wand2, label: "Screenshot to page", href: "/dashboard/page-builder", badge: "NEW" },
       { icon: BookmarkCheck, label: "Saved", href: "/dashboard/saved" },
     ],
   },

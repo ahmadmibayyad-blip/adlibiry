@@ -92,3 +92,21 @@ export const DESIGN_GUIDE =
   "field they don't mention null: accent (buttons and highlights), background, surface (soft section background), text: colors as " +
   "#rrggbb; roundness: square, soft or round; uppercase: true/false for headings; heroLayout: split (photo beside the text) or center; " +
   `headingFont, bodyFont: one of ${GOOGLE_FONTS.join(", ")}. Pick colors that read well together.`;
+
+/**
+ * Launch → "Match a screenshot": the look read from a store the owner likes, under the special requests' look
+ * (what they typed wins, field by field). `wished` is the AI's raw answer, with null for what they didn't ask about.
+ */
+export function mergeDesign(look: DesignWishes | undefined, wished: unknown): DesignWishes | undefined {
+  const asked = Object.fromEntries(Object.entries((wished ?? {}) as Record<string, unknown>).filter(([, x]) => x != null));
+  return cleanDesign({ ...(look ?? {}), ...asked });
+}
+
+export const SCREENSHOT_DESIGN_GUIDE =
+  "You see screenshots of an online store the owner likes. Read its look into these fields so their own store can match it. " +
+  "isPage: false when the images don't show a web page or app screen. accent: the main button and highlight color; background: the " +
+  "main page background; surface: the soft background of alternating sections or cards (null if there is none); text: the main body " +
+  "text color. Colors as #rrggbb, as they look in the screenshot. roundness: square (sharp corners), soft (slightly rounded) or round " +
+  "(pill buttons, very round cards); uppercase: true when the headings are in capitals; heroLayout: split when the top banner has the " +
+  "photo beside the text, center when the text is centered over or under the photo; headingFont, bodyFont: the closest match from " +
+  `${GOOGLE_FONTS.join(", ")} (null if you can't tell). Use null for anything the screenshots don't show.`;
