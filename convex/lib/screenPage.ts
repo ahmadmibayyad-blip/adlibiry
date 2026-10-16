@@ -14,7 +14,7 @@ export const SCREEN_PAGE_SYSTEM = `You are an expert front-end developer. You tu
 - Use the exact text from the screenshot. Write out every repeated item in full: never leave comments like "<!-- more items here -->".
 - For photos, use https://placehold.co/WIDTHxHEIGHT/EEEEEE/999999?text=Short+description with the size they have in the screenshot. Draw icons and logos as inline SVG.
 - Make it responsive: it must also look right on a phone.
-- Links go to "#". Small plain JavaScript is fine for what the screenshot shows (menus, tabs, accordions, sliders); no other scripts or frameworks.
+- Make every menu item, button and icon that would open something (shop, buy, cart, search, account, logo) an <a href="#"> element: they are linked to the store later. Small plain JavaScript is fine for what the screenshot shows (menus, tabs, accordions, sliders); no other scripts or frameworks.
 - Reply with only the HTML document, from <!DOCTYPE html> to </html>, without explanations.`;
 
 export function createPrompt(partsNote: string, notes?: string): string {
@@ -72,14 +72,3 @@ export function pageTitle(html: string): string {
   return (title || h1 || "Untitled page").slice(0, 80);
 }
 
-// "Publish to Shopify" (screenPagesShopify.ts): a Shopify page whose template shows its HTML as a whole document,
-// without the theme's header, footer or CSS (Tailwind's reset would restyle the theme otherwise).
-export const LANDING_TEMPLATE_SUFFIX = "adspy-landing";
-export const LANDING_TEMPLATE_FILE = `templates/page.${LANDING_TEMPLATE_SUFFIX}.liquid`;
-export const LANDING_TEMPLATE =
-  "{% layout none %}\n{% comment %}AdSpy Pro, Screenshot to page: the page HTML is a whole document of its own, shown without the theme.{% endcomment %}\n{{ page.content }}\n";
-
-/** What to do when Shopify won't let the app add the template: add it once by hand. */
-export const TEMPLATE_STEPS =
-  `Shopify didn't let AdSpy add the page template to your live theme, so add it once yourself: Online Store → Themes → ⋯ → Edit code → ` +
-  `Templates → Add a new template → page, type ${LANDING_TEMPLATE_SUFFIX}, .liquid → replace everything with the template below → Save. Then publish again.`;

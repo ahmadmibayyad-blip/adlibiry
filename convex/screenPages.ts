@@ -167,3 +167,68 @@ export const fail = internalMutation({
     await ctx.db.patch("screenPages", p._id, { status: p.html ? "ready" : "failed", error: args.error.slice(0, 400), pending: undefined, updatedAt: Date.now() });
   },
 });
+
+// ── Publish to Shopify (screenPagesShopify.ts) ──
+
+const shopifyField = v.object({ shopDomain: v.string(), pageId: v.string(), url: v.string(), adminUrl: v.string(), publishedAt: v.number(), home: v.optional(v.boolean()) });
+
+export const publishContext = internalQuery({
+  args: { token: v.string(), id: v.id("screenPages") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
+    if (!user) return null;
+    const page = await ctx.db.get("screenPages", args.id);
+    if (!page || page.userId !== user._id) return null;
+    const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
+    return { page, store, userId: user._id, isAdmin: user.role === "admin" };
+  },
+});
+
+/** After publishing: where it is; and the page with its links set, when they were (undo goes back to before). */
+export const published = internalMutation({
+  args: { id: v.id("screenPages"), shopify: shopifyField, linkedHtml: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const p = await ctx.db.get("screenPages", args.id);
+    if (!p) return;
+    await ctx.db.patch("screenPages", p._id, {
+      shopify: args.shopify,
+      ...(args.linkedHtml && args.linkedHtml !== p.html ? { html: args.linkedHtml, previousHtml: p.html, lastChange: "Linked the menu and buttons to your store" } : {}),
+      // Published as it is now: not "changed since".
+      updatedAt: Math.min(Date.now(), args.shopify.publishedAt),
+    });
+  },
+});
+
+export const homeBackup = internalQuery({
+  args: { shopDomain: v.string(), themeId: v.string() },
+  handler: async (ctx, args) =>
+    ctx.db.query("homeBackups").withIndex("by_shop_theme", (q) => q.eq("shopDomain", args.shopDomain).eq("themeId", args.themeId)).first(),
+});
+
+/** Keeps the theme's own home page template (only ever the theme's, never a landing page's). */
+export const saveHomeBackup = internalMutation({
+  args: { userId: v.id("users"), shopDomain: v.string(), themeId: v.string(), content: v.string() },
+  handler: async (ctx, args) => {
+    const old = await ctx.db.query("homeBackups").withIndex("by_shop_theme", (q) => q.eq("shopDomain", args.shopDomain).eq("themeId", args.themeId)).first();
+    if (old) await ctx.db.patch("homeBackups", old._id, { content: args.content, savedAt: Date.now() });
+    else await ctx.db.insert("homeBackups", { ...args, savedAt: Date.now() });
+  },
+});
+
+/** The store's home page is the theme's own again: no page of the user's is shown as home there. */
+export const homeRestored = internalMutation({
+  args: { userId: v.id("users"), shopDomain: v.string() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("screenPages").withIndex("by_user", (q) => q.eq("userId", args.userId)).take(100);
+    for (const p of rows) if (p.shopify?.home && p.shopify.shopDomain === args.shopDomain) await ctx.db.patch("screenPages", p._id, { shopify: { ...p.shopify, home: false } });
+  },
+});
+
+/** Another page became the home page: the earlier one isn't anymore. */
+export const homeMovedTo = internalMutation({
+  args: { userId: v.id("users"), shopDomain: v.string(), id: v.id("screenPages") },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("screenPages").withIndex("by_user", (q) => q.eq("userId", args.userId)).take(100);
+    for (const p of rows) if (p._id !== args.id && p.shopify?.home && p.shopify.shopDomain === args.shopDomain) await ctx.db.patch("screenPages", p._id, { shopify: { ...p.shopify, home: false } });
+  },
+});

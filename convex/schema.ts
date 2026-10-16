@@ -608,12 +608,14 @@ export default defineSchema({
     lastChange: v.optional(v.string()),
     error: v.optional(v.string()),
     // Published to the user's Shopify store as a page (screenPagesShopify.ts).
-    shopify: v.optional(v.object({ shopDomain: v.string(), pageId: v.string(), url: v.string(), adminUrl: v.string(), publishedAt: v.number() })),
+    shopify: v.optional(v.object({ shopDomain: v.string(), pageId: v.string(), url: v.string(), adminUrl: v.string(), publishedAt: v.number(), home: v.optional(v.boolean()) })),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user", ["userId", "updatedAt"]),
   // One row per screenshot taken from a link (pageShots.ts), for the daily limit (lib/screenshots.ts LINK_SHOTS).
   pageShots: defineTable({ userId: v.id("users"), at: v.number(), host: v.string() }).index("by_user", ["userId", "at"]),
+  // A store theme's own home page template, saved before a landing page replaced it (screenPagesShopify.ts), to restore it.
+  homeBackups: defineTable({ userId: v.id("users"), shopDomain: v.string(), themeId: v.string(), content: v.string(), savedAt: v.number() }).index("by_shop_theme", ["shopDomain", "themeId"]),
   // One row per page made or changed, for the daily limit (lib/screenPage.ts SCREEN_PAGE_RUNS).
   screenPageRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
 
