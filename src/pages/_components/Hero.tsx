@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Play } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -72,6 +72,8 @@ function TodaysWinners() {
 
 export default function Hero() {
   const stats = useQuery(api.stats.get, {}) ?? initialStats();
+  // "Start free" also shows while sign-in is still being checked, as in the page the server sends (api/landing.ts).
+  const { isAuthenticated } = useConvexAuth();
 
   return (
     <section className="pt-28 pb-16 lg:pt-36 lg:pb-20">
@@ -88,22 +90,21 @@ export default function Hero() {
             ad angles already working.
           </p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <Unauthenticated>
-              <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
-                <a href="/#pricing">
-                  Start free
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                </a>
-              </Button>
-            </Unauthenticated>
-            <Authenticated>
+            {isAuthenticated ? (
               <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
                 <Link to="/dashboard">
                   Open dashboard
                   <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </Link>
               </Button>
-            </Authenticated>
+            ) : (
+              <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
+                <a href="/#pricing">
+                  Start free
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </a>
+              </Button>
+            )}
             <a
               href="/#tour"
               className="inline-flex items-center gap-2 min-h-11 text-sm font-medium text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground"
