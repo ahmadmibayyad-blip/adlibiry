@@ -5,7 +5,7 @@ import Hero from "./Hero.tsx";
 import StatsBar from "./StatsBar.tsx";
 
 // Before live data arrives every query is still loading.
-vi.mock("convex/react", () => ({ useQuery: () => undefined }));
+vi.mock("convex/react", () => ({ useQuery: () => undefined, useConvexAuth: () => ({ isLoading: true, isAuthenticated: false }) }));
 
 const stats = {
   ads: { total: 12345, activeCount: 678, countries: [{ value: "US", n: 9 }, { value: "DE", n: 4 }] },
