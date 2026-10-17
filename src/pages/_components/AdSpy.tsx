@@ -82,7 +82,7 @@ export default function AdSpy() {
 
         <p className="text-sm text-muted-foreground">
           {stats ? `3 of ${stats.ads.total.toLocaleString("en-US")} ads.` : "3 of our ads."}{" "}
-          <a href="/login" className="text-primary font-medium hover:underline">
+          <a href="/login" className="inline-flex items-center min-h-10 text-primary font-medium hover:underline">
             Sign up free to search them all.
           </a>
         </p>

@@ -1,4 +1,6 @@
 import { motion } from "motion/react";
+import { Authenticated, Unauthenticated } from "convex/react";
+import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { LogoMark } from "@/components/Logo.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -22,12 +24,22 @@ export default function FinalCTA() {
             Start free with the first 10 results of every list, or try Pro free for 7 days. No card needed, cancel anytime.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button asChild size="lg" className="h-12 px-8 text-base font-semibold rounded-xl">
-              <a href="/#pricing">
-                Start free
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </a>
-            </Button>
+            <Unauthenticated>
+              <Button asChild size="lg" className="h-12 px-8 text-base font-semibold rounded-xl">
+                <a href="/#pricing">
+                  Start free
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </a>
+              </Button>
+            </Unauthenticated>
+            <Authenticated>
+              <Button asChild size="lg" className="h-12 px-8 text-base font-semibold rounded-xl">
+                <Link to="/dashboard">
+                  Open dashboard
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            </Authenticated>
           </div>
         </motion.div>
       </div>

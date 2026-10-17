@@ -2,7 +2,8 @@
 // CONTACT_EMAIL: shown on pages when set — fill it in (src/lib/site.ts).
 
 export type Section = { heading?: string; paragraphs?: string[]; bullets?: string[] };
-export type InfoPage = { slug: string; group: "Company" | "Support" | "Legal"; title: string; intro: string; sections: Section[] };
+// unlisted: the page still opens, but isn't linked or in the sitemap (nothing real to show yet).
+export type InfoPage = { slug: string; group: "Company" | "Support" | "Legal"; title: string; intro: string; sections: Section[]; unlisted?: boolean };
 
 export const UPDATED = "2 October 2026";
 
@@ -33,6 +34,7 @@ export const INFO_PAGES: InfoPage[] = [
   },
   {
     slug: "blog",
+    unlisted: true,
     group: "Company",
     title: "Blog",
     intro: "Guides on finding winning products, reading ad data and testing products on a small budget.",
@@ -46,6 +48,7 @@ export const INFO_PAGES: InfoPage[] = [
   },
   {
     slug: "careers",
+    unlisted: true,
     group: "Company",
     title: "Careers",
     intro: "We're a small team building the research tool we wanted as sellers ourselves.",
@@ -195,6 +198,7 @@ export const INFO_PAGES: InfoPage[] = [
   },
   {
     slug: "community",
+    unlisted: true,
     group: "Support",
     title: "Community",
     intro: "Learn with other sellers who use AdSpy Pro.",

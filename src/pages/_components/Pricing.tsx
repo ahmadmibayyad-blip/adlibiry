@@ -57,7 +57,7 @@ const plans = [
 
 const buttonClass = (popular: boolean) =>
   cn(
-    "w-full mb-6 font-semibold",
+    "w-full h-11 mb-6 font-semibold",
     popular ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-secondary text-secondary-foreground hover:bg-muted",
   );
 
@@ -131,16 +131,16 @@ export default function Pricing() {
   const period: BillingPeriod = yearly ? "yearly" : "monthly";
   return (
     <section id="pricing" className="py-24">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-12"
+          className="max-w-2xl mb-12"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">Simple pricing</h2>
-          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+          <p className="text-muted-foreground text-lg">
             Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
             month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly. Try Pro's research tools free for 7 days, no card needed.
           </p>
@@ -150,7 +150,7 @@ export default function Pricing() {
                 key={p}
                 onClick={() => setYearly(p === "yearly")}
                 className={cn(
-                  "px-5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer flex items-center gap-2 capitalize",
+                  "min-h-11 px-5 rounded-full text-sm font-medium transition-all cursor-pointer flex items-center gap-2 capitalize",
                   period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -165,7 +165,7 @@ export default function Pricing() {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
           {plans.map((plan, i) => (
             <motion.div
               key={plan.id}

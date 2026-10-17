@@ -43,19 +43,19 @@ const steps = [
 export default function HowItWorks() {
   return (
     <section id="how-it-works" className="py-24 bg-card/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-20"
+          className="max-w-2xl mb-12"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
             From an ad you saw to a test you can run
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-lg">
             Most sellers spend weeks testing random products. AdSpy Pro takes you from a product that's already selling to a sourced,
             costed test decision, in one app.
           </p>

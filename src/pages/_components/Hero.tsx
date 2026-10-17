@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { Link } from "react-router-dom";
 import { ArrowRight, Play } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
@@ -73,7 +74,7 @@ export default function Hero() {
   const stats = useQuery(api.stats.get, {}) ?? initialStats();
 
   return (
-    <section className="pt-28 pb-20 lg:pt-36 lg:pb-28">
+    <section className="pt-28 pb-16 lg:pt-36 lg:pb-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center">
         <div>
           <h1 className="font-display text-5xl sm:text-6xl font-extrabold tracking-tight leading-[1.02] text-balance mb-6">
@@ -87,12 +88,22 @@ export default function Hero() {
             ad angles already working.
           </p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
-              <a href="/#pricing">
-                Start free
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </a>
-            </Button>
+            <Unauthenticated>
+              <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
+                <a href="/#pricing">
+                  Start free
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </a>
+              </Button>
+            </Unauthenticated>
+            <Authenticated>
+              <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
+                <Link to="/dashboard">
+                  Open dashboard
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            </Authenticated>
             <a
               href="/#tour"
               className="inline-flex items-center gap-2 min-h-11 text-sm font-medium text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground"

@@ -1,21 +1,18 @@
 import Logo from "@/components/Logo.tsx";
 import { Link } from "react-router-dom";
 
-// Product links open the app (signed-out visitors go to sign-in first);
-// the others open the info pages in src/pages/info.
+// Product links go to sections of the home page (the app itself needs an
+// account); the others open the info pages in src/pages/info.
 const footerLinks: Record<string, { label: string; to: string }[]> = {
   Product: [
-    { label: "Ad Spy", to: "/dashboard/ad-spy" },
-    { label: "Product Research", to: "/dashboard/research" },
-    { label: "Stores", to: "/dashboard/stores" },
-    { label: "Market Intelligence", to: "/dashboard" },
-    { label: "AI Scoring", to: "/dashboard/winners" },
-    { label: "Creative Library", to: "/dashboard/hooks" },
+    { label: "Video tour", to: "/#tour" },
+    { label: "All tools", to: "/#features" },
+    { label: "How it works", to: "/#how-it-works" },
+    { label: "Pricing", to: "/#pricing" },
+    { label: "FAQ", to: "/#faq" },
   ],
   Company: [
     { label: "About", to: "/about" },
-    { label: "Blog", to: "/blog" },
-    { label: "Careers", to: "/careers" },
     { label: "Press", to: "/press" },
     { label: "Partners", to: "/partners" },
   ],
@@ -23,7 +20,6 @@ const footerLinks: Record<string, { label: string; to: string }[]> = {
     { label: "Help Center", to: "/help" },
     { label: "Data & methodology", to: "/methodology" },
     { label: "Documentation", to: "/docs" },
-    { label: "Community", to: "/community" },
     { label: "Status Page", to: "/status" },
   ],
   Legal: [
@@ -33,6 +29,9 @@ const footerLinks: Record<string, { label: string; to: string }[]> = {
     { label: "GDPR", to: "/gdpr" },
   ],
 };
+
+// min-h-10: a comfortable tap target on phones.
+const linkClass = "inline-flex items-center min-h-10 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer";
 
 const platforms = ["Facebook Ads", "Instagram Ads", "TikTok Ads", "Shopify Stores"];
 
@@ -66,17 +65,19 @@ export default function Footer() {
           {/* Link columns */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h2 className="text-sm font-semibold mb-4">{category}</h2>
-              <ul className="space-y-2.5">
+              <h2 className="text-sm font-semibold mb-2">{category}</h2>
+              <ul>
                 {links.map((link) => (
                   <li key={link.label}>
-                    <Link
-                      to={link.to}
-                      onClick={() => window.scrollTo(0, 0)}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    >
-                      {link.label}
-                    </Link>
+                    {link.to.startsWith("/#") ? (
+                      <a href={link.to} className={linkClass}>
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link to={link.to} onClick={() => window.scrollTo(0, 0)} className={linkClass}>
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

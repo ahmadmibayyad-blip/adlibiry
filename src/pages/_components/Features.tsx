@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 import {
   Search,
@@ -76,22 +77,26 @@ const features = [
   },
 ];
 
+// On phones the grid starts with four tools, so it doesn't fill several screens.
+const FIRST_ON_PHONES = 4;
+
 export default function Features() {
+  const [showAll, setShowAll] = useState(false);
   return (
     <section id="features" className="py-24 relative">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="max-w-2xl mb-12"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">
             Every research tool in one place
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-lg">
             Find it, check it, source it and keep watching it, without five tabs and three other subscriptions.
           </p>
         </motion.div>
@@ -107,7 +112,7 @@ export default function Features() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: (i % 4) * 0.07 }}
-                className={`relative group rounded-2xl border border-border bg-gradient-to-br ${feat.gradient} p-6 hover:border-primary/30 transition-all duration-300 cursor-default`}
+                className={`${!showAll && i >= FIRST_ON_PHONES ? "hidden sm:block " : ""}relative group rounded-2xl border border-border bg-gradient-to-br ${feat.gradient} p-6 hover:border-primary/30 transition-all duration-300 cursor-default`}
               >
                 <div
                   className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-background/50 ${feat.accent}`}
@@ -120,6 +125,15 @@ export default function Features() {
             );
           })}
         </div>
+        {!showAll && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="sm:hidden mt-5 w-full min-h-11 rounded-xl border border-border bg-card text-sm font-semibold hover:border-foreground/30 transition-colors"
+          >
+            Show all {features.length} tools
+          </button>
+        )}
       </div>
     </section>
   );
