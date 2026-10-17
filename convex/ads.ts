@@ -393,13 +393,15 @@ export const homepagePreview = query({
   args: {},
   handler: async (ctx) => {
     const { page } = await listImpl(ctx, {
-      paginationOpts: { numItems: 40, cursor: null },
+      paginationOpts: { numItems: 100, cursor: null },
       sort: "impressions",
       activeOnly: true,
       mediaType: "image",
     });
-    return page
-      .filter((a) => a.creativeUrl)
+    // Ads tied to a product first (convex/productPipeline.ts), so the examples
+    // sell physical products rather than courses, classes or gift cards.
+    const withImage = page.filter((a) => a.creativeUrl);
+    return [...withImage.filter((a) => a.productId), ...withImage.filter((a) => !a.productId)]
       .filter((a, i, all) => all.findIndex((b) => b.advertiserName === a.advertiserName || b.niche === a.niche) === i)
       .slice(0, 3)
       .map((a) => ({
