@@ -10,6 +10,7 @@ import HideOnError from "@/components/HideOnError.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
+import { usePageMeta } from "@/hooks/use-page-meta.ts";
 
 type Flow = "signIn" | "signUp";
 
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [flow, setFlow] = useState<Flow>("signIn");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  usePageMeta(flow === "signIn" ? "Sign in" : "Create your account", "Sign in to AdSpy Pro, or create a free account to search winning products and running ads.");
 
   useEffect(() => {
     if (isAuthenticated) navigate("/dashboard", { replace: true });

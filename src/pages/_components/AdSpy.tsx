@@ -52,7 +52,7 @@ export default function AdSpy() {
                 return (
                   <article key={ad._id} className="rounded-2xl border border-border bg-card overflow-hidden">
                     <div className="relative aspect-[4/3] bg-muted">
-                      <img src={ad.creativeUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                      <img src={ad.creativeUrl} alt={`Ad by ${ad.advertiserName}`} loading="lazy" className="w-full h-full object-cover" />
                       <div
                         className={cn(
                           "absolute top-3 left-3 flex items-baseline gap-1 rounded-lg px-2 py-1",

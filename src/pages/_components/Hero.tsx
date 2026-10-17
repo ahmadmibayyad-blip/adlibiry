@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { ArrowRight, Play } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -13,14 +14,17 @@ const fmt = (n: number | undefined) => (n === undefined ? "…" : n.toLocaleStri
 // from the same list the dashboard's Winning Products page uses.
 function TodaysWinners() {
   // Public preview: five winners, one per niche (see winners:homepagePreview).
-  const rows = useQuery(api.winners.homepagePreview, {});
+  const all = useQuery(api.winners.homepagePreview, {});
+  // The query sends a few spares; a row whose photo won't load gives its place to the next.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+  const rows = all?.filter((p) => !failed.has(p._id)).slice(0, 5);
   const summary = useQuery(api.winners.summary, {});
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-baseline justify-between gap-4 px-5 pt-4 pb-3 border-b border-border">
         <h2 className="font-display text-lg font-bold">Current winners</h2>
-        <span className="text-xs text-muted-foreground">New mix every 3 days</span>
+        <span className="text-xs text-muted-foreground">Scored every morning</span>
       </div>
       <ul aria-busy={rows === undefined}>
         {rows === undefined
@@ -35,7 +39,11 @@ function TodaysWinners() {
             ))
           : rows.map((product) => (
               <li key={product._id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
-                <ProductImage src={product.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
+                <ProductImage
+                  src={product.imageUrl}
+                  alt={product.title}
+                  onFailed={() => setFailed((s) => new Set(s).add(product._id))}
+                  className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold truncate">{product.title}</div>
                   <div className="text-xs text-muted-foreground">

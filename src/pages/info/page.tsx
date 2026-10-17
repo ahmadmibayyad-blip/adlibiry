@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils.ts";
 import Navbar from "../_components/Navbar.tsx";
 import Footer from "../_components/Footer.tsx";
 import NotFound from "../NotFound.tsx";
+import { usePageMeta } from "@/hooks/use-page-meta.ts";
 import { INFO_PAGES, UPDATED, pageBySlug } from "./content.ts";
 
 // Footer info pages: About, Help Center, Privacy Policy, … (text in content.ts).
@@ -40,6 +41,7 @@ function LiveStatus() {
 export default function InfoPage() {
   const slug = useLocation().pathname.replace(/^\//, "");
   const page = pageBySlug(slug);
+  usePageMeta(page?.title ?? "Page not found", page?.intro);
   if (!page) return <NotFound />;
   const siblings = INFO_PAGES.filter((p) => p.group === page.group);
 

@@ -107,20 +107,26 @@ export const forProduct = query({
   },
 });
 
-// Public: the homepage's "Today's winners" panel. Five rows, one per niche,
+// Public: the homepage's "Today's winners" panel. Up to eight rows (it shows five), one per niche,
 // with only the fields the panel shows. The full feed needs a signed-in user.
 export const homepagePreview = query({
   args: {},
   handler: async (ctx) => {
-    const rows = await ctx.db.query("winningProducts").withIndex("by_position").take(40);
+    const rows = await ctx.db.query("winningProducts").withIndex("by_position").take(200);
+    const products = await Promise.all(rows.map((r) => ctx.db.get("products", r.productId)));
+    // Prefer products found through running ads: Amazon best-sellers (big brands
+    // like Apple) are real winners on Amazon but not products a visitor can sell.
+    const fromAds = (p: (typeof products)[number]) => !!p?.linkedAds && p.source !== "nexscope_api";
     const seen = new Set<string>();
     const out: { _id: string; niche: string; nicheRank: number; title: string; imageUrl: string; aiScore: number }[] = [];
-    for (const r of rows) {
-      if (out.length === 5 || seen.has(r.niche)) continue;
-      const p = await ctx.db.get("products", r.productId);
-      if (!p?.imageUrl) continue;
-      seen.add(r.niche);
-      out.push({ _id: p._id, niche: r.niche, nicheRank: r.nicheRank, title: p.title, imageUrl: p.imageUrl, aiScore: p.aiScore });
+    // A few spares, so the panel can drop rows whose image fails to load.
+    for (const pass of [fromAds, () => true]) {
+      rows.forEach((r, i) => {
+        const p = products[i];
+        if (out.length === 8 || seen.has(r.niche) || !p?.imageUrl || !pass(p)) return;
+        seen.add(r.niche);
+        out.push({ _id: p._id, niche: r.niche, nicheRank: r.nicheRank, title: p.title, imageUrl: p.imageUrl, aiScore: p.aiScore });
+      });
     }
     return out;
   },

@@ -13,7 +13,7 @@ const faqs = [
   },
   {
     q: "How often is the ad database updated?",
-    a: "Imports run daily: new ads are synced every morning, product pricing is backfilled shortly after, and the winning-products list is rebuilt from scratch each day.",
+    a: "Imports run daily: new ads are synced every morning, product pricing is backfilled shortly after, and every product is rescored each morning. The winning-products list gets a new mix every 3 days: the best 25 in each category stay, and products that drop below the bar leave the same day.",
   },
   {
     q: "Can I cancel anytime?",
