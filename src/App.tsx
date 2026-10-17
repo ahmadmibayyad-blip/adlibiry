@@ -1,55 +1,53 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { DefaultProviders } from "./components/providers/default.tsx";
-import AuthCallback from "./pages/auth/Callback.tsx";
-import LoginPage from "./pages/auth/Login.tsx";
 import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import DashboardLayout from "./pages/dashboard/_components/DashboardLayout.tsx";
-import DashboardHome from "./pages/dashboard/page.tsx";
-import ProductsFeed from "./pages/dashboard/products/page.tsx";
-import ProductDetail from "./pages/dashboard/products/[id].tsx";
-import SavedProducts from "./pages/dashboard/saved/page.tsx";
-import AdSpyPage from "./pages/dashboard/ad-spy/page.tsx";
-import OfferSearchPage from "./pages/dashboard/offer-search/page.tsx";
-import PageBuilderPage from "./pages/dashboard/page-builder/page.tsx";
-import ProfitPage from "./pages/dashboard/profit/page.tsx";
-import OrdersPage from "./pages/dashboard/orders/page.tsx";
-import AdQueuePage from "./pages/dashboard/ad-queue/page.tsx";
-import AdDetailPage from "./pages/dashboard/ads/[id].tsx";
-import WinnersPage from "./pages/dashboard/winners/page.tsx";
-import AgentsPage from "./pages/dashboard/agents/page.tsx";
-import HooksPage from "./pages/dashboard/hooks/page.tsx";
-import InfoPage from "./pages/info/page.tsx";
 import { INFO_PAGES } from "./pages/info/content.ts";
-import ResearchPage from "./pages/dashboard/research/page.tsx";
-import StoreTrackerPage from "./pages/dashboard/stores/page.tsx";
-import AlertsPage from "./pages/dashboard/alerts/page.tsx";
-import ExtensionPage from "./pages/dashboard/extension/page.tsx";
-import SettingsPage from "./pages/dashboard/settings/page.tsx";
-import AdminPage from "./pages/dashboard/admin/page.tsx";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
-import { Skeleton } from "./components/ui/skeleton.tsx";
+import { PageLoading } from "./components/PageLoading.tsx";
 import { SignInButton } from "./components/ui/signin.tsx";
 import { LogoMark } from "./components/Logo.tsx";
 import { useServiceWorker } from "./hooks/use-service-worker.ts";
-import UnsubscribePage from "./pages/Unsubscribe.tsx";
-import TikTokShopPage from "./pages/dashboard/tiktok-shop/page.tsx";
-import KnowledgeHub from "./pages/dashboard/knowledge/page.tsx";
-import KnowledgeTopic from "./pages/dashboard/knowledge/topic.tsx";
-import KnowledgeCalculator from "./pages/dashboard/knowledge/calculator.tsx";
-import KnowledgeGlossary from "./pages/dashboard/knowledge/glossary.tsx";
-import LaunchesPage from "./pages/dashboard/launches/page.tsx";
+
+// Pages load when first opened, so the home page doesn't download the whole dashboard.
+const AuthCallback = lazy(() => import("./pages/auth/Callback.tsx"));
+const LoginPage = lazy(() => import("./pages/auth/Login.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const DashboardLayout = lazy(() => import("./pages/dashboard/_components/DashboardLayout.tsx"));
+const DashboardHome = lazy(() => import("./pages/dashboard/page.tsx"));
+const ProductsFeed = lazy(() => import("./pages/dashboard/products/page.tsx"));
+const ProductDetail = lazy(() => import("./pages/dashboard/products/[id].tsx"));
+const SavedProducts = lazy(() => import("./pages/dashboard/saved/page.tsx"));
+const AdSpyPage = lazy(() => import("./pages/dashboard/ad-spy/page.tsx"));
+const OfferSearchPage = lazy(() => import("./pages/dashboard/offer-search/page.tsx"));
+const PageBuilderPage = lazy(() => import("./pages/dashboard/page-builder/page.tsx"));
+const ProfitPage = lazy(() => import("./pages/dashboard/profit/page.tsx"));
+const OrdersPage = lazy(() => import("./pages/dashboard/orders/page.tsx"));
+const AdQueuePage = lazy(() => import("./pages/dashboard/ad-queue/page.tsx"));
+const AdDetailPage = lazy(() => import("./pages/dashboard/ads/[id].tsx"));
+const WinnersPage = lazy(() => import("./pages/dashboard/winners/page.tsx"));
+const AgentsPage = lazy(() => import("./pages/dashboard/agents/page.tsx"));
+const HooksPage = lazy(() => import("./pages/dashboard/hooks/page.tsx"));
+const InfoPage = lazy(() => import("./pages/info/page.tsx"));
+const ResearchPage = lazy(() => import("./pages/dashboard/research/page.tsx"));
+const StoreTrackerPage = lazy(() => import("./pages/dashboard/stores/page.tsx"));
+const AlertsPage = lazy(() => import("./pages/dashboard/alerts/page.tsx"));
+const ExtensionPage = lazy(() => import("./pages/dashboard/extension/page.tsx"));
+const SettingsPage = lazy(() => import("./pages/dashboard/settings/page.tsx"));
+const AdminPage = lazy(() => import("./pages/dashboard/admin/page.tsx"));
+const UnsubscribePage = lazy(() => import("./pages/Unsubscribe.tsx"));
+const TikTokShopPage = lazy(() => import("./pages/dashboard/tiktok-shop/page.tsx"));
+const KnowledgeHub = lazy(() => import("./pages/dashboard/knowledge/page.tsx"));
+const KnowledgeTopic = lazy(() => import("./pages/dashboard/knowledge/topic.tsx"));
+const KnowledgeCalculator = lazy(() => import("./pages/dashboard/knowledge/calculator.tsx"));
+const KnowledgeGlossary = lazy(() => import("./pages/dashboard/knowledge/glossary.tsx"));
+const LaunchesPage = lazy(() => import("./pages/dashboard/launches/page.tsx"));
 
 function DashboardGuard({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AuthLoading>
-        <div className="flex h-screen items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <LogoMark size={40} className="motion-safe:animate-pulse" />
-            <Skeleton className="h-2 w-32 rounded-full" />
-          </div>
-        </div>
+        <PageLoading fullScreen />
       </AuthLoading>
       <Unauthenticated>
         <div className="flex h-screen items-center justify-center">
@@ -75,6 +73,7 @@ export default function App() {
   return (
     <DefaultProviders defaultTheme="dark" storageKey="adspy-theme">
       <BrowserRouter>
+        <Suspense fallback={<PageLoading fullScreen />}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -132,6 +131,7 @@ export default function App() {
           ))}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </DefaultProviders>
   );

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /auth/
+Disallow: /unsubscribe
+
+Sitemap: https://adspypro.net/sitemap.xml

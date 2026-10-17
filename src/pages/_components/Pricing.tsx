@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { motion } from "motion/react";
 import { Check, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -9,8 +9,9 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import { SignInButton } from "@/components/ui/signin.tsx";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
-import ProCheckoutDialog from "@/components/billing/ProCheckoutDialog.tsx";
 import { PRO_PRICE_EUR, PRO_YEARLY_PER_MONTH_EUR, PRO_YEARLY_TOTAL_EUR, type BillingPeriod } from "@/lib/stripe.ts";
+
+const ProCheckoutDialog = lazy(() => import("@/components/billing/ProCheckoutDialog.tsx"));
 
 const FREE_LIMIT = 10;
 
@@ -67,7 +68,14 @@ function ProButton({ period }: { period: BillingPeriod }) {
   const trial = useQuery(api.billing.myTrial, {});
   const startTrial = useMutation(api.billing.startProTrial);
   const [open, setOpen] = useState(false);
-  const checkout = <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />;
+  // The checkout's code (Stripe) downloads on the first click; it stays mounted after that so closing animates.
+  const [used, setUsed] = useState(false);
+  if (open && !used) setUsed(true);
+  const checkout = used ? (
+    <Suspense fallback={null}>
+      <ProCheckoutDialog key={period} open={open} onOpenChange={setOpen} initialPeriod={period} />
+    </Suspense>
+  ) : null;
   if (trial?.state === "available") {
     return (
       <>
