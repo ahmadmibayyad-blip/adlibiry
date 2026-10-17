@@ -7,6 +7,9 @@
   "functions": {
     "api/render.ts": { "maxDuration": 60, "includeFiles": "node_modules/.pnpm/@sparticuz+chromium@153.0.0/node_modules/@sparticuz/chromium/bin/**" }
   },
+  "headers": [
+    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+  ],
   "rewrites": [
     { "source": "/", "destination": "/api/landing" },
     { "source": "/((?!api/|assets/|videos/|chrome-extension/|icon/|sw.js|site.webmanifest|offline.html|robots.txt|sitemap.xml|adspy-pro-extension.zip).*)", "destination": "/app.html" }

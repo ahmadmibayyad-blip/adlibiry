@@ -93,8 +93,8 @@ const json = (body: unknown, status = 200) =>
 function pageMarkdown(): string {
   const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "SVG", "IFRAME", "TEMPLATE", "NAV", "FOOTER", "FORM", "BUTTON", "SELECT"]);
   // Pages often carry hidden copies (phone and desktop versions of a block): only what is shown counts.
-  const hidden = (el: HTMLElement) =>
-    skip.has(el.tagName) || el.getAttribute("aria-hidden") === "true" || !el.checkVisibility({ visibilityProperty: true });
+  // Not aria-hidden: an open pop-up marks the whole page under it that way (Allbirds in the US).
+  const hidden = (el: HTMLElement) => skip.has(el.tagName) || !el.checkVisibility({ visibilityProperty: true });
   const root = document.querySelector("main") ?? document.body;
   const clean = (s: string) => s.replace(/\s+/g, " ");
   const abs = (s: string | null) => {
