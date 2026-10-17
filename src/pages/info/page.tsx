@@ -43,7 +43,7 @@ export default function InfoPage() {
   const page = pageBySlug(slug);
   usePageMeta(page?.title ?? "Page not found", page?.intro);
   if (!page) return <NotFound />;
-  const siblings = INFO_PAGES.filter((p) => p.group === page.group);
+  const siblings = INFO_PAGES.filter((p) => p.group === page.group && (!p.unlisted || p.slug === page.slug));
 
   return (
     <div className="min-h-screen bg-background text-foreground">

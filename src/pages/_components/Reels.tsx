@@ -83,7 +83,7 @@ function Reel({ reel, withSound, onSound }: { reel: (typeof REELS)[number]; with
         )}
         <span
           className={cn(
-            "absolute bottom-3 right-3 flex w-9 h-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors",
+            "absolute top-3 right-3 flex w-9 h-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors",
             withSound ? "bg-primary text-primary-foreground" : "bg-black/55 text-white",
           )}
         >

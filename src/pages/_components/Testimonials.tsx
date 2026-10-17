@@ -7,7 +7,7 @@ export default function Testimonials() {
   return (
     <section className="py-20" aria-labelledby="testimonials-heading">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 id="testimonials-heading" className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-center mb-10">
+        <h2 id="testimonials-heading" className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight mb-10">
           What sellers say
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
