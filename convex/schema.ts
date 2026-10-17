@@ -847,6 +847,10 @@ export default defineSchema({
     look: v.optional(v.any()),
     // A relaunch that replaces this earlier launch (its theme and row go once this one is ready).
     replacesLaunchId: v.optional(v.id("launches")),
+    // Orders of this product in the store over the last 30 days (ownOrders.ts), cached 12 hours; capped = more than 1000 orders.
+    ownOrders30d: v.optional(v.number()),
+    ownOrdersAt: v.optional(v.string()),
+    ownOrdersCapped: v.optional(v.boolean()),
   })
     .index("by_user", ["userId"])
     .index("by_user_product", ["userId", "productId"]),
@@ -876,6 +880,11 @@ export default defineSchema({
     report: v.any(),                  // lib/researchReport.ts ResearchReport
     margin: v.any(),                  // lib/researchReport.ts Margin | null
     reviews: v.optional(v.any()),     // lib/researchReport.ts ReviewSample
+    rules: v.optional(v.any()),       // lib/verdictRules.ts Rules (with cappedBy when the ceiling lowered the AI's call)
+    rulesVersion: v.optional(v.number()),
+    aiCall: v.optional(v.string()),   // what the AI said before the rules capped it; report.call is the final call
+    vat: v.optional(v.any()),         // { rate, country } the VAT line used, or null
+    ownStore: v.optional(v.any()),    // { orders?, capped?, reason? } from ownOrders.ts
     createdAt: v.string(),
   }).index("by_user_product", ["userId", "productId"]),
 

@@ -56,9 +56,14 @@ export default function ShopifySection() {
           </div>
         </div>
         {store.viaApp ? (
-          store.missingStoreScopes.length > 0 && (
+          (store.missingStoreScopes.length > 0 || store.missingOrderScope) && (
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
-              <p className="text-sm">Reconnect once to allow <strong>Full store</strong> (adding a theme, pages and menus to your store).</p>
+              {store.missingStoreScopes.length > 0 && (
+                <p className="text-sm">Reconnect once to allow <strong>Full store</strong> (adding a theme, pages and menus to your store).</p>
+              )}
+              {store.missingOrderScope && (
+                <p className="text-sm">Reconnect your store to count your own sales in the research verdict (needs <strong>read_orders</strong>).</p>
+              )}
               <div className="max-w-sm">
                 <ConnectShopify />
               </div>

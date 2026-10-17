@@ -21,15 +21,16 @@ export const allRates = internalQuery({
 
 export const mine = query({
   args: {},
-  handler: async (ctx): Promise<{ code: CurrencyCode; rate: number; rates: Record<CurrencyCode, number> }> => {
+  handler: async (ctx): Promise<{ code: CurrencyCode; rate: number; rates: Record<CurrencyCode, number>; date?: string }> => {
     const doc = await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "fxRates")).unique();
-    const rates = (doc?.data as Rates | undefined)?.rates ?? FALLBACK_RATES;
+    const stored = doc?.data as Rates | undefined;
+    const rates = stored?.rates ?? FALLBACK_RATES;
     const identity = await ctx.auth.getUserIdentity();
     const user = identity
       ? await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique()
       : null;
     const code = isCurrency(user?.displayCurrency) ? user.displayCurrency : "USD";
-    return { code, rate: rates[code], rates };
+    return { code, rate: rates[code], rates, ...(stored?.date ? { date: stored.date } : {}) };
   },
 });
 

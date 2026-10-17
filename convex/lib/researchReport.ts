@@ -3,6 +3,9 @@
 // evidence AdSpy Pro already has, so the user doesn't paste it in. The AI
 // writes the judgement; the money maths is done here, never by the AI. Pure.
 
+import type { Rules } from "./verdictRules";
+import { withVat } from "./vat";
+
 export type EvidenceLabel = "adspy" | "assumption" | "verify";
 export type ResearchCall = "test" | "research" | "skip";
 export const NEXT_TASKS = ["product review analysis", "supplier vetting", "competitor analysis", "pricing and margin analysis", "product validation", "no specialist task yet"] as const;
@@ -87,7 +90,20 @@ export type ResearchEvidence = {
 const usd = (n: number) => `$${n.toFixed(2)}`;
 
 /** What the AI is told: AdSpy data (may be relied on), and ad claims (marketing, not evidence of anything but the angle). */
-export function researchEvidence(e: ResearchEvidence): string {
+export function researchEvidence(e: ResearchEvidence, rules?: Rules, vat?: { rate: number; country: string }): string {
+  const rulesBlock: string[] = [];
+  if (rules) {
+    const seen = rules.signals.filter((s) => s.seen).map((s) => `${s.key} (${s.detail})`);
+    const unseen = rules.signals.filter((s) => !s.seen).map((s) => `${s.key} (${s.detail})`);
+    rulesBlock.push(
+      "\nRULES (decided by code, explain them, don't change them):",
+      `Demand signals seen: ${seen.join("; ") || "none"}`,
+      `Demand signals not seen: ${unseen.join("; ") || "none"}`,
+      ...rules.blockers.map((b) => `HARD BLOCKER: ${b}`),
+      `Highest verdict allowed: ${rules.ceiling}${rules.cappedBy ? ` (${rules.cappedBy})` : ""}`,
+    );
+    if (vat && e.margin) rulesBlock.push(`Profit after ${vat.country} VAT ${Math.round(vat.rate * 1000) / 10}%: ${usd(withVat(e.margin, vat.rate).profitAfterVat)}`);
+  }
   const lines = [
     "FROM ADSPY DATA (label these points [adspy]):",
     `Product: ${e.title}`,
@@ -97,7 +113,11 @@ export function researchEvidence(e: ResearchEvidence): string {
     e.retailPrice ? `Typical selling price: ${usd(e.retailPrice)}${e.retailPriceSource ? ` (${e.retailPriceSource})` : ""}` : "Selling price: unknown",
     e.cost ? `Landed supplier cost: ${usd(e.cost)}${e.costSource ? ` (${e.costSource}, includes a shipping estimate)` : ""}` : "Supplier cost: unknown",
     e.margin
-      ? `Margin maths (done for you, don't redo it): price ${usd(e.margin.price)} − cost ${usd(e.margin.cost)} − card fees ~${usd(e.margin.fees)} [assumption] = ${usd(e.margin.profit)} per sale (${e.margin.profitPct}%), which is the break-even ad cost per sale. Not included: refunds, discounts, VAT/tax, chargebacks, apps.`
+      ? `Margin maths (done for you, don't redo it): price ${usd(e.margin.price)} − cost ${usd(e.margin.cost)} − card fees ~${usd(e.margin.fees)} [assumption] = ${usd(e.margin.profit)} per sale (${e.margin.profitPct}%)${
+          vat && rules
+            ? `. Not included: refunds, discounts, chargebacks, apps. The break-even ad cost per sale is the profit after ${vat.country} VAT, given in the RULES block.`
+            : ", which is the break-even ad cost per sale. Not included: refunds, discounts, VAT/tax, chargebacks, apps."
+        }`
       : "Margin: can't be worked out (price or cost missing). Don't guess it.",
     e.supplier
       ? `Supplier match: "${e.supplier.title}" at ${usd(e.supplier.price)}${e.supplier.orders ? `, ${e.supplier.orders} orders in 30 days` : ""}${e.supplier.rating ? `, ${e.supplier.rating}% positive` : ""} (${e.supplier.url})`
@@ -120,6 +140,7 @@ export function researchEvidence(e: ResearchEvidence): string {
     `AdSpy's quick check says: ${e.quickCheck}`,
     e.ads.samples.length ? "\nNOT EVIDENCE, marketing claims in those ads (they show the angle, not that the claims are true):" : "",
     ...e.ads.samples.map((s, i) => `${i + 1}. ${s}`),
+    ...rulesBlock,
   ];
   return lines.filter(Boolean).join("\n");
 }
@@ -132,10 +153,11 @@ export const RESEARCH_SYSTEM =
   "an estimate. Use the margin maths as given; never compute a different margin. Label each reason: adspy (from the AdSpy data), " +
   "assumption (your reasonable inference), verify (needs the user to check). " +
   "Verdict: test (worth a controlled real-world test, never a proven winner), research (evidence too thin or mixed: say what to " +
-  "collect), or skip (a hard blocker the evidence shows). Weak evidence means research. " +
+  "collect), or skip (a hard blocker the evidence shows). Weak evidence means research. The RULES block is decided by code: " +
+  "your verdict may not be higher than the one it allows, and a HARD BLOCKER means skip. " +
   "bottomLine: 2-3 plain sentences, the verdict and the one or two reasons that drive it, ending with the single next thing to do " +
   "(the same as nextTask). reasons: 3-6. risks: the strongest reasons it may not deserve a test, blocker true only for hard " +
-  "blockers. fixes: up to 3 concrete ideas built from the facts given (a bundle that clears a threshold, a price change worth " +
+  "blockers. A thin margin on an estimated (category benchmark) price is not a hard blocker: don't mark it blocker: true. fixes: up to 3 concrete ideas built from the facts given (a bundle that clears a threshold, a price change worth " +
   "testing, asking for a local warehouse), labelled as ideas to test. missing: the information still missing that would change " +
   "the call. checklist: up to 7 things for the user to verify, the most decision-changing first (demand, supplier, shipping, " +
   "quality, competition, margin, claims and ad policy). nextTask: exactly one of: " +
