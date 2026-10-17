@@ -165,9 +165,9 @@ export const forgetShop = internalMutation({
 
 /**
  * Webhooks: app/uninstalled (forget the token at once) and Shopify's mandatory
- * privacy topics. The only customer data kept is the order autopilot's shipping
- * address until the order is at CJ (orders.ts): customers/redact deletes that
- * customer's orders, shop/redact the store and all its order data.
+ * privacy topics. No customer data is kept now; orders.redact clears what the old
+ * CJ order autopilot kept (customers/redact: that customer's orders, shop/redact:
+ * the store's order and profit data).
  * customers/data_request needs nothing sent: the store has the same data.
  */
 export const webhook = httpAction(async (ctx, request) => {

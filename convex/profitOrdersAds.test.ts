@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import { dayProfit, profitDays, profitOrders } from "./lib/profit";
-import { cjOrderBody, cjOrderMade, cjTracking, fulfillmentInput, openOrders } from "./lib/cjOrders";
+import { orderSummary, trackedOrders } from "./lib/orderTracker";
 import { settle } from "./lib/settle";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -70,89 +70,89 @@ describe("profit", () => {
   });
 });
 
-const openOrderNodes = {
-  orders: { nodes: [{
-    id: "gid://shopify/Order/1", name: "#1001", createdAt: "2026-10-15T08:00:00Z", cancelledAt: null, test: false, email: "kim@example.com",
-    shippingAddress: { name: "Kim Hansen", address1: "Storgatan 1", address2: null, city: "Malmö", province: null, provinceCode: null, zip: "21111", country: "Sweden", countryCodeV2: "SE", phone: "+4670000000" },
-    lineItems: { nodes: [
-      { id: "gid://shopify/LineItem/11", title: "Dream Pillow", unfulfilledQuantity: 2, requiresShipping: true, variant: { id: "gid://shopify/ProductVariant/91", title: "White", product: { id: "gid://shopify/Product/9" } } },
-      { id: "gid://shopify/LineItem/12", title: "Gift card", unfulfilledQuantity: 1, requiresShipping: false, variant: { id: "gid://shopify/ProductVariant/55", title: "Default Title", product: { id: "gid://shopify/Product/5" } } },
-    ] },
-  }] },
+const NOW = Date.parse("2026-10-17T12:00:00Z");
+const ago = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
+const shipped = (at: string, extra: Record<string, unknown> = {}) => ({
+  createdAt: at, displayStatus: "IN_TRANSIT", deliveredAt: null, service: { serviceName: "CJDropshipping", type: "THIRD_PARTY" },
+  trackingInfo: [{ number: "YT123", company: "YunExpress", url: "https://t.17track.net/YT123" }], ...extra,
+});
+const trackedNodes = {
+  orders: {
+    pageInfo: { hasNextPage: false, endCursor: null },
+    nodes: [
+      { id: "gid://shopify/Order/1", name: "#1001", createdAt: ago(5), cancelledAt: null, test: false, displayFinancialStatus: "PAID", displayFulfillmentStatus: "UNFULFILLED",
+        totalPriceSet: { shopMoney: { amount: "349.00", currencyCode: "DKK" } }, lineItems: { nodes: [{ title: "Dream Pillow", quantity: 2 }] }, fulfillments: [],
+        fulfillmentOrders: { nodes: [{ status: "OPEN", assignedLocation: { name: "DSers" } }] } },
+      { id: "gid://shopify/Order/2", name: "#1002", createdAt: ago(1), cancelledAt: null, test: false, displayFinancialStatus: "PAID", displayFulfillmentStatus: "UNFULFILLED",
+        lineItems: { nodes: [{ title: "Sleep Mask", quantity: 1 }] }, fulfillments: [], fulfillmentOrders: { nodes: [] } },
+      { id: "gid://shopify/Order/3", name: "#1003", createdAt: ago(8), cancelledAt: null, test: false, displayFinancialStatus: "PAID", displayFulfillmentStatus: "FULFILLED",
+        lineItems: { nodes: [{ title: "Dream Pillow", quantity: 1 }] }, fulfillments: [shipped(ago(6))], fulfillmentOrders: { nodes: [{ status: "CLOSED", assignedLocation: { name: "CJDropshipping" } }] } },
+      { id: "gid://shopify/Order/4", name: "#1004", createdAt: ago(25), cancelledAt: null, test: false, displayFinancialStatus: "PAID", displayFulfillmentStatus: "FULFILLED",
+        lineItems: { nodes: [] }, fulfillments: [shipped(ago(24), { displayStatus: "DELIVERED", deliveredAt: ago(10) })] },
+      { id: "gid://shopify/Order/5", name: "#1005", createdAt: ago(28), cancelledAt: null, test: false, displayFinancialStatus: "PAID", displayFulfillmentStatus: "FULFILLED",
+        lineItems: { nodes: [] }, fulfillments: [shipped(ago(26))] },
+      { id: "gid://shopify/Order/6", name: "#1006", createdAt: ago(4), cancelledAt: null, test: false, displayFinancialStatus: "PAID", displayFulfillmentStatus: "FULFILLED",
+        lineItems: { nodes: [] }, fulfillments: [shipped(ago(3), { service: { serviceName: "Manual", type: "MANUAL" }, trackingInfo: [] })] },
+      { id: "gid://shopify/Order/7", name: "#1007", createdAt: ago(6), cancelledAt: ago(5), test: false, displayFinancialStatus: "REFUNDED", displayFulfillmentStatus: "UNFULFILLED", lineItems: { nodes: [] }, fulfillments: [] },
+      { id: "gid://shopify/Order/8", name: "#1008", createdAt: ago(6), cancelledAt: null, test: false, displayFinancialStatus: "PENDING", displayFulfillmentStatus: "UNFULFILLED", lineItems: { nodes: [] }, fulfillments: [] },
+      { id: "gid://shopify/Order/9", name: "#1009", createdAt: ago(6), cancelledAt: null, test: true, displayFinancialStatus: "PAID", displayFulfillmentStatus: "UNFULFILLED", lineItems: { nodes: [] }, fulfillments: [] },
+    ],
+  },
 };
 
-describe("CJ order autopilot", () => {
-  it("reads open orders, builds CJ's order, reads tracking and the Shopify fulfillment", () => {
-    const [o] = openOrders(openOrderNodes);
-    expect(o.items).toEqual([{ lineItemId: "gid://shopify/LineItem/11", variantId: "gid://shopify/ProductVariant/91", productId: "gid://shopify/Product/9", title: "Dream Pillow (White)", quantity: 2 }]); // the gift card doesn't ship
-    expect(o.shipTo).toMatchObject({ name: "Kim Hansen", city: "Malmö", countryCode: "SE", email: "kim@example.com" });
-    const body = cjOrderBody({ name: "#1001", shipTo: o.shipTo!, items: [{ ...o.items[0], cjVid: "V1" }], logisticName: "CJPacket", fromCountryCode: "CN" }, false);
-    expect(body).toMatchObject({ shippingProvince: "Malmö", shippingCountryCode: "SE", payType: 3, products: [{ vid: "V1", quantity: 2 }], logisticName: "CJPacket" });
-    expect(cjOrderBody({ name: "#1", shipTo: o.shipTo!, items: [], logisticName: "x", fromCountryCode: "CN" }, true).payType).toBe(2);
-    expect(cjOrderMade({ result: true, data: { orderId: "CJ1", orderAmount: 12.4 } })).toEqual({ orderId: "CJ1", costUsd: 12.4 });
-    expect(cjTracking({ data: { trackNumber: "" } })).toBeNull();
-    expect(cjTracking({ data: { trackNumber: "YT123", trackingProvider: "YunExpress", trackingUrl: "https://t.17track.net/YT123" } })).toEqual({ number: "YT123", company: "YunExpress", url: "https://t.17track.net/YT123" });
-    const fos = { order: { fulfillmentOrders: { nodes: [{ id: "FO1", status: "OPEN", lineItems: { nodes: [{ id: "FOL1", remainingQuantity: 2, lineItem: { id: "gid://shopify/LineItem/11" } }, { id: "FOL2", remainingQuantity: 1, lineItem: { id: "gid://shopify/LineItem/99" } }] } }, { id: "FO2", status: "CLOSED", lineItems: { nodes: [] } }] } } };
-    expect(fulfillmentInput(fos, ["gid://shopify/LineItem/11"], { number: "YT123" })).toEqual({
-      lineItemsByFulfillmentOrder: [{ fulfillmentOrderId: "FO1", fulfillmentOrderLineItems: [{ id: "FOL1", quantity: 2 }] }], // only CJ's item
-      trackingInfo: { number: "YT123" },
-      notifyCustomer: true,
-    });
+describe("Orders, whoever fulfills them", () => {
+  it("reads status, tracking and who has each order, and flags what needs a look", () => {
+    const { orders, next } = trackedOrders(trackedNodes, NOW);
+    expect(next).toBeNull();
+    const by = Object.fromEntries(orders.map((o) => [o.name, o]));
+    expect(Object.keys(by)).not.toContain("#1009"); // test orders don't count
+    expect(by["#1001"]).toMatchObject({ status: "waiting", handledBy: ["DSers"], items: ["2 × Dream Pillow"], itemCount: 2, total: { amount: 349, currency: "DKK" }, warning: "Paid 5 days ago, not shipped yet" });
+    expect(by["#1002"]).toMatchObject({ status: "waiting" });
+    expect(by["#1002"].warning).toBeUndefined(); // one day is normal
+    expect(by["#1003"]).toMatchObject({ status: "shipped", handledBy: ["CJDropshipping"], tracking: [{ number: "YT123", company: "YunExpress" }] });
+    expect(by["#1003"].warning).toBeUndefined();
+    expect(by["#1004"]).toMatchObject({ status: "delivered", deliveredAt: ago(10) });
+    expect(by["#1005"]).toMatchObject({ status: "shipped", warning: "On the way for 26 days" });
+    expect(by["#1006"]).toMatchObject({ status: "shipped", handledBy: [], warning: "Shipped without a tracking number" });
+    expect(by["#1007"].status).toBe("cancelled");
+    expect(by["#1008"].status).toBe("unpaid");
+    expect(orderSummary(orders)).toEqual({ toShip: 2, needsLook: 3, onTheWay: 3, delivered: 1, apps: ["CJDropshipping"] });
   });
 
-  it("brings an order in, waits for the OK, places it at CJ without its address afterwards, and sends the tracking to Shopify", async () => {
-    process.env.CJ_API_KEY = "cj-key";
+  it("reads the store's orders live from Shopify, without customer fields, and falls back when fulfillment orders aren't allowed", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
       const id = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
-      await ctx.db.insert("shopifyConnections", { userId: id, shopDomain: "my-store.myshopify.com", shopName: "My Store", accessToken: "shpat_plain", connectedAt: "2026-10-01T00:00:00Z", via: "oauth", scopes: "read_orders,write_merchant_managed_fulfillment_orders" });
+      await ctx.db.insert("shopifyConnections", { userId: id, shopDomain: "my-store.myshopify.com", shopName: "My Store", accessToken: "shpat_plain", connectedAt: "2026-10-01T00:00:00Z", via: "oauth", scopes: "read_orders" });
     });
-    const calls: { url: string; body?: Record<string, unknown> }[] = [];
-    let tracking = "";
-    vi.stubGlobal("fetch", async (u: string, init?: RequestInit) => {
-      const url = String(u);
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-      calls.push({ url, body });
-      if (url.endsWith("/authentication/getAccessToken")) return json({ result: true, data: { accessToken: "AT", refreshToken: "RT" } });
-      if (url.endsWith("/logistic/freightCalculate")) return json({ result: true, data: [{ logisticName: "CJPacket Ordinary", logisticPrice: 4.1, logisticAging: "8-15" }] });
-      if (url.endsWith("/shopping/order/createOrderV2")) return json({ result: true, data: { orderId: "CJ777", orderAmount: 13.9 } });
-      if (url.includes("/shopping/order/getOrderDetail")) return json({ result: true, data: { trackNumber: tracking, trackingProvider: "YunExpress" } });
-      if (url.includes("/graphql.json")) {
-        if (body.query.includes("OpenOrders")) return json({ data: openOrderNodes });
-        if (body.query.includes("FulfillmentOrders")) return json({ data: { order: { fulfillmentOrders: { nodes: [{ id: "FO1", status: "OPEN", lineItems: { nodes: [{ id: "FOL1", remainingQuantity: 2, lineItem: { id: "gid://shopify/LineItem/11" } }] } }] } } } });
-        if (body.query.includes("fulfillmentCreate")) return json({ data: { fulfillmentCreate: { fulfillment: { id: "F1", status: "SUCCESS" }, userErrors: [] } } });
-      }
-      return json({}, 404);
+    const queries: string[] = [];
+    vi.stubGlobal("fetch", async (_u: string, init?: RequestInit) => {
+      const { query } = JSON.parse(String(init?.body)) as { query: string };
+      queries.push(query);
+      if (query.includes("fulfillmentOrders")) return json({ errors: [{ message: "Access denied for fulfillmentOrders field." }] });
+      return json({ data: trackedNodes });
     });
     const me = t.withIdentity({ subject: "u1|s" });
-    await me.mutation(api.orders.setSettings, { autopilot: true, payFromBalance: false });
-    await settle(t);
-    let page = await me.query(api.orders.mine, {});
-    expect(page?.orders).toHaveLength(1);
-    expect(page?.orders[0]).toMatchObject({ orderName: "#1001", status: "needs_link", shipToLabel: "Malmö, SE" });
-    expect(page?.orders[0]).not.toHaveProperty("shipTo"); // the page never gets the address
-
-    await me.mutation(api.orders.link, { shopifyVariantId: "gid://shopify/ProductVariant/91", title: "Dream Pillow (White)", cjPid: "P1", cjVid: "V1", cjName: "Pillow White" });
-    await settle(t);
-    page = await me.query(api.orders.mine, {});
-    expect(page?.orders[0]).toMatchObject({ status: "waiting", shipping: { method: "CJPacket Ordinary", priceUsd: 4.1, from: "CN" } });
-    expect(calls.some((c) => c.url.endsWith("createOrderV2"))).toBe(false); // nothing at CJ without the OK
-
-    await me.mutation(api.orders.approve, { id: page!.orders[0]._id });
-    await settle(t);
-    const order = await t.run((ctx) => ctx.db.query("cjOrders").first());
-    expect(order).toMatchObject({ status: "placed", cjOrderId: "CJ777", cjCostUsd: 13.9, paid: false });
-    expect(order?.shipTo).toBeUndefined(); // the address is gone once CJ has it
-    expect(calls.find((c) => c.url.endsWith("createOrderV2"))?.body).toMatchObject({ payType: 3, shippingCustomerName: "Kim Hansen", products: [{ vid: "V1", quantity: 2 }] });
-
-    expect(await t.action(internal.orders.trackAll, {})).toEqual({ shipped: 0 }); // no tracking yet
-    tracking = "YT123";
-    expect(await t.action(internal.orders.trackAll, {})).toEqual({ shipped: 1 });
-    expect(calls.find((c) => c.body?.query?.toString().includes("fulfillmentCreate"))?.body?.variables).toMatchObject({ fulfillment: { trackingInfo: { number: "YT123", company: "YunExpress" }, notifyCustomer: true } });
-    expect(await t.run((ctx) => ctx.db.query("cjOrders").first())).toMatchObject({ status: "shipped", tracking: { number: "YT123" } });
+    expect(await me.query(api.orders.mine, {})).toEqual({ store: { shopName: "My Store", canUse: true } });
+    const r = await me.action(api.orders.load, {});
+    expect(r.orders.map((o) => o.name)).toContain("#1001");
+    expect(r.capped).toBe(false);
+    expect(queries).toHaveLength(2); // tried with fulfillment orders, then without
+    for (const q of queries) expect(q).not.toMatch(/shippingAddress|customer|email|phone/);
   });
 
-  it("deletes a customer's orders when Shopify asks", async () => {
+  it("asks to connect or reconnect the store first", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+      const id = await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" });
+      await ctx.db.insert("shopifyConnections", { userId: id, shopDomain: "old.myshopify.com", shopName: "Old", accessToken: "shpat_plain", connectedAt: "2026-10-01T00:00:00Z", via: "oauth", scopes: "write_products" });
+    });
+    await expect(t.withIdentity({ subject: "u1|s" }).action(api.orders.load, {})).rejects.toThrow(/Connect your Shopify store/);
+    await expect(t.withIdentity({ subject: "u2|s" }).action(api.orders.load, {})).rejects.toThrow(/Reconnect your store/);
+  });
+
+  it("clears what the old CJ autopilot kept when Shopify asks", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
