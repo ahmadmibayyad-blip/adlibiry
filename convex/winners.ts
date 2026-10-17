@@ -6,6 +6,7 @@ import { limitedPage, requireSignedIn } from "./lib/access";
 import { WINNERS_PER_NICHE, WINNER_MIN_SCORE, readWinnersRound } from "./productPipeline";
 import { WINNERS_ROUND_DAYS, WINNERS_TOP_KEEP } from "./lib/winnerMix";
 import { filterAndSortWinners, needsFiltering } from "./lib/winnerFilters";
+import { showcaseTitleRank } from "./lib/showcaseTitle";
 
 // ── Winning Products (read side) ────────────────────────────────────────────
 // The list itself is rebuilt once a day by convex/productPipeline.ts.
@@ -116,11 +117,22 @@ export const homepagePreview = query({
     const products = await Promise.all(rows.map((r) => ctx.db.get("products", r.productId)));
     // Prefer products found through running ads: Amazon best-sellers (big brands
     // like Apple) are real winners on Amazon but not products a visitor can sell.
-    const fromAds = (p: (typeof products)[number]) => !!p?.linkedAds && p.source !== "nexscope_api";
+    // Then prefer titles that read as a product name, not an ad headline or a
+    // long brand listing (lib/showcaseTitle.ts).
+    type P = NonNullable<(typeof products)[number]>;
+    const fromAds = (p: P) => !!p.linkedAds && p.source !== "nexscope_api";
+    const rank = (p: P) => showcaseTitleRank(p.title);
+    const passes: ((p: P) => boolean)[] = [
+      (p) => fromAds(p) && rank(p) === 2,
+      (p) => rank(p) === 2,
+      (p) => fromAds(p) && rank(p) === 1,
+      (p) => rank(p) === 1,
+      () => true,
+    ];
     const seen = new Set<string>();
     const out: { _id: string; niche: string; nicheRank: number; title: string; imageUrl: string; aiScore: number }[] = [];
     // A few spares, so the panel can drop rows whose image fails to load.
-    for (const pass of [fromAds, () => true]) {
+    for (const pass of passes) {
       rows.forEach((r, i) => {
         const p = products[i];
         if (out.length === 8 || seen.has(r.niche) || !p?.imageUrl || !pass(p)) return;

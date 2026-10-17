@@ -23,7 +23,7 @@ const product = (title: string, extra: Record<string, unknown> = {}) => ({
 });
 
 describe("homepage winners preview", () => {
-  it("puts products from running ads before Amazon best-sellers", async () => {
+  it("puts products from running ads before Amazon best-sellers, and ad headlines last", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
       const rows = [
@@ -31,6 +31,7 @@ describe("homepage winners preview", () => {
         { niche: "Tech", p: product("Earbuds", { source: "nexscope_api", linkedAds: 2 }) },
         { niche: "Home", p: product("Lamp", { source: "adlibrary_api", linkedAds: 4 }) },
         { niche: "Pets", p: product("Pet brush", { linkedAds: 1 }) },
+        { niche: "Food", p: product("Get 50% off your first box", { linkedAds: 9 }) },
       ];
       for (const [i, r] of rows.entries()) {
         const productId = await ctx.db.insert("products", r.p);
@@ -39,6 +40,7 @@ describe("homepage winners preview", () => {
     });
 
     const titles = (await t.query(api.winners.homepagePreview, {})).map((r) => r.title);
-    expect(titles).toEqual(["Lamp", "Pet brush", "Laxative", "Earbuds"]);
+    // Ad headlines go last, even when they come from ads.
+    expect(titles).toEqual(["Lamp", "Pet brush", "Laxative", "Earbuds", "Get 50% off your first box"]);
   });
 });
