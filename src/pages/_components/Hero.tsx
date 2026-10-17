@@ -1,4 +1,6 @@
-import { useQuery } from "convex/react";
+import { useState } from "react";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { Link } from "react-router-dom";
 import { ArrowRight, Play } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
@@ -13,14 +15,17 @@ const fmt = (n: number | undefined) => (n === undefined ? "…" : n.toLocaleStri
 // from the same list the dashboard's Winning Products page uses.
 function TodaysWinners() {
   // Public preview: five winners, one per niche (see winners:homepagePreview).
-  const rows = useQuery(api.winners.homepagePreview, {});
+  const all = useQuery(api.winners.homepagePreview, {});
+  // The query sends a few spares; a row whose photo won't load gives its place to the next.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+  const rows = all?.filter((p) => !failed.has(p._id)).slice(0, 5);
   const summary = useQuery(api.winners.summary, {});
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="flex items-baseline justify-between gap-4 px-5 pt-4 pb-3 border-b border-border">
         <h2 className="font-display text-lg font-bold">Current winners</h2>
-        <span className="text-xs text-muted-foreground">New mix every 3 days</span>
+        <span className="text-xs text-muted-foreground">Scored every morning</span>
       </div>
       <ul aria-busy={rows === undefined}>
         {rows === undefined
@@ -35,7 +40,11 @@ function TodaysWinners() {
             ))
           : rows.map((product) => (
               <li key={product._id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0">
-                <ProductImage src={product.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
+                <ProductImage
+                  src={product.imageUrl}
+                  alt={product.title}
+                  onFailed={() => setFailed((s) => new Set(s).add(product._id))}
+                  className="w-12 h-12 rounded-lg object-cover bg-muted shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold truncate">{product.title}</div>
                   <div className="text-xs text-muted-foreground">
@@ -65,7 +74,7 @@ export default function Hero() {
   const stats = useQuery(api.stats.get, {}) ?? initialStats();
 
   return (
-    <section className="pt-28 pb-20 lg:pt-36 lg:pb-28">
+    <section className="pt-28 pb-16 lg:pt-36 lg:pb-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center">
         <div>
           <h1 className="font-display text-5xl sm:text-6xl font-extrabold tracking-tight leading-[1.02] text-balance mb-6">
@@ -79,12 +88,22 @@ export default function Hero() {
             ad angles already working.
           </p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
-              <a href="/#pricing">
-                Start free
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </a>
-            </Button>
+            <Unauthenticated>
+              <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
+                <a href="/#pricing">
+                  Start free
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </a>
+              </Button>
+            </Unauthenticated>
+            <Authenticated>
+              <Button asChild size="lg" className="h-12 px-6 text-base font-semibold rounded-xl">
+                <Link to="/dashboard">
+                  Open dashboard
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            </Authenticated>
             <a
               href="/#tour"
               className="inline-flex items-center gap-2 min-h-11 text-sm font-medium text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground"

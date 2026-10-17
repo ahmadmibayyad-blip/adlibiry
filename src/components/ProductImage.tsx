@@ -6,7 +6,19 @@ import { imageLinkExpired } from "@/lib/imageExpiry.ts";
 // A product photo that never shows as a broken image or an empty dark box:
 // a soft pulse while it loads, and a labelled placeholder when there's no
 // image or it fails to load (expired CDN links are common in ad data).
-export default function ProductImage({ src, alt, className, loading = "lazy" }: { src?: string; alt: string; className?: string; loading?: "lazy" | "eager" }) {
+export default function ProductImage({
+  src,
+  alt,
+  className,
+  loading = "lazy",
+  onFailed,
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+  loading?: "lazy" | "eager";
+  onFailed?: () => void;
+}) {
   // A signed link past its expiry would only 403 (and log a console error), so don't request it.
   const [state, setState] = useState<"loading" | "ok" | "failed">(src && !imageLinkExpired(src) ? "loading" : "failed");
   if (state === "failed") {
@@ -22,7 +34,10 @@ export default function ProductImage({ src, alt, className, loading = "lazy" }: 
       alt={alt}
       loading={loading}
       onLoad={() => setState("ok")}
-      onError={() => setState("failed")}
+      onError={() => {
+        setState("failed");
+        onFailed?.();
+      }}
       className={cn(className, state === "loading" && "animate-pulse bg-muted")}
     />
   );

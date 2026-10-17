@@ -13,7 +13,7 @@ const faqs = [
   },
   {
     q: "How often is the ad database updated?",
-    a: "Imports run daily: new ads are synced every morning, product pricing is backfilled shortly after, and the winning-products list is rebuilt from scratch each day.",
+    a: "Imports run daily: new ads are synced every morning, product pricing is backfilled shortly after, and every product is rescored each morning. The winning-products list gets a new mix every 3 days: the best 25 in each category stay, and products that drop below the bar leave the same day.",
   },
   {
     q: "Can I cancel anytime?",
@@ -71,14 +71,14 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function FAQ() {
   return (
     <section id="faq" className="py-24 bg-card/20">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-12"
+          className="mb-12"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
             Frequently asked questions
@@ -90,7 +90,7 @@ export default function FAQ() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="space-y-3"
+          className="space-y-3 max-w-3xl"
         >
           {faqs.map((faq) => (
             <FAQItem key={faq.q} q={faq.q} a={faq.a} />

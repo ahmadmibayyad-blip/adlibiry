@@ -4,6 +4,7 @@ import { useMutation } from "convex/react";
 import { MailX } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
+import { usePageMeta } from "@/hooks/use-page-meta.ts";
 
 // The unsubscribe link in every morning digest (no sign-in needed).
 export default function UnsubscribePage() {
@@ -11,6 +12,7 @@ export default function UnsubscribePage() {
   const unsubscribe = useMutation(api.digest.unsubscribe);
   const [state, setState] = useState<"working" | "done" | "invalid">("working");
   const token = params.get("token") ?? "";
+  usePageMeta("Unsubscribe");
 
   useEffect(() => {
     unsubscribe({ token })

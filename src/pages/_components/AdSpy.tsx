@@ -52,7 +52,7 @@ export default function AdSpy() {
                 return (
                   <article key={ad._id} className="rounded-2xl border border-border bg-card overflow-hidden">
                     <div className="relative aspect-[4/3] bg-muted">
-                      <img src={ad.creativeUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                      <img src={ad.creativeUrl} alt={`Ad by ${ad.advertiserName}`} loading="lazy" className="w-full h-full object-cover" />
                       <div
                         className={cn(
                           "absolute top-3 left-3 flex items-baseline gap-1 rounded-lg px-2 py-1",
@@ -82,7 +82,7 @@ export default function AdSpy() {
 
         <p className="text-sm text-muted-foreground">
           {stats ? `3 of ${stats.ads.total.toLocaleString("en-US")} ads.` : "3 of our ads."}{" "}
-          <a href="/login" className="text-primary font-medium hover:underline">
+          <a href="/login" className="inline-flex items-center min-h-10 text-primary font-medium hover:underline">
             Sign up free to search them all.
           </a>
         </p>

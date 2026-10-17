@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
+import { usePageMeta } from "@/hooks/use-page-meta.ts";
 
 export default function NotFound() {
   const location = useLocation();
+  usePageMeta("Page not found");
 
   useEffect(() => {
     console.error(
