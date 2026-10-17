@@ -1,4 +1,6 @@
-import { loadStripe, type Stripe } from "@stripe/stripe-js";
+// The pure entry loads Stripe.js only when getStripe() is first called (checkout), not on every page.
+import { loadStripe } from "@stripe/stripe-js/pure";
+import type { Stripe } from "@stripe/stripe-js";
 
 // Stripe publishable key (public by design; the secret key stays on the
 // servers). Override per environment with VITE_STRIPE_PUBLISHABLE_KEY.

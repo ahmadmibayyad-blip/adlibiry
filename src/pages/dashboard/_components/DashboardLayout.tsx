@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
+import { PageLoading } from "@/components/PageLoading.tsx";
 import { cn } from "@/lib/utils.ts";
 import {
   LayoutDashboard,
@@ -269,7 +271,10 @@ export default function DashboardLayout() {
         {/* Page content */}
         <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           {/* Remount pages when the currency changes so every amount updates. */}
-          <Outlet key={currency?.code ?? "USD"} />
+          {/* Pages load on first open (App.tsx); the sidebar stays while they do. */}
+          <Suspense fallback={<PageLoading />}>
+            <Outlet key={currency?.code ?? "USD"} />
+          </Suspense>
         </main>
         <AIAssistant />
         <OnboardingDialog />

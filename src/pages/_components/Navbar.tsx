@@ -73,6 +73,9 @@ export default function Navbar() {
 
           {/* Mobile toggle */}
           <button
+            type="button"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
             className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
             onClick={() => setMobileOpen(!mobileOpen)}
           >

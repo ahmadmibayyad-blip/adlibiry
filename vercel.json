@@ -6,6 +6,6 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/", "destination": "/api/landing" },
-    { "source": "/((?!assets/|videos/|chrome-extension/|icon/|sw.js|site.webmanifest|offline.html|adspy-pro-extension.zip).*)", "destination": "/app.html" }
+    { "source": "/((?!assets/|videos/|chrome-extension/|icon/|sw.js|site.webmanifest|offline.html|robots.txt|sitemap.xml|adspy-pro-extension.zip).*)", "destination": "/app.html" }
   ]
 }
