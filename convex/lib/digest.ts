@@ -43,7 +43,25 @@ export function pickDigestWinners(rows: DigestWinner[], niches: string[] | undef
 
 export type DigestAlert = { title: string; body: string; link: string };
 
-export function renderDigestHtml(opts: { winners: DigestWinner[]; alerts: DigestAlert[]; appUrl: string; unsubscribeUrl: string; niches?: string[] }): string {
+/** Yesterday in the user's own store (profit.ts yesterdayFor), for the top of the email. */
+export type DigestProfit = { shopName: string; currency: string; orders: number; revenue: number; profit: number; adSpend?: number; missingCost: number };
+
+export function renderProfitHtml(p: DigestProfit, appUrl: string): string {
+  const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: p.currency, maximumFractionDigits: 0 }).format(n);
+  const notes = [
+    p.adSpend === undefined ? "No ad spend entered yet" : `${fmt(p.adSpend)} on ads`,
+    p.missingCost ? `${p.missingCost} item${p.missingCost === 1 ? "" : "s"} without a cost` : "",
+  ].filter(Boolean).join(" · ");
+  return `
+        <a href="${escapeHtml(appUrl)}/dashboard/profit" style="display:block;text-decoration:none;background:#14141f;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+          <div style="color:#9aa;font-size:12px;">Yesterday in ${escapeHtml(p.shopName)}</div>
+          <div style="color:${p.profit >= 0 ? "#1fbf6b" : "#ff6b6b"};font-size:22px;font-weight:700;margin:2px 0;">${escapeHtml(fmt(p.profit))} profit</div>
+          <div style="color:#ccd;font-size:13px;">${p.orders} order${p.orders === 1 ? "" : "s"} · ${escapeHtml(fmt(p.revenue))} sales</div>
+          ${notes ? `<div style="color:#9aa;font-size:12px;margin-top:4px;">${escapeHtml(notes)}</div>` : ""}
+        </a>`;
+}
+
+export function renderDigestHtml(opts: { winners: DigestWinner[]; alerts: DigestAlert[]; appUrl: string; unsubscribeUrl: string; niches?: string[]; profit?: DigestProfit | null }): string {
   const { winners, alerts, appUrl, unsubscribeUrl } = opts;
   const row = (w: DigestWinner) => `
         <tr>
@@ -69,7 +87,8 @@ export function renderDigestHtml(opts: { winners: DigestWinner[]; alerts: Digest
     <div style="background:#0a0a12;padding:32px 16px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
       <div style="max-width:480px;margin:0 auto;">
         <h1 style="color:#fff;font-size:20px;margin-bottom:4px;">Good morning</h1>
-        <p style="color:#9aa;font-size:13px;margin-bottom:20px;">${nicheLine}</p>
+        ${opts.profit ? renderProfitHtml(opts.profit, appUrl) : ""}
+        <p style="color:#9aa;font-size:13px;margin-bottom:20px;">${winners.length ? nicheLine : ""}</p>
         ${winners.length ? `<table width="100%" cellpadding="0" cellspacing="0">${winners.map(row).join("")}</table>` : ""}
         ${alerts.length ? `<h2 style="color:#fff;font-size:16px;margin:24px 0 8px;">Your alerts</h2><ul style="padding-left:18px;margin:0;">${alertRows}</ul>` : ""}
         <a href="${escapeHtml(appUrl)}/dashboard/winners" style="display:inline-block;margin-top:20px;background:#1fbf6b;color:#0a0a12;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;">

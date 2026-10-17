@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { ConvexError } from "convex/values";
 import { useAction, useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Code2, Copy, Download, Eye, ImageIcon, ImageUp, Monitor, Smartphone, Trash2, Undo2, Wand2, X } from "lucide-react";
+import { Code2, Copy, Download, ExternalLink, Eye, ImageIcon, ImageUp, Monitor, ShoppingBag, Smartphone, Trash2, Undo2, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import LinkScreenshot from "@/components/LinkScreenshot.tsx";
+import PageProducts, { type PickedProduct } from "./PageProducts.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { pastedImage, screenshotParts, type ScreenshotPart } from "@/lib/screenshotParts.ts";
 import { cn } from "@/lib/utils.ts";
@@ -28,6 +30,7 @@ export default function PageBuilderPage() {
   const input = useRef<HTMLInputElement>(null);
   const [shot, setShot] = useState<{ parts: ScreenshotPart[]; preview: string } | null>(null);
   const [notes, setNotes] = useState("");
+  const [products, setProducts] = useState<PickedProduct[]>([]);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -49,10 +52,15 @@ export default function PageBuilderPage() {
     if (!shot) return;
     setBusy(true);
     try {
-      const r = await create({ images: shot.parts, ...(notes.trim() ? { notes: notes.trim() } : {}) });
+      const r = await create({
+        images: shot.parts,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(products.length ? { productIds: products.map((p) => p.productId) } : {}),
+      });
       setParams({ id: r.id });
       setShot(null);
       setNotes("");
+      setProducts([]);
     } catch (e) {
       toast.error(errorMessage(e, "The page couldn't be started"));
     } finally {
@@ -70,7 +78,7 @@ export default function PageBuilderPage() {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Upload a screenshot of a landing or product page you like, or paste its link. The AI builds it as one HTML page with Tailwind that you can preview, change in your own words and
-          download. Photos become placeholders: put in your own.
+          download, or publish it to your Shopify store as its own page. Photos are matching free stock photos from Pexels: swap in your own product photos.
         </p>
       </div>
 
@@ -113,6 +121,7 @@ export default function PageBuilderPage() {
           </button>
         )}
         {!shot ? <LinkScreenshot onShot={pick} /> : null}
+        <PageProducts value={products} onChange={setProducts} />
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -161,6 +170,13 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
   const [device, setDevice] = useState<"desktop" | "phone">("desktop");
   const [change, setChange] = useState("");
   const [sending, setSending] = useState(false);
+  const publishPage = useAction(api.screenPagesShopify.publish);
+  const [publishing, setPublishing] = useState(false);
+  const [publishProblem, setPublishProblem] = useState<{ message: string; code?: string; files?: Record<string, string> } | null>(null);
+  const restoreHome = useAction(api.screenPagesShopify.restoreHome);
+  const [asHomeInput, setAsHome] = useState<boolean | null>(null);
+  const asHome = asHomeInput ?? !!page.shopify?.home;
+  const [restoring, setRestoring] = useState(false);
 
   const making = page.status === "making";
   const html = page.html ?? "";
@@ -187,6 +203,36 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
     }
   };
 
+  const publish = async () => {
+    setPublishing(true);
+    setPublishProblem(null);
+    try {
+      const r = await publishPage({ id: page._id, ...(asHome ? { asHome: true } : {}) });
+      const linked = r.linked ? ` ${r.linked} links now go to your store's pages.` : "";
+      if (r.note) toast.warning(r.note);
+      else toast.success(`${r.home ? "It's your store's home page now." : r.updated ? "Updated in your Shopify store." : "Published in your Shopify store."}${linked}`);
+    } catch (e) {
+      const data = e instanceof ConvexError ? (e.data as { code?: string; message?: string; files?: Record<string, string> }) : null;
+      setPublishProblem({ message: errorMessage(e, "The page couldn't be published"), code: data?.code, files: data?.files });
+    } finally {
+      setPublishing(false);
+    }
+  };
+  const restore = async () => {
+    setRestoring(true);
+    try {
+      await restoreHome({ id: page._id });
+      setAsHome(false);
+      toast.success("Your store's earlier home page is back.");
+    } catch (e) {
+      toast.error(errorMessage(e, "The home page couldn't be restored"));
+    } finally {
+      setRestoring(false);
+    }
+  };
+  // Changed since it went to Shopify (made, changed or undone later).
+  const outdated = !!page.shopify && page.updatedAt > page.shopify.publishedAt;
+
   const tabButton = (value: typeof tab, label: string, Icon: typeof Eye) => (
     <button
       type="button"
@@ -212,6 +258,12 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
               </Button>
             </>
           ) : null}
+          {html && !making ? (
+            <Button size="sm" onClick={() => void publish()} disabled={publishing} variant={page.shopify && !outdated ? "outline" : "default"}>
+              {publishing ? <Spinner className="w-4 h-4 mr-1.5" /> : <ShoppingBag className="w-4 h-4 mr-1.5" />}
+              {page.shopify ? (outdated ? "Update in Shopify" : "Publish again") : "Publish to Shopify"}
+            </Button>
+          ) : null}
           {page.canUndo && !making ? (
             <Button size="sm" variant="outline" onClick={() => void undo({ id: page._id })}>
               <Undo2 className="w-4 h-4 mr-1.5" /> Undo change
@@ -235,7 +287,77 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
         </p>
       ) : null}
       {page.error ? <p className={cn("text-sm", page.status === "failed" ? "text-destructive" : "text-warn")}>{page.status === "failed" ? page.error : `The last change didn't work: ${page.error}`}</p> : null}
+      {html && !making ? (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={asHome} onChange={(e) => setAsHome(e.target.checked)} />
+          <span>
+            Make it my store's home page
+            <span className="block text-xs text-muted-foreground">
+              Your theme's current home page is saved in AdSpy first, so you can bring it back. The menu bar and buttons are linked to your store's pages when you publish.
+            </span>
+          </span>
+        </label>
+      ) : null}
+      {page.shopify ? (
+        <p className="text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-muted-foreground">{page.shopify.home ? "Your home page:" : outdated ? "In your store (older version):" : "In your store:"}</span>
+          <a href={page.shopify.url} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+            {page.shopify.url.replace(/^https?:\/\//, "")} <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+          <a href={page.shopify.adminUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground hover:underline">Edit in Shopify</a>
+          {page.shopify.home ? (
+            <Button size="sm" variant="ghost" className="h-7" onClick={() => void restore()} disabled={restoring}>
+              {restoring ? <Spinner className="w-4 h-4 mr-1.5" /> : <Undo2 className="w-4 h-4 mr-1.5" />} Restore my old home page
+            </Button>
+          ) : null}
+        </p>
+      ) : null}
+      {publishProblem ? (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-sm">
+          <p className="text-destructive">{publishProblem.message}</p>
+          {publishProblem.code === "NO_STORE" || publishProblem.code === "RECONNECT" ? (
+            <Link to="/dashboard/settings" className="text-primary hover:underline">Go to Settings → Shopify</Link>
+          ) : null}
+          {publishProblem.files
+            ? Object.entries(publishProblem.files).map(([name, content]) => (
+                <div key={name} className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="text-xs font-semibold">{name}</code>
+                    <Button size="sm" variant="outline" className="h-7" onClick={() => void navigator.clipboard.writeText(content).then(() => toast.success(`${name} copied`))}>
+                      <Copy className="w-4 h-4 mr-1.5" /> Copy
+                    </Button>
+                  </div>
+                  <pre className="rounded-md bg-background border border-border p-2 text-xs whitespace-pre-wrap max-h-40 overflow-auto">{content}</pre>
+                </div>
+              ))
+            : null}
+        </div>
+      ) : null}
+      {page.products.length ? (
+        <p className="text-xs text-muted-foreground">
+          Products: {page.products.map((p, i) => (
+            <span key={p.url}>
+              {i ? ", " : ""}
+              <a href={p.url} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">{p.title}</a>
+            </span>
+          ))}
+        </p>
+      ) : null}
       {page.lastChange && !making ? <p className="text-xs text-muted-foreground">Last change: “{page.lastChange}”</p> : null}
+      {page.photoCredits?.length ? (
+        <p className="text-xs text-muted-foreground">
+          Photos by{" "}
+          {page.photoCredits.map((c, i) => (
+            <span key={c.photographerUrl}>
+              {i ? ", " : ""}
+              <a href={c.photographerUrl} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">{c.photographer}</a>
+            </span>
+          ))}{" "}
+          on{" "}
+          <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">Pexels</a>
+          , free to use.
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
         <div className="flex gap-1">

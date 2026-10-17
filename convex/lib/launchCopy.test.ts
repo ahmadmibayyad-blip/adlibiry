@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { charmFor, cleanCopy, handleFor, launchFacts, launchImages, launchProductInput, pageHtml, proofLine, scrubClaims, suggestPrice, type LaunchCopy } from "./launchCopy";
-import { authorizeUrl, decryptToken, encryptToken, verifyQueryHmac, verifyWebhookHmac } from "./shopifyOAuth";
+import { SHOPIFY_SCOPES, authorizeUrl, decryptToken, encryptToken, verifyQueryHmac, verifyWebhookHmac } from "./shopifyOAuth";
+// Vite's ?raw import: the app config Shopify reads.
+import appToml from "../../shopify-app/shopify.app.toml?raw";
 
 const copy: LaunchCopy = {
   title: "Instant Posture Corrector",
@@ -183,9 +185,15 @@ describe("Shopify app security", () => {
       "write_products,read_products,write_publications,read_publications," +
         "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation," +
         "read_shipping,read_legal_policies,write_discounts,read_discounts," +
-        // read_orders is for counting orders of launched products (research verdict).
-        "read_orders",
+        // Profit, the CJ order autopilot and the research verdict's own-store sales: read orders and cost per item, add tracking. Never change orders or customers.
+        "read_orders,read_inventory,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders",
     );
+    expect(url.searchParams.get("scope")).not.toMatch(/write_orders|write_customers|read_customers|write_inventory/);
     expect(url.searchParams.get("state")).toBe("st");
+  });
+
+  it("asks Shopify for the same scopes as the app's config", () => {
+    // The Dev Dashboard app version (shopify.app.toml) must list every scope the install link asks for.
+    expect(String(appToml).match(/^scopes = "([^"]+)"/m)?.[1]).toBe(SHOPIFY_SCOPES);
   });
 });

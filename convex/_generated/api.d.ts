@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as adQueue from "../adQueue.js";
+import type * as adQueueAi from "../adQueueAi.js";
 import type * as adlibrary_client from "../adlibrary/client.js";
 import type * as adlibrary_productSync from "../adlibrary/productSync.js";
 import type * as adlibrary_sync from "../adlibrary/sync.js";
@@ -31,15 +33,18 @@ import type * as assistantUsage from "../assistantUsage.js";
 import type * as auth from "../auth.js";
 import type * as authOptions from "../authOptions.js";
 import type * as billing from "../billing.js";
+import type * as cj from "../cj.js";
 import type * as commerce from "../commerce.js";
 import type * as crons from "../crons.js";
 import type * as currency from "../currency.js";
 import type * as dashboard from "../dashboard.js";
 import type * as digest from "../digest.js";
+import type * as domainInfo from "../domainInfo.js";
 import type * as emailSender from "../emailSender.js";
 import type * as events from "../events.js";
 import type * as follows from "../follows.js";
 import type * as fusion from "../fusion.js";
+import type * as googleAds from "../googleAds.js";
 import type * as history from "../history.js";
 import type * as hooks from "../hooks.js";
 import type * as hooksBuilder from "../hooksBuilder.js";
@@ -102,6 +107,7 @@ import type * as nexscope_productDiscovery from "../nexscope/productDiscovery.js
 import type * as nexscope_tiktokAds from "../nexscope/tiktokAds.js";
 import type * as nicheReport from "../nicheReport.js";
 import type * as onboarding from "../onboarding.js";
+import type * as orders from "../orders.js";
 import type * as ownOrders from "../ownOrders.js";
 import type * as pageShots from "../pageShots.js";
 import type * as pipispy from "../pipispy.js";
@@ -113,6 +119,7 @@ import type * as productImages from "../productImages.js";
 import type * as productImport from "../productImport.js";
 import type * as productPipeline from "../productPipeline.js";
 import type * as products from "../products.js";
+import type * as profit from "../profit.js";
 import type * as publicApi from "../publicApi.js";
 import type * as pushIdentities from "../pushIdentities.js";
 import type * as pushNotifications from "../pushNotifications.js";
@@ -124,7 +131,9 @@ import type * as saturation_compare from "../saturation/compare.js";
 import type * as saturation_mutations from "../saturation/mutations.js";
 import type * as screenPages from "../screenPages.js";
 import type * as screenPagesAi from "../screenPagesAi.js";
+import type * as screenPagesShopify from "../screenPagesShopify.js";
 import type * as screenshotLook from "../screenshotLook.js";
+import type * as sellingCalendar from "../sellingCalendar.js";
 import type * as shopifyApp from "../shopifyApp.js";
 import type * as shopifyImport from "../shopifyImport.js";
 import type * as sourceConflicts from "../sourceConflicts.js";
@@ -133,6 +142,7 @@ import type * as stats from "../stats.js";
 import type * as storeCheck from "../storeCheck.js";
 import type * as storeInspector from "../storeInspector.js";
 import type * as storeSales from "../storeSales.js";
+import type * as storeSpeed from "../storeSpeed.js";
 import type * as storeThemeHttp from "../storeThemeHttp.js";
 import type * as stores from "../stores.js";
 import type * as submittedAds from "../submittedAds.js";
@@ -142,6 +152,7 @@ import type * as users from "../users.js";
 import type * as videoDownload from "../videoDownload.js";
 import type * as winners from "../winners.js";
 import type * as winninghunter from "../winninghunter.js";
+import type * as youtube from "../youtube.js";
 
 import type {
   ApiFromModules,
@@ -150,6 +161,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adQueue: typeof adQueue;
+  adQueueAi: typeof adQueueAi;
   "adlibrary/client": typeof adlibrary_client;
   "adlibrary/productSync": typeof adlibrary_productSync;
   "adlibrary/sync": typeof adlibrary_sync;
@@ -173,15 +186,18 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authOptions: typeof authOptions;
   billing: typeof billing;
+  cj: typeof cj;
   commerce: typeof commerce;
   crons: typeof crons;
   currency: typeof currency;
   dashboard: typeof dashboard;
   digest: typeof digest;
+  domainInfo: typeof domainInfo;
   emailSender: typeof emailSender;
   events: typeof events;
   follows: typeof follows;
   fusion: typeof fusion;
+  googleAds: typeof googleAds;
   history: typeof history;
   hooks: typeof hooks;
   hooksBuilder: typeof hooksBuilder;
@@ -244,6 +260,7 @@ declare const fullApi: ApiFromModules<{
   "nexscope/tiktokAds": typeof nexscope_tiktokAds;
   nicheReport: typeof nicheReport;
   onboarding: typeof onboarding;
+  orders: typeof orders;
   ownOrders: typeof ownOrders;
   pageShots: typeof pageShots;
   pipispy: typeof pipispy;
@@ -255,6 +272,7 @@ declare const fullApi: ApiFromModules<{
   productImport: typeof productImport;
   productPipeline: typeof productPipeline;
   products: typeof products;
+  profit: typeof profit;
   publicApi: typeof publicApi;
   pushIdentities: typeof pushIdentities;
   pushNotifications: typeof pushNotifications;
@@ -266,7 +284,9 @@ declare const fullApi: ApiFromModules<{
   "saturation/mutations": typeof saturation_mutations;
   screenPages: typeof screenPages;
   screenPagesAi: typeof screenPagesAi;
+  screenPagesShopify: typeof screenPagesShopify;
   screenshotLook: typeof screenshotLook;
+  sellingCalendar: typeof sellingCalendar;
   shopifyApp: typeof shopifyApp;
   shopifyImport: typeof shopifyImport;
   sourceConflicts: typeof sourceConflicts;
@@ -275,6 +295,7 @@ declare const fullApi: ApiFromModules<{
   storeCheck: typeof storeCheck;
   storeInspector: typeof storeInspector;
   storeSales: typeof storeSales;
+  storeSpeed: typeof storeSpeed;
   storeThemeHttp: typeof storeThemeHttp;
   stores: typeof stores;
   submittedAds: typeof submittedAds;
@@ -284,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   videoDownload: typeof videoDownload;
   winners: typeof winners;
   winninghunter: typeof winninghunter;
+  youtube: typeof youtube;
 }>;
 
 /**

@@ -92,10 +92,61 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Launch → "Match a screenshot" (Full store): `screenshotLook.read` reads a screenshot's colors, fonts and shapes before launch; `launch.start`
   saves it as `launches.look`, and launchRun merges the special requests' look over it (`mergeDesign`) into `launches.design`. Dawn takes colors and corners, not fonts.
 - Screenshot to page (`/dashboard/page-builder`, `screenPages.ts` + `screenPagesAi.ts`, prompts in `lib/screenPage.ts`): a screenshot (cut into up to 6
-  parts by `src/lib/screenshotParts.ts`, kept in storage) becomes one Tailwind HTML file; changes in plain words, one-step undo. Daily limit per tier
+  parts by `src/lib/screenshotParts.ts`, kept in storage) becomes one Tailwind HTML file; changes in plain words, one-step undo. Optional products (up to 6, read by `productImport.importLink` into importedProducts, `screenPages.productIds`) replace the screenshot's: names, `shownPrice` (store currency), photos and links go into the brief (`productsBrief`). Daily limit per tier
   (`SCREEN_PAGE_RUNS`, counted in `screenPageRuns`) plus the shared AI limit. The preview iframe is `sandbox="allow-scripts"` only: never give AI HTML the app origin.
 - Both take a link too: `pageShots.take` runs Apify's free `apify/screenshot-url` (full page, 1280 wide, ~20 s, ~$0.003) and returns the PNG to the browser,
   which cuts it like an upload. Daily limit `LINK_SHOTS` (table `pageShots`); needs `APIFY_TOKEN`. A sticky header can show up mid-image (scroll artefact).
+- Publish to Shopify (`screenPagesShopify.publish`, pure parts in `lib/landingShopify.ts`): a Shopify page (templateSuffix `adspy-landing`) with
+  the HTML as its body. Three theme files (`LANDING_FILES`, generated from `shopify-theme/` by build-theme.mjs and in both theme folders) go into
+  the live theme with `themeFilesUpsert`: layout `adspy-landing` (the page as a whole document, `content_for_header` put into its head for
+  analytics and pixels), the page template, and section `adspy-landing-home`. `asHome` writes `templates/index.json` pointing at the page, after
+  saving the theme's own in `homeBackups` (never a landing one); `restoreHome` writes it back. Links that go nowhere (`#`) are pointed at the
+  store's menu, collections, pages and products by a small AI request, only to paths the store has. If Shopify refuses the files, the error
+  (code TEMPLATE_NEEDED) carries them for the user to add by hand, and no page is made. Publishing again updates the same page.
+
+- Store Inspector → Store age: the Wayback Machine CDX API (free, no key, slow: 8–30 s, asked alongside the pages, 35 s timeout) gives the
+  first/last saved copy and one per year (`lib/storeHistory.ts`, `Inspection.history`; null = archive didn't answer, cached like the rest).
+- Selling calendar (dashboard home, `SellingCalendar.tsx`): gift and deal days per country computed in `lib/sellingCalendar.ts` (Mother's/Father's
+  Day rules differ per country; `readyBy` = when ads should run) plus public holidays from Nager.Date cached in `publicHolidays` (`sellingCalendar.load`,
+  30-day refresh). The app merges them (`upcoming`) because a query doesn't re-run when the date changes.
+  Countries: every Nager.Date country plus AE/SA (`lib/calendarCountries.ts`, a snapshot of its AvailableCountries); flags and names come from
+  the browser (`flagOf`, `anyCountryName` in `src/lib/countries.ts`). REST Countries v3 is retired and v5 needs a key, so it isn't used.
+- Exchange rates (`currency.ts refreshRates`, daily): the ECB's XML, else the same ECB rates from Frankfurter (api.frankfurter.dev/v1, no key);
+  `withPegged` adds the dollar-pegged Gulf currencies (AED, SAR, QAR, BHD, OMR, JOD) the ECB doesn't publish. `toUsd(p, usdRates)` uses today's
+  rates when an action passes them (`internal.currency.allRates`); the table in `lib/priceParse.ts` is only the fallback.
+
+- Store Inspector → Google & YouTube ads (`googleAds.forStore`, `lib/googleAds.ts`): Google's Ads Transparency Center through ScrapeCreators
+  (`SCRAPECREATORS_API_KEY`, header x-api-key; Google has no official API). `/v1/google/company/ads?domain=…&get_ad_details=true` costs 25 credits
+  (~$0.05); answers kept 24 h per store and platform (`googleAdLookups`), per-user daily limit `GOOGLE_AD_LOOKUPS` (`googleAdRuns`).
+- CJ Dropshipping (`cj.ts`, `lib/cj.ts`, `CJ_API_KEY`; optional `CJ_LOOKUPS_PER_DAY`, default 500): a second supplier. A product page without
+  `cjMatches` searches CJ's /product/listV2 by title once (retry after 7 days), matched like AliExpress. `cj.shipping` prices the best match
+  to the user's target country (/product/query → vid, /logistic/freightCalculate), from a CJ warehouse in that country when it has stock,
+  cached a week (`cjShipping`). CJ allows 1 request/second; the 180-day access token is kept in `cjAuth` and renewed with its refresh token.
+
+- Store Inspector → domain registered (`domainInfo.registered`, Node: whois over TCP port 43): RDAP from IANA's bootstrap (rdap.org as backup;
+  it blocks clients without a User-Agent) for .com etc.; whois for country domains without RDAP (`WHOIS_SERVERS`: .se, .dk, .no, …). .de
+  publishes no dates. `DOMAIN_LOOKUPS=off` turns it off; tests set it because fetch stubs can't catch TCP.
+- Store Inspector → Speed (`storeSpeed.check`, `PAGESPEED_API_KEY`, required: no key = 429): phone + desktop, 24 h cache per store (`storeSpeeds`).
+- Product page → On YouTube (`youtube.productVideosFor`, `YOUTUBE_API_KEY`): a search is 100 of the 10,000 daily quota units, so
+  `YOUTUBE_SEARCHES_PER_DAY` (default 90); saved on the product (`youtube`), refreshed after 14 days. The same Google key can serve PageSpeed.
+- Screenshot to page → photos: placehold.co placeholders with a text get a Pexels photo (`lib/pexels.ts`, `PEXELS_API_KEY`, 200 searches/hour),
+  cropped via Pexels' CDN params; credits saved in `screenPages.photoCredits` and shown with a link to Pexels (their API terms).
+
+## Your store (Profit, Orders, Ad queue)
+
+- Scopes: `read_orders,read_inventory,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders` (SHOPIFY_SCOPES must
+  equal `shopify-app/shopify.app.toml`, a test checks; deploy the app config with Shopify CLI). Older installs reconnect. The order autopilot
+  also needs "Protected customer data" (name, address, email, phone) enabled for the app in the Dev Dashboard. Never ask for write_orders/customers.
+- Profit (`profit.ts`, `lib/profit.ts`, `/dashboard/profit`): orders' financial fields only (no customer fields), per store day in the shop's
+  time zone (`profitDays`); product cost = Shopify unitCost → AdSpy launch cost → CJ's real bill. Hourly cron recounts 2 days; ad spend is typed in
+  per day and survives recounts. Yesterday's line goes into the morning digest (`renderProfitHtml`), which now also sends on profit-only days.
+- Orders (`orders.ts`, `lib/cjOrders.ts`, `/dashboard/orders`): off until the user turns on the autopilot. Every 30 min paid unfulfilled orders
+  (14 days) come in; items need a `cjLinks` row (Shopify variant → CJ vid); `quote` gets CJ's cheapest shipping; nothing goes to CJ without
+  `approve`. createOrderV2 payType 3 (unpaid, pay in CJ) unless `payFromBalance` (2). The address is cleared once placed or rejected, and
+  customers/redact / shop/redact webhooks delete order data. Hourly `trackAll` sends CJ tracking to Shopify (`fulfillmentCreate`, only CJ's line
+  items, notifyCustomer). The page never receives the address. Shopify helper with retries: `lib/shopifyOrderApi.ts` (not lib/shopifyAdmin.ts).
+- Ad queue (`adQueue.ts`, `adQueueAi.ts`, `/dashboard/ad-queue`): published launches' ad kits become `adDrafts` (pending) when the page opens;
+  approve / edit / reject; "Make variations" adds 3 AI drafts (AI daily limit). Nothing is posted anywhere.
 
 ## UI
 

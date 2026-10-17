@@ -61,7 +61,7 @@ async function aliexpressDetail(id: string): Promise<ReturnType<typeof fromAliEx
  * An AliExpress product through an Apify reader (residential proxies): AliExpress shows servers a bot
  * check instead of the product, so this is the fallback when the API isn't set up and the page can't be read.
  */
-async function aliexpressViaApify(url: string): Promise<ReturnType<typeof fromApifyAliExpress>> {
+async function aliexpressViaApify(url: string, usdRates: Record<string, number>): Promise<ReturnType<typeof fromApifyAliExpress>> {
   const token = process.env.APIFY_TOKEN?.trim();
   if (!token) return null;
   const actor = (process.env.ALIEXPRESS_IMPORT_ACTOR?.trim() || "zen-studio/aliexpress-scraper").replace("/", "~");
@@ -87,21 +87,22 @@ async function aliexpressViaApify(url: string): Promise<ReturnType<typeof fromAp
       console.warn("Import: Apify AliExpress reader", res.status, (await res.text()).slice(0, 200));
       return null;
     }
-    return fromApifyAliExpress(await res.json().catch(() => null));
+    return fromApifyAliExpress(await res.json().catch(() => null), usdRates);
   } catch (e) {
     console.warn("Import: Apify AliExpress reader failed", e);
     return null;
   }
 }
 
-async function readProduct(u: URL): Promise<ImportedProduct | null> {
+/** The product on the page; prices converted to USD with today's rates (`usdRates`, units per USD). */
+async function readProduct(u: URL, usdRates: Record<string, number>): Promise<ImportedProduct | null> {
   const url = u.toString();
   const source = importSource(u);
   if (source === "shopify") {
     const res = await get(shopifyJsUrl(url)!, "application/json");
     const cart = await get(`${u.origin}/cart.js`, "application/json");
     const currency = ((await cart?.json().catch(() => null)) as { currency?: string } | null)?.currency;
-    const p = res ? fromShopifyJs(await res.json().catch(() => null), url, currency) : null;
+    const p = res ? fromShopifyJs(await res.json().catch(() => null), url, currency, usdRates) : null;
     if (p) return p;
   }
   const page = await get(url, "text/html");
@@ -114,7 +115,7 @@ async function readProduct(u: URL): Promise<ImportedProduct | null> {
     if (!p && !api?.title) {
       if (!html) console.warn("Import: AliExpress page didn't load", url);
       else console.warn("Import: AliExpress page had no product (bot check?)", html.length);
-      api = await aliexpressViaApify(id ? `https://www.aliexpress.com/item/${id}.html` : url);
+      api = await aliexpressViaApify(id ? `https://www.aliexpress.com/item/${id}.html` : url, usdRates);
     }
     if (!p && !api?.title) return null;
     const images = [...new Set([...(p ? [p.imageUrl, ...p.images] : []), ...(api?.images ?? [])].filter(Boolean))].slice(0, 12);
@@ -127,7 +128,7 @@ async function readProduct(u: URL): Promise<ImportedProduct | null> {
       ...(api?.cost ? { cost: api.cost } : {}),
     };
   }
-  return html ? fromProductHtml(html, url) : null;
+  return html ? fromProductHtml(html, url, usdRates) : null;
 }
 
 export const save = internalMutation({
@@ -142,6 +143,7 @@ export const save = internalMutation({
       images: v.array(v.string()),
       price: v.optional(v.number()),
       cost: v.optional(v.number()),
+      shownPrice: v.optional(v.object({ amount: v.number(), currency: v.string() })),
     }),
   },
   handler: async (ctx, args): Promise<Id<"importedProducts"> | null> => {
@@ -167,12 +169,13 @@ export const save = internalMutation({
 
 export const importLink = action({
   args: { url: v.string() },
-  handler: async (ctx, args): Promise<{ productId: Id<"importedProducts">; title: string; imageUrl: string }> => {
+  handler: async (ctx, args): Promise<{ productId: Id<"importedProducts">; title: string; imageUrl: string; url: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     const u = productUrl(args.url);
     if (!u) throw new ConvexError({ code: "BAD_LINK", message: "Paste the link of a product page, starting with https://" });
-    let product = await readProduct(u);
+    const usdRates = await ctx.runQuery(internal.currency.allRates, {});
+    let product = await readProduct(u, usdRates);
     let url = u.toString();
     if (!product && !u.pathname.includes("/products/")) {
       // A store's home page (Mirror a page takes one): its first product.
@@ -180,7 +183,7 @@ export const importLink = action({
       const path = home ? firstProductPath(home) : null;
       if (path) {
         const p = new URL(path, u);
-        product = await readProduct(p);
+        product = await readProduct(p, usdRates);
         url = p.toString();
       }
     }
@@ -189,6 +192,6 @@ export const importLink = action({
     }
     const productId = await ctx.runMutation(internal.productImport.save, { token: stableToken(identity), url, product });
     if (!productId) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
-    return { productId, title: product.title, imageUrl: product.imageUrl };
+    return { productId, title: product.title, imageUrl: product.imageUrl, url };
   },
 });

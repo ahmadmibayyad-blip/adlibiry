@@ -11,6 +11,7 @@ import { claudeClient } from "./lib/claudeClient";
 import { claimAiRequest } from "./lib/aiQuota";
 import { MAX_NOTES, SCREEN_PAGE_SYSTEM, createPrompt, editPrompt, extractHtml } from "./lib/screenPage";
 import { partsNote, screenshotProblem } from "./lib/screenshots";
+import { pexelsSearchUrl, pickPhoto, placeholders, withPhotos, type PhotoCredit } from "./lib/pexels";
 
 // Screenshot to page: create() keeps the screenshot parts in Convex storage and starts run(), which asks
 // Claude for the page; edit() asks for a change to a page. The page shows progress from screenPages.get.
@@ -24,7 +25,7 @@ async function signedIn(ctx: ActionCtx): Promise<string> {
 }
 
 export const create = action({
-  args: { images: v.array(imageArg), notes: v.optional(v.string()) },
+  args: { images: v.array(imageArg), notes: v.optional(v.string()), productIds: v.optional(v.array(v.id("importedProducts"))) },
   handler: async (ctx, args): Promise<{ id: Id<"screenPages"> }> => {
     const problem = screenshotProblem(args.images);
     if (problem) throw new ConvexError({ code: "BAD_REQUEST", message: problem });
@@ -35,7 +36,12 @@ export const create = action({
     await claimAiRequest(ctx);
     const imageIds = await Promise.all(args.images.map((p) => ctx.storage.store(new Blob([Buffer.from(p.data, "base64")], { type: p.mediaType }))));
     const notes = args.notes?.trim().slice(0, MAX_NOTES);
-    const id = await ctx.runMutation(internal.screenPages.insert, { userId: pre.userId, imageIds, ...(notes ? { notes } : {}) });
+    const id = await ctx.runMutation(internal.screenPages.insert, {
+      userId: pre.userId,
+      imageIds,
+      ...(notes ? { notes } : {}),
+      ...(args.productIds?.length ? { productIds: args.productIds } : {}),
+    });
     await ctx.scheduler.runAfter(0, internal.screenPagesAi.run, { id });
     return { id };
   },
@@ -56,13 +62,40 @@ export const edit = action({
   },
 });
 
+/** The page's placeholder photos swapped for matching Pexels photos (lib/pexels.ts); as it was without PEXELS_API_KEY. */
+async function realPhotos(html: string): Promise<{ html: string; credits: PhotoCredit[] }> {
+  const key = process.env.PEXELS_API_KEY?.trim();
+  const wanted = placeholders(html).slice(0, 12);
+  if (!key || !wanted.length) return { html, credits: [] };
+  const used = new Set<number>();
+  const photos = new Map<string, string>();
+  const credits: PhotoCredit[] = [];
+  for (const p of wanted) {
+    try {
+      const res = await fetch(pexelsSearchUrl(p), { headers: { Authorization: key }, signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) {
+        console.warn("Pexels:", res.status);
+        if (res.status === 429 || res.status === 401) break; // out of searches this hour, or a bad key
+        continue;
+      }
+      const picked = pickPhoto(await res.json().catch(() => null), p, used);
+      if (!picked) continue;
+      photos.set(p.url, picked.src);
+      if (!credits.some((c) => c.photographerUrl === picked.credit.photographerUrl)) credits.push(picked.credit);
+    } catch {
+      // keep this placeholder
+    }
+  }
+  return { html: withPhotos(html, photos), credits };
+}
+
 /** Makes the page (or applies the pending change) and saves it; a failure is saved on the page. */
 export const run = internalAction({
   args: { id: v.id("screenPages") },
   handler: async (ctx, args): Promise<void> => {
     const c = await ctx.runQuery(internal.screenPages.context, { id: args.id });
     if (!c || c.page.status !== "making") return;
-    const { page, isAdmin } = c;
+    const { page, products, isAdmin } = c;
     try {
       const images: Anthropic.ImageBlockParam[] = [];
       for (const id of page.imageIds) {
@@ -76,7 +109,7 @@ export const run = internalAction({
         return;
       }
       const note = partsNote(images.length);
-      const prompt = page.pending && page.html ? editPrompt(page.html, page.pending, note) : createPrompt(note, page.notes);
+      const prompt = page.pending && page.html ? editPrompt(page.html, page.pending, note) : createPrompt(note, page.notes, products);
       // About 450 s at most for 16k tokens: inside the SDK's and Convex's 10-minute limits.
       const message = await claudeClient().messages.create({
         model: "claude-opus-5-5",
@@ -91,7 +124,8 @@ export const run = internalAction({
         await ctx.runMutation(internal.screenPages.fail, { id: args.id, error: "The AI didn't return a page. Try again, or try a clearer screenshot." });
         return;
       }
-      await ctx.runMutation(internal.screenPages.finish, { id: args.id, html });
+      const real = await realPhotos(html);
+      await ctx.runMutation(internal.screenPages.finish, { id: args.id, html: real.html, ...(real.credits.length ? { photoCredits: real.credits } : {}) });
     } catch (error) {
       console.error("Screenshot to page failed", error);
       const reason = error instanceof Anthropic.APIError ? claudeErrorMessage(error, isAdmin) : "Something went wrong while making the page. Try again.";

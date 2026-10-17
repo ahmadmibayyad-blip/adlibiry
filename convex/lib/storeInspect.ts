@@ -5,6 +5,8 @@
 // pixels. Pure and unit tested.
 
 import type { Teardown } from "./storeTeardown";
+import type { StoreHistory } from "./storeHistory";
+import type { DomainAge } from "./domainAge";
 
 export type AppCategory =
   | "Bundles & upsells"
@@ -58,6 +60,10 @@ export type Inspection = {
   pixels: string[];
   /** The main product page's teardown (lib/storeTeardown.ts); null when no product page could be read. */
   teardown?: Teardown | null;
+  /** When the Wayback Machine saved the store (lib/storeHistory.ts); null when the archive didn't answer in time. */
+  history?: StoreHistory | null;
+  /** When its domain was registered (lib/domainAge.ts); null when the registry doesn't say. */
+  domain?: DomainAge | null;
 };
 
 type AppInfo = { name: string; category: AppCategory; handle?: string };

@@ -3,7 +3,7 @@ import { internalMutation, internalQuery, mutation, query, type QueryCtx } from 
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { byTier } from "./lib/billing";
-import { SCREEN_PAGE_RUNS, pageTitle } from "./lib/screenPage";
+import { MAX_PAGE_PRODUCTS, SCREEN_PAGE_RUNS, pageTitle, type PageProduct } from "./lib/screenPage";
 import { LINK_SHOTS } from "./lib/screenshots";
 
 // Screenshot to page (/dashboard/page-builder): the pages a user made from screenshots, and how many
@@ -50,7 +50,10 @@ export const get = query({
     const p = await ctx.db.get("screenPages", args.id);
     if (!p || !user || p.userId !== user._id) return null;
     const imageUrls = (await Promise.all(p.imageIds.map((id) => ctx.storage.getUrl(id)))).filter((u): u is string => !!u);
-    return { ...p, imageUrls, canUndo: !!p.previousHtml };
+    const products = (await Promise.all((p.productIds ?? []).map((id) => ctx.db.get("importedProducts", id))))
+      .filter((r) => !!r)
+      .map((r) => ({ title: r.title, imageUrl: r.imageUrl, url: r.url }));
+    return { ...p, imageUrls, products, canUndo: !!p.previousHtml };
   },
 });
 
@@ -108,11 +111,26 @@ export const claimShot = internalMutation({
 });
 
 export const insert = internalMutation({
-  args: { userId: v.id("users"), imageIds: v.array(v.id("_storage")), notes: v.optional(v.string()) },
+  args: { userId: v.id("users"), imageIds: v.array(v.id("_storage")), notes: v.optional(v.string()), productIds: v.optional(v.array(v.id("importedProducts"))) },
   handler: async (ctx, args): Promise<Id<"screenPages">> => {
     const now = Date.now();
+    // Only the user's own products, each once.
+    const productIds: Id<"importedProducts">[] = [];
+    for (const id of [...new Set(args.productIds ?? [])].slice(0, MAX_PAGE_PRODUCTS)) {
+      const p = await ctx.db.get("importedProducts", id);
+      if (p?.userId === args.userId) productIds.push(id);
+    }
     await ctx.db.insert("screenPageRuns", { userId: args.userId, at: now });
-    return ctx.db.insert("screenPages", { ...args, title: "New page", status: "making", createdAt: now, updatedAt: now });
+    return ctx.db.insert("screenPages", {
+      userId: args.userId,
+      imageIds: args.imageIds,
+      ...(args.notes ? { notes: args.notes } : {}),
+      ...(productIds.length ? { productIds } : {}),
+      title: "New page",
+      status: "making",
+      createdAt: now,
+      updatedAt: now,
+    });
   },
 });
 
@@ -136,12 +154,17 @@ export const context = internalQuery({
     const p = await ctx.db.get("screenPages", args.id);
     if (!p) return null;
     const user = await ctx.db.get("users", p.userId);
-    return { page: p, isAdmin: user?.role === "admin" };
+    const products: PageProduct[] = [];
+    for (const id of p.productIds ?? []) {
+      const r = await ctx.db.get("importedProducts", id);
+      if (r) products.push({ title: r.title, url: r.url, images: [r.imageUrl, ...r.images].filter(Boolean), ...(r.shownPrice ? { price: r.shownPrice } : {}) });
+    }
+    return { page: p, products, isAdmin: user?.role === "admin" };
   },
 });
 
 export const finish = internalMutation({
-  args: { id: v.id("screenPages"), html: v.string() },
+  args: { id: v.id("screenPages"), html: v.string(), photoCredits: v.optional(v.array(v.object({ photographer: v.string(), photographerUrl: v.string(), pexelsUrl: v.string() }))) },
   handler: async (ctx, args) => {
     const p = await ctx.db.get("screenPages", args.id);
     if (!p) return;
@@ -149,6 +172,8 @@ export const finish = internalMutation({
       html: args.html,
       previousHtml: p.html,
       lastChange: p.pending,
+      // Photos kept from earlier versions keep their credit.
+      ...(args.photoCredits ? { photoCredits: [...(p.photoCredits ?? []), ...args.photoCredits].filter((c, i, all) => all.findIndex((x) => x.photographerUrl === c.photographerUrl) === i) } : {}),
       pending: undefined,
       title: p.html ? p.title : pageTitle(args.html),
       status: "ready",
@@ -165,5 +190,70 @@ export const fail = internalMutation({
     if (!p) return;
     // A failed change keeps the page as it was.
     await ctx.db.patch("screenPages", p._id, { status: p.html ? "ready" : "failed", error: args.error.slice(0, 400), pending: undefined, updatedAt: Date.now() });
+  },
+});
+
+// ── Publish to Shopify (screenPagesShopify.ts) ──
+
+const shopifyField = v.object({ shopDomain: v.string(), pageId: v.string(), url: v.string(), adminUrl: v.string(), publishedAt: v.number(), home: v.optional(v.boolean()) });
+
+export const publishContext = internalQuery({
+  args: { token: v.string(), id: v.id("screenPages") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
+    if (!user) return null;
+    const page = await ctx.db.get("screenPages", args.id);
+    if (!page || page.userId !== user._id) return null;
+    const store = await ctx.db.query("shopifyConnections").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
+    return { page, store, userId: user._id, isAdmin: user.role === "admin" };
+  },
+});
+
+/** After publishing: where it is; and the page with its links set, when they were (undo goes back to before). */
+export const published = internalMutation({
+  args: { id: v.id("screenPages"), shopify: shopifyField, linkedHtml: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const p = await ctx.db.get("screenPages", args.id);
+    if (!p) return;
+    await ctx.db.patch("screenPages", p._id, {
+      shopify: args.shopify,
+      ...(args.linkedHtml && args.linkedHtml !== p.html ? { html: args.linkedHtml, previousHtml: p.html, lastChange: "Linked the menu and buttons to your store" } : {}),
+      // Published as it is now: not "changed since".
+      updatedAt: Math.min(Date.now(), args.shopify.publishedAt),
+    });
+  },
+});
+
+export const homeBackup = internalQuery({
+  args: { shopDomain: v.string(), themeId: v.string() },
+  handler: async (ctx, args) =>
+    ctx.db.query("homeBackups").withIndex("by_shop_theme", (q) => q.eq("shopDomain", args.shopDomain).eq("themeId", args.themeId)).first(),
+});
+
+/** Keeps the theme's own home page template (only ever the theme's, never a landing page's). */
+export const saveHomeBackup = internalMutation({
+  args: { userId: v.id("users"), shopDomain: v.string(), themeId: v.string(), content: v.string() },
+  handler: async (ctx, args) => {
+    const old = await ctx.db.query("homeBackups").withIndex("by_shop_theme", (q) => q.eq("shopDomain", args.shopDomain).eq("themeId", args.themeId)).first();
+    if (old) await ctx.db.patch("homeBackups", old._id, { content: args.content, savedAt: Date.now() });
+    else await ctx.db.insert("homeBackups", { ...args, savedAt: Date.now() });
+  },
+});
+
+/** The store's home page is the theme's own again: no page of the user's is shown as home there. */
+export const homeRestored = internalMutation({
+  args: { userId: v.id("users"), shopDomain: v.string() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("screenPages").withIndex("by_user", (q) => q.eq("userId", args.userId)).take(100);
+    for (const p of rows) if (p.shopify?.home && p.shopify.shopDomain === args.shopDomain) await ctx.db.patch("screenPages", p._id, { shopify: { ...p.shopify, home: false } });
+  },
+});
+
+/** Another page became the home page: the earlier one isn't anymore. */
+export const homeMovedTo = internalMutation({
+  args: { userId: v.id("users"), shopDomain: v.string(), id: v.id("screenPages") },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("screenPages").withIndex("by_user", (q) => q.eq("userId", args.userId)).take(100);
+    for (const p of rows) if (p._id !== args.id && p.shopify?.home && p.shopify.shopDomain === args.shopDomain) await ctx.db.patch("screenPages", p._id, { shopify: { ...p.shopify, home: false } });
   },
 });

@@ -29,6 +29,7 @@ import FollowProduct, { FollowMenuItem } from "./_components/FollowProduct.tsx";
 import VerdictPanel from "./_components/VerdictPanel.tsx";
 import SourceAgreement from "./_components/SourceAgreement.tsx";
 import SuppliersSection from "./_components/SuppliersSection.tsx";
+import YoutubeSection from "./_components/YoutubeSection.tsx";
 
 const saturationColors: Record<string, string> = {
   Low: "text-good bg-good/10 border-good/20",
@@ -403,6 +404,8 @@ export default function ProductDetail() {
           <div id="suppliers" className="scroll-mt-20 empty:hidden">
             <SuppliersSection product={product} />
           </div>
+
+          <YoutubeSection product={product} />
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2">

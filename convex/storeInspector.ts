@@ -8,6 +8,7 @@ import { productUrl } from "./lib/productImport";
 import { firstProductPath, inspectHtml, mergeInspections, type Inspection } from "./lib/storeInspect";
 import { fetchPage as page, teardownAt } from "./lib/pageFetch";
 import type { Teardown } from "./lib/storeTeardown";
+import { cdxUrl, storeHistory, type StoreHistory } from "./lib/storeHistory";
 import type { StoreAd, StoreAnalysis } from "./lib/storeAnalysis";
 import { watchLimit, watchLimitMessage } from "./stores";
 
@@ -40,7 +41,7 @@ export const before = internalQuery({
     const cached = await ctx.db.query("storeInspections").withIndex("by_host", (q) => q.eq("host", args.host)).order("desc").first();
     // Results from before the teardown existed are read again.
     const result = cached?.result as Inspection | undefined;
-    const fresh = cached && result && result.teardown !== undefined && Date.now() - Date.parse(cached.inspectedAt) < CACHE_MS ? result : null;
+    const fresh = cached && result && result.teardown !== undefined && result.history !== undefined && result.domain !== undefined && Date.now() - Date.parse(cached.inspectedAt) < CACHE_MS ? result : null;
     return { userId: user._id, used: today.length, limit, fresh };
   },
 });
@@ -51,6 +52,16 @@ export const save = internalMutation({
     return ctx.db.insert("storeInspections", { ...args, inspectedAt: new Date().toISOString() });
   },
 });
+
+/** The store's saved copies in the Wayback Machine; null when it doesn't answer in time. */
+async function archiveHistory(host: string): Promise<StoreHistory | null> {
+  try {
+    const res = await fetch(cdxUrl(host), { signal: AbortSignal.timeout(35_000) });
+    return res.ok ? storeHistory(await res.json().catch(() => null), host) : null;
+  } catch {
+    return null;
+  }
+}
 
 export const inspect = action({
   args: { url: v.string() },
@@ -73,6 +84,9 @@ export const inspect = action({
       // The link they pasted, the home page and one product page: apps often load on only some pages.
       const origin = `${u.protocol}//${u.host}`;
       const urls = [...new Set([u.toString(), `${origin}/`])];
+      // The archive is slow (often 10-30 s): asked at the same time as the pages.
+      const historyLater = archiveHistory(host);
+      const domainLater = ctx.runAction(internal.domainInfo.registered, { host }).catch(() => null);
       const fetched = await Promise.all(urls.map(page));
       const pages = fetched.filter((h): h is string => !!h);
       if (!pages.length) throw new ConvexError({ code: "UNREACHABLE", message: `We couldn't open ${host}. Check the address and try again.` });
@@ -88,7 +102,7 @@ export const inspect = action({
       if (!result.shopify) throw new ConvexError({ code: "NOT_SHOPIFY", message: `${host} doesn't look like a Shopify store. The Inspector reads Shopify stores only.` });
       let teardown: Teardown | null = null;
       if (productPath && productHtml) teardown = await teardownAt(origin, productPath, productHtml, result.currency);
-      result = { ...result, teardown };
+      result = { ...result, teardown, history: await historyLater, domain: await domainLater };
     }
     const id = await ctx.runMutation(internal.storeInspector.save, { userId: pre.userId, host, url: `https://${host}`, result });
     return { id, host, result };

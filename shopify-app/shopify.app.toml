@@ -11,7 +11,7 @@ embedded = false
 
 [access_scopes]
 # Must match SHOPIFY_SCOPES in convex/lib/shopifyOAuth.ts.
-scopes = "write_products,read_products,write_publications,read_publications,write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation,read_shipping,read_legal_policies,write_discounts,read_discounts,read_orders"
+scopes = "write_products,read_products,write_publications,read_publications,write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation,read_shipping,read_legal_policies,write_discounts,read_discounts,read_orders,read_inventory,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders"
 
 [auth]
 redirect_urls = ["https://careful-raccoon-363.convex.site/shopify/callback"]
@@ -23,7 +23,9 @@ api_version = "2025-07"
   topics = ["app/uninstalled"]
   uri = "https://careful-raccoon-363.convex.site/shopify/webhooks"
 
-  # Shopify's mandatory privacy webhooks (we keep no customer data).
+  # Shopify's mandatory privacy webhooks. The CJ order autopilot keeps a shipping address only until the order is at
+  # CJ; customers/redact deletes that customer's orders, shop/redact all of the store's order data (convex/orders.ts redact).
+  # The autopilot needs "Protected customer data" (name, address, email, phone) turned on for the app in the Dev Dashboard.
   [[webhooks.subscriptions]]
   compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
   uri = "https://careful-raccoon-363.convex.site/shopify/webhooks"

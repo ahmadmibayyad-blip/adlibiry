@@ -14,13 +14,42 @@ export const SCREEN_PAGE_SYSTEM = `You are an expert front-end developer. You tu
 - Use the exact text from the screenshot. Write out every repeated item in full: never leave comments like "<!-- more items here -->".
 - For photos, use https://placehold.co/WIDTHxHEIGHT/EEEEEE/999999?text=Short+description with the size they have in the screenshot. Draw icons and logos as inline SVG.
 - Make it responsive: it must also look right on a phone.
-- Links go to "#". Small plain JavaScript is fine for what the screenshot shows (menus, tabs, accordions, sliders); no other scripts or frameworks.
+- Make every menu item, button and icon that would open something (shop, buy, cart, search, account, logo) an <a href="#"> element: they are linked to the store later. Small plain JavaScript is fine for what the screenshot shows (menus, tabs, accordions, sliders); no other scripts or frameworks.
 - Reply with only the HTML document, from <!DOCTYPE html> to </html>, without explanations.`;
 
-export function createPrompt(partsNote: string, notes?: string): string {
+/** Products the page shows instead of the screenshot's, at most this many. */
+export const MAX_PAGE_PRODUCTS = 6;
+
+export type PageProduct = { title: string; url: string; images: string[]; price?: { amount: number; currency: string } };
+
+/** The products for the AI: what to show and where their buttons go. */
+export function productsBrief(products: PageProduct[]): string {
+  if (!products.length) return "";
+  const lines = products.slice(0, MAX_PAGE_PRODUCTS).map((p, i) =>
+    [
+      `${i + 1}. ${p.title}`,
+      p.price ? `price ${p.price.amount.toFixed(2)} ${p.price.currency}` : "",
+      p.images.length ? `photos: ${p.images.slice(0, 4).join(" ")}` : "",
+      `link: ${p.url}`,
+    ]
+      .filter(Boolean)
+      .join(" | "),
+  );
+  return [
+    products.length > 1
+      ? "Show these products instead of the screenshot's, in this order (the first is the main one where the page has one product):"
+      : "The page sells this product instead of the screenshot's:",
+    ...lines,
+    "Use their names and prices (written the way the page's language writes prices; leave a price out when none is given), their photos instead of " +
+      "placeholders, and their link for every buy, shop and product button and for the product card. Keep the screenshot's layout and style.",
+  ].join("\n");
+}
+
+export function createPrompt(partsNote: string, notes?: string, products: PageProduct[] = []): string {
   return [
     "Build this page as one HTML file.",
     partsNote,
+    productsBrief(products),
     notes?.trim() ? `The user's notes (follow them): ${notes.trim().slice(0, MAX_NOTES)}` : "",
   ]
     .filter(Boolean)
@@ -71,3 +100,4 @@ export function pageTitle(html: string): string {
   const h1 = decode(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? "");
   return (title || h1 || "Untitled page").slice(0, 80);
 }
+

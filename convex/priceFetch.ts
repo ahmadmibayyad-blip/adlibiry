@@ -86,12 +86,13 @@ export const run = internalAction({
     let note: string | undefined;
     try {
       const todo = await ctx.runQuery(internal.priceFetch.candidates, { limit: BATCH });
+      const usdRates = await ctx.runQuery(internal.currency.allRates, {});
       for (let i = 0; i < todo.length; i += 5) {
         await Promise.all(
           todo.slice(i, i + 5).map(async ({ id, url }) => {
             const html = await readPage(url);
             const found = html ? priceFromHtml(html) : undefined;
-            const usd = found ? toUsd(found) : undefined;
+            const usd = found ? toUsd(found, usdRates) : undefined;
             await ctx.runMutation(internal.priceFetch.savePrice, {
               id,
               ...(found ? { originalPrice: priceLabel(found) } : {}),
