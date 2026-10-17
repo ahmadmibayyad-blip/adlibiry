@@ -104,6 +104,11 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   store's menu, collections, pages and products by a small AI request, only to paths the store has. If Shopify refuses the files, the error
   (code TEMPLATE_NEEDED) carries them for the user to add by hand, and no page is made. Publishing again updates the same page.
 
+- Page fetching (`lib/pageFetch.ts` fetchPage, used by Store Inspector, Mirror a page and Import from link): a plain fetch first; a bot check, an
+  empty script-built page or a 403/429/timeout goes to our own browser, `api/render.ts` (headless Chrome on Vercel: puppeteer-core +
+  @sparticuz/chromium, kept in step; POST {url, markdown?}, `Authorization: Bearer RENDER_SECRET`, refuses private addresses). Needs
+  `RENDER_SECRET` set to the same value in Vercel and Convex (optional `RENDER_URL`). Datacenter IPs: sites that block servers (AliExpress) stay on Apify.
+
 - Store Inspector → Store age: the Wayback Machine CDX API (free, no key, slow: 8–30 s, asked alongside the pages, 35 s timeout) gives the
   first/last saved copy and one per year (`lib/storeHistory.ts`, `Inspection.history`; null = archive didn't answer, cached like the rest).
 - Selling calendar (dashboard home, `SellingCalendar.tsx`): gift and deal days per country computed in `lib/sellingCalendar.ts` (Mother's/Father's

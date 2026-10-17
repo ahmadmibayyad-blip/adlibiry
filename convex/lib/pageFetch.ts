@@ -9,14 +9,60 @@ import { productJsPath, teardownProductPage, vitalsOffersUrl, type Teardown } fr
 export const STORE_UA = "Mozilla/5.0 (compatible; AdSpyPro/1.0; +https://adspypro.net)";
 const UA = STORE_UA;
 
-export async function fetchPage(url: string): Promise<string | null> {
+/** Whether HTML from a plain fetch is a bot check, or an empty shell that only a browser fills in. */
+export function needsBrowser(html: string): boolean {
+  const title = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1].trim() ?? "";
+  if (/^(just a moment|attention required|access denied|checking your browser|pardon our interruption)/i.test(title)) return true;
+  if (/_Incapsula_Resource|captcha-delivery\.com|px-captcha|id="challenge-form"/.test(html)) return true;
+  const body = html.replace(/<head[\s\S]*?<\/head>|<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, " ");
+  const text = body.replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+  return text.length < 150 && /<script/i.test(html);
+}
+
+/**
+ * The page as our own browser sees it after its scripts have run (api/render.ts, headless Chrome on Vercel),
+ * or null when the browser isn't set up (RENDER_SECRET) or the page still can't be read.
+ */
+export async function renderPage(url: string): Promise<string | null> {
+  const secret = process.env.RENDER_SECRET?.trim();
+  if (!secret) return null;
+  const endpoint = process.env.RENDER_URL?.trim() || "https://adspypro.net/api/render";
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9" }, signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return null;
-    return (await res.text()).slice(0, 3_000_000);
-  } catch {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) {
+      console.warn("Render: answered", res.status, new URL(url).host);
+      return null;
+    }
+    const body = (await res.json()) as { html?: unknown; status?: unknown };
+    if (typeof body.html !== "string") return null;
+    // A missing page stays missing; 403/429/503 are what bot checks answer before they let the browser through.
+    if (typeof body.status === "number" && body.status >= 400 && ![403, 429, 503].includes(body.status)) return null;
+    return needsBrowser(body.html) ? null : body.html;
+  } catch (e) {
+    console.warn("Render failed", new URL(url).host, e);
     return null;
   }
+}
+
+/** A page's HTML: a plain fetch, then our browser when the server turns us away or sends a page built by scripts. */
+export async function fetchPage(url: string): Promise<string | null> {
+  let status = 0;
+  let html: string | null = null;
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9" }, signal: AbortSignal.timeout(15_000) });
+    status = res.status;
+    if (res.ok) html = (await res.text()).slice(0, 3_000_000);
+  } catch {
+    // No answer (timeout, refused): the browser may still get one.
+  }
+  if (html !== null && !needsBrowser(html)) return html;
+  if (status === 404 || status === 410) return null;
+  return (await renderPage(url)) ?? html;
 }
 
 /** JSON such as /products/<handle>.js (the product's prices and variants). */
