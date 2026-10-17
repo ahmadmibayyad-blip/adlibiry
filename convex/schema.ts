@@ -670,7 +670,8 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_shop_day", ["shopDomain", "day"]),
   profitSettings: defineTable({ userId: v.id("users"), feePercent: v.number(), feeFixed: v.number(), shippingPerOrder: v.number() }).index("by_user", ["userId"]),
-  // Order autopilot (orders.ts): settings, Shopify variants linked to CJ variants, and the orders on their way.
+  // The old CJ order autopilot's tables: no longer written (Orders now reads Shopify, orders.ts). Kept so existing rows
+  // stay valid; Shopify's redact webhooks still clear them (orders.redact), and Profit reads CJ's bill for old orders.
   orderSettings: defineTable({ userId: v.id("users"), autopilot: v.boolean(), payFromBalance: v.boolean() }).index("by_user", ["userId"]),
   cjLinks: defineTable({
     userId: v.id("users"),

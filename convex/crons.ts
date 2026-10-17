@@ -126,9 +126,6 @@ crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minut
 // Profit: yesterday and today for every store that allows reading orders (profit.ts).
 crons.hourly("count profit from Shopify orders", { minuteUTC: 25 }, internal.profit.recountAll, {});
 
-// CJ order autopilot (orders.ts): new orders in, and tracking numbers out to Shopify.
-crons.interval("bring in orders for the CJ autopilot", { minutes: 30 }, internal.orders.syncAll, {});
-crons.hourly("send CJ tracking numbers to Shopify", { minuteUTC: 40 }, internal.orders.trackAll, {});
 
 crons.daily("prune Shopify install attempts", { hourUTC: 3, minuteUTC: 50 }, internal.shopifyApp.pruneStates, {});
 

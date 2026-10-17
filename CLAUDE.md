@@ -139,17 +139,16 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 
 ## Your store (Profit, Orders, Ad queue)
 
-- Scopes: `read_orders,read_inventory,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders` (SHOPIFY_SCOPES must
-  equal `shopify-app/shopify.app.toml`, a test checks; deploy the app config with Shopify CLI). Older installs reconnect. The order autopilot
-  also needs "Protected customer data" (name, address, email, phone) enabled for the app in the Dev Dashboard. Never ask for write_orders/customers.
+- Scopes: `read_orders,read_inventory,read_merchant_managed_fulfillment_orders` (SHOPIFY_SCOPES must equal `shopify-app/shopify.app.toml`,
+  a test checks; deploy the app config with Shopify CLI). Older installs reconnect. No customer fields are read. Never ask for write_orders/customers.
 - Profit (`profit.ts`, `lib/profit.ts`, `/dashboard/profit`): orders' financial fields only (no customer fields), per store day in the shop's
   time zone (`profitDays`); product cost = Shopify unitCost → AdSpy launch cost → CJ's real bill. Hourly cron recounts 2 days; ad spend is typed in
   per day and survives recounts. Yesterday's line goes into the morning digest (`renderProfitHtml`), which now also sends on profit-only days.
-- Orders (`orders.ts`, `lib/cjOrders.ts`, `/dashboard/orders`): off until the user turns on the autopilot. Every 30 min paid unfulfilled orders
-  (14 days) come in; items need a `cjLinks` row (Shopify variant → CJ vid); `quote` gets CJ's cheapest shipping; nothing goes to CJ without
-  `approve`. createOrderV2 payType 3 (unpaid, pay in CJ) unless `payFromBalance` (2). The address is cleared once placed or rejected, and
-  customers/redact / shop/redact webhooks delete order data. Hourly `trackAll` sends CJ tracking to Shopify (`fulfillmentCreate`, only CJ's line
-  items, notifyCustomer). The page never receives the address. Shopify helper with retries: `lib/shopifyOrderApi.ts` (not lib/shopifyAdmin.ts).
+- Orders (`orders.ts`, `lib/orderTracker.ts`, `/dashboard/orders`): works with whatever fulfills the store (the owner's fulfillment app such as
+  CJ, DSers, AutoDS or Zendrop, an agent, or by hand); AdSpy places no orders. `orders.load` reads the last 30 days live from Shopify (status,
+  tracking, the app or location each order is assigned to; no customer fields, nothing stored) and flags late (paid, not shipped after
+  `LATE_DAYS`), no tracking, slow (`SLOW_DAYS` on the way) and delivery problems. The old CJ autopilot's tables (cjOrders, cjLinks,
+  orderSettings) are no longer written.
 - Ad queue (`adQueue.ts`, `adQueueAi.ts`, `/dashboard/ad-queue`): published launches' ad kits become `adDrafts` (pending) when the page opens;
   approve / edit / reject; "Make variations" adds 3 AI drafts (AI daily limit). Nothing is posted anywhere.
 

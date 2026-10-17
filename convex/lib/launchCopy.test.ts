@@ -186,7 +186,7 @@ describe("Shopify app security", () => {
         "write_themes,read_themes,write_online_store_pages,read_online_store_pages,write_online_store_navigation,read_online_store_navigation," +
         "read_shipping,read_legal_policies,write_discounts,read_discounts," +
         // Profit, the CJ order autopilot and the research verdict's own-store sales: read orders and cost per item, add tracking. Never change orders or customers.
-        "read_orders,read_inventory,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders",
+        "read_orders,read_inventory,read_merchant_managed_fulfillment_orders",
     );
     expect(url.searchParams.get("scope")).not.toMatch(/write_orders|write_customers|read_customers|write_inventory/);
     expect(url.searchParams.get("state")).toBe("st");
