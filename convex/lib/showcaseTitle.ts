@@ -3,6 +3,8 @@
 // ("Get 50% off your first box"), and Amazon titles are long keyword lists
 // that start with a brand. Used to rank winners for winners:homepagePreview.
 
+import { bigBrandIn } from "./productMatch";
+
 const HEADLINE = [
   /\d+\s*%/, // "50% off"
   /\b(off|save|sale|deal|discount|free shipping|shop now|order now|buy now|limited)\b/i,
@@ -20,10 +22,16 @@ export function readsLikeHeadline(title: string): boolean {
   return HEADLINE.some((re) => re.test(title));
 }
 
-/** 2 = short product name, 1 = a product name but long or brand-tagged, 0 = an ad headline. */
+// "Starter Kit" says nothing about the product.
+const MIN_SHOWCASE_WORDS = 3;
+
+/**
+ * 2 = short product name, 1 = a product name but long, vague or brand-tagged,
+ * 0 = an ad headline or a big brand's product (nobody can sell it).
+ */
 export function showcaseTitleRank(title: string): 0 | 1 | 2 {
   const t = title.trim();
-  if (!t || readsLikeHeadline(t)) return 0;
-  if (BRAND_TAG.test(t) || t.length > MAX_SHOWCASE_TITLE) return 1;
+  if (!t || readsLikeHeadline(t) || bigBrandIn(t)) return 0;
+  if (BRAND_TAG.test(t) || t.length > MAX_SHOWCASE_TITLE || t.split(/\s+/).length < MIN_SHOWCASE_WORDS) return 1;
   return 2;
 }

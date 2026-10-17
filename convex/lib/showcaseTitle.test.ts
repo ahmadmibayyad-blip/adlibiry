@@ -23,6 +23,13 @@ describe("showcaseTitleRank", () => {
     expect(showcaseTitleRank("Self-cleaning slicker brush for dogs and cats")).toBe(2);
   });
 
+  it("puts vague names below real ones, and big brands with the headlines", () => {
+    expect(showcaseTitleRank("Starter Kit")).toBe(1);
+    expect(showcaseTitleRank("Shark Navigator Lift-Away Vacuum")).toBe(0);
+    expect(showcaseTitleRank("Dyson cordless stick vacuum")).toBe(0);
+    expect(showcaseTitleRank("Cordless handheld car vacuum")).toBe(2);
+  });
+
   it("doesn't mistake words inside product names for headline words", () => {
     expect(showcaseTitleRank("Offset spatula set")).toBe(2);
     expect(showcaseTitleRank("Ourika argan oil")).toBe(2);
