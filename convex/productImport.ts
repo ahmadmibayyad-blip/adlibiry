@@ -8,7 +8,7 @@ import { classifyNiche } from "./lib/category";
 import { fromAliExpressApi, fromAliExpressHtml, fromApifyAliExpress, fromProductHtml, fromShopifyJs, importSource, productUrl, type ImportedProduct } from "./lib/productImport";
 import { aliexpressId } from "./lib/supplierReviews";
 import { shopifyJsUrl } from "./lib/productImages";
-import { STORE_UA, fetchPage } from "./lib/pageFetch";
+import { STORE_UA, fetchPage, renderPage } from "./lib/pageFetch";
 import { firstProductPath } from "./lib/storeInspect";
 
 // Launch from any link: reads a product page (AliExpress, a Shopify store or
@@ -128,7 +128,11 @@ async function readProduct(u: URL, usdRates: Record<string, number>): Promise<Im
       ...(api?.cost ? { cost: api.cost } : {}),
     };
   }
-  return html ? fromProductHtml(html, url, usdRates) : null;
+  const p = html ? fromProductHtml(html, url, usdRates) : null;
+  if (p) return p;
+  // A shop built with scripts, or one that turned the server away: read it in our browser.
+  const rendered = await renderPage(url);
+  return rendered ? fromProductHtml(rendered, url, usdRates) : null;
 }
 
 export const save = internalMutation({
