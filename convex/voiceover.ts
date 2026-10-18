@@ -5,7 +5,8 @@ import type { Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { byTier } from "./lib/billing";
 import {
-  ELEVEN_FORMAT, ELEVEN_MODEL, ELEVEN_URL, KEPT_PER_USER, MAX_VOICE_CHARS, VOICEOVER_RUNS, describeElevenError, readVoices, type VoiceOption,
+  ELEVEN_FORMAT, ELEVEN_MODEL, ELEVEN_URL, KEPT_PER_USER, MAX_VOICE_CHARS, PREMADE_VOICES, VOICEOVER_RUNS, describeElevenError, readVoices,
+  type VoiceOption,
 } from "./lib/voiceover";
 
 // ── AI voiceover ────────────────────────────────────────────────────────────
@@ -29,8 +30,14 @@ export const voices = action({
     if (!(await ctx.auth.getUserIdentity())) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     const res = await fetch(`${ELEVEN_URL}/voices`, { headers: { "xi-api-key": key() }, signal: AbortSignal.timeout(15_000) });
     const body = await res.json().catch(() => null);
-    if (!res.ok) throw new ConvexError({ code: "VOICE_ERROR", message: describeElevenError(res.status, body, false) });
-    return readVoices(body);
+    // A key limited to text to speech can't read the list: offer the standard voices; recording still works,
+    // and a key that's wrong altogether fails there with ElevenLabs' own reason (shown to admins).
+    if (!res.ok) {
+      console.warn("Voiceover: voice list", res.status, JSON.stringify(body).slice(0, 200));
+      return PREMADE_VOICES;
+    }
+    const list = readVoices(body);
+    return list.length ? list : PREMADE_VOICES;
   },
 });
 
