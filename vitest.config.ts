@@ -29,6 +29,9 @@ export default defineConfig({
           // The pipeline's background fusion job is tested on its own (convex/fusion.test.ts);
           // inside pipeline tests it only adds scheduled work that can exceed convex-test's timer pumps.
           env: { FUSION_TRIGGERS: "off" },
+          // A few tests take ~2 s on their own (token encryption, imports, AI stubs); with the whole suite running
+          // in parallel on a laptop they passed 5 s and failed at random. CI was fine; this keeps local runs green.
+          testTimeout: 20_000,
         },
       },
       {
