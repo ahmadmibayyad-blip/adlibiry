@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoMap, buildRows, moneyToUsd, parseCsv } from "./productCsv";
+import { autoMap, buildRows, isTikTokFile, moneyToUsd, parseCsv } from "./productCsv";
 
 describe("product CSV import", () => {
   it("reads sales columns from TikTok Shop product exports", () => {
@@ -37,5 +37,20 @@ describe("product CSV import", () => {
   it("prefers the 30-day column over the 7-day one", () => {
     const table = parseCsv("Title,Image,Items Sold (Last 7 days),Items Sold (Last 30 days)\nLamp,https://x/l.png,10,100\n");
     expect(buildRows(table, autoMap(table[0]), { category: "auto" }).rows[0].unitsPerMonth).toBe(100);
+  });
+});
+
+describe("isTikTokFile", () => {
+  const plain = parseCsv("Title,Image,Link\nLamp,https://x/l.png,https://shop.dk/products/l\n");
+  it("spots TikTok by file name, column or links", () => {
+    expect(isTikTokFile("kalodata-export.csv", plain)).toBe(true);
+    expect(isTikTokFile("TikTok ads 2026.csv", plain)).toBe(true);
+    expect(isTikTokFile("x.csv", parseCsv("Title,TikTok URL\nLamp,\n"))).toBe(true);
+    expect(isTikTokFile("x.csv", parseCsv("Title,Link\nLamp,https://vt.tiktok.com/2\n"))).toBe(true);
+    expect(isTikTokFile("x.csv", parseCsv("Title,Image\nLamp,https://p16-sign.tiktokcdn-us.com/a.webp\n"))).toBe(true);
+  });
+  it("leaves other files alone", () => {
+    expect(isTikTokFile("minea.csv", plain)).toBe(false);
+    expect(isTikTokFile("x.csv", parseCsv("Title,Text\nLamp,seen on tiktok.com\n"))).toBe(false);
   });
 });

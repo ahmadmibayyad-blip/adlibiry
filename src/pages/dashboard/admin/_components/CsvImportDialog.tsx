@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { FileUp, Download } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -9,7 +10,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import {
-  IMPORT_CATEGORIES, TEMPLATE_CSV, autoMap, buildRows, decodeCsvBytes, parseCsv, type ColumnMap,
+  IMPORT_CATEGORIES, TEMPLATE_CSV, autoMap, buildRows, decodeCsvBytes, isTikTokFile, parseCsv, type ColumnMap,
 } from "@/lib/productCsv.ts";
 
 const BATCH = 150;
@@ -47,6 +48,8 @@ export default function CsvImportDialog({ open, onOpenChange }: { open: boolean;
   const [category, setCategory] = useState<string>("auto");
   const [markWinners, setMarkWinners] = useState(false);
   const [sourceName, setSourceName] = useState("CSV");
+  // TikTok Shop products (Kalodata, FastMoss, TikTok links…) are saved as source "tiktok_shop": TikTok Shop → Best sellers.
+  const [tiktokShop, setTiktokShop] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [result, setResult] = useState<{ created: number; updated: number; skipped: number } | null>(null);
 
@@ -73,7 +76,9 @@ export default function CsvImportDialog({ open, onOpenChange }: { open: boolean;
       setMap(autoMap(rows[0]));
       setFileName(file.name);
       const h = rows[0].join(" ").toLowerCase();
-      setSourceName(h.includes("usd price") && h.includes("growth rate") ? "PiPiAds" : "CSV");
+      const tiktok = isTikTokFile(file.name, rows);
+      setTiktokShop(tiktok);
+      setSourceName(h.includes("usd price") && h.includes("growth rate") ? "PiPiAds" : tiktok ? "TikTok Shop" : "CSV");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read this file");
     }
@@ -86,7 +91,12 @@ export default function CsvImportDialog({ open, onOpenChange }: { open: boolean;
     setProgress(0);
     try {
       for (let i = 0; i < rows.length; i += BATCH) {
-        const r = await importProducts({ rows: rows.slice(i, i + BATCH), source: sourceName, markWinners });
+        const r = await importProducts({
+          rows: rows.slice(i, i + BATCH),
+          source: sourceName,
+          markWinners,
+          ...(tiktokShop ? { sourceKey: "tiktok_shop" } : {}),
+        });
         totals.created += r.created;
         totals.updated += r.updated;
         totals.skipped += r.skipped;
@@ -212,6 +222,10 @@ export default function CsvImportDialog({ open, onOpenChange }: { open: boolean;
                 <input type="checkbox" checked={markWinners} disabled={busy} onChange={(e) => setMarkWinners(e.target.checked)} />
                 Also show on the Dashboard as "Today's winners"
               </label>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={tiktokShop} disabled={busy} onChange={(e) => setTiktokShop(e.target.checked)} />
+                TikTok Shop products (show under TikTok Shop → Best sellers)
+              </label>
             </div>
 
             {built && built.rows.length > 0 && (
@@ -238,6 +252,12 @@ export default function CsvImportDialog({ open, onOpenChange }: { open: boolean;
             {result && (
               <p className="text-xs">
                 Done: <strong>{result.created}</strong> new, <strong>{result.updated}</strong> updated, {result.skipped} skipped.
+                {tiktokShop && (
+                  <>
+                    {" "}See them on{" "}
+                    <Link to="/dashboard/tiktok-shop" className="text-primary underline underline-offset-2">TikTok Shop → Best sellers</Link>.
+                  </>
+                )}
               </p>
             )}
           </div>

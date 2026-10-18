@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { FileUp, Download } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -9,7 +10,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import {
-  AD_PLATFORMS, AD_TEMPLATE_CSV, IMPORT_NICHES, autoMapAds, buildAdRows, decodeCsvBytes, isProductExport, lacksNumbers, parseCsv,
+  AD_PLATFORMS, AD_TEMPLATE_CSV, IMPORT_NICHES, autoMapAds, buildAdRows, decodeCsvBytes, isProductExport, isTikTokFile, lacksNumbers, parseCsv,
   type AdColumnMap, type AdField,
 } from "@/lib/adCsv.ts";
 
@@ -51,7 +52,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
   const [platform, setPlatform] = useState<string>("Facebook");
   const [country, setCountry] = useState("US");
   const [progress, setProgress] = useState<number | null>(null);
-  const [result, setResult] = useState<{ created: number; updated: number } | null>(null);
+  const [result, setResult] = useState<{ created: number; updated: number; tiktok: number } | null>(null);
 
   const built = useMemo(
     () => (table ? buildAdRows(table, map, { niche, platform, country: country.toUpperCase() || "US" }) : null),
@@ -80,6 +81,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
       if (rows.length < 2) throw new Error("The file has no data rows.");
       setTable(rows);
       setMap(autoMapAds(rows[0], rows.slice(1, 11)));
+      setPlatform(isTikTokFile(file.name, rows) ? "TikTok" : "Facebook");
       setFileName(file.name);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read this file");
@@ -89,7 +91,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
   async function runImport() {
     if (!built) return;
     const rows = built.rows;
-    const totals = { created: 0, updated: 0 };
+    const totals = { created: 0, updated: 0, tiktok: rows.filter((r) => r.platform === "TikTok").length };
     setProgress(0);
     try {
       for (let i = 0; i < rows.length; i += BATCH) {
@@ -233,7 +235,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
                 <p className="mt-1 text-muted-foreground">
                   It has sales columns (items sold, GMV, price) but no likes, views or comments, so as ads these would
                   show empty numbers. Import it under <strong>Admin → Products → Import CSV</strong> instead: items sold
-                  and GMV become orders per month and revenue there. If the file does have engagement, pick its Likes or
+                  and GMV become orders per month and revenue there{platform === "TikTok" ? ", and a TikTok file goes to the TikTok Shop page" : ""}. If the file does have engagement, pick its Likes or
                   Views column above.
                 </p>
               </div>
@@ -278,6 +280,12 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
               <p className="text-xs">
                 Done: <strong>{result.created}</strong> new, <strong>{result.updated}</strong> updated. They are at the
                 top of the ads list below and of Ad Spy (Newest).
+                {result.tiktok > 0 && (
+                  <>
+                    {" "}The {result.tiktok.toLocaleString()} TikTok ads are also on{" "}
+                    <Link to="/dashboard/tiktok-shop?tab=ads" className="text-primary underline underline-offset-2">TikTok Shop → TikTok ads</Link>.
+                  </>
+                )}
               </p>
             )}
           </div>

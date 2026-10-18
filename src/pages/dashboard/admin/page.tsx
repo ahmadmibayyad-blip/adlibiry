@@ -43,6 +43,7 @@ import ClearImpossiblePrices from "./_components/ClearImpossiblePrices.tsx";
 import RebuildResearch from "./_components/RebuildResearch.tsx";
 import RemoveLastProductImport from "./_components/RemoveLastProductImport.tsx";
 import KnowledgeEditor from "./_components/KnowledgeEditor.tsx";
+import FilterSelect from "@/components/FilterSelect.tsx";
 
 type Tab = "overview" | "products" | "ads" | "users" | "knowledge";
 type Product = Doc<"products">;
@@ -671,8 +672,16 @@ function ProductsTab() {
   );
 }
 
+const AD_PLATFORM_FILTER = [
+  { value: "all", label: "All" },
+  { value: "Facebook", label: "Facebook" },
+  { value: "Instagram", label: "Instagram" },
+  { value: "TikTok", label: "TikTok" },
+];
+
 function AdsTab() {
   const [search, setSearch] = useState("");
+  const [platform, setPlatform] = useState("all");
   const [debouncedSearch] = useDebounce(search, 300);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Ad | null>(null);
@@ -700,7 +709,7 @@ function AdsTab() {
 
   const { results, status, loadMore } = usePaginatedQuery(
     api.admin.ads.listAds,
-    { search: debouncedSearch || undefined },
+    { search: debouncedSearch || undefined, platform: platform === "all" ? undefined : platform },
     { initialNumItems: 20 }
   );
 
@@ -799,6 +808,7 @@ function AdsTab() {
             className="pl-9"
           />
         </div>
+        <FilterSelect label="Platform" value={platform} onChange={setPlatform} options={AD_PLATFORM_FILTER} active={platform !== "all"} />
         <Button variant="secondary" onClick={() => setCsvOpen(true)}>
           <Upload className="w-4 h-4 mr-1.5" />
           Import CSV
@@ -823,7 +833,9 @@ function AdsTab() {
           <EmptyHeader>
             <EmptyMedia variant="icon"><Megaphone /></EmptyMedia>
             <EmptyTitle>No ads found</EmptyTitle>
-            <EmptyDescription>Curate your first TikTok or global ad example.</EmptyDescription>
+            <EmptyDescription>
+              {platform === "all" ? "Curate your first TikTok or global ad example." : `No ${platform} ads yet. Import a CSV or add one.`}
+            </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>

@@ -5,7 +5,7 @@
 import { classifyNiche, NICHES } from "@/convex/lib/category.ts";
 import { toNumber } from "@/lib/productCsv.ts";
 
-export { decodeCsvBytes, parseCsv } from "@/lib/productCsv.ts";
+export { decodeCsvBytes, isTikTokFile, parseCsv } from "@/lib/productCsv.ts";
 
 export const AD_PLATFORMS = ["Facebook", "Instagram", "TikTok", "YouTube", "Pinterest", "Snapchat"] as const;
 export const IMPORT_NICHES = NICHES;

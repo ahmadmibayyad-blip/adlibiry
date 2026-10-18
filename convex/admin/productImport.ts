@@ -71,7 +71,7 @@ export type ImportRow = Infer<typeof row>;
 export async function upsertProductRows(
   ctx: MutationCtx,
   rows: ImportRow[],
-  opts: { sourceTool: string; sourceKey: string; markWinners?: boolean },
+  opts: { sourceTool: string; sourceKey: string; markWinners?: boolean; csv?: boolean },
 ): Promise<{ created: number; updated: number; skipped: number }> {
   const sourceTool = opts.sourceTool.slice(0, 40);
   const sourceKey = opts.sourceKey.slice(0, 40);
@@ -104,7 +104,7 @@ export async function upsertProductRows(
         ...(r.priceUsd !== undefined && r.priceUsd > 0 ? { price: Math.round(r.priceUsd * 100) / 100, priceSource: "exact" } : {}),
         ...(r.cost !== undefined && r.cost > 0 ? { cost: Math.round(r.cost * 100) / 100 } : {}),
         category: r.category || "General",
-        tags: [...new Set([r.category, sourceTool, sourceKey === "csv_import" ? "CSV import" : "", ...(r.tags ?? [])].filter(Boolean))].slice(0, 8),
+        tags: [...new Set([r.category, sourceTool, opts.csv || sourceKey === "csv_import" ? "CSV import" : "", ...(r.tags ?? [])].filter(Boolean))].slice(0, 8),
         aiScore: scoreFrom(r.ads, r.likes, r.growthPercent, r.unitsPerMonth),
         trend: trendFrom(r.growthPercent),
         supplierUrl: r.productUrl || r.researchUrl || "",
@@ -143,7 +143,8 @@ export async function upsertProductRows(
         const id = link.docId as Id<"products">;
         const existing = await ctx.db.get("products", id);
         if (existing) {
-          await ctx.db.patch("products", id, { ...fields, ...estimates });
+          // A TikTok Shop import moves an earlier CSV product onto the TikTok Shop page too.
+          await ctx.db.patch("products", id, { ...fields, ...estimates, ...(sourceKey === "tiktok_shop" ? { source: sourceKey } : {}) });
           await ctx.db.patch("syncLinks", link._id, { lastSyncedAt: now });
           updated += 1;
           continue;
@@ -175,6 +176,7 @@ export const importProducts = mutation({
       sourceTool: args.source ?? "CSV",
       sourceKey: args.sourceKey ?? "csv_import",
       markWinners: args.markWinners,
+      csv: true,
     });
   },
 });

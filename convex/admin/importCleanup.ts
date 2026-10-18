@@ -107,8 +107,8 @@ export const removeProductListingAds = mutation({
   },
 });
 
-// Undo the last product CSV import. Its products have source "csv_import" and
-// the source name typed in the import dialog as their second tag (see
+// Undo the last product CSV import. Its products have source "csv_import" (or
+// "tiktok_shop" with the "CSV import" tag) and the source name typed in the import dialog as their second tag (see
 // productImport.ts upsertProductRows). One import is a run of those products
 // created close together, ending at a product of another import; products it
 // only updated were already there, so they stay.
@@ -118,7 +118,8 @@ const SCAN = 400;
 const IMPORT_GAP_MS = 30 * 60 * 1000;
 
 type ImportedProduct = { source?: string; tags: string[] };
-const importName = (p: ImportedProduct) => (p.source === "csv_import" ? (p.tags[1] ?? "") : null);
+const importName = (p: ImportedProduct) =>
+  p.source === "csv_import" || (p.source === "tiktok_shop" && p.tags.includes("CSV import")) ? (p.tags[1] ?? "") : null;
 
 export const lastProductImport = query({
   args: {},
