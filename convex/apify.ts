@@ -4,6 +4,7 @@ import { api, internal } from "./_generated/api";
 import { NICHE_KEYWORDS } from "./adlibrary/client";
 import { toAlpha2List } from "./lib/countryCodes";
 import { classifyNiche } from "./lib/category";
+import { META_COMMERCIAL_COUNTRIES, metaAudience } from "./lib/metaAdLibrary";
 import { adFields } from "./sources/links";
 import type { Infer } from "convex/values";
 
@@ -16,7 +17,7 @@ type ApiJson = any;
 // calls /apify/webhook when the run finishes → we import every dataset item.
 // Env: APIFY_TOKEN (required), APIFY_ACTOR (optional, default
 // curious_coder~facebook-ads-library-scraper),
-// APIFY_COUNTRIES (optional, e.g. "DK,SE" → daily automatic runs),
+// APIFY_COUNTRIES (daily automatic runs; default DAILY_COUNTRIES, "off" stops them),
 // APIFY_MAX_RUN_USD (optional cap on what one run may cost, see runCostCap).
 
 const DEFAULT_ACTOR = "curious_coder~facebook-ads-library-scraper";
@@ -115,6 +116,8 @@ async function startRun(
       count: maxAds,
       limitPerSource: Array.isArray(url) && url.length > 1 ? Math.ceil(maxAds / url.length) : maxAds,
       "scrapePageAds.activeStatus": "active",
+      // Meta's EU/UK transparency data (EU reach, age/gender/country split): same price per ad, a little slower.
+      scrapeAdDetails: META_COMMERCIAL_COUNTRIES.has(country.toUpperCase()),
     }),
   });
   const text = await res.text();
@@ -331,7 +334,15 @@ export const importDataset = internalAction({
         const isActive = pick(it, "is_active", "isActive");
         const days = start ? Math.max(1, Math.round(((isActive === false && end ? end : Date.now()) - start) / 86_400_000)) : 0;
         const copies = Number(pick(it, "collation_count", "collationCount") ?? 1) || 1;
-        const reach = Number(pick(it, "reach_estimate", "reachEstimate", "eu_total_reach", "euTotalReach") ?? 0) || 0;
+        // EU/UK reach from the ad details (scrapeAdDetails): the spend estimate's input (lib/euSpend.ts).
+        const euReach =
+          Number(
+            pick(it, "aaa_info.eu_total_reach", "transparency_by_location.eu_transparency.eu_total_reach", "transparency_by_location.uk_transparency.total_reach", "eu_total_reach") ?? 0,
+          ) || 0;
+        const reach = euReach || Number(pick(it, "reach_estimate", "reachEstimate") ?? 0) || 0;
+        const audience =
+          metaAudience(pick(it, "aaa_info.age_country_gender_reach_breakdown", "transparency_by_location.eu_transparency.age_country_gender_reach_breakdown"), euReach || undefined) ??
+          (euReach ? { totalReach: euReach, ages: [], countries: [] } : undefined);
         const pageName = String(pick(it, "page_name", "pageName") ?? pick(s, "page_name", "pageName") ?? "Unknown advertiser");
         const title = pickHeadline(pick(s, "title"), cards[0]?.title, pick(s, "link_description"), String(body ?? ""), pageName);
         const cta = pick(s, "cta_text", "ctaText") ?? cards[0]?.cta_text;
@@ -367,6 +378,7 @@ export const importDataset = internalAction({
           ...(avatar ? { advertiserAvatar: String(avatar) } : {}),
           ...(cta ? { ctaText: String(cta) } : {}),
           ...(reach ? { impressions: reach } : {}),
+          ...(audience ? { audience } : {}),
           relatedAdsCount: copies,
           ...(isActive !== undefined ? { isActive: !!isActive } : {}),
           ...(end && isActive === false ? { lastSeenAt: new Date(end).toISOString() } : { lastSeenAt: new Date().toISOString() }),
@@ -392,11 +404,17 @@ export const importDatasetNow = action({
   },
 });
 
-// Daily: only when APIFY_COUNTRIES is set (e.g. "DK,SE"). 50 ads per niche per country.
+// Daily: 50 ads per niche per country, in APIFY_COUNTRIES (default DAILY_COUNTRIES; "off" stops it).
+// With the EU reach this replaces the official Meta API import, which needs a token renewed every 60 days.
+// 5 countries × 6 niches × 50 ads × $0.00075 ≈ $1.15 a day.
+export const DAILY_COUNTRIES = "DK,SE,DE,NL,FR";
 export const dailyApifyImport = internalAction({
   args: {},
   handler: async (ctx): Promise<{ started: number; errors: string[] } | { notConfigured: string }> => {
-    const countries = (process.env.APIFY_COUNTRIES ?? "")
+    if (!process.env.APIFY_TOKEN) return { notConfigured: "APIFY_TOKEN is not set" };
+    const raw = process.env.APIFY_COUNTRIES?.trim() || DAILY_COUNTRIES;
+    if (raw.toLowerCase() === "off") return { notConfigured: "APIFY_COUNTRIES is off" };
+    const countries = raw
       .split(",")
       .map((c) => c.trim().toUpperCase())
       .filter(Boolean);
