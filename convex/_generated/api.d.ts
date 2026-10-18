@@ -163,6 +163,7 @@ import type * as users from "../users.js";
 import type * as videoAnalysis from "../videoAnalysis.js";
 import type * as videoAnalysisAi from "../videoAnalysisAi.js";
 import type * as videoDownload from "../videoDownload.js";
+import type * as voiceover from "../voiceover.js";
 import type * as winners from "../winners.js";
 import type * as winninghunter from "../winninghunter.js";
 import type * as youtube from "../youtube.js";
@@ -329,6 +330,7 @@ declare const fullApi: ApiFromModules<{
   videoAnalysis: typeof videoAnalysis;
   videoAnalysisAi: typeof videoAnalysisAi;
   videoDownload: typeof videoDownload;
+  voiceover: typeof voiceover;
   winners: typeof winners;
   winninghunter: typeof winninghunter;
   youtube: typeof youtube;

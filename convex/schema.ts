@@ -731,6 +731,11 @@ export default defineSchema({
   googleAdRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
   // "Transcribe video" runs per user (transcripts.transcribe), for its daily limit.
   transcribeRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
+  // AI voiceovers (voiceover.ts, ElevenLabs): the user's MP3s in file storage, newest kept; also the daily count.
+  voiceovers: defineTable({ userId: v.id("users"), storageId: v.id("_storage"), voiceId: v.string(), chars: v.number(), at: v.number() }).index(
+    "by_user",
+    ["userId", "at"],
+  ),
   // Video ad analysis (videoAnalysis.ts, Apify): one per ad, shared by everyone; and who started one when, for the daily limits.
   videoAnalyses: defineTable({
     adId: v.id("ads"),

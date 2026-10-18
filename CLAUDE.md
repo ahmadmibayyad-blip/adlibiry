@@ -95,6 +95,10 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   shot list, pacing (`lib/videoAnalysis.ts` readAnalysis). Kept per ad for everyone (`videoAnalyses`); per-user daily `ANALYZE_RUNS`
   (`analyzeRuns`), all users `VIDEO_ANALYSES_PER_DAY` (default 100); needs `APIFY_TOKEN`. "Write my version" (`videoAnalysisAi.writeVariant`):
   Claude writes a script + shot timeline for the user's product on that structure (not saved, AI daily limit).
+- Voiceover (under a "Write my version" script, `Voiceover` in `AdVideoAnalysis.tsx`; `voiceover.ts`, `lib/voiceover.ts`): ElevenLabs
+  (`ELEVENLABS_API_KEY`, model eleven_multilingual_v2, so any voice speaks the script's language) reads the voice-over lines (max 1,500 chars);
+  the MP3 goes to file storage (`voiceovers`, newest 20 per user kept). Voices from GET /v1/voices (premade first). Daily `VOICEOVER_RUNS`.
+  Apify's free Edge-voice actor failed from Apify's servers and Kokoro has no Nordic languages, so they aren't used.
 - Collections (`collections.ts`, Saved → Collections, `?collection=<id>`): named folders of ads, stores and products (`collections` +
   `collectionItems`, kind + refId), separate from Save and the store watchlist. 50 per user, 500 items each; the "Collection" button
   (`src/components/AddToCollection.tsx`) is on the ad pop-up and page, store pop-up and product page. Product merges move items (`moveProductItems`),
