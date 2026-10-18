@@ -136,3 +136,42 @@ export function fromApifySearch(items: unknown): AliProduct[] {
     return [{ product_title: i.title, target_sale_price: String(price), product_detail_url: url, ...(image ? { product_main_image_url: image } : {}) }];
   });
 }
+
+// ── Match by picture ────────────────────────────────────────────────────────
+// Apify's dev00/alibaba-1688-aliexpress-reverse-image-search-api runs AliExpress's
+// own visual search on the product photo (~$0.006, a few seconds) and lists
+// look-alike listings, most similar first. convex/aliexpressImage.ts calls it.
+
+export const PICTURE_ACTOR = "dev00~alibaba-1688-aliexpress-reverse-image-search-api";
+export const PICTURE_SHOWN = 5;
+// Below this share of the product's price a listing is usually a part or accessory.
+export const PICTURE_MIN_PRICE_SHARE = 0.1;
+
+export type PictureMatch = { title: string; price: number; url: string; imageUrl?: string; orders?: number };
+
+/** The actor's rows as AliExpress listings: USD, in its order, parts dropped, one per listing. */
+export function fromPictureSearch(items: unknown, productPrice?: number, n = PICTURE_SHOWN): PictureMatch[] {
+  if (!Array.isArray(items)) return [];
+  const floor = productPrice && productPrice > 0 ? productPrice * PICTURE_MIN_PRICE_SHARE : 0;
+  const out: PictureMatch[] = [];
+  const seen = new Set<string>();
+  for (const x of items) {
+    const i = (x ?? {}) as { site?: unknown; title?: unknown; price?: unknown; currency?: unknown; productUrl?: unknown; imageUrl?: unknown; tradeCount?: unknown };
+    const price = Number(i.price);
+    const url = typeof i.productUrl === "string" ? i.productUrl.split("?")[0] : "";
+    if (i.site !== undefined && i.site !== "aliexpress") continue;
+    if (typeof i.title !== "string" || !i.title.trim() || !(price > 0) || price < floor) continue;
+    if ((i.currency ?? "USD") !== "USD" || !/^https:\/\/([a-z]+\.)?aliexpress\.[a-z.]+\/item\//.test(url) || seen.has(url)) continue;
+    seen.add(url);
+    const orders = Number(i.tradeCount);
+    out.push({
+      title: i.title.trim().slice(0, 200),
+      price: Math.round(price * 100) / 100,
+      url,
+      ...(typeof i.imageUrl === "string" && i.imageUrl.startsWith("https://") ? { imageUrl: i.imageUrl } : {}),
+      ...(i.tradeCount !== null && Number.isFinite(orders) && orders > 0 ? { orders } : {}),
+    });
+    if (out.length >= n) break;
+  }
+  return out;
+}

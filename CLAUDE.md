@@ -145,6 +145,10 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Store Inspector → Google & YouTube ads (`googleAds.forStore`, `lib/googleAds.ts`): Google's Ads Transparency Center through ScrapeCreators
   (`SCRAPECREATORS_API_KEY`, header x-api-key; Google has no official API). `/v1/google/company/ads?domain=…&get_ad_details=true` costs 25 credits
   (~$0.05); answers kept 24 h per store and platform (`googleAdLookups`), per-user daily limit `GOOGLE_AD_LOOKUPS` (`googleAdRuns`).
+- Suppliers by picture (`aliexpressImage.findByPicture`, `lib/aliexpress.ts` fromPictureSearch): when a product page opens, Apify's
+  `dev00/alibaba-1688-aliexpress-reverse-image-search-api` runs AliExpress's visual search on `products.imageUrl` (~$0.006, ~5 s) and the top 5
+  look-alikes (parts under 10% of the price dropped) are saved as `pictureMatches` for everyone; again after 30 days (7 if none found).
+  `PICTURE_LOOKUPS_PER_DAY` (default 300, counted in `supplierLookupUsage` as `picture:<day>`). Shown first in Suppliers; they don't set the cost.
 - CJ Dropshipping (`cj.ts`, `lib/cj.ts`, `CJ_API_KEY`; optional `CJ_LOOKUPS_PER_DAY`, default 500): a second supplier. A product page without
   `cjMatches` searches CJ's /product/listV2 by title once (retry after 7 days), matched like AliExpress. `cj.shipping` prices the best match
   to the user's target country (/product/query → vid, /logistic/freightCalculate), from a CJ warehouse in that country when it has stock,

@@ -31,6 +31,7 @@ import type * as agentRunner from "../agentRunner.js";
 import type * as agents from "../agents.js";
 import type * as ai from "../ai.js";
 import type * as aliexpress from "../aliexpress.js";
+import type * as aliexpressImage from "../aliexpressImage.js";
 import type * as apify from "../apify.js";
 import type * as assistant from "../assistant.js";
 import type * as assistantUsage from "../assistantUsage.js";
@@ -195,6 +196,7 @@ declare const fullApi: ApiFromModules<{
   agents: typeof agents;
   ai: typeof ai;
   aliexpress: typeof aliexpress;
+  aliexpressImage: typeof aliexpressImage;
   apify: typeof apify;
   assistant: typeof assistant;
   assistantUsage: typeof assistantUsage;

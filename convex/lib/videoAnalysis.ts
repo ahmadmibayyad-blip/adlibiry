@@ -104,6 +104,8 @@ export const VARIANT_SYSTEM =
   "beats and shot list) and a product the user sells. Write a new ad for the user's product that keeps the winning ad's structure, " +
   "pacing and kind of hook, but with the user's product, its own benefits and fresh wording: never copy the original's sentences, brand " +
   "or claims. Don't invent prices, discounts, reviews, numbers or guarantees the user didn't give; write a placeholder like [your offer] " +
+  "instead. Never invent customers, commenters, usernames or testimonials either: where the original answers a comment or quotes a " +
+  "customer, write a placeholder like [real customer comment] " +
   "instead. Keep each voice-over line short enough to say in its time slot (about 2.5 words a second). Write in the language asked for.";
 
 /** The prompt for one variant: the analysis, trimmed, and the user's product. */
