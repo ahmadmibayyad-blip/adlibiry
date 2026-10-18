@@ -95,6 +95,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   shot list, pacing (`lib/videoAnalysis.ts` readAnalysis). Kept per ad for everyone (`videoAnalyses`); per-user daily `ANALYZE_RUNS`
   (`analyzeRuns`), all users `VIDEO_ANALYSES_PER_DAY` (default 100); needs `APIFY_TOKEN`. "Write my version" (`videoAnalysisAi.writeVariant`):
   Claude writes a script + shot timeline for the user's product on that structure (not saved, AI daily limit).
+- Saved searches (Ad Spy, Products, Winners: `SavedSearches` in `src/components/filters.tsx`) are on the account (`savedSearches.ts`, table
+  `savedSearches`, `page` = the page's storage key, 20 per page). A browser's older localStorage ones are copied once (`importLocal`, flag
+  `<key>.onAccount`); names already on the account win.
 - Collections (`collections.ts`, Saved → Collections, `?collection=<id>`): named folders of ads, stores and products (`collections` +
   `collectionItems`, kind + refId), separate from Save and the store watchlist. 50 per user, 500 items each; the "Collection" button
   (`src/components/AddToCollection.tsx`) is on the ad pop-up and page, store pop-up and product page. Product merges move items (`moveProductItems`),

@@ -138,6 +138,7 @@ import type * as revenueTruth from "../revenueTruth.js";
 import type * as saturation_analyze from "../saturation/analyze.js";
 import type * as saturation_compare from "../saturation/compare.js";
 import type * as saturation_mutations from "../saturation/mutations.js";
+import type * as savedSearches from "../savedSearches.js";
 import type * as screenPages from "../screenPages.js";
 import type * as screenPagesAi from "../screenPagesAi.js";
 import type * as screenPagesShopify from "../screenPagesShopify.js";
@@ -304,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   "saturation/analyze": typeof saturation_analyze;
   "saturation/compare": typeof saturation_compare;
   "saturation/mutations": typeof saturation_mutations;
+  savedSearches: typeof savedSearches;
   screenPages: typeof screenPages;
   screenPagesAi: typeof screenPagesAi;
   screenPagesShopify: typeof screenPagesShopify;
