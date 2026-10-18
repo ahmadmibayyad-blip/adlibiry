@@ -18,6 +18,8 @@ import { flag, compactNumber } from "@/lib/adFormat.ts";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 import { useMyNiches } from "@/hooks/use-my-niches.ts";
 import MyNichesChip from "@/components/MyNichesChip.tsx";
+import CpmSetting from "./_components/CpmSetting.tsx";
+import { useCpm } from "@/hooks/use-cpm.ts";
 
 type Ad = Doc<"ads">;
 
@@ -42,7 +44,9 @@ type Filters = {
   source?: string;
   impressions?: string; // range
   likes?: string; // range
-  spend?: string; // range, USD
+  spend?: string; // range, USD (EU reach × CPM where there is EU reach: lib/euSpend.ts)
+  reach?: string; // range, EU reach
+  eu?: boolean; // only ads with EU reach
   score?: string; // range
   newAds?: boolean;
   repeated?: boolean;
@@ -65,7 +69,8 @@ const LAST_SEEN = [ANY, opt("1", "Last 24h"), opt("3", "Last 3 days"), opt("7", 
 const RUN_TIME = [ANY, opt("1-7", "1–7 days"), opt("7-30", "7–30 days"), opt("30-90", "30–90 days"), opt("90-", "90+ days")];
 const IMPRESSIONS = [ANY, opt("0-10000", "Under 10K"), opt("10000-100000", "10K–100K"), opt("100000-1000000", "100K–1M"), opt("1000000-", "1M+")];
 const LIKES = [ANY, opt("100-", "100+"), opt("1000-", "1K+"), opt("10000-", "10K+"), opt("100000-", "100K+")];
-const SPEND = [ANY, opt("0-1000", "Under $1K"), opt("1000-10000", "$1K–$10K"), opt("10000-50000", "$10K–$50K"), opt("50000-", "$50K+")];
+const SPEND = [ANY, opt("0-100", "Under $100"), opt("100-1000", "$100–$1K"), opt("1000-10000", "$1K–$10K"), opt("10000-50000", "$10K–$50K"), opt("50000-", "$50K+")];
+const REACH = [ANY, opt("0-1000", "Under 1K"), opt("1000-10000", "1K–10K"), opt("10000-100000", "10K–100K"), opt("100000-1000000", "100K–1M"), opt("1000000-", "1M+")];
 const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
 const MEDIA = [ANY, opt("video", "Video"), opt("image", "Image"), opt("carousel", "Carousel")];
 const LANDING = [ANY, opt("has", "Has store link")];
@@ -95,6 +100,7 @@ const SORTS = [
   opt("newest", "Newest (first seen)"),
   opt("lastSeen", "Last seen"),
   opt("score", "Ad score"),
+  opt("highestSpend", "Highest est. spend"),
   opt("impressions", "Most impressions"),
   opt("mostLiked", "Most likes"),
   opt("comments", "Most comments"),
@@ -104,11 +110,12 @@ const SORTS = [
 ];
 
 // Panel state → ads.list args.
-function toQueryArgs(f: Filters, search: string) {
+function toQueryArgs(f: Filters, search: string, cpm: number) {
   const run = range(f.runTime);
   const imp = range(f.impressions);
   const likes = range(f.likes);
   const spend = range(f.spend);
+  const reach = range(f.reach);
   const score = range(f.score);
   const firstSeenDays = [f.firstSeen ? Number(f.firstSeen) : undefined, f.newAds ? 7 : undefined].filter((x): x is number => x !== undefined);
   return {
@@ -133,6 +140,11 @@ function toQueryArgs(f: Filters, search: string) {
     maxLikes: likes.max,
     minSpend: spend.min,
     maxSpend: spend.max,
+    // The server works spend out with the same CPM as the cards.
+    cpm: spend.min !== undefined || spend.max !== undefined ? cpm : undefined,
+    minReach: reach.min,
+    maxReach: reach.max,
+    euOnly: f.eu || undefined,
     minAiScore: score.min,
     minCopies: f.repeated ? 2 : undefined,
     activeOnly: f.active || undefined,
@@ -174,7 +186,8 @@ export default function AdSpyPage() {
   const { niches: myNiches } = useMyNiches();
   const [useMine, setUseMine] = useState(true);
   const nichesOn = useMine && !f.niche && myNiches.length > 0;
-  const args = { ...toQueryArgs(f, debouncedSearch), ...(nichesOn ? { niches: myNiches } : {}) };
+  const [cpm] = useCpm();
+  const args = { ...toQueryArgs(f, debouncedSearch, cpm), ...(nichesOn ? { niches: myNiches } : {}) };
   const { results, status, loadMore } = usePaginatedQuery(api.ads.list, args, { initialNumItems: 24 });
   const shown = excludeViewed ? results.filter((a) => !viewedSet.has(a._id)) : results;
 
@@ -288,6 +301,7 @@ export default function AdSpyPage() {
           <FilterSelect label="Offer" value={f.offer ?? "any"} onChange={setAny("offer")} options={OFFER} active={!!f.offer} />
           <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
           <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
+          <CpmSetting />
           <Check
             label="Scaling"
             hint="Running 14+ days and still getting budget: views up 10%+ on last week, or engagement above the category's median"
@@ -333,6 +347,7 @@ export default function AdSpyPage() {
 
         {/* Performance */}
         <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect label="EU reach" value={f.reach ?? "any"} onChange={setAny("reach")} options={REACH} active={!!f.reach} />
           <FilterSelect label="Impressions" value={f.impressions ?? "any"} onChange={setAny("impressions")} options={IMPRESSIONS} active={!!f.impressions} />
           <FilterSelect label="Engagement (likes)" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
           <FilterSelect label="Ad score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
@@ -340,6 +355,7 @@ export default function AdSpyPage() {
             <Check label="New ads" hint="First seen in the last 7 days" checked={!!f.newAds} onChange={(v) => set("newAds", v || undefined)} />
             <Check label="Repeated ads" hint="The same creative runs as 2+ ad copies — a scaling signal" checked={!!f.repeated} onChange={(v) => set("repeated", v || undefined)} />
             <Check label="Active now" checked={!!f.active} onChange={(v) => set("active", v || undefined)} />
+            <Check label="EU ads only" hint="Ads Meta publishes EU reach for, so their spend is EU reach × your CPM" checked={!!f.eu} onChange={(v) => set("eu", v || undefined)} />
           </div>
         </div>
         </>
