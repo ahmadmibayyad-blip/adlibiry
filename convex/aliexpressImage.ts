@@ -19,7 +19,7 @@ const usageKey = (day: string) => `picture:${day}`; // shares supplierLookupUsag
 
 export const claim = internalMutation({
   args: { productId: v.id("products"), token: v.string(), limit: v.number() },
-  handler: async (ctx, args): Promise<{ imageUrl: string; price?: number } | { skip: string }> => {
+  handler: async (ctx, args): Promise<{ imageUrl: string; title: string; price?: number } | { skip: string }> => {
     const user = await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", args.token)).unique();
     if (!user) return { skip: "signed out" };
     const p = await ctx.db.get("products", args.productId);
@@ -34,7 +34,7 @@ export const claim = internalMutation({
     if (used) await ctx.db.patch("supplierLookupUsage", used._id, { count: used.count + 1 });
     else await ctx.db.insert("supplierLookupUsage", { day, count: 1 });
     await ctx.db.patch("products", p._id, { pictureLookupAt: now.toISOString() });
-    return { imageUrl: p.imageUrl, ...(p.price ? { price: p.price } : {}) };
+    return { imageUrl: p.imageUrl, title: p.title, ...(p.price ? { price: p.price } : {}) };
   },
 });
 
@@ -76,7 +76,7 @@ export const findByPicture = action({
         console.warn("Picture suppliers: Apify", res.status, (await res.text()).slice(0, 200));
         return { skipped: "search failed" };
       }
-      const matches = fromPictureSearch(await res.json().catch(() => null), c.price);
+      const matches = fromPictureSearch(await res.json().catch(() => null), { price: c.price, title: c.title });
       await ctx.runMutation(internal.aliexpressImage.save, { id: args.productId, matches });
       return { found: matches.length };
     } catch (e) {

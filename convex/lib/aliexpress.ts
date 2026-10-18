@@ -147,12 +147,24 @@ export const PICTURE_SHOWN = 5;
 // Below this share of the product's price a listing is usually a part or accessory.
 export const PICTURE_MIN_PRICE_SHARE = 0.1;
 
+// Listings that look like the product but sell a part of it: "12 Pack Cat Water Fountain Sponge".
+const ACCESSORY = new Set(
+  ("filter sponge replacement refill spare accessory part cover case strap pad cartridge blade nozzle brush head charger cable adapter " +
+    "sticker decal holder stand mount bag pouch").split(" "),
+);
+
+/** True when a look-alike listing names an accessory word the product's own title doesn't have. */
+export function isAccessoryOf(productTitle: string, listingTitle: string): boolean {
+  const own = new Set(titleWords(productTitle));
+  return titleWords(listingTitle).some((w) => ACCESSORY.has(w) && !own.has(w));
+}
+
 export type PictureMatch = { title: string; price: number; url: string; imageUrl?: string; orders?: number };
 
-/** The actor's rows as AliExpress listings: USD, in its order, parts dropped, one per listing. */
-export function fromPictureSearch(items: unknown, productPrice?: number, n = PICTURE_SHOWN): PictureMatch[] {
+/** The actor's rows as AliExpress listings: USD, in its order, parts and accessories dropped, one per listing. */
+export function fromPictureSearch(items: unknown, product: { price?: number; title?: string } = {}, n = PICTURE_SHOWN): PictureMatch[] {
   if (!Array.isArray(items)) return [];
-  const floor = productPrice && productPrice > 0 ? productPrice * PICTURE_MIN_PRICE_SHARE : 0;
+  const floor = product.price && product.price > 0 ? product.price * PICTURE_MIN_PRICE_SHARE : 0;
   const out: PictureMatch[] = [];
   const seen = new Set<string>();
   for (const x of items) {
@@ -161,6 +173,7 @@ export function fromPictureSearch(items: unknown, productPrice?: number, n = PIC
     const url = typeof i.productUrl === "string" ? i.productUrl.split("?")[0] : "";
     if (i.site !== undefined && i.site !== "aliexpress") continue;
     if (typeof i.title !== "string" || !i.title.trim() || !(price > 0) || price < floor) continue;
+    if (product.title && isAccessoryOf(product.title, i.title)) continue;
     if ((i.currency ?? "USD") !== "USD" || !/^https:\/\/([a-z]+\.)?aliexpress\.[a-z.]+\/item\//.test(url) || seen.has(url)) continue;
     seen.add(url);
     const orders = Number(i.tradeCount);
