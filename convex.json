@@ -4,7 +4,8 @@
     "externalPackages": [
       "openai",
       "zod",
-      "@anthropic-ai/sdk"
+      "@anthropic-ai/sdk",
+      "sharp"
     ]
   }
 }

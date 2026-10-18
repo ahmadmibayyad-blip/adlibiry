@@ -43,6 +43,7 @@
     "react-resizable-panels": "^4.12.2",
     "react-router-dom": "^7.18.2",
     "recharts": "^3.10.1",
+    "sharp": "0.34.4",
     "sonner": "^2.0.8",
     "stripe": "^23.0.0",
     "tailwind-merge": "^3.6.0",
