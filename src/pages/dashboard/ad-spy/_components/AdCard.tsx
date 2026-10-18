@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import AdStageBadge from "@/components/AdStageBadge.tsx";
+import { useCpm } from "@/hooks/use-cpm.ts";
+import { adSpend } from "@/lib/euSpend.ts";
 import { isPlayable, tiktokEmbedUrl, tiktokVideoId } from "@/lib/adVideo.ts";
 
 type Ad = Doc<"ads">;
@@ -85,7 +87,9 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
   const [imgFailed, setImgFailed] = useState(false);
   // Play icon only when the popup can actually play it (file or TikTok embed).
   const isVideo = isPlayable(ad);
-  const spend = spendLabel(ad.spendEstimate);
+  const [cpm] = useCpm();
+  const spendInfo = adSpend(ad, cpm, spendLabel);
+  const spend = spendInfo?.value;
   const countries = (ad.countries?.length ? ad.countries : ad.country && ad.country !== "INTL" ? [ad.country] : []).slice(0, 4);
   const moreCountries = (ad.countries?.length ?? 0) - countries.length;
   const domain = domainOf(ad.landingPageUrl);
@@ -230,7 +234,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
           <span className={cn("text-[11px] font-bold", scoreColor(ad.aiScore))}>{ad.aiScore}</span>
         </div>
         {spend && (
-          <div className="absolute bottom-2 left-2 bg-black/65 text-white text-[11px] font-semibold rounded-md px-1.5 py-0.5" title="Estimated ad spend">
+          <div className="absolute bottom-2 left-2 bg-black/65 text-white text-[11px] font-semibold rounded-md px-1.5 py-0.5" title={spendInfo?.note ? `Estimated ad spend: ${spendInfo.note}` : "Estimated ad spend"}>
             {spend}
           </div>
         )}

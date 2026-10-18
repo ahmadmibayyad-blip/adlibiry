@@ -7,11 +7,11 @@ import type { Expression, FilterBuilder, NamedTableInfo } from "convex/server";
 import type { DataModel } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 import type { SiteStats } from "./stats";
-import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import { offerTags } from "./lib/offerTags";
 import { adStage, WINNING_MIN_DAYS } from "./lib/adStage";
+import { estimatedSpendUsd } from "./lib/euSpend";
 
 // ── Ads ───────────────────────────────────────────────────────────────────
 
@@ -25,11 +25,11 @@ const listArgs = {
   search: v.optional(v.string()),
   minDaysRunning: v.optional(v.number()),
   minLikes: v.optional(v.number()),
-  minSpend: v.optional(v.number()), // dollar floor, compared against the ad's honest spend-range ceiling
+  minSpend: v.optional(v.number()), // dollar floor on the est. spend (lib/euSpend.ts: EU reach × cpm, else the source range's ceiling)
   minAiScore: v.optional(v.number()), // 0-100
   source: v.optional(v.string()), // "meta_ad_library" | "curated" | "adlibrary_api"
   gender: v.optional(v.string()), // from ad.targeting.gender, e.g. "All", "Male", "Female"
-  sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" | "longestRunning" | "impressions" | "comments" | "shares" | "lastSeen" | "copies" | "score" | "added" (newest in AdSpy Pro)
+  sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" (= most EU reach) | "euReach" | "longestRunning" | "impressions" | "comments" | "shares" | "lastSeen" | "copies" | "score" | "added" (newest in AdSpy Pro)
   mediaType: v.optional(v.string()), // "video" | "image" | "carousel"
   activeOnly: v.optional(v.boolean()),
   firstSeenWithinDays: v.optional(v.number()),
@@ -47,6 +47,10 @@ const listArgs = {
   language: v.optional(v.string()),
   offer: v.optional(v.string()), // lib/offerTags.ts OfferKind: ads whose text makes that offer ("bxgy", "percent"…)
   stage: v.optional(v.string()), // lib/adStage.ts AdStage: "scaling" | "winning" | "testing"
+  euOnly: v.optional(v.boolean()), // ads with EU reach (Meta's DSA data), the ones with a reach-based spend
+  minReach: v.optional(v.number()), // EU reach range (audience.totalReach)
+  maxReach: v.optional(v.number()),
+  cpm: v.optional(v.number()), // the user's CPM for the spend range, default $9
 };
 
 const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
@@ -85,6 +89,10 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
     if (args.stage) c.push(q.neq(q.field("isActive"), false));
     if (args.stage === "scaling") c.push(q.eq(q.field("isScaling"), true));
     if (args.stage === "winning") c.push(q.gt(q.field("daysRunning"), WINNING_MIN_DAYS));
+    if (args.euOnly) c.push(q.gt(q.field("audience.totalReach"), 0));
+    if (args.minReach !== undefined) c.push(q.gte(q.field("audience.totalReach"), args.minReach));
+    if (args.maxReach !== undefined)
+      c.push(q.and(q.neq(q.field("audience.totalReach"), undefined), q.lte(q.field("audience.totalReach"), args.maxReach)));
     return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
   };
 
@@ -112,7 +120,9 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
     const sorted =
       nicheByAdded ? base.withIndex("by_niche", (q) => q.eq("niche", args.niche!))
       : args.sort === "score" ? base.withIndex("by_score")
-      : args.sort === "impressions" || args.sort === "highestSpend" ? base.withIndex("by_impressions")
+      : args.sort === "impressions" ? base.withIndex("by_impressions")
+      // At one CPM, most EU reach is most est. spend.
+      : args.sort === "highestSpend" || args.sort === "euReach" ? base.withIndex("by_eu_reach")
       : args.sort === "mostLiked" ? base.withIndex("by_likes")
       : args.sort === "longestRunning" ? base.withIndex("by_days")
       : args.sort === "copies" ? base.withIndex("by_copies")
@@ -136,16 +146,16 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
 ${a.bodyText}`).some((t) => t.kind === args.offer));
   }
   if (args.minSpend !== undefined) {
-    page = page.filter((a) => (parseRangeUpperBound(a.spendEstimate) ?? 0) >= args.minSpend!);
+    page = page.filter((a) => (estimatedSpendUsd(a, args.cpm) ?? 0) >= args.minSpend!);
   }
   if (args.maxSpend !== undefined) {
     // Ads with no spend estimate can't be shown as "under $X".
     page = page.filter((a) => {
-      const s = parseRangeUpperBound(a.spendEstimate);
+      const s = estimatedSpendUsd(a, args.cpm);
       return s !== undefined && s <= args.maxSpend!;
     });
   }
-  if (args.stage) page = page.filter((a) => adStage(a) === args.stage);
+  if (args.stage) page = page.filter((a) => adStage(a, args.cpm) === args.stage);
   return { ...result, page };
 };
 
@@ -466,5 +476,39 @@ export const homepagePreview = query({
         views: a.views,
         daysRunning: a.daysRunning,
       }));
+  },
+});
+
+// Ads of one advertiser read for its totals; big pages are counted from these.
+const ADVERTISER_ADS_READ = 500;
+
+/**
+ * An advertiser's (Facebook page's) EU reach over the ads we have of it, for
+ * its estimated spend (reach × the user's CPM, worked out in the app). Like
+ * Minea's page-level spend, but from the ads AdSpy has seen, so it says how many.
+ */
+export const advertiserReach = query({
+  args: { advertiserName: v.string() },
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    const name = args.advertiserName.trim();
+    if (!name || name === "Unknown advertiser") return null;
+    const ads = await ctx.db
+      .query("ads")
+      .withIndex("by_advertiser", (q) => q.eq("advertiserName", name))
+      .take(ADVERTISER_ADS_READ + 1);
+    const read = ads.slice(0, ADVERTISER_ADS_READ);
+    let reach = 0;
+    let euAds = 0;
+    let activeAds = 0;
+    for (const a of read) {
+      const r = a.audience?.totalReach ?? 0;
+      if (r > 0) {
+        reach += r;
+        euAds += 1;
+      }
+      if (a.isActive) activeAds += 1;
+    }
+    return { ads: read.length, more: ads.length > ADVERTISER_ADS_READ, euAds, activeAds, reach };
   },
 });

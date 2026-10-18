@@ -1,12 +1,13 @@
 // An ad's stage, the label shown on its card: Scaling, Winning or Testing.
 // WinningHunter-style rules on the numbers we have:
 // - Scaling: what the pipeline already marks (lib/scaling.ts).
-// - Winning: running more than 7 days with estimated spend of $100+ (the top
-//   of the ad's spend range, like the Ad spend filter).
+// - Winning: running more than 7 days with estimated spend of $100+, the same
+//   figure as the card's spend (lib/euSpend.ts: EU reach × the user's CPM, else
+//   the top of the source's range).
 // - Testing: still live and either 7 days old or less, or under 1,000 views.
 // Stopped ads and ones that fit none of these get no label. Pure, unit tested.
 import { parseCompact } from "./productMatch";
-import { parseRangeUpperBound } from "./rangeParsing";
+import { estimatedSpendUsd } from "./euSpend";
 
 export type AdStage = "scaling" | "winning" | "testing";
 
@@ -27,10 +28,11 @@ export function adStage(a: {
   spendEstimate?: string;
   impressions?: number;
   views?: string;
-}): AdStage | undefined {
+  audience?: { totalReach?: number } | null;
+}, cpm?: number): AdStage | undefined {
   if (a.isActive === false) return undefined;
   if (a.isScaling) return "scaling";
-  const spend = a.spendEstimate ? parseRangeUpperBound(a.spendEstimate) : undefined;
+  const spend = estimatedSpendUsd(a, cpm);
   if (a.daysRunning > WINNING_MIN_DAYS && (spend ?? 0) >= WINNING_MIN_SPEND) return "winning";
   const views = a.impressions ?? parseCompact(a.views);
   if (a.daysRunning <= WINNING_MIN_DAYS || (views !== undefined && views < TESTING_MAX_VIEWS)) return "testing";

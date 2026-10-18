@@ -15,6 +15,12 @@ describe("adStage", () => {
     expect(adStage({ ...ad, daysRunning: 7 })).toBe("testing");
   });
 
+  it("uses the EU reach spend at the user's CPM when the ad has EU reach", () => {
+    const eu = { daysRunning: 20, spendEstimate: "Unknown", views: "40K", audience: { totalReach: 10_000 } };
+    expect(adStage(eu, 9)).toBeUndefined(); // 10K reach × $9 CPM = $90
+    expect(adStage(eu, 11)).toBe("winning"); // × $11 = $110
+  });
+
   it("calls new or barely seen live ads Testing", () => {
     expect(adStage({ daysRunning: 2, spendEstimate: "Unknown", views: "0" })).toBe("testing");
     expect(adStage({ daysRunning: 30, spendEstimate: "Unknown", impressions: 400 })).toBe("testing");
