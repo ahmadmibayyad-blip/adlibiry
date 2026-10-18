@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
+import { useCpm } from "@/hooks/use-cpm.ts";
+import { adSpend } from "@/lib/euSpend.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 import SameCreative from "../../_components/SameCreative.tsx";
 import LooksSimilar from "../../_components/LooksSimilar.tsx";
@@ -84,6 +86,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
   const isSaved = useQuery(api.ads.isAdSaved, ad ? { adId: ad._id } : "skip");
   const toggleSave = useMutation(api.ads.toggleSaveAd);
   const amazonMatches = useQuery(api.products.listNexscopeProductsByNiche, ad ? { niche: ad.niche } : "skip");
+  const [cpm] = useCpm();
 
   if (!ad) return null;
 
@@ -96,7 +99,8 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
     }
   };
 
-  const spend = spendLabel(ad.spendEstimate);
+  const spendInfo = adSpend(ad, cpm, spendLabel);
+  const spend = spendInfo?.value;
   const domain = domainOf(ad.landingPageUrl);
   const aud = ad.audience;
   const ages = aud?.ages ?? [];
@@ -195,7 +199,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                 { icon: Heart, label: "Likes", value: ad.likes > 0 ? compactNumber(ad.likes) : undefined },
                 { icon: MessageCircle, label: "Comments", value: ad.comments ? compactNumber(ad.comments) : undefined },
                 { icon: Share2, label: "Shares", value: ad.shares ? compactNumber(ad.shares) : undefined },
-                { icon: DollarSign, label: "Est. spend", value: spend ?? undefined },
+                { icon: DollarSign, label: spendInfo?.basis === "eu-reach" ? "Est. EU spend" : "Est. spend", value: spend },
                 { icon: Users, label: "Reach", value: aud?.totalReach ? compactNumber(aud.totalReach) : undefined },
                 { icon: Calendar, label: "Days running", value: ad.daysRunning > 0 ? `${ad.daysRunning}` : undefined },
                 { icon: Trophy, label: "Rank on page", value: ad.pageRank && (ad.pageActiveAds ?? 0) > 1 ? `#${ad.pageRank} of ${ad.pageActiveAds}` : undefined },

@@ -311,6 +311,7 @@ export default defineSchema({
     .index("by_niche", ["niche"])
     .index("by_score", ["aiScore"])
     .index("by_impressions", ["impressions"])
+    .index("by_eu_reach", ["audience.totalReach"]) // spend sort: EU spend = reach × CPM (lib/euSpend.ts)
     .index("by_likes", ["likes"])
     .index("by_days", ["daysRunning"])
     .index("by_copies", ["relatedAdsCount"])
