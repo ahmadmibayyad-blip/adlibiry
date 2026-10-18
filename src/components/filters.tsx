@@ -1,7 +1,10 @@
 // Shared building blocks for the WinningHunter-style filter panels
 // (Ad Spy, Winning Products): chips, checkboxes, range helpers and
-// per-browser saved searches.
-import { useState } from "react";
+// saved searches (on the account).
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api.js";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import { Bookmark, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
@@ -37,7 +40,8 @@ export function Check({ label, checked, onChange, hint }: { label: string; check
 
 type Saved<F> = { name: string; filters: F; search: string };
 
-// "Save current search" + "Saved searches (n)" — stored per browser.
+// "Save current search" + "Saved searches (n)": kept on the account (convex/savedSearches.ts), so they show on every device.
+// Searches this browser saved before that (localStorage under `storageKey`) are copied to the account once.
 export function SavedSearches<F>({
   storageKey,
   filters,
@@ -49,24 +53,46 @@ export function SavedSearches<F>({
   search: string;
   onApply: (filters: F, search: string) => void;
 }) {
-  const [saved, setSaved] = useState<Saved<F>[]>(() => readJson<Saved<F>[]>(storageKey, []));
+  const remote = useQuery(api.savedSearches.list, { page: storageKey });
+  const saveRemote = useMutation(api.savedSearches.save);
+  const removeRemote = useMutation(api.savedSearches.remove);
+  const importLocal = useMutation(api.savedSearches.importLocal);
+  const saved = (remote ?? []) as Saved<F>[];
   const [name, setName] = useState("");
   const [open, setOpen] = useState(false);
+  const copied = useRef(false);
 
-  const save = () => {
+  useEffect(() => {
+    if (remote === undefined || remote === null || copied.current) return;
+    copied.current = true;
+    const doneKey = `${storageKey}.onAccount`;
+    if (readJson<boolean>(doneKey, false)) return;
+    const local = readJson<Saved<F>[]>(storageKey, []);
+    if (!local.length) {
+      writeJson(doneKey, true);
+      return;
+    }
+    importLocal({ page: storageKey, items: local.map((l) => ({ name: l.name, filters: l.filters, search: l.search ?? "" })) })
+      .then(() => writeJson(doneKey, true))
+      .catch(() => {
+        copied.current = false;
+      });
+  }, [remote, storageKey, importLocal]);
+
+  const save = async () => {
     const n = name.trim();
     if (!n) return;
-    const next = [{ name: n, filters, search }, ...saved.filter((s) => s.name !== n)].slice(0, 20);
-    setSaved(next);
-    writeJson(storageKey, next);
-    setName("");
-    setOpen(false);
-    toast.success(`Saved "${n}"`);
+    try {
+      await saveRemote({ page: storageKey, name: n, filters, search });
+      setName("");
+      setOpen(false);
+      toast.success(`Saved "${n}"`);
+    } catch (e) {
+      toast.error(errorMessage(e, "Couldn't save the search"));
+    }
   };
   const remove = (n: string) => {
-    const next = saved.filter((s) => s.name !== n);
-    setSaved(next);
-    writeJson(storageKey, next);
+    removeRemote({ page: storageKey, name: n }).catch((e) => toast.error(errorMessage(e, "Couldn't delete it")));
   };
 
   return (
@@ -82,7 +108,7 @@ export function SavedSearches<F>({
             className="flex gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              save();
+              void save();
             }}
           >
             <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. DK pets video" className="h-8 text-xs" />

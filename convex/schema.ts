@@ -512,6 +512,16 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_and_ad", ["userId", "adId"]),
 
+  // Saved filter sets per page (convex/savedSearches.ts), on the account so they follow the user to any device.
+  savedSearches: defineTable({
+    userId: v.id("users"),
+    page: v.string(),     // the page's key, e.g. "adspy.savedSearches"
+    name: v.string(),
+    filters: v.any(),     // that page's filter object, as the page saved it
+    search: v.string(),
+    savedAt: v.string(),  // ISO 8601 UTC
+  }).index("by_user_page", ["userId", "page", "savedAt"]),
+
   // Named collections (convex/collections.ts): the user's own folders of ads,
   // stores and products, e.g. "Pet winners" or "Test next week".
   collections: defineTable({
