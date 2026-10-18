@@ -721,6 +721,16 @@ export default defineSchema({
   googleAdRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
   // "Transcribe video" runs per user (transcripts.transcribe), for its daily limit.
   transcribeRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
+  // Video ad analysis (videoAnalysis.ts, Apify): one per ad, shared by everyone; and who started one when, for the daily limits.
+  videoAnalyses: defineTable({
+    adId: v.id("ads"),
+    status: v.string(), // "running" | "done" | "failed"
+    result: v.optional(v.any()), // lib/videoAnalysis.ts Analysis
+    error: v.optional(v.string()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  }).index("by_ad", ["adId"]),
+  analyzeRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]).index("by_at", ["at"]),
   // PageSpeed results per store (storeSpeed.ts), and YouTube searches per day (youtube.ts).
   storeSpeeds: defineTable({ host: v.string(), result: v.any(), at: v.number() }).index("by_host", ["host"]),
   youtubeUsage: defineTable({ day: v.string(), count: v.number() }).index("by_day", ["day"]),

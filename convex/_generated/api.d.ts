@@ -158,6 +158,8 @@ import type * as transcripts from "../transcripts.js";
 import type * as transcriptsAi from "../transcriptsAi.js";
 import type * as trends from "../trends.js";
 import type * as users from "../users.js";
+import type * as videoAnalysis from "../videoAnalysis.js";
+import type * as videoAnalysisAi from "../videoAnalysisAi.js";
 import type * as videoDownload from "../videoDownload.js";
 import type * as winners from "../winners.js";
 import type * as winninghunter from "../winninghunter.js";
@@ -320,6 +322,8 @@ declare const fullApi: ApiFromModules<{
   transcriptsAi: typeof transcriptsAi;
   trends: typeof trends;
   users: typeof users;
+  videoAnalysis: typeof videoAnalysis;
+  videoAnalysisAi: typeof videoAnalysisAi;
   videoDownload: typeof videoDownload;
   winners: typeof winners;
   winninghunter: typeof winninghunter;
