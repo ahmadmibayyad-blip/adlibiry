@@ -265,6 +265,8 @@ export default defineSchema({
     productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
     imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
     isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
+    pageRank: v.optional(v.number()),         // rank among the advertiser's live ads, 1 = most views (lib/adRank.ts); unset when stopped
+    pageActiveAds: v.optional(v.number()),    // how many ads that advertiser has live
     sources: v.optional(v.array(v.string())), // every source that has delivered this ad
     sourceFields: v.optional(v.object({ live: v.optional(v.object({ source: v.string(), at: v.string() })), advertiser: v.optional(v.object({ source: v.string(), at: v.string() })), engagement: v.optional(v.object({ source: v.string(), at: v.string() })) })), // who wrote each field group
     landingHost: v.optional(v.string()),      // shop domain of the landing page (not marketplaces), ties ads to tracked stores
@@ -392,6 +394,9 @@ export default defineSchema({
     gmv: v.number(),
     trend: v.optional(v.string()),
     saturation: v.optional(v.string()),
+    // Ads only: rank among the advertiser's live ads (1 = most views) and how many are live (lib/adRank.ts).
+    rank: v.optional(v.number()),
+    rankOf: v.optional(v.number()),
   })
     .index("by_entity_day", ["kind", "entityId", "day"])
     .index("by_day", ["day"]),

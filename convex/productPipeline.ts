@@ -27,6 +27,7 @@ import {
   SAME_TITLE_MIN, storeHost, titleSimilarity,
 } from "./lib/productMatch";
 import { shouldWriteSnapshot } from "./lib/snapshots";
+import { MAX_ADS_PER_ADVERTISER, UNKNOWN_ADVERTISER, rankAdvertiserAds } from "./lib/adRank";
 import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/imageHash";
 import { WINNERS_ROUND_DAYS, addDays, daysBetween, pickNicheMix } from "./lib/winnerMix";
 
@@ -61,7 +62,7 @@ const MAX_WINNER_CANDIDATES = 400; // per niche, so one mutation stays within re
 
 export const STAGES = [
   "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
-  "winners", "fusion", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails",
+  "winners", "fusion", "snapshotProducts", "rankAds", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails",
 ] as const;
 type Stage = (typeof STAGES)[number] | "done";
 const NEXT: Record<Stage, Stage> = {
@@ -76,7 +77,8 @@ const NEXT: Record<Stage, Stage> = {
   calibrateApply: "winners",
   winners: "fusion",
   fusion: "snapshotProducts",
-  snapshotProducts: "snapshotAds",
+  snapshotProducts: "rankAds",
+  rankAds: "snapshotAds",
   snapshotAds: "prune",
   prune: "alerts",
   alerts: "storeAds",
@@ -472,6 +474,11 @@ export const step = internalMutation({
         counts.snapshots += page.page.length;
         done = page.isDone;
         cursor = page.continueCursor;
+      } else if (stage === "rankAds") {
+        // One advertiser at a time, in name order; the cursor is the last name done.
+        const r = await rankAdvertisers(ctx, args.cursor);
+        done = r.done;
+        cursor = r.cursor;
       } else if (stage === "snapshotAds") {
         const page = await ctx.db.query("ads").paginate({ numItems: 200, cursor: args.cursor });
         const medians = await engagementMedians(ctx);
@@ -491,7 +498,7 @@ export const step = internalMutation({
             nicheMedianEngagement: medians[ad.niche],
           });
           if ((ad.isScaling ?? false) !== scaling) await ctx.db.patch("ads", ad._id, { isScaling: scaling });
-          await upsertSnapshot(ctx, args.day, "ad", ad._id, { score: ad.aiScore, adsRunning: 1, ...n });
+          await upsertSnapshot(ctx, args.day, "ad", ad._id, { score: ad.aiScore, adsRunning: 1, ...n, rank: ad.pageRank, rankOf: ad.pageActiveAds });
         }
         counts.snapshots += page.page.length;
         done = page.isDone;
@@ -1086,6 +1093,40 @@ export async function pruneWinners(ctx: MutationCtx): Promise<number> {
     await clearWinner(ctx, r.productId);
   }
   return kept;
+}
+
+// Ad reads per rankAds step (well inside a mutation's read limits).
+const RANK_READS_PER_STEP = 1500;
+
+// Ranks each advertiser's live ads (lib/adRank.ts) and saves pageRank /
+// pageActiveAds on the ads, writing only what changed. Stopped ads lose their rank.
+async function rankAdvertisers(ctx: MutationCtx, after: string | null): Promise<{ done: boolean; cursor: string | null }> {
+  let cursor = after;
+  let reads = 0;
+  while (reads < RANK_READS_PER_STEP) {
+    const next = await ctx.db
+      .query("ads")
+      .withIndex("by_advertiser", (q) => (cursor === null ? q : q.gt("advertiserName", cursor)))
+      .first();
+    if (!next) return { done: true, cursor };
+    cursor = next.advertiserName;
+    reads++;
+    if (cursor === UNKNOWN_ADVERTISER) continue;
+    const name = cursor;
+    const ads = await ctx.db
+      .query("ads")
+      .withIndex("by_advertiser", (q) => q.eq("advertiserName", name))
+      .take(MAX_ADS_PER_ADVERTISER);
+    reads += ads.length;
+    const ranks = rankAdvertiserAds(ads.map((a) => ({ id: a._id, isActive: a.isActive, views: adNumbers(a).views, daysRunning: a.daysRunning })));
+    for (const ad of ads) {
+      const r = ranks.get(ad._id);
+      if (ad.pageRank !== r?.rank || ad.pageActiveAds !== r?.of) {
+        await ctx.db.patch("ads", ad._id, { pageRank: r?.rank, pageActiveAds: r?.of });
+      }
+    }
+  }
+  return { done: false, cursor };
 }
 
 type SnapshotValues = Omit<Doc<"dailySnapshots">, "_id" | "_creationTime" | "day" | "kind" | "entityId">;

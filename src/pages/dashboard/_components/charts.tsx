@@ -124,6 +124,7 @@ export function TimeChart({
   format = compactNumber,
   reference,
   domain,
+  reversed,
 }: {
   kind: "area" | "bar" | "line";
   points: Point[];
@@ -132,13 +133,15 @@ export function TimeChart({
   format?: (n: number) => string;
   reference?: { y: number; label: string };
   domain?: [number, number];
+  // Rank charts: 1 at the top, whole numbers only.
+  reversed?: boolean;
 }) {
   const data = points.map((p) => ({ ...p, label: dayLabel(p.day) }));
   const common = (
     <>
       <CartesianGrid vertical={false} stroke="var(--border)" />
       <XAxis dataKey="label" {...axisProps} minTickGap={24} />
-      <YAxis {...axisProps} width={56} tickFormatter={(v: number) => format(v)} domain={domain} />
+      <YAxis {...axisProps} width={56} tickFormatter={(v: number) => format(v)} domain={domain} reversed={reversed} allowDecimals={!reversed} />
       <ChartTooltip
         cursor={kind === "bar" ? { fill: "var(--muted)", opacity: 0.5 } : { stroke: "var(--muted-foreground)", strokeWidth: 1 }}
         content={
