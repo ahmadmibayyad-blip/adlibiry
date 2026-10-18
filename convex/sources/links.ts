@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { richAdFields, defined } from "../lib/adFields";
+import { richAdFields, defined, mergeAudience } from "../lib/adFields";
 import { fuseAd } from "../lib/fusion";
 import { logConflicts } from "../sourceConflicts";
 import { storeHost } from "../lib/productMatch";
@@ -66,6 +66,7 @@ export async function upsertAd(
       if (existing) {
         const fused = fuseAd(existing, fields, source, now.slice(0, 10));
         for (const k of fused.drop) delete (fields as Record<string, unknown>)[k];
+        if (fields.audience) fields.audience = mergeAudience(existing.audience, fields.audience);
         await logConflicts(ctx, "ad", adId, fused.conflicts, now.slice(0, 10));
         // Which shop it sends people to, now rather than at the nightly pipeline (Store Inspector's AI reads it).
         const host = storeHost(fields.landingPageUrl ?? existing.landingPageUrl) ?? undefined;

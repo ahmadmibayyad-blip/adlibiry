@@ -23,11 +23,32 @@ export const richAdFields = {
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
       femalePct: v.optional(v.number()),
-      ages: v.array(v.object({ bracket: v.string(), pct: v.number() })),
+      // malePct/femalePct: that bracket's own gender split (Meta's EU breakdown only).
+      ages: v.array(v.object({ bracket: v.string(), pct: v.number(), malePct: v.optional(v.number()), femalePct: v.optional(v.number()) })),
       countries: v.array(v.object({ code: v.string(), pct: v.number() })),
     }),
   ),
 };
+
+type Audience = {
+  totalReach?: number;
+  malePct?: number;
+  femalePct?: number;
+  ages: { bracket: string; pct: number; malePct?: number; femalePct?: number }[];
+  countries: { code: string; pct: number }[];
+};
+const hasBreakdown = (a: Audience | undefined) => !!a && (a.ages.length > 0 || a.countries.length > 0 || a.malePct !== undefined);
+
+/**
+ * The audience to store when a source re-imports an ad: a reach-only audience
+ * (no ages, countries or gender) never replaces a stored breakdown; it only
+ * updates its total reach.
+ */
+export function mergeAudience(existing: Audience | undefined, incoming: Audience | undefined): Audience | undefined {
+  if (!incoming) return existing;
+  if (hasBreakdown(incoming) || !hasBreakdown(existing)) return incoming;
+  return { ...existing!, ...(incoming.totalReach ? { totalReach: incoming.totalReach } : {}) };
+}
 
 // Drop undefined keys so patches never erase data with "undefined".
 export function defined<T extends Record<string, unknown>>(o: T): Partial<T> {
@@ -35,6 +56,6 @@ export function defined<T extends Record<string, unknown>>(o: T): Partial<T> {
 }
 
 export const numOrUndef = (x: unknown): number | undefined => {
-  const n = typeof x === "number" ? x : typeof x === "string" && x.trim() ? Number(x.replace(/[^0-9.\-]/g, "")) : NaN;
+  const n = typeof x === "number" ? x : typeof x === "string" && x.trim() ? Number(x.replace(/[^0-9.-]/g, "")) : NaN;
   return Number.isFinite(n) ? n : undefined;
 };

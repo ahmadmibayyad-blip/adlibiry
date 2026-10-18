@@ -276,7 +276,7 @@ export default defineSchema({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
       femalePct: v.optional(v.number()),
-      ages: v.array(v.object({ bracket: v.string(), pct: v.number() })),
+      ages: v.array(v.object({ bracket: v.string(), pct: v.number(), malePct: v.optional(v.number()), femalePct: v.optional(v.number()) })),
       countries: v.array(v.object({ code: v.string(), pct: v.number() })),
     })),
   })

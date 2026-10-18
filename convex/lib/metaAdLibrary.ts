@@ -15,6 +15,13 @@ export type MetaArchiveAd = {
   publisher_platforms?: string[];
   languages?: string[];
   eu_total_reach?: number;
+  // EU/UK reach per country, split by age bracket and gender (DSA transparency).
+  age_country_gender_reach_breakdown?: MetaReachBreakdown[];
+};
+
+export type MetaReachBreakdown = {
+  country?: string;
+  age_gender_breakdowns?: { age_range?: string; male?: number | string; female?: number | string; unknown?: number | string }[];
 };
 
 export const META_FIELDS = [
@@ -28,7 +35,61 @@ export const META_FIELDS = [
   "publisher_platforms",
   "languages",
   "eu_total_reach",
+  "age_country_gender_reach_breakdown",
 ].join(",");
+
+const pct1 = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0);
+const reachNum = (x: unknown) => {
+  const n = typeof x === "number" ? x : Number(x);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+/**
+ * Meta's per-country age × gender reach as our `audience`: overall male/female
+ * share, each age bracket's share (with its own male/female split) and the
+ * top countries. Undefined when Meta sent no breakdown or it sums to zero.
+ */
+export function metaAudience(breakdown: MetaReachBreakdown[] | undefined, euReach?: number) {
+  if (!Array.isArray(breakdown) || !breakdown.length) return undefined;
+  let male = 0;
+  let female = 0;
+  let total = 0;
+  const ages = new Map<string, { total: number; male: number; female: number }>();
+  const countries = new Map<string, number>();
+  for (const c of breakdown) {
+    const raw = String(c?.country ?? "").trim().toUpperCase();
+    const code = raw === "UK" ? "GB" : raw;
+    for (const row of Array.isArray(c?.age_gender_breakdowns) ? c.age_gender_breakdowns : []) {
+      const m = reachNum(row?.male);
+      const f = reachNum(row?.female);
+      const sum = m + f + reachNum(row?.unknown);
+      if (!sum) continue;
+      male += m;
+      female += f;
+      total += sum;
+      const bracket = String(row?.age_range ?? "").trim();
+      if (bracket && !/unknown/i.test(bracket)) {
+        const a = ages.get(bracket) ?? { total: 0, male: 0, female: 0 };
+        ages.set(bracket, { total: a.total + sum, male: a.male + m, female: a.female + f });
+      }
+      if (code) countries.set(code, (countries.get(code) ?? 0) + sum);
+    }
+  }
+  if (!total) return undefined;
+  const lowerAge = (b: string) => Number(b.match(/\d+/)?.[0] ?? 999);
+  return {
+    totalReach: euReach && euReach > 0 ? euReach : total,
+    malePct: pct1(male, total),
+    femalePct: pct1(female, total),
+    ages: [...ages.entries()]
+      .sort(([a], [b]) => lowerAge(a) - lowerAge(b))
+      .map(([bracket, a]) => ({ bracket, pct: pct1(a.total, total), malePct: pct1(a.male, a.total), femalePct: pct1(a.female, a.total) })),
+    countries: [...countries.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([code, n]) => ({ code, pct: pct1(n, total) })),
+  };
+}
 
 // What we search for in each niche.
 export const META_SEARCH_TERMS: Record<string, string> = {
@@ -81,6 +142,7 @@ export function metaAdToExternal(ad: MetaArchiveAd, country: string, niche: stri
     countries: [country],
     language: ad.languages?.[0],
     adLibraryUrl: `https://www.facebook.com/ads/library/?id=${encodeURIComponent(ad.id)}`,
+    audience: metaAudience(ad.age_country_gender_reach_breakdown, reach),
   };
 }
 

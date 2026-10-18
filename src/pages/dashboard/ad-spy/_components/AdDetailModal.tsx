@@ -59,6 +59,23 @@ function Bar({ label, pct, className }: { label: string; pct: number; className?
   );
 }
 
+// An age bracket's share of reach, the bar split by that bracket's own men/women share.
+function AgeGenderBar({ label, pct, malePct, femalePct }: { label: string; pct: number; malePct: number; femalePct: number }) {
+  const w = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="flex items-center gap-2 text-xs" title={`${label}: ${w.toFixed(1)}% of reach · men ${malePct.toFixed(0)}% · women ${femalePct.toFixed(0)}%`}>
+      <span className="w-14 shrink-0 text-muted-foreground">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+        <div className="flex h-full rounded-full overflow-hidden" style={{ width: `${w}%` }}>
+          <div className="bg-blue-500" style={{ width: `${malePct}%` }} />
+          <div className="bg-pink-500" style={{ width: `${femalePct}%` }} />
+        </div>
+      </div>
+      <span className="w-10 text-right tabular-nums">{w.toFixed(0)}%</span>
+    </div>
+  );
+}
+
 // Percentages may arrive as fractions (0.42) or whole numbers (42).
 const pct = (n: number | undefined) => (n === undefined ? 0 : n <= 1 ? n * 100 : n);
 export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | null; open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -81,6 +98,8 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
   const domain = domainOf(ad.landingPageUrl);
   const aud = ad.audience;
   const ages = aud?.ages ?? [];
+  // Meta's EU/UK breakdown gives each bracket its own gender split.
+  const agesByGender = ages.length > 0 && ages.every((a) => a.malePct !== undefined && a.femalePct !== undefined);
   const audCountries = (aud?.countries ?? []).slice(0, 8);
   const male = pct(aud?.malePct);
   const female = pct(aud?.femalePct);
@@ -225,7 +244,19 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                   <span className="font-medium">{ad.targeting.gender}</span>
                 </div>
               )}
-              {ages.length > 0 ? (
+              {agesByGender ? (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Age and gender (EU/UK reach)</span>
+                    <span>
+                      <span className="text-blue-400">■</span> Men <span className="text-pink-400 ml-1.5">■</span> Women
+                    </span>
+                  </div>
+                  {ages.map((a) => (
+                    <AgeGenderBar key={a.bracket} label={a.bracket} pct={a.pct} malePct={a.malePct!} femalePct={a.femalePct!} />
+                  ))}
+                </div>
+              ) : ages.length > 0 ? (
                 <div className="space-y-1.5">
                   <div className="text-xs text-muted-foreground">Age</div>
                   {ages.map((a) => (
