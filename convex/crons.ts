@@ -118,6 +118,8 @@ crons.daily("look up supplier costs on AliExpress", { hourUTC: 7, minuteUTC: 55 
 // Video ad transcripts → spoken hooks — only runs when DEEPGRAM_API_KEY is set
 // (convex/transcripts.ts).
 crons.daily("transcribe video ads", { hourUTC: 10, minuteUTC: 40 }, internal.importRuns.run, { job: "transcripts" });
+// Listed stores' theme, apps and pixels for the Stores filters (convex/storeTech.ts).
+crons.daily("read store tech", { hourUTC: 11, minuteUTC: 10 }, internal.importRuns.run, { job: "storeTech" });
 
 // Ad images → vectors for "Looks similar" — only runs when VOYAGE_API_KEY is set
 // (convex/adEmbeddingsAction.ts). After the morning imports and the pipeline.

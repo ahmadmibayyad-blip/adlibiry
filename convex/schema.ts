@@ -288,6 +288,8 @@ export default defineSchema({
     transcript: v.optional(v.string()),
     spokenHook: v.optional(v.string()),
     transcriptCheckedAt: v.optional(v.string()),
+    // AI translations of the transcript, by language name ("English": "…"), made on request (transcriptsAi.ts).
+    transcriptTranslations: v.optional(v.record(v.string(), v.string())),
     audience: v.optional(v.object({
       totalReach: v.optional(v.number()),
       malePct: v.optional(v.number()),
@@ -580,6 +582,14 @@ export default defineSchema({
     // Reviews gained per week on its best-selling products (weekly check).
     reviews: v.optional(v.object({ checkedAt: v.string(), perWeek: v.optional(v.number()) })),
     host: v.optional(v.string()),            // "shop.com" (set on catalog checks), for lookups by address
+    // Theme, apps and pixels from its home page (lib/storeTech.ts), for the Stores page's filters.
+    tech: v.optional(v.object({
+      checkedAt: v.string(),
+      ok: v.boolean(),
+      theme: v.optional(v.string()),
+      apps: v.array(v.string()),
+      pixels: v.array(v.string()),
+    })),
     revenueConfidence: v.optional(v.string()), // "High" | "Medium" for estimatedRevenueRange (lib/revenueModel.ts)
   })
     .index("by_host", ["host"])

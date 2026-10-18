@@ -81,6 +81,13 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   shows spend = reach ÷ 1,000 × CPM, like Minea ($9) and WinningHunter ($11); others keep their source's `spendEstimate`. The CPM is the user's
   (Ad Spy → CPM box, localStorage `adspy-cpm`, default 9) and goes to `ads.list` as `cpm` for the spend filter. "Highest est. spend" sorts by
   the `by_eu_reach` index. `ads.advertiserReach` totals an advertiser's EU reach over the ads we have (ad page line).
+- Video transcripts (`transcripts.ts`, Deepgram, `DEEPGRAM_API_KEY`) show on the ad page ("What's said", `AdTranscript.tsx`) with the spoken hook;
+  Translate (`transcriptsAi.translate`, languages in `lib/transcriptLanguages.ts`) keeps each language on the ad (`transcriptTranslations`), so a
+  language is translated once for everyone; a new one counts against the AI daily limit.
+- Store tech (`storeTech.ts`, `lib/storeTech.ts`): the daily "storeTech" job reads up to 60 listed stores' home pages (plain fetch, no browser)
+  and saves theme, apps and pixels on `stores.tech` (again after 30 days; a failed read keeps the last good one). A Store Inspector run copies
+  its result onto the store with the same `host`. Stores page filters Theme / Uses app / Pixel (`stores.list` theme/app/pixel, options from
+  `stores.techOptions`); stores not read yet don't match them.
 - Offer Search (`convex/offerSearch.ts`, `/dashboard/offer-search`) searches Meta's Ad Library for an offer in the country's
   language through Apify (trigger "offer", counted against `APIFY_DAILY_BUDGET_USD`); its ads also land in Ad Spy.
   Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.

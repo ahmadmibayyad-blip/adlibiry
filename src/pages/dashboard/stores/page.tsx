@@ -41,6 +41,10 @@ export default function StoreTrackerPage() {
   const [minActiveAds, setMinActiveAds] = useState("");
   const [country, setCountry] = useState<string | undefined>(undefined);
   const [highTrafficOnly, setHighTrafficOnly] = useState(false);
+  // Read from the stores' home pages (stores.tech): theme, an app, a tracking pixel.
+  const [theme, setTheme] = useState<string | undefined>(undefined);
+  const [app, setApp] = useState<string | undefined>(undefined);
+  const [pixel, setPixel] = useState<string | undefined>(undefined);
   const [selectedStore, setSelectedStore] = useState<StoreDoc | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<Array<StoreDoc["_id"]>>([]);
@@ -61,6 +65,7 @@ export default function StoreTrackerPage() {
 
   const niches = useQuery(api.stores.getNiches, {});
   const recentlySpotted = useQuery(api.stores.getRecentlySpotted, {});
+  const tech = useQuery(api.stores.techOptions, {});
   const newlyDiscovered = useQuery(api.stores.getNewlyDiscovered, {});
   const trackedStores = useQuery(api.stores.getTrackedStores, {});
   const seedStores = useMutation(api.stores.seedStores);
@@ -113,6 +118,9 @@ export default function StoreTrackerPage() {
     parsedMinActiveAds,
     country,
     highTrafficOnly ? true : undefined,
+    theme,
+    app,
+    pixel,
   ].filter((v) => v !== undefined && !(typeof v === "number" && Number.isNaN(v))).length;
 
   const { results, status, loadMore } = usePaginatedQuery(
@@ -125,6 +133,9 @@ export default function StoreTrackerPage() {
       minActiveAds: parsedMinActiveAds,
       country,
       highTrafficOnly: highTrafficOnly || undefined,
+      theme,
+      app,
+      pixel,
     },
     { initialNumItems: 12 }
   );
@@ -145,6 +156,9 @@ export default function StoreTrackerPage() {
     setMinActiveAds("");
     setCountry(undefined);
     setHighTrafficOnly(false);
+    setTheme(undefined);
+    setApp(undefined);
+    setPixel(undefined);
   };
 
   const toggleCompare = (id: StoreDoc["_id"]) => {
@@ -370,6 +384,34 @@ export default function StoreTrackerPage() {
             active={highTrafficOnly}
             onToggle={() => setHighTrafficOnly((v) => !v)}
           />
+          {/* Only what's been seen on listed stores; filled in daily as their home pages are read. */}
+          {tech && tech.themes.length > 0 && (
+            <FilterSelect
+              label="Theme"
+              value={theme ?? "any"}
+              onChange={(v) => setTheme(v === "any" ? undefined : v)}
+              options={[{ value: "any", label: "Any theme" }, ...tech.themes.map((t) => ({ value: t.value, label: `${t.value} (${t.n})` }))]}
+              active={!!theme}
+            />
+          )}
+          {tech && tech.apps.length > 0 && (
+            <FilterSelect
+              label="Uses app"
+              value={app ?? "any"}
+              onChange={(v) => setApp(v === "any" ? undefined : v)}
+              options={[{ value: "any", label: "Any app" }, ...tech.apps.map((a) => ({ value: a.value, label: `${a.value} (${a.n})` }))]}
+              active={!!app}
+            />
+          )}
+          {tech && tech.pixels.length > 0 && (
+            <FilterSelect
+              label="Pixel"
+              value={pixel ?? "any"}
+              onChange={(v) => setPixel(v === "any" ? undefined : v)}
+              options={[{ value: "any", label: "Any pixel" }, ...tech.pixels.map((p) => ({ value: p.value, label: `${p.value} (${p.n})` }))]}
+              active={!!pixel}
+            />
+          )}
           {activeFilterCount > 0 && (
             <button
               onClick={handleClearFilters}

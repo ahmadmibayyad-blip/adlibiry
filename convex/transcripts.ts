@@ -81,3 +81,23 @@ export const dailyTranscripts = internalAction({
     return out;
   },
 });
+
+// ── Translation (transcriptsAi.translate) ───────────────────────────────────
+
+export const forTranslation = internalQuery({
+  args: { id: v.id("ads") },
+  handler: async (ctx, args) => {
+    const ad = await ctx.db.get("ads", args.id);
+    if (!ad?.transcript) return null;
+    return { transcript: ad.transcript, translations: ad.transcriptTranslations ?? {} };
+  },
+});
+
+export const saveTranslation = internalMutation({
+  args: { id: v.id("ads"), language: v.string(), text: v.string() },
+  handler: async (ctx, args) => {
+    const ad = await ctx.db.get("ads", args.id);
+    if (!ad) return;
+    await ctx.db.patch("ads", args.id, { transcriptTranslations: { ...(ad.transcriptTranslations ?? {}), [args.language]: args.text.slice(0, 6000) } });
+  },
+});
