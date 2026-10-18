@@ -698,6 +698,8 @@ export default defineSchema({
   // Store Inspector → Google & YouTube ads (googleAds.ts): answers per store and platform, and lookups per user.
   googleAdLookups: defineTable({ host: v.string(), platform: v.string(), result: v.any(), at: v.number() }).index("by_host_platform", ["host", "platform"]),
   googleAdRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
+  // "Transcribe video" runs per user (transcripts.transcribe), for its daily limit.
+  transcribeRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
   // PageSpeed results per store (storeSpeed.ts), and YouTube searches per day (youtube.ts).
   storeSpeeds: defineTable({ host: v.string(), result: v.any(), at: v.number() }).index("by_host", ["host"]),
   youtubeUsage: defineTable({ day: v.string(), count: v.number() }).index("by_day", ["day"]),
