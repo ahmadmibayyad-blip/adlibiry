@@ -8,6 +8,8 @@ import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import { internal } from "./_generated/api";
 import { byTier, tierOf } from "./lib/billing";
+import { AD_STORE_BEST_SELLERS, inspectionSummary } from "./lib/adStore";
+import type { Inspection } from "./lib/storeInspect";
 
 // ── Store search & profiles ─────────────────────────────────────────────────
 
@@ -96,6 +98,49 @@ export const getById = query({
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
     return await ctx.db.get("stores", args.id);
+  },
+});
+
+// Ads read per store when counting how many of its ads we track.
+const AD_STORE_ADS_COUNTED = 200;
+
+/**
+ * The store an ad sends people to (its landing page's shop address): our
+ * tracked store row and the newest Store Inspector result for that address,
+ * cut down for the ad page (lib/adStore.ts). Null when the ad links to no shop.
+ */
+export const forAd = query({
+  args: { adId: v.id("ads") },
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    const ad = await ctx.db.get("ads", args.adId);
+    const host = ad?.landingHost;
+    if (!ad || !host) return null;
+    const [store, inspection, ads] = await Promise.all([
+      ctx.db.query("stores").withIndex("by_host", (q) => q.eq("host", host)).first(),
+      ctx.db.query("storeInspections").withIndex("by_host", (q) => q.eq("host", host)).order("desc").first(),
+      ctx.db.query("ads").withIndex("by_landing_host", (q) => q.eq("landingHost", host)).take(AD_STORE_ADS_COUNTED),
+    ]);
+    return {
+      host,
+      url: ad.landingPageUrl,
+      adsTracked: ads.length,
+      adsLive: ads.filter((a) => a.isActive !== false).length,
+      store: store
+        ? {
+            _id: store._id,
+            name: store.name,
+            logoUrl: store.logoUrl,
+            country: store.country,
+            estimatedRevenueRange: store.estimatedRevenueRange,
+            revenueConfidence: store.revenueConfidence,
+            trafficRange: store.trafficRange,
+            reviewsPerWeek: store.reviews?.perWeek,
+            bestSellers: store.bestSellers.slice(0, AD_STORE_BEST_SELLERS),
+          }
+        : null,
+      inspection: inspection ? inspectionSummary(inspection.result as Inspection, inspection.inspectedAt) : null,
+    };
   },
 });
 

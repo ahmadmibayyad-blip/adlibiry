@@ -16,6 +16,7 @@ import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.ts
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 import SameCreative from "../../_components/SameCreative.tsx";
+import AdStore from "../../_components/AdStore.tsx";
 import LooksSimilar from "../../_components/LooksSimilar.tsx";
 import AdMedia from "../../_components/AdMedia.tsx";
 import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
@@ -303,6 +304,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
             </div>
 
             <Authenticated>
+              <AdStore adId={ad._id} compact />
               <SameCreative adId={ad._id} compact />
               <LooksSimilar adId={ad._id} compact />
             </Authenticated>

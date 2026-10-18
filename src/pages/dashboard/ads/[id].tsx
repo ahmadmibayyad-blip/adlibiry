@@ -15,6 +15,7 @@ import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
 import SameCreative from "../_components/SameCreative.tsx";
+import AdStore from "../_components/AdStore.tsx";
 import LooksSimilar from "../_components/LooksSimilar.tsx";
 import { AIToolsGrid, SideTools } from "../_components/ProductTools.tsx";
 import AdMedia from "../_components/AdMedia.tsx";
@@ -203,6 +204,7 @@ export default function AdDetailPage() {
           </div>
 
           {ad.productId && <ProductInAd productId={ad.productId} />}
+          <AdStore adId={ad._id} />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold">How this ad is doing</h2>
