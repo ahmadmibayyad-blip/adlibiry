@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ChevronDown, Clapperboard, Copy, Loader2, RotateCw, Sparkles, Wand2 } from "lucide-react";
+import { ChevronDown, Clapperboard, Copy, Download, Loader2, Mic, RotateCw, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { TRANSCRIPT_LANGUAGES } from "@/convex/lib/transcriptLanguages.ts";
 import { variantText, type Analysis, type Variant } from "@/convex/lib/videoAnalysis.ts";
+import { voiceText, type VoiceOption } from "@/convex/lib/voiceover.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
@@ -293,8 +294,81 @@ function WriteVariant({ adId }: { adId: Doc<"ads">["_id"] }) {
           </div>
           {variant.cta && <p className="text-sm mt-3"><span className="font-medium">Call to action:</span> {variant.cta}</p>}
           {variant.notes && <p className="text-xs text-muted-foreground mt-1">{variant.notes}</p>}
+          <Voiceover text={voiceText(variant.lines)} />
         </div>
       )}
+    </div>
+  );
+}
+
+// The script's voice-over lines read out by an AI voice (convex/voiceover.ts, ElevenLabs), as an MP3 to play or download.
+function Voiceover({ text }: { text: string }) {
+  const loadVoices = useAction(api.voiceover.voices);
+  const make = useAction(api.voiceover.make);
+  const [voices, setVoices] = useState<VoiceOption[] | null>(null);
+  const [voiceId, setVoiceId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [audio, setAudio] = useState<{ url: string; text: string } | null>(null);
+  if (!text) return null;
+
+  const open = async () => {
+    setBusy(true);
+    try {
+      const list = await loadVoices({});
+      setVoices(list);
+      setVoiceId(list[0]?.id ?? "");
+      if (!list.length) toast.error("No voices available.");
+    } catch (e) {
+      toast.error(errorMessage(e, "Couldn't load the voices."));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const run = async () => {
+    if (!voiceId || busy) return;
+    setBusy(true);
+    try {
+      const r = await make({ text, voiceId });
+      setAudio({ url: r.url, text });
+    } catch (e) {
+      toast.error(errorMessage(e, "The voiceover failed."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border">
+      {voices === null ? (
+        <Button variant="outline" size="sm" onClick={open} disabled={busy}>
+          {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mic className="w-3.5 h-3.5 mr-1.5" />}
+          Make a voiceover
+        </Button>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect
+            label="Voice"
+            value={voiceId}
+            onChange={setVoiceId}
+            options={voices.map((v) => ({ value: v.id, label: [v.name, v.gender, v.accent].filter(Boolean).join(" · ") }))}
+          />
+          <Button size="sm" onClick={run} disabled={!voiceId || busy}>
+            {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mic className="w-3.5 h-3.5 mr-1.5" />}
+            {busy ? "Recording…" : audio?.text === text ? "Record again" : "Record voiceover"}
+          </Button>
+        </div>
+      )}
+      {audio && (
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <audio controls src={audio.url} className="h-9 max-w-full" />
+          <Button asChild variant="outline" size="sm">
+            <a href={audio.url} download="voiceover.mp3">
+              <Download className="w-3.5 h-3.5 mr-1.5" />MP3
+            </a>
+          </Button>
+        </div>
+      )}
+      <p className="text-[11px] text-muted-foreground mt-1.5">Reads the voice-over lines in the script's language. AI voice by ElevenLabs.</p>
     </div>
   );
 }
