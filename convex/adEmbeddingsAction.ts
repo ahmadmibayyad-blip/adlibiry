@@ -3,9 +3,9 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import sharp from "sharp";
 import { fetchImage, mapParallel } from "./imageHashAction";
 import { isUsableHash } from "./lib/imageHash";
-import { imageSize } from "./lib/imageSize";
 import { EMBED_BATCH, EMBED_SIZE, VOYAGE_URL, dailyImageCap, describeVoyageError, parseVoyage, voyageBody } from "./lib/adEmbeddings";
 
 // Daily (importRuns job "adEmbeddings"): ad images → Voyage multimodal vectors
@@ -17,22 +17,23 @@ import { EMBED_BATCH, EMBED_SIZE, VOYAGE_URL, dailyImageCap, describeVoyageError
 // batch: 24 downloads (8 at a time, up to 10 s each), decoding and Voyage (up to 60 s) ≈ 2 minutes at worst.
 const TIME_BUDGET_MS = 6 * 60_000;
 const PER_LOOP = 24;
-// Node actions get 512 MB, and a decoded image takes width × height × 4 bytes plus Jimp's working copies.
-// Images are downloaded in parallel but decoded one at a time, and ones too big in bytes or pixels are skipped
-// (ad images are normally around 1 MP and well under 1 MB).
+// Node actions get 512 MB and a fraction of a CPU. sharp (libvips, an external package in convex.json) decodes
+// JPEGs straight at a fraction of their size and keeps pixels outside the JS heap: on 24 real ad images it took
+// 0.4 s and 110 MB, where Jimp took 8.6 s and 290 MB and stalled the action on full-size camera photos.
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-const MAX_PIXELS = 12_000_000;
+const MAX_PIXELS = 50_000_000;
+sharp.cache(false);
+sharp.concurrency(1);
 
 // A 256 px JPEG data URL of the downloaded image, or null when it's too big or can't be read.
 async function shrunk(buf: Buffer | null): Promise<string | null> {
   if (!buf) return null;
-  const size = imageSize(buf);
-  if (size && size.width * size.height > MAX_PIXELS) return null;
   try {
-    const { Jimp } = await import("jimp");
-    const img = await Jimp.read(buf);
-    img.scaleToFit({ w: EMBED_SIZE, h: EMBED_SIZE });
-    const jpeg = await img.getBuffer("image/jpeg");
+    const jpeg = await sharp(buf, { limitInputPixels: MAX_PIXELS })
+      .rotate()
+      .resize(EMBED_SIZE, EMBED_SIZE, { fit: "inside" })
+      .jpeg()
+      .toBuffer();
     return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
   } catch {
     return null;
