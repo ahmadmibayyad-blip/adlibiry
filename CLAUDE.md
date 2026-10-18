@@ -77,6 +77,10 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Ads come from source syncs (`convex/sources`, `convex/adlibrary`, `convex/nexscope`) and admin CSV imports (`source: "csv_import"`).
   All rows of one CSV import share its `firstSeenAt`; Admin → Ads can remove the last import.
 - Scraped CSVs often miss columns (likes, impressions, prices). Check which columns are filled before importing.
+- Ad spend estimate (`convex/lib/euSpend.ts`, app side `src/lib/euSpend.ts`): an ad with EU reach (`audience.totalReach`, Meta's DSA data)
+  shows spend = reach ÷ 1,000 × CPM, like Minea ($9) and WinningHunter ($11); others keep their source's `spendEstimate`. The CPM is the user's
+  (Ad Spy → CPM box, localStorage `adspy-cpm`, default 9) and goes to `ads.list` as `cpm` for the spend filter. "Highest est. spend" sorts by
+  the `by_eu_reach` index. `ads.advertiserReach` totals an advertiser's EU reach over the ads we have (ad page line).
 - Offer Search (`convex/offerSearch.ts`, `/dashboard/offer-search`) searches Meta's Ad Library for an offer in the country's
   language through Apify (trigger "offer", counted against `APIFY_DAILY_BUDGET_USD`); its ads also land in Ad Spy.
   Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.
