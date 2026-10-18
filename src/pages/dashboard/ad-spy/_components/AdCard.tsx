@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
-import { useMediaFallback } from "@/lib/useMediaFallback.ts";
 import { isPlayable, tiktokEmbedUrl, tiktokVideoId } from "@/lib/adVideo.ts";
+import { useMediaFallback } from "@/lib/useMediaFallback.ts";
 
 type Ad = Doc<"ads">;
 
