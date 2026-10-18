@@ -165,6 +165,13 @@ describe("Offer research (Admin)", () => {
     const result = await t.action(internal.offerSearch.dailyResearch, {});
     // Each run reserves its cap (63 ads ≈ $0.08), so only one fits in $0.11.
     expect(result).toMatchObject({ started: 1, errors: [expect.stringContaining("budget is used up")] });
+    // The Apify account's monthly limit stops every country alike: one message, no more tries.
+    vi.stubEnv("APIFY_DAILY_BUDGET_USD", "10");
+    const tries = vi.fn(async () => json({ error: { type: "platform-feature-disabled", message: "Monthly usage hard limit exceeded" } }, 403));
+    vi.stubGlobal("fetch", tries);
+    const limited = await t.action(internal.offerSearch.dailyResearch, {});
+    expect(limited).toEqual({ started: 0, ads: 0, errors: [expect.stringContaining("monthly usage limit")] });
+    expect(tries).toHaveBeenCalledTimes(1);
     vi.stubEnv("OFFER_RESEARCH_ADS", "off");
     expect(await t.action(internal.offerSearch.dailyResearch, {})).toEqual({ notConfigured: "OFFER_RESEARCH_ADS is off" });
   });
