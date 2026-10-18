@@ -37,6 +37,31 @@ export function matchNiches(message: string, niches: string[]): string[] {
 /** Whether the question is about stores, so store data is worth looking up. */
 export const asksAboutStores = (message: string) => /\b(stores?|shops?|shopify|theme|klaviyo|pixel|competitors?)\b/i.test(message);
 
+type Facets = { themes?: { value: string }[]; apps?: { value: string }[]; pixels?: { value: string }[] };
+export type TechMatch = { theme?: string; app?: string; pixel?: string };
+
+/**
+ * The theme, app and pixel the message names, from the values stores actually use
+ * (list_store_tech): "stores using Klaviyo" → { app: "Klaviyo" }. Longest name wins.
+ */
+export function matchTech(message: string, facets: Facets): TechMatch {
+  // Dots stay inside names ("Judge.me") but not at the end of a sentence.
+  const text = ` ${message.toLowerCase().replace(/[^\p{L}\p{N}.&+-]+/gu, " ").replace(/\.(?= |$)/g, " ")} `;
+  const find = (list: { value: string }[] | undefined) =>
+    (list ?? [])
+      .map((f) => f.value)
+      .filter((v) => v.length > 2 && text.includes(` ${v.toLowerCase()} `))
+      .sort((a, b) => b.length - a.length)[0];
+  const out: TechMatch = {};
+  const theme = find(facets.themes);
+  const app = find(facets.apps);
+  const pixel = find(facets.pixels);
+  if (theme) out.theme = theme;
+  if (app) out.app = app;
+  if (pixel) out.pixel = pixel;
+  return out;
+}
+
 /** The assistant's system prompt for an answer without tools, with the data looked up for it. */
 export function fallbackSystem(base: string, data: { label: string; json: string }[]): string {
   const found = data.filter((d) => d.json && d.json !== "[]");

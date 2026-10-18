@@ -60,6 +60,7 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   or an outage is answered by Kimi instead (`convex/lib/kimiFallback.ts`). Calls with tools or streaming stay on Claude.
   Ask AI (`assistant.ts`) uses tools, so on those errors it looks up products, ads (and stores, if asked) for the last message first
   (`lib/assistantFallback.ts`: words, named niche, top by score if nothing matches) and Kimi answers from that data without tools.
+  A theme, app or pixel the question names (`matchTech`, against list_store_tech's values) filters the stores looked up.
 
 ## Billing (Stripe)
 

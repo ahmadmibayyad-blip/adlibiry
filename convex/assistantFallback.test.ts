@@ -3,7 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
-import { asksAboutStores, fallbackSystem, matchNiches, searchWords } from "./lib/assistantFallback";
+import { asksAboutStores, fallbackSystem, matchNiches, matchTech, searchWords } from "./lib/assistantFallback";
 
 const modules = import.meta.glob("./**/*.ts");
 afterEach(() => {
@@ -56,6 +56,36 @@ describe("Ask AI when Claude can't answer", () => {
     expect(kimiBody!.messages[kimiBody!.messages.length - 1]).toEqual({ role: "user", content: ask.messages[0].content });
   });
 
+  it("filters stores by an app the question names", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
+    vi.stubEnv("KIMI_API_KEY", "kimi-key");
+    let system = "";
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("api.anthropic.com")) return noCredit();
+      system = JSON.parse(String(init?.body)).messages[0].content;
+      return new Response(JSON.stringify({ id: "k", model: "kimi-k2.6", choices: [{ message: { content: "PawCool uses Klaviyo." }, finish_reason: "stop" }] }), { status: 200 });
+    }));
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "a1", role: "admin" });
+      const store = {
+        logoUrl: "", niche: "Pet Supplies", country: "DK", platform: "Shopify", estimatedRevenueRange: "", trafficRange: "", activeAdsCount: 2,
+        bestSellers: [], isHighTraffic: false, spottedAt: "2026-10-01T00:00:00.000Z",
+      };
+      const tech = (apps: string[]) => ({ checkedAt: "2026-10-10T00:00:00.000Z", ok: true, theme: "Dawn", apps, pixels: [] });
+      await ctx.db.insert("stores", { ...store, name: "PawCool", url: "https://pawcool.dk", tech: tech(["Klaviyo"]) });
+      await ctx.db.insert("stores", { ...store, name: "DogNest", url: "https://dognest.dk", tech: tech(["Judge.me"]) });
+    });
+    const r = await t.withIdentity({ subject: "a1|s" }).action(api.assistant.chat, {
+      messages: [{ role: "user", content: "Which stores use Klaviyo, and what do they sell?" }],
+    });
+    expect(r.reply).toBe("PawCool uses Klaviyo.");
+    expect(system).toContain("Stores using Klaviyo:");
+    expect(system).toContain('"name":"PawCool"');
+    expect(system).not.toContain('"name":"DogNest"');
+  });
+
   it("still says the AI is out of credit when there's no backup", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
     vi.stubEnv("KIMI_API_KEY", "");
@@ -87,6 +117,14 @@ describe("lookup helpers", () => {
     expect(matchNiches("Which beauty ads run longest?", niches)).toEqual(["Beauty"]);
     expect(matchNiches("posture corrector hooks", niches)).toEqual([]);
   });
+  it("finds the theme, app and pixel a message names", () => {
+    const facets = { themes: [{ value: "Dawn" }], apps: [{ value: "Klaviyo" }, { value: "Judge.me" }, { value: "Klaviyo Reviews" }], pixels: [{ value: "TikTok" }] };
+    expect(matchTech("Which stores use Klaviyo?", facets)).toEqual({ app: "Klaviyo" });
+    expect(matchTech("dawn stores with judge.me and the tiktok pixel.", facets)).toEqual({ theme: "Dawn", app: "Judge.me", pixel: "TikTok" });
+    expect(matchTech("stores using klaviyo reviews", facets)).toEqual({ app: "Klaviyo Reviews" });
+    expect(matchTech("the dawning of a store", facets)).toEqual({});
+  });
+
   it("asks for stores only when the question is about them", () => {
     expect(asksAboutStores("Which stores use Klaviyo?")).toBe(true);
     expect(asksAboutStores("Find pet products")).toBe(false);
