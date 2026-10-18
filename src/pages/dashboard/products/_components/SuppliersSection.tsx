@@ -9,6 +9,7 @@ import { price } from "@/lib/money.ts";
 import { WHOLESALE_MIN_SHARE } from "@/convex/lib/marketplaceMatch.ts";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import CjSuppliers from "./CjSuppliers.tsx";
+import { isAccessoryOf } from "@/convex/lib/aliexpress.ts";
 
 // AliExpress listings that look like the product photo (convex/aliexpressImage.ts),
 // the top AliExpress suppliers matched by title (convex/aliexpress.ts), and 1688
@@ -21,7 +22,8 @@ export default function SuppliersSection({ product }: { product: Doc<"products">
   const { isAuthenticated } = useConvexAuth();
   const matches = product.supplierMatches ?? [];
   // A listing found both ways shows once, under "by picture".
-  const pictures = product.pictureMatches ?? [];
+  // Saved before the accessory filter (lib/aliexpress.ts isAccessoryOf), a row can still be a part.
+  const pictures = (product.pictureMatches ?? []).filter((m) => !isAccessoryOf(product.title, m.title));
   const titleOnly = matches.filter((m) => !pictures.some((p) => p.url === m.url));
   const [picLookup, setPicLookup] = useState<"idle" | "searching">("idle");
   const picStarted = useRef<string | null>(null);
@@ -157,7 +159,7 @@ function SupplierRow({ m, onOpen, ordersLabel = "orders" }: { m: Supplier; onOpe
               {m.rating}% positive
             </span>
           )}
-          {m.orders !== undefined && <span>{m.orders.toLocaleString("en-US")} {ordersLabel}</span>}
+          {m.orders !== undefined && <span>{m.orders.toLocaleString("en-US")} {m.orders === 1 ? ordersLabel.replace(/^orders/, "order") : ordersLabel}</span>}
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
