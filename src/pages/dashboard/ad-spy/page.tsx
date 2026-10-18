@@ -246,6 +246,7 @@ export default function AdSpyPage() {
     ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling", "stage"].includes(k) && v !== undefined && v !== false,
   ).length;
   const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
+  const preset = PRESETS.find((p) => sameFilters(f, p.filters));
   const clearAll = () => {
     setF((prev) => ({ sort: prev.sort }));
     setUseMine(false);
@@ -319,21 +320,15 @@ export default function AdSpyPage() {
           <ImageSearchDialog trigger="icon" />
         </div>
 
-        {/* Quick views: saved filter sets, one click each. */}
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="text-xs text-muted-foreground shrink-0 mr-1">Quick views</span>
-          {PRESETS.map((p) => {
-            const on = sameFilters(f, p.filters);
-            return (
-              <Chip key={p.id} on={on} title={p.hint} onClick={() => setF((prev) => (on ? { sort: prev.sort } : { sort: prev.sort, ...p.filters }))}>
-                {p.label}
-              </Chip>
-            );
-          })}
-        </div>
-
-        {/* The four most-used filters stay visible; the rest fold away. */}
+        {/* The four most-used filters stay visible; the rest fold away. Quick view sets a ready-made filter set. */}
         <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect
+            label="Quick view"
+            value={preset?.id ?? "none"}
+            onChange={(id) => setF((prev) => ({ sort: prev.sort, ...PRESETS.find((p) => p.id === id)?.filters }))}
+            options={[opt("none", "None"), ...PRESETS.map((p) => opt(p.id, p.label))]}
+            active={!!preset}
+          />
           <FilterSelect label="Country" value={f.country ?? "any"} onChange={setAny("country")} options={countryOptions} active={!!f.country} />
           <FilterSelect
             label="Category"
@@ -363,6 +358,7 @@ export default function AdSpyPage() {
             <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAdvanced && "rotate-180")} />
           </button>
         </div>
+        {preset && <p className="text-[11px] text-muted-foreground -mt-1">{preset.label}: {preset.hint}.</p>}
 
         {showAdvanced && (
         <>
