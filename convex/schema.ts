@@ -272,6 +272,8 @@ export default defineSchema({
     isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
     pageRank: v.optional(v.number()),         // rank among the advertiser's live ads, 1 = most views (lib/adRank.ts); unset when stopped
     pageActiveAds: v.optional(v.number()),    // how many ads that advertiser has live
+    // "Looks similar" (convex/adEmbeddings.ts): "done" = in adEmbeddings, "none" = no image to embed, "failed" = couldn't be read.
+    embedStatus: v.optional(v.string()),
     sources: v.optional(v.array(v.string())), // every source that has delivered this ad
     sourceFields: v.optional(v.object({ live: v.optional(v.object({ source: v.string(), at: v.string() })), advertiser: v.optional(v.object({ source: v.string(), at: v.string() })), engagement: v.optional(v.object({ source: v.string(), at: v.string() })) })), // who wrote each field group
     landingHost: v.optional(v.string()),      // shop domain of the landing page (not marketplaces), ties ads to tracked stores
@@ -295,6 +297,7 @@ export default defineSchema({
     .index("by_hash_band_1", ["hashBand1"])
     .index("by_hash_band_2", ["hashBand2"])
     .index("by_hash_band_3", ["hashBand3"])
+    .index("by_embed_status", ["embedStatus"])
     .index("by_landing_host", ["landingHost"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
@@ -390,6 +393,16 @@ export default defineSchema({
     .index("by_product", ["productId"]),
 
   // One row per product and per ad per day (kept 90 days) for the charts.
+  // One image vector per ad (Voyage multimodal, lib/adEmbeddings.ts), for "Looks similar".
+  adEmbeddings: defineTable({
+    adId: v.id("ads"),
+    embedding: v.array(v.float64()),
+    niche: v.string(),
+    model: v.string(),
+  })
+    .index("by_ad", ["adId"])
+    .vectorIndex("by_embedding", { vectorField: "embedding", dimensions: 1024, filterFields: ["niche"] }),
+
   dailySnapshots: defineTable({
     day: v.string(), // "YYYY-MM-DD" (UTC)
     kind: v.union(v.literal("product"), v.literal("ad")),

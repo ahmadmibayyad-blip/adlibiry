@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as adEmbeddings from "../adEmbeddings.js";
+import type * as adEmbeddingsAction from "../adEmbeddingsAction.js";
 import type * as adQueue from "../adQueue.js";
 import type * as adQueueAi from "../adQueueAi.js";
 import type * as adlibrary_client from "../adlibrary/client.js";
@@ -59,6 +61,7 @@ import type * as launchAds from "../launchAds.js";
 import type * as launchCleanup from "../launchCleanup.js";
 import type * as launchRun from "../launchRun.js";
 import type * as lib_adCopy from "../lib/adCopy.js";
+import type * as lib_adEmbeddings from "../lib/adEmbeddings.js";
 import type * as lib_adFields from "../lib/adFields.js";
 import type * as lib_adspyBackend from "../lib/adspyBackend.js";
 import type * as lib_aiFacts from "../lib/aiFacts.js";
@@ -161,6 +164,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adEmbeddings: typeof adEmbeddings;
+  adEmbeddingsAction: typeof adEmbeddingsAction;
   adQueue: typeof adQueue;
   adQueueAi: typeof adQueueAi;
   "adlibrary/client": typeof adlibrary_client;
@@ -212,6 +217,7 @@ declare const fullApi: ApiFromModules<{
   launchCleanup: typeof launchCleanup;
   launchRun: typeof launchRun;
   "lib/adCopy": typeof lib_adCopy;
+  "lib/adEmbeddings": typeof lib_adEmbeddings;
   "lib/adFields": typeof lib_adFields;
   "lib/adspyBackend": typeof lib_adspyBackend;
   "lib/aiFacts": typeof lib_aiFacts;

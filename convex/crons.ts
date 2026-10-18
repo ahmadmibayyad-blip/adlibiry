@@ -119,6 +119,10 @@ crons.daily("look up supplier costs on AliExpress", { hourUTC: 7, minuteUTC: 55 
 // (convex/transcripts.ts).
 crons.daily("transcribe video ads", { hourUTC: 10, minuteUTC: 40 }, internal.importRuns.run, { job: "transcripts" });
 
+// Ad images → vectors for "Looks similar" — only runs when VOYAGE_API_KEY is set
+// (convex/adEmbeddingsAction.ts). After the morning imports and the pipeline.
+crons.daily("embed ad images for Looks similar", { hourUTC: 11, minuteUTC: 10 }, internal.importRuns.run, { job: "adEmbeddings" });
+
 // Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
 crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});
 

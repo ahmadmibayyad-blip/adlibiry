@@ -13,6 +13,7 @@ const LABELS: Record<string, string> = {
   nexscopeTikTok: "Nexscope TikTok ads",
   apify: "Apify Meta Ad Library",
   metaAdLibrary: "Meta Ad Library API (official)",
+  adEmbeddings: "Looks similar: ad images (Voyage AI)",
   pipispy: "PiPiSpy",
   aliexpressCosts: "AliExpress suppliers",
   transcripts: "Video transcripts (Deepgram)",
