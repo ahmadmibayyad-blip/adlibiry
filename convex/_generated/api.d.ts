@@ -109,6 +109,7 @@ import type * as lib_winnerGates from "../lib/winnerGates.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpKeys from "../mcpKeys.js";
 import type * as metaAdLibrary from "../metaAdLibrary.js";
+import type * as metaToken from "../metaToken.js";
 import type * as nexscope_client from "../nexscope/client.js";
 import type * as nexscope_pricing from "../nexscope/pricing.js";
 import type * as nexscope_productDiscovery from "../nexscope/productDiscovery.js";
@@ -274,6 +275,7 @@ declare const fullApi: ApiFromModules<{
   mcp: typeof mcp;
   mcpKeys: typeof mcpKeys;
   metaAdLibrary: typeof metaAdLibrary;
+  metaToken: typeof metaToken;
   "nexscope/client": typeof nexscope_client;
   "nexscope/pricing": typeof nexscope_pricing;
   "nexscope/productDiscovery": typeof nexscope_productDiscovery;

@@ -30,7 +30,11 @@ describe("Meta Ad Library import", () => {
     vi.stubGlobal("fetch", calls);
     const t = convexTest(schema, modules);
     const r = await t.action(internal.metaAdLibrary.dailyImport, {});
-    expect(calls).toHaveBeenCalledTimes(1);
+    // The token check (metaToken.ts), then the first search.
+    expect(calls).toHaveBeenCalledTimes(2);
+    expect(await t.run((ctx) => ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "metaToken")).unique())).toMatchObject({
+      data: { valid: false },
+    });
     expect(r).toMatchObject({ fetched: 0 });
     const errors = (r as { errors: string[] }).errors;
     expect(errors[0]).toMatch(/^Meta token expired or invalid \(code 190\)/);
