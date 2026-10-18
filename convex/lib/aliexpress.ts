@@ -144,6 +144,8 @@ export function fromApifySearch(items: unknown): AliProduct[] {
 
 export const PICTURE_ACTOR = "dev00~alibaba-1688-aliexpress-reverse-image-search-api";
 export const PICTURE_SHOWN = 5;
+/** Picture searches a day across all users (product pages and Search by image), PICTURE_LOOKUPS_PER_DAY (0 = off). */
+export const pictureLimit = () => Math.max(0, Number(process.env.PICTURE_LOOKUPS_PER_DAY ?? 300) || 0);
 // Below this share of the product's price a listing is usually a part or accessory.
 export const PICTURE_MIN_PRICE_SHARE = 0.1;
 

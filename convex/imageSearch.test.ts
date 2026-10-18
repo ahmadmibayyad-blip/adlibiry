@@ -3,6 +3,8 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
+import { Jimp } from "jimp";
+import { EMBED_DIMENSIONS } from "./lib/adEmbeddings";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -117,6 +119,55 @@ describe("image search", () => {
     } finally {
       delete process.env.ANTHROPIC_WORKSPACE_ID;
     }
+  });
+
+  it("matches the photo itself: look-alike ad images and AliExpress listings", async () => {
+    process.env.ANTHROPIC_API_KEY = "test";
+    vi.stubEnv("VOYAGE_API_KEY", "voyage_test");
+    vi.stubEnv("APIFY_TOKEN", "apify_test");
+    const unit = (axis: number) => Array.from({ length: EMBED_DIMENSIONS }, (_, i) => (i === axis ? 1 : 0));
+    const t = convexTest(schema, modules);
+    const [mat, shoe] = await t.run(async (ctx) => {
+      await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+      const ad = {
+        platform: "Facebook", country: "DK", niche: "Pet Supplies", bodyText: "", creativeUrl: "https://cdn.example.com/a.png", landingPageUrl: "",
+        spendEstimate: "", likes: 0, views: "0", daysRunning: 1, aiScore: 50, targeting: { ageRange: "", gender: "All", interests: [] },
+        firstSeenAt: "2026-10-01T00:00:00.000Z", source: "apify",
+      };
+      const a = await ctx.db.insert("ads", { ...ad, advertiserName: "PawCool", headline: "Cooling mat" });
+      const b = await ctx.db.insert("ads", { ...ad, advertiserName: "ShoeCo", headline: "Running shoe", niche: "Fashion" });
+      await ctx.db.insert("adEmbeddings", { adId: a, embedding: unit(0), niche: "Pet Supplies", model: "voyage-multimodal-3.5" });
+      await ctx.db.insert("adEmbeddings", { adId: b, embedding: unit(7), niche: "Fashion", model: "voyage-multimodal-3.5" });
+      return [a, b];
+    });
+    const sentToApify: { imageUrl?: string }[] = [];
+    vi.stubGlobal("fetch", async (input: unknown, init?: { body?: string }) => {
+      const url = String(input);
+      if (url.startsWith("https://api.voyageai.com/")) return Response.json({ data: [{ index: 0, embedding: unit(0) }] });
+      if (url.includes("/acts/dev00~alibaba-1688-aliexpress-reverse-image-search-api/")) {
+        sentToApify.push(JSON.parse(String(init?.body)));
+        return Response.json([{ site: "aliexpress", title: "Pet cooling mat summer", price: 8.5, currency: "USD", productUrl: "https://www.aliexpress.com/item/42.html" }]);
+      }
+      return new Response(
+        JSON.stringify({
+          id: "msg_4", type: "message", role: "assistant", model: "claude-opus-5-5",
+          content: [{ type: "text", text: JSON.stringify({ isProduct: true, productName: "dog cooling mat", searchTerms: ["cooling mat"], niche: "Pet Supplies" }) }],
+          stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const png = (await new Jimp({ width: 40, height: 30, color: 0x3366ccff }).getBuffer("image/png")).toString("base64");
+    const r = await t.withIdentity({ subject: "u1|s" }).action(api.imageSearch.search, { imageBase64: png, mediaType: "image/png" });
+    expect(r.lookAlikes.map((a) => a._id)).toEqual([mat]);
+    expect(r.lookAlikes.some((a) => a._id === shoe)).toBe(false);
+    // The same ad isn't listed twice.
+    expect(r.ads.some((a) => a._id === mat)).toBe(false);
+    expect(r.suppliers).toEqual([{ title: "Pet cooling mat summer", price: 8.5, url: "https://www.aliexpress.com/item/42.html" }]);
+    expect(sentToApify[0].imageUrl).toMatch(/^https?:\/\//);
+    // The photo was only stored for the call.
+    expect(await t.run((ctx) => ctx.db.system.query("_storage").collect())).toEqual([]);
+    vi.unstubAllEnvs();
   });
 
   it("rejects non-images and signed-out users", async () => {
