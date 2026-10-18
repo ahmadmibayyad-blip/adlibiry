@@ -43,6 +43,11 @@ describe("fromPictureSearch", () => {
     const title = "Veken Stainless Steel Cat Water Fountain 108oz C1";
     expect(isAccessoryOf(title, "12 Pack Cat Water Fountain Sponge Filter")).toBe(true);
     expect(isAccessoryOf(title, "2.2L Automatic Cat Water Fountain Stainless Steel")).toBe(false);
+    // Real look-alikes from that product's search: they mention a filter as a feature.
+    expect(isAccessoryOf(title, "Transparent Window Cat Water Dispenser with Sensor 3.2L/108oz Super Quiet & Pets Auto Filter Stainless")).toBe(false);
+    expect(isAccessoryOf(title, "Wireless Cat Water Fountain 3.5L Pet Water Dispenser 4000mAh Long Lasting Battery Life Stainless Ste")).toBe(false);
+    expect(isAccessoryOf(title, "Cat Fountain 12 Pack Carbon Sponge, Stainless")).toBe(true);
+    expect(isAccessoryOf(title, "KEMORELA 20PCS Cat Water Fountain Activated Carbon Sponge Filters for Stainless Steel Water Dispenser")).toBe(true);
     expect(isAccessoryOf("Replacement Filters for Cat Fountain, 8 Pack", "Cat Fountain Replacement Filter 6pcs")).toBe(false);
     const rows = [{ site: "aliexpress", title: "12 Pack Cat Water Fountain Sponge", price: 9, currency: "USD", productUrl: "https://www.aliexpress.com/item/9.html" }];
     expect(fromPictureSearch(rows, { price: 27.5, title })).toEqual([]);
