@@ -25,6 +25,7 @@ import { AIToolsGrid, SideTools } from "../_components/ProductTools.tsx";
 import AdMedia from "../_components/AdMedia.tsx";
 import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
 import AdStageBadge from "@/components/AdStageBadge.tsx";
+import AddToCollection from "@/components/AddToCollection.tsx";
 import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
 import { dailyChange, money, pct, SERIES, type Point, type Range } from "../_components/chartUtils.ts";
 
@@ -145,6 +146,7 @@ export default function AdDetailPage() {
           <div className="flex gap-2">
             <Authenticated>
               <SaveAd adId={ad._id} />
+              <AddToCollection kind="ad" refId={ad._id} iconOnly className="shrink-0" />
             </Authenticated>
             <AdVideoAction ad={ad} label="Video" />
             {ad.landingPageUrl && (

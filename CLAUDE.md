@@ -86,6 +86,10 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   language is translated once for everyone; a new one counts against the AI daily limit.
   Video ads without one get "Transcribe video" (ad page and pop-up, `transcripts.transcribe`): saved on the ad for everyone, tries
   `hostedVideoUrl` when the source link fails, daily limit per user `TRANSCRIBE_RUNS` (`lib/deepgram.ts`, counted in `transcribeRuns`).
+- Collections (`collections.ts`, Saved → Collections, `?collection=<id>`): named folders of ads, stores and products (`collections` +
+  `collectionItems`, kind + refId), separate from Save and the store watchlist. 50 per user, 500 items each; the "Collection" button
+  (`src/components/AddToCollection.tsx`) is on the ad pop-up and page, store pop-up and product page. Product merges move items (`moveProductItems`),
+  and a product in a collection isn't deleted when it loses its ads. Adding an ad hosts its media like a saved ad.
 - Store tech (`storeTech.ts`, `lib/storeTech.ts`): the daily "storeTech" job reads up to 60 listed stores' home pages (plain fetch, no browser)
   and saves theme, apps and pixels on `stores.tech` (again after 30 days; a failed read keeps the last good one). A Store Inspector run copies
   its result onto the store with the same `host`. Stores page filters Theme / Uses app / Pixel (`stores.list` theme/app/pixel, options from

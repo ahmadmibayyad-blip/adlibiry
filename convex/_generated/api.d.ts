@@ -38,6 +38,7 @@ import type * as auth from "../auth.js";
 import type * as authOptions from "../authOptions.js";
 import type * as billing from "../billing.js";
 import type * as cj from "../cj.js";
+import type * as collections from "../collections.js";
 import type * as commerce from "../commerce.js";
 import type * as crons from "../crons.js";
 import type * as currency from "../currency.js";
@@ -199,6 +200,7 @@ declare const fullApi: ApiFromModules<{
   authOptions: typeof authOptions;
   billing: typeof billing;
   cj: typeof cj;
+  collections: typeof collections;
   commerce: typeof commerce;
   crons: typeof crons;
   currency: typeof currency;

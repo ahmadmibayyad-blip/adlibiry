@@ -13,6 +13,7 @@ import { productFollowAlerts, storeAdAlerts } from "./follows";
 type Calibrations = Record<string, BasisCalibration> | undefined;
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { inAnyCollection, moveProductItems } from "./collections";
 import { requireSignedIn } from "./lib/access";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -767,6 +768,7 @@ async function mergeGroup(ctx: MutationCtx, group: Doc<"products">[]): Promise<n
       if (already) await ctx.db.delete("savedProducts", s._id);
       else await ctx.db.patch("savedProducts", s._id, { productId: keep._id });
     }
+    await moveProductItems(ctx, dup._id, keep._id);
     // Winning Products is rebuilt daily; drop the removed product's row now.
     for (const w of await ctx.db.query("winningProducts").withIndex("by_product", (q) => q.eq("productId", dup._id)).collect()) {
       await ctx.db.delete("winningProducts", w._id);
@@ -792,7 +794,7 @@ export async function aggregate(ctx: MutationCtx, p: Doc<"products">, day: strin
   );
   if (ads.length === 0 && p.source === "ads") {
     const saved = await ctx.db.query("savedProducts").withIndex("by_product", (q) => q.eq("productId", p._id)).first();
-    if (!saved) {
+    if (!saved && !(await inAnyCollection(ctx, "product", p._id))) {
       await ctx.db.delete("products", p._id);
       await markStatsDirty(ctx);
       return;

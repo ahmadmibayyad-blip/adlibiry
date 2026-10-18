@@ -15,6 +15,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import { useCpm } from "@/hooks/use-cpm.ts";
+import AddToCollection from "@/components/AddToCollection.tsx";
 import { adSpend } from "@/lib/euSpend.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 import SameCreative from "../../_components/SameCreative.tsx";
@@ -338,6 +339,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                 <Button variant="outline" onClick={handleSave} className={cn(isSaved ? "border-primary/50 text-primary" : "")}>
                   {isSaved ? <><BookmarkCheck className="w-4 h-4 mr-2" />Saved</> : <><Bookmark className="w-4 h-4 mr-2" />Save</>}
                 </Button>
+                <AddToCollection kind="ad" refId={ad._id} />
               </Authenticated>
               <Unauthenticated>
                 <Button variant="outline" onClick={() => toast.error("Please sign in to save ads")}>

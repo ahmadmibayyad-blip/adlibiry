@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
+import AddToCollection from "@/components/AddToCollection.tsx";
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
 import { motion, MotionConfig } from "motion/react";
@@ -250,6 +251,7 @@ export default function ProductDetail() {
             <AddToShopify product={product} />
             <Authenticated>
               <SaveButtonDetail productId={product._id} />
+              <AddToCollection kind="product" refId={product._id} />
             </Authenticated>
             <FollowProduct productId={product._id} />
           </div>
