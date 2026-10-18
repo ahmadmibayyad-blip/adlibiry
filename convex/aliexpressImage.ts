@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { stableToken } from "./lib/authIdentity";
-import { PICTURE_ACTOR, fromPictureSearch } from "./lib/aliexpress";
+import { PICTURE_ACTOR, fromPictureSearch, pictureLimit } from "./lib/aliexpress";
 
 // ── Suppliers matched by picture ────────────────────────────────────────────
 // When a signed-in user opens a product page, findByPicture runs AliExpress's
@@ -14,7 +14,6 @@ import { PICTURE_ACTOR, fromPictureSearch } from "./lib/aliexpress";
 
 const RECHECK_DAYS = 30;
 const RETRY_DAYS = 7;
-const DEFAULT_PER_DAY = 300;
 const usageKey = (day: string) => `picture:${day}`; // shares supplierLookupUsage with the title search
 
 export const claim = internalMutation({
@@ -35,6 +34,20 @@ export const claim = internalMutation({
     else await ctx.db.insert("supplierLookupUsage", { day, count: 1 });
     await ctx.db.patch("products", p._id, { pictureLookupAt: now.toISOString() });
     return { imageUrl: p.imageUrl, title: p.title, ...(p.price ? { price: p.price } : {}) };
+  },
+});
+
+// Search by image (imageSearch.ts): one picture search for a signed-in user's own photo, counted in the same daily cap.
+export const claimDay = internalMutation({
+  args: { limit: v.number() },
+  handler: async (ctx, args): Promise<boolean> => {
+    if (!(await ctx.auth.getUserIdentity())) return false;
+    const day = usageKey(new Date().toISOString().slice(0, 10));
+    const used = await ctx.db.query("supplierLookupUsage").withIndex("by_day", (q) => q.eq("day", day)).unique();
+    if ((used?.count ?? 0) >= args.limit) return false;
+    if (used) await ctx.db.patch("supplierLookupUsage", used._id, { count: used.count + 1 });
+    else await ctx.db.insert("supplierLookupUsage", { day, count: 1 });
+    return true;
   },
 });
 
@@ -61,7 +74,7 @@ export const findByPicture = action({
     if (!identity) return { skipped: "signed out" };
     const token = process.env.APIFY_TOKEN?.trim();
     if (!token) return { skipped: "APIFY_TOKEN isn't set" };
-    const limit = Math.max(0, Number(process.env.PICTURE_LOOKUPS_PER_DAY ?? DEFAULT_PER_DAY) || 0);
+    const limit = pictureLimit();
     const c = await ctx.runMutation(internal.aliexpressImage.claim, { productId: args.productId, token: stableToken(identity), limit });
     if ("skip" in c) return { skipped: c.skip };
     try {

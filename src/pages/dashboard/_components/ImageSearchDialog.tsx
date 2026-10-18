@@ -3,16 +3,19 @@ import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
 import { useNavigate } from "react-router-dom";
-import { Camera, ImageUp, Search } from "lucide-react";
+import { Camera, ExternalLink, ImageUp, Search } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import ProductCard from "./ProductCard.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
+import ProductImage from "@/components/ProductImage.tsx";
+import { price } from "@/lib/money.ts";
 
 // Search by image: the photo is shrunk in the browser, Claude says what the
-// product is (convex/imageSearch.ts) and we show matching products and ads.
+// product is (convex/imageSearch.ts) and we show matching products and ads,
+// plus ads whose image looks like the photo and AliExpress look-alikes.
 
 type Result = FunctionReturnType<typeof api.imageSearch.search>;
 
@@ -90,7 +93,9 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Search by image</DialogTitle>
-            <DialogDescription>Upload a product photo or screenshot. AI recognises the product and finds matching products and ads.</DialogDescription>
+            <DialogDescription>
+              Upload a product photo or screenshot. We find ads with a look-alike image, the product on AliExpress, and matching products and ads.
+            </DialogDescription>
           </DialogHeader>
 
           <div
@@ -123,6 +128,55 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           {result && !result.identified && <p className="text-sm text-muted-foreground">No product found in that image. Try a clearer photo of the product.</p>}
+
+          {result && result.lookAlikes.length > 0 && (
+            <section>
+              <h3 className="text-sm font-semibold mb-1">Ads with a look-alike image ({result.lookAlikes.length})</h3>
+              <p className="text-xs text-muted-foreground mb-2">Matched on the picture itself, most similar first.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {result.lookAlikes.map((a) => (
+                  <AdCard
+                    key={a._id}
+                    ad={a}
+                    onClick={() => {
+                      setOpen(false);
+                      navigate(`/dashboard/ads/${a._id}`);
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {result && result.suppliers.length > 0 && (
+            <section>
+              <h3 className="text-sm font-semibold mb-1">On AliExpress</h3>
+              <p className="text-xs text-muted-foreground mb-1">Listings that look like your photo. Check photos and variants on the listing before you order.</p>
+              <ul className="divide-y divide-border">
+                {result.suppliers.map((m) => (
+                  <li key={m.url} className="flex items-center gap-3 py-2">
+                    <ProductImage src={m.imageUrl} alt="" className="w-11 h-11 rounded-md object-cover shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm line-clamp-1">{m.title}</div>
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{price(m.price)}</span>
+                        {m.orders !== undefined && ` · ${m.orders.toLocaleString("en-US")} ${m.orders === 1 ? "order" : "orders"}`}
+                      </div>
+                    </div>
+                    <a
+                      href={m.url}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border text-xs hover:bg-muted shrink-0"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {result?.identified && (
             <div className="space-y-5">

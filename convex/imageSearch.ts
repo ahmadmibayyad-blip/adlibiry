@@ -10,10 +10,16 @@ import type { Doc } from "./_generated/dataModel";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { claudeClient } from "./lib/claudeClient";
 import { NICHES } from "./lib/category";
+import type { Id } from "./_generated/dataModel";
+import type { ActionCtx } from "./_generated/server";
+import { EMBED_SIZE, SIMILAR_SHOWN, VOYAGE_URL, parseVoyage, pickSimilar, voyageBody } from "./lib/adEmbeddings";
+import { PICTURE_ACTOR, fromPictureSearch, pictureLimit, type PictureMatch } from "./lib/aliexpress";
 
 // ── Image search ────────────────────────────────────────────────────────────
 // A customer uploads a product photo; Claude says what the product is (name,
 // search words, niche) and we search AdSpy Pro's own products and ads for it.
+// Alongside, the photo itself is matched: against every embedded ad image
+// ("Looks similar", needs VOYAGE_API_KEY) and on AliExpress through Apify.
 // Signed-in users only; counts against the AI daily limit.
 
 const MAX_BYTES = 4_000_000; // base64 length; the page shrinks photos first
@@ -70,7 +76,68 @@ type Result = {
   identified: { productName: string; searchTerms: string[]; niche: string } | null;
   products: Doc<"products">[];
   ads: Doc<"ads">[];
+  /** Ads whose image looks like the photo ("Looks similar" vectors), best first; empty without VOYAGE_API_KEY. */
+  lookAlikes: Doc<"ads">[];
+  /** AliExpress listings that look like the photo (Apify picture search); empty when off or over the daily cap. */
+  suppliers: PictureMatch[];
 };
+
+// The photo as a "Looks similar" vector, then the nearest ad images. Never throws: no key or a failure = no look-alikes.
+async function lookAlikeAds(ctx: ActionCtx, base64: string): Promise<Doc<"ads">[]> {
+  const key = process.env.VOYAGE_API_KEY?.trim();
+  if (!key) return [];
+  try {
+    const { Jimp } = await import("jimp");
+    const img = await Jimp.read(Buffer.from(base64, "base64"));
+    img.scaleToFit({ w: EMBED_SIZE, h: EMBED_SIZE });
+    const dataUrl = `data:image/jpeg;base64,${(await img.getBuffer("image/jpeg")).toString("base64")}`;
+    const res = await fetch(VOYAGE_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(voyageBody([dataUrl])),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const vector = parseVoyage(await res.json().catch(() => null), 1)?.[0];
+    if (!res.ok || !vector) return [];
+    const hits = await ctx.vectorSearch("adEmbeddings", "by_embedding", { vector, limit: 48 });
+    const { hits: loaded, limit } = await ctx.runQuery(internal.adEmbeddings.adsForHits, {
+      hits: hits.map((h) => ({ id: h._id as Id<"adEmbeddings">, score: h._score })),
+    });
+    return pickSimilar(loaded, Math.min(SIMILAR_SHOWN, limit ?? SIMILAR_SHOWN)).map((p) => p.ad);
+  } catch (e) {
+    console.warn("Image search: look-alike ads failed", e);
+    return [];
+  }
+}
+
+// AliExpress's visual search on the photo through Apify (~$0.006). The actor needs a link, so the photo sits in
+// file storage for the call and is deleted right after. Never throws.
+async function aliexpressLookAlikes(ctx: ActionCtx, base64: string): Promise<PictureMatch[]> {
+  const token = process.env.APIFY_TOKEN?.trim();
+  if (!token || !(await ctx.runMutation(internal.aliexpressImage.claimDay, { limit: pictureLimit() }))) return [];
+  const fileId = await ctx.storage.store(new Blob([Buffer.from(base64, "base64")], { type: "image/jpeg" }));
+  try {
+    const imageUrl = await ctx.storage.getUrl(fileId);
+    if (!imageUrl) return [];
+    const q = new URLSearchParams({ token, timeout: "60", maxTotalChargeUsd: "0.02" });
+    const res = await fetch(`https://api.apify.com/v2/acts/${PICTURE_ACTOR}/run-sync-get-dataset-items?${q}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrl, destination: "aliexpress", language: "en", currency: "USD" }),
+      signal: AbortSignal.timeout(75_000),
+    });
+    if (!res.ok) {
+      console.warn("Image search: Apify picture search", res.status, (await res.text()).slice(0, 200));
+      return [];
+    }
+    return fromPictureSearch(await res.json().catch(() => null));
+  } catch (e) {
+    console.warn("Image search: AliExpress look-alikes failed", e);
+    return [];
+  } finally {
+    await ctx.storage.delete(fileId);
+  }
+}
 
 export const search = action({
   args: { imageBase64: v.string(), mediaType: v.string() },
@@ -84,6 +151,8 @@ export const search = action({
     if (!claim.allowed) throw new ConvexError({ code: "LIMIT", message: claim.message ?? "You've reached today's AI limit. Come back tomorrow." });
 
     const client = claudeClient();
+    // Picture matching runs alongside the AI; neither waits for the other.
+    const visual = Promise.all([lookAlikeAds(ctx, args.imageBase64), aliexpressLookAlikes(ctx, args.imageBase64)]);
     let found: Found | null;
     try {
       found = await identify(client, {
@@ -91,6 +160,7 @@ export const search = action({
         source: { type: "base64", media_type: args.mediaType as "image/jpeg", data: args.imageBase64 },
       });
     } catch (error) {
+      await visual;
       if (error instanceof Anthropic.APIError) {
         console.error("Claude API error (image search)", error.status, error.message);
         const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
@@ -98,8 +168,9 @@ export const search = action({
       }
       throw error;
     }
+    const [lookAlikes, suppliers] = await visual;
     if (!found) throw new ConvexError({ code: "AI_ERROR", message: "The AI couldn't read this image. Try another photo." });
-    if (!found.isProduct) return { identified: null, products: [], ads: [] };
+    if (!found.isProduct) return { identified: null, products: [], ads: [], lookAlikes, suppliers };
 
     const terms = [...new Set([found.productName, ...found.searchTerms].map((t) => t.trim()).filter(Boolean))].slice(0, 5);
     // Free and trial accounts see at most their per-list result limit.
@@ -121,7 +192,10 @@ export const search = action({
     return {
       identified: { productName: found.productName, searchTerms: terms, niche: toNiche(found.niche) },
       products: [...products.values()],
-      ads: [...ads.values()],
+      // Ads already shown as look-alikes aren't repeated.
+      ads: [...ads.values()].filter((a) => !lookAlikes.some((l) => l._id === a._id)),
+      lookAlikes,
+      suppliers,
     };
   },
 });

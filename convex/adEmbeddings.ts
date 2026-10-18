@@ -71,6 +71,20 @@ export const hitsToAds = internalQuery({
   },
 });
 
+// Same for a photo the user uploaded (imageSearch.ts): no ad of its own to leave out.
+export const adsForHits = internalQuery({
+  args: { hits: v.array(v.object({ id: v.id("adEmbeddings"), score: v.number() })) },
+  handler: async (ctx, args) => {
+    const out: { ad: Doc<"ads">; score: number; sameImage: boolean; self: boolean }[] = [];
+    for (const h of args.hits) {
+      const row = await ctx.db.get("adEmbeddings", h.id);
+      const ad = row && (await ctx.db.get("ads", row.adId));
+      if (ad) out.push({ ad, score: h.score, self: false, sameImage: false });
+    }
+    return { hits: out, limit: await resultLimitFor(ctx) };
+  },
+});
+
 type Similar = {
   status: "ok" | "pending" | "none" | "failed";
   ads: (Doc<"ads"> & { score: number })[];
