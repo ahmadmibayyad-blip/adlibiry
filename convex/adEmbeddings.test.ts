@@ -70,7 +70,7 @@ describe("Looks similar", () => {
         }
         if (url.includes("broken")) return new Response("nope", { status: 404 });
         sent.push(url);
-        return new Response(png, { status: 200, headers: { "content-type": "image/png" } });
+        return new Response(new Uint8Array(png), { status: 200, headers: { "content-type": "image/png" } });
       }),
     );
 
