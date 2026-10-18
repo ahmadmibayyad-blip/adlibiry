@@ -13,6 +13,19 @@ export const KEPT_PER_USER = 20; // older MP3s are deleted from storage
 
 export type VoiceOption = { id: string; name: string; gender?: string; accent?: string; preview?: string };
 
+// ElevenLabs' standard (premade) voices, for when the key may not read the voice list: keys can be limited to
+// text to speech only. Any of them speaks every language of the multilingual model.
+export const PREMADE_VOICES: VoiceOption[] = [
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" },
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", gender: "female" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily", gender: "female" },
+  { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", gender: "female" },
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "male" },
+  { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "male" },
+  { id: "pNInz6obpgDQGcFmaJgB", name: "Adam", gender: "male" },
+];
+
 /** The voice-over lines of a script, one per line, ready to read out. */
 export function voiceText(lines: { voiceover: string }[]): string {
   return lines
@@ -50,6 +63,9 @@ export function describeElevenError(status: number, body: unknown, admin: boolea
   const detail = (body as { detail?: { message?: unknown; status?: unknown } | string } | null)?.detail;
   const msg = typeof detail === "string" ? detail : typeof detail?.message === "string" ? detail.message : "";
   const extra = admin && msg ? ` (ElevenLabs: ${msg.slice(0, 160)})` : "";
+  if (status === 401 && /permission/i.test(msg)) {
+    return `The ElevenLabs key isn't allowed to make speech. In ElevenLabs → API keys, give it "Text to Speech" access.${extra}`;
+  }
   if (status === 401) return `The voice service refused the key. Check ELEVENLABS_API_KEY in Convex.${extra}`;
   if (status === 402 || /quota|credits/i.test(msg)) return `The voice service is out of credits for this month.${extra}`;
   if (status === 429) return `The voice service is busy. Try again in a minute.${extra}`;

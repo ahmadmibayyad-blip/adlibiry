@@ -84,6 +84,20 @@ describe("voiceover.make", () => {
     await expect(me.action(api.voiceover.make, { text: "x", voiceId: "abc123XYZ" })).rejects.toThrow(/ELEVENLABS_API_KEY/);
   });
 
+  it("offers the standard voices when the key can't read the voice list", async () => {
+    vi.stubEnv("ELEVENLABS_API_KEY", "el_tts_only");
+    vi.stubGlobal("fetch", async () =>
+      Response.json({ detail: { status: "missing_permissions", message: "The API key you used is missing the permission voices_read" } }, { status: 401 }),
+    );
+    const { me } = await setup();
+    const list = await me.action(api.voiceover.voices, {});
+    expect(list.length).toBeGreaterThan(4);
+    expect(list[0]).toMatchObject({ name: "Sarah" });
+    expect(describeElevenError(401, { detail: { status: "missing_permissions", message: "missing the permission text_to_speech" } }, false)).toMatch(
+      /Text to Speech/,
+    );
+  });
+
   it("turns an ElevenLabs refusal into a plain message", async () => {
     vi.stubEnv("ELEVENLABS_API_KEY", "el_bad");
     vi.stubGlobal("fetch", async () => Response.json({ detail: { status: "invalid_api_key", message: "Invalid API key" } }, { status: 401 }));
