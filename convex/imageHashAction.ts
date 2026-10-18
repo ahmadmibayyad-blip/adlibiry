@@ -15,13 +15,13 @@ const MAX_BYTES = 15 * 1024 * 1024;
 const PARALLEL = 8;
 
 /** The image at `url`, or null when it can't be fetched or isn't an image (also used by adEmbeddingsAction.ts). */
-export async function fetchImage(url: string): Promise<Buffer | null> {
+export async function fetchImage(url: string, maxBytes = MAX_BYTES): Promise<Buffer | null> {
   if (!url) return null;
   const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(10_000) });
   if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("image/")) return null;
-  if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) return null;
+  if (Number(res.headers.get("content-length") ?? 0) > maxBytes) return null;
   const buf = Buffer.from(await res.arrayBuffer());
-  return buf.length > MAX_BYTES ? null : buf;
+  return buf.length > maxBytes ? null : buf;
 }
 
 // "" when the image can't be fetched or decoded (expired CDN link, video,
@@ -39,7 +39,7 @@ async function hashUrl(url: string): Promise<string> {
   }
 }
 
-export async function mapParallel<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function mapParallel<T, R>(items: T[], fn: (item: T) => Promise<R>, parallel = PARALLEL): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
   const worker = async () => {
@@ -48,7 +48,7 @@ export async function mapParallel<T, R>(items: T[], fn: (item: T) => Promise<R>)
       out[i] = await fn(items[i]);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(PARALLEL, items.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(parallel, items.length) }, worker));
   return out;
 }
 
