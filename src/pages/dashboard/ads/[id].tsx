@@ -15,6 +15,7 @@ import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
 import SameCreative from "../_components/SameCreative.tsx";
+import LooksSimilar from "../_components/LooksSimilar.tsx";
 import { AIToolsGrid, SideTools } from "../_components/ProductTools.tsx";
 import AdMedia from "../_components/AdMedia.tsx";
 import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
@@ -280,8 +281,9 @@ export default function AdDetailPage() {
         </section>
       )}
 
-      <div className="mt-8">
+      <div className="mt-8 space-y-5">
         <SameCreative adId={ad._id} />
+        <LooksSimilar adId={ad._id} />
       </div>
       {knownAdvertiser && <MoreFromAdvertiser name={ad.advertiserName} adId={ad._id} />}
 

@@ -14,16 +14,22 @@ const MAX_ROUNDS = 50; // up to ~5,000 ads a day; the rest wait for tomorrow
 const MAX_BYTES = 15 * 1024 * 1024;
 const PARALLEL = 8;
 
+/** The image at `url`, or null when it can't be fetched or isn't an image (also used by adEmbeddingsAction.ts). */
+export async function fetchImage(url: string): Promise<Buffer | null> {
+  if (!url) return null;
+  const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(10_000) });
+  if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("image/")) return null;
+  if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) return null;
+  const buf = Buffer.from(await res.arrayBuffer());
+  return buf.length > MAX_BYTES ? null : buf;
+}
+
 // "" when the image can't be fetched or decoded (expired CDN link, video,
 // WebP…), so it isn't fetched again every round.
 async function hashUrl(url: string): Promise<string> {
-  if (!url) return "";
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(10_000) });
-    if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("image/")) return "";
-    if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) return "";
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > MAX_BYTES) return "";
+    const buf = await fetchImage(url);
+    if (!buf) return "";
     // Loaded on first use: the library is large, and runs without images never need it.
     const { Jimp } = await import("jimp");
     const { data, width, height } = (await Jimp.read(buf)).bitmap;
@@ -33,7 +39,7 @@ async function hashUrl(url: string): Promise<string> {
   }
 }
 
-async function mapParallel<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function mapParallel<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
   const worker = async () => {
