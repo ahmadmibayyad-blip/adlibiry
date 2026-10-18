@@ -8,6 +8,8 @@ import { api, internal } from "./_generated/api";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { claudeClient } from "./lib/claudeClient";
 import { capLimit, listNichesTool, listStoreTechTool, searchAdsTool, searchProductsTool, searchStoresTool } from "./lib/aiTools";
+import { askKimi, shouldUseKimi } from "./lib/kimiFallback";
+import { asksAboutStores, fallbackSystem, matchNiches, searchWords } from "./lib/assistantFallback";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
 // A chat assistant for signed-in customers. Claude answers from the app's own
@@ -45,6 +47,49 @@ function makeTools(ctx: ActionCtx, maxResults: number | null) {
     betaZodTool({ ...listNichesTool, run: () => listNichesTool.run(ctx) }),
     betaZodTool({ ...listStoreTechTool, run: () => listStoreTechTool.run(ctx) }),
   ];
+}
+
+type Turn = { role: "user" | "assistant"; content: string };
+
+// When Claude can't answer (out of credit, overloaded, down), Kimi answers. Kimi
+// can't call tools, so the data for the question is looked up first and goes
+// into its system prompt (lib/assistantFallback.ts).
+async function answerWithoutTools(ctx: ActionCtx, history: Turn[], maxResults: number | null, apiKey: string): Promise<string> {
+  const message = history[history.length - 1].content;
+  const search = searchWords(message) || undefined;
+  const niche = matchNiches(message, JSON.parse(await listNichesTool.run(ctx)) as string[])[0];
+  // A search that finds nothing falls back to the niche's (or the app's) best by score.
+  const either = async (first: () => Promise<string>, then: () => Promise<string>) => {
+    const r = await first();
+    return r === "[]" && search ? then() : r;
+  };
+  const products = await either(
+    () => searchProductsTool.run(ctx, capLimit({ search, category: niche, sort: "score", limit: 10 }, maxResults)),
+    () => searchProductsTool.run(ctx, capLimit({ category: niche, sort: "score", limit: 10 }, maxResults)),
+  );
+  const ads = await either(
+    () => searchAdsTool.run(ctx, capLimit({ search, niche, sort: "score", limit: 8 }, maxResults)),
+    () => searchAdsTool.run(ctx, capLimit({ niche, sort: "longestRunning", limit: 8 }, maxResults)),
+  );
+  const stores = asksAboutStores(message)
+    ? await either(
+        () => searchStoresTool.run(ctx, capLimit({ search, niche, limit: 8 }, maxResults)),
+        () => searchStoresTool.run(ctx, capLimit({ niche, limit: 8 }, maxResults)),
+      )
+    : "";
+  const answer = await askKimi(
+    {
+      max_tokens: 4000,
+      system: fallbackSystem(SYSTEM, [
+        { label: `Products${niche ? ` (category ${niche})` : ""}`, json: products },
+        { label: `Ads${niche ? ` (niche ${niche})` : ""}`, json: ads },
+        { label: "Stores", json: stores },
+      ]),
+      messages: history,
+    },
+    { apiKey, model: process.env.KIMI_MODEL?.trim() },
+  );
+  return answer.content.map((b) => b.text).join("\n").trim();
 }
 
 export const chat = action({
@@ -110,6 +155,18 @@ export const chat = action({
         limit,
       };
     } catch (error) {
+      const kimiKey = process.env.KIMI_API_KEY?.trim();
+      if (error instanceof Anthropic.APIError && kimiKey && shouldUseKimi(error, {})) {
+        console.warn("Claude failed, Ask AI answers with Kimi:", error.message.slice(0, 200));
+        try {
+          const reply = await answerWithoutTools(ctx, history, maxResults, kimiKey);
+          if (reply) return { reply, used: claim.used, limit };
+          (error as { kimiError?: string }).kimiError = "empty answer";
+        } catch (kimiError) {
+          console.error("Kimi fallback failed:", (kimiError as Error).message?.slice(0, 300));
+          (error as { kimiError?: string }).kimiError = String((kimiError as Error)?.message ?? kimiError).slice(0, 300);
+        }
+      }
       if (error instanceof Anthropic.APIError) {
         console.error("Claude API error", error.status, error.message);
         const user = await ctx.runQuery(internal.users.getCurrentUserInternal);

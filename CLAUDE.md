@@ -58,6 +58,8 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Claude API calls go through `claudeClient()` in `convex/lib/claudeClient.ts` (it adds the workspace header).
 - With `KIMI_API_KEY` set (optional `KIMI_MODEL`, default `kimi-k2.6`), a Claude call that fails for billing, overload, rate limits
   or an outage is answered by Kimi instead (`convex/lib/kimiFallback.ts`). Calls with tools or streaming stay on Claude.
+  Ask AI (`assistant.ts`) uses tools, so on those errors it looks up products, ads (and stores, if asked) for the last message first
+  (`lib/assistantFallback.ts`: words, named niche, top by score if nothing matches) and Kimi answers from that data without tools.
 
 ## Billing (Stripe)
 
