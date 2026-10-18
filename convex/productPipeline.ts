@@ -28,7 +28,7 @@ import {
 } from "./lib/productMatch";
 import { shouldWriteSnapshot } from "./lib/snapshots";
 import { MAX_ADS_PER_ADVERTISER, UNKNOWN_ADVERTISER, rankAdvertiserAds } from "./lib/adRank";
-import { hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/imageHash";
+import { hashBandFields, hashBands, isSameImage, isUsableHash, productHashFields } from "./lib/imageHash";
 import { WINNERS_ROUND_DAYS, addDays, daysBetween, pickNicheMix } from "./lib/winnerMix";
 
 // ── Daily pipeline ──────────────────────────────────────────────────────────
@@ -498,6 +498,11 @@ export const step = internalMutation({
             nicheMedianEngagement: medians[ad.niche],
           });
           if ((ad.isScaling ?? false) !== scaling) await ctx.db.patch("ads", ad._id, { isScaling: scaling });
+          // Hash parts for "same creative" lookups; fills in ads hashed before ads had them.
+          const bands = hashBandFields(ad.imageHash);
+          if (bands.hashBand0 !== ad.hashBand0 || bands.hashBand1 !== ad.hashBand1 || bands.hashBand2 !== ad.hashBand2 || bands.hashBand3 !== ad.hashBand3) {
+            await ctx.db.patch("ads", ad._id, bands);
+          }
           await upsertSnapshot(ctx, args.day, "ad", ad._id, { score: ad.aiScore, adsRunning: 1, ...n, rank: ad.pageRank, rankOf: ad.pageActiveAds });
         }
         counts.snapshots += page.page.length;

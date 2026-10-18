@@ -755,3 +755,13 @@ describe("rank among the advertiser's live ads", () => {
     expect(history.map((h) => [h.day, h.rank, h.rankOf])).toEqual([["2026-09-30", 2, 3]]);
   });
 });
+
+describe("same-creative hash parts", () => {
+  it("are filled in at night for ads hashed before ads had them", async () => {
+    const t = convexTest(schema, modules);
+    const id = await t.run((ctx) => ctx.db.insert("ads", ad({ imageHash: "0f0f1e1e2d2d3c3c" })));
+    await runPipeline(t);
+    const a = await t.run((ctx) => ctx.db.get("ads", id));
+    expect([a?.hashBand0, a?.hashBand1, a?.hashBand2, a?.hashBand3]).toEqual(["0f0f", "1e1e", "2d2d", "3c3c"]);
+  });
+});

@@ -1,6 +1,8 @@
 import { ConvexError, v, type ObjectType } from "convex/values";
 import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
-import { limitedPage, requireSignedIn } from "./lib/access";
+import { limitedPage, requireSignedIn, resultLimitFor } from "./lib/access";
+import { hashBands, isUsableHash, sameImageMatches } from "./lib/imageHash";
+import { parseCompact } from "./lib/productMatch";
 import type { Expression, FilterBuilder, NamedTableInfo } from "convex/server";
 import type { DataModel } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
@@ -156,6 +158,46 @@ export const getById = query({
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
     return await ctx.db.get("ads", args.id);
+  },
+});
+
+// Ads read per hash part when looking for the same creative.
+const SAME_CREATIVE_CANDIDATES = 100;
+const SAME_CREATIVE_SHOWN = 24;
+
+/**
+ * Other ads running the same creative (the same image, resized or re-compressed
+ * at most: lib/imageHash.ts), found through the four indexed hash parts.
+ * "pending" until the nightly image hashing has read this ad's creative;
+ * "unreadable" when it couldn't be read or the ad has no image.
+ */
+export const sameCreative = query({
+  args: { adId: v.id("ads") },
+  handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
+    const ad = await ctx.db.get("ads", args.adId);
+    if (!ad) return null;
+    const hash = ad.imageHash;
+    if (!isUsableHash(hash)) return { status: hash === undefined ? ("pending" as const) : ("unreadable" as const), ads: [], total: 0, advertisers: 0 };
+    const [b0, b1, b2, b3] = hashBands(hash);
+    const take = SAME_CREATIVE_CANDIDATES;
+    const candidates = (
+      await Promise.all([
+        ctx.db.query("ads").withIndex("by_hash_band_0", (q) => q.eq("hashBand0", b0)).take(take),
+        ctx.db.query("ads").withIndex("by_hash_band_1", (q) => q.eq("hashBand1", b1)).take(take),
+        ctx.db.query("ads").withIndex("by_hash_band_2", (q) => q.eq("hashBand2", b2)).take(take),
+        ctx.db.query("ads").withIndex("by_hash_band_3", (q) => q.eq("hashBand3", b3)).take(take),
+      ])
+    ).flat();
+    const matches = sameImageMatches(hash, candidates, ad._id, (a) => a.impressions ?? parseCompact(a.views) ?? 0);
+    const limit = Math.min(SAME_CREATIVE_SHOWN, (await resultLimitFor(ctx)) ?? SAME_CREATIVE_SHOWN);
+    return {
+      status: "ok" as const,
+      ads: matches.slice(0, limit).map((m) => ({ ...m.item, distance: m.distance })),
+      total: matches.length,
+      // Other advertisers (by page name) running it, besides this ad's own.
+      advertisers: new Set(matches.map((m) => m.item.advertiserName).filter((n) => n !== ad.advertiserName && n !== "Unknown advertiser")).size,
+    };
   },
 });
 

@@ -14,6 +14,7 @@ import { rankTrend } from "@/convex/lib/adRank.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
+import SameCreative from "../_components/SameCreative.tsx";
 import { AIToolsGrid, SideTools } from "../_components/ProductTools.tsx";
 import AdMedia from "../_components/AdMedia.tsx";
 import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
@@ -279,6 +280,9 @@ export default function AdDetailPage() {
         </section>
       )}
 
+      <div className="mt-8">
+        <SameCreative adId={ad._id} />
+      </div>
       {knownAdvertiser && <MoreFromAdvertiser name={ad.advertiserName} adId={ad._id} />}
 
       <AdDetailModal ad={ad} open={details} onOpenChange={setDetails} />

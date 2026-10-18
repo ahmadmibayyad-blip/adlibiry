@@ -94,8 +94,35 @@ export function hashBands(hash: string): [string, string, string, string] {
   return [hash.slice(0, 4), hash.slice(4, 8), hash.slice(8, 12), hash.slice(12, 16)];
 }
 
+/** The four hash parts as fields (all undefined for an unusable hash); products and ads index them. */
+export function hashBandFields(hash: string | undefined) {
+  const bands = isUsableHash(hash) ? hashBands(hash) : [undefined, undefined, undefined, undefined];
+  return { hashBand0: bands[0], hashBand1: bands[1], hashBand2: bands[2], hashBand3: bands[3] };
+}
+
 /** Product fields for a hash of `url` ("" = couldn't read; parts only for usable hashes). */
 export function productHashFields(hash: string, url: string) {
-  const bands = isUsableHash(hash) ? hashBands(hash) : [undefined, undefined, undefined, undefined];
-  return { imageHash: hash, imageHashUrl: url, hashBand0: bands[0], hashBand1: bands[1], hashBand2: bands[2], hashBand3: bands[3] };
+  return { imageHash: hash, imageHashUrl: url, ...hashBandFields(hash) };
+}
+
+/**
+ * Candidates (from the hash-part indexes) showing the same image as `hash`:
+ * at most SAME_IMAGE_MAX_DISTANCE bits apart, `excludeId` and duplicates left
+ * out, closest first, then most views.
+ */
+export function sameImageMatches<T extends { _id: string; imageHash?: string }>(
+  hash: string,
+  candidates: T[],
+  excludeId: string,
+  views: (c: T) => number,
+): { item: T; distance: number }[] {
+  const seen = new Set<string>([excludeId]);
+  const out: { item: T; distance: number }[] = [];
+  for (const c of candidates) {
+    if (seen.has(c._id) || !isUsableHash(c.imageHash)) continue;
+    seen.add(c._id);
+    const distance = hamming(hash, c.imageHash);
+    if (distance <= SAME_IMAGE_MAX_DISTANCE) out.push({ item: c, distance });
+  }
+  return out.sort((a, b) => a.distance - b.distance || views(b.item) - views(a.item));
 }
