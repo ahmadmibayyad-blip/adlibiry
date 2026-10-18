@@ -1,6 +1,7 @@
 import { FlaskConical, TrendingUp, Trophy } from "lucide-react";
 import { adStage, STAGE_INFO, type AdStage } from "@/convex/lib/adStage.ts";
 import { cn } from "@/lib/utils.ts";
+import { useCpm } from "@/hooks/use-cpm.ts";
 
 const STYLE: Record<AdStage, { icon: typeof Trophy; className: string }> = {
   scaling: { icon: TrendingUp, className: "bg-good/90 text-white" },
@@ -10,7 +11,9 @@ const STYLE: Record<AdStage, { icon: typeof Trophy; className: string }> = {
 
 /** The ad's Scaling / Winning / Testing label (convex/lib/adStage.ts), or nothing. */
 export default function AdStageBadge({ ad, className }: { ad: Parameters<typeof adStage>[0]; className?: string }) {
-  const stage = adStage(ad);
+  // Same spend as the card: EU reach × the user's CPM (lib/euSpend.ts).
+  const [cpm] = useCpm();
+  const stage = adStage(ad, cpm);
   if (!stage) return null;
   const { icon: Icon, className: tone } = STYLE[stage];
   return (

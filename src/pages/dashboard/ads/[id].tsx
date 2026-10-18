@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils.ts";
 import { compactNumber, flag, spendLabel } from "@/lib/adFormat.ts";
+import { useCpm } from "@/hooks/use-cpm.ts";
+import AdvertiserSpend from "../ad-spy/_components/AdvertiserSpend.tsx";
+import { adSpend } from "@/lib/euSpend.ts";
 import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
 import { rankTrend } from "@/convex/lib/adRank.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
@@ -84,6 +87,7 @@ export default function AdDetailPage() {
   const comparison = useQuery(api.history.adNicheComparison, id ? { adId } : "skip");
   const [details, setDetails] = useState(false);
   const tools = useToolSubject(ad);
+  const [cpm] = useCpm();
 
   if (ad === undefined) {
     return (
@@ -119,7 +123,8 @@ export default function AdDetailPage() {
   const rankPoints: Point[] = ranked.map((r) => ({ day: r.day, value: r.rank! }));
   const trend = rankTrend(ranked);
   const showRank = (ad.pageActiveAds ?? 0) > 1 || ranked.some((r) => (r.rankOf ?? 0) > 1);
-  const spend = spendLabel(ad.spendEstimate);
+  const spendInfo = adSpend(ad, cpm, spendLabel);
+  const spend = spendInfo?.value;
   const gmv = ad.gmv ?? gmvFromText(ad.bodyText) ?? 0;
 
   return (
@@ -174,6 +179,7 @@ export default function AdDetailPage() {
               <span className="text-sm font-semibold truncate">{ad.advertiserName}</span>
               {knownAdvertiser && <FollowAdvertiser name={ad.advertiserName} className="shrink-0" />}
             </div>
+            {knownAdvertiser && <AdvertiserSpend name={ad.advertiserName} />}
             <h1 className="font-display text-2xl font-bold leading-tight mb-1">“{ad.headline}”</h1>
             <p className="text-sm text-muted-foreground line-clamp-3">{ad.bodyText}</p>
             {ad.ctaText && (
@@ -195,9 +201,9 @@ export default function AdDetailPage() {
               {/* "up to $45K" doesn't fit the tile: the "up to" goes in the label. */}
               {spend && (
                 <StatTile
-                  label={/^up to /i.test(spend) ? "Spend (est., max)" : "Spend (est.)"}
+                  label={spendInfo?.basis === "eu-reach" ? "EU spend (est.)" : /^up to /i.test(spend) ? "Spend (est., max)" : "Spend (est.)"}
                   value={spend.replace(/^up to\s*/i, "")}
-                  hint={spend}
+                  hint={spendInfo?.note ?? spend}
                 />
               )}
               {gmv ? <StatTile label="GMV" value={money(gmv)} /> : null}
