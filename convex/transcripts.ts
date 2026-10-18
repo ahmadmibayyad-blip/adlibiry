@@ -14,25 +14,27 @@ import { byTier } from "./lib/billing";
 
 const PER_RUN = 40;
 
-export const candidates = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const out: { id: Id<"ads">; url: string }[] = [];
-    const want = (a: { videoUrl?: string; transcriptCheckedAt?: string }) => !!a.videoUrl && !a.transcriptCheckedAt;
-    for await (const a of ctx.db.query("ads").withIndex("by_score").order("desc")) {
-      if (out.length >= PER_RUN) break;
-      if (want(a) && a.isScaling) out.push({ id: a._id, url: a.videoUrl! });
-    }
-    if (out.length < PER_RUN) {
-      const top = await ctx.db.query("ads").withIndex("by_score").order("desc").take(800);
-      for (const a of top) {
-        if (out.length >= PER_RUN) break;
-        if (want(a) && !out.some((o) => o.id === a._id)) out.push({ id: a._id, url: a.videoUrl! });
-      }
-    }
-    return out;
+// Ads read per page while looking for videos to transcribe. Each page is its
+// own query (Convex allows 16 MB read per function, and ad rows are big), and
+// the job stops after SCAN_PAGES pages: the top ~8,000 ads by score.
+const PAGE = 200;
+const SCAN_PAGES = 40;
+
+export const candidatePage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    const res = await ctx.db.query("ads").withIndex("by_score").order("desc").paginate({ numItems: PAGE, cursor: args.cursor });
+    return {
+      items: res.page.filter((a) => !!a.videoUrl && !a.transcriptCheckedAt).map((a) => ({ id: a._id, url: a.videoUrl!, scaling: !!a.isScaling })),
+      cursor: res.isDone ? null : res.continueCursor,
+    };
   },
 });
+
+// Scaling ads first, then the best-scoring others, PER_RUN in all.
+export function pickCandidates<T extends { scaling: boolean }>(found: T[], perRun: number): T[] {
+  return [...found.filter((f) => f.scaling), ...found.filter((f) => !f.scaling)].slice(0, perRun);
+}
 
 export const save = internalMutation({
   args: { id: v.id("ads"), transcript: v.optional(v.string()), hook: v.optional(v.string()) },
@@ -64,7 +66,16 @@ export const dailyTranscripts = internalAction({
   handler: async (ctx): Promise<{ notConfigured: string } | { fetched: number; updated: number; errors: string[] }> => {
     const key = process.env.DEEPGRAM_API_KEY?.trim();
     if (!key) return { notConfigured: "DEEPGRAM_API_KEY isn't set (video transcripts)" };
-    const todo = await ctx.runQuery(internal.transcripts.candidates, {});
+    const found: { id: Id<"ads">; url: string; scaling: boolean }[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < SCAN_PAGES; i++) {
+      const page: { items: typeof found; cursor: string | null } = await ctx.runQuery(internal.transcripts.candidatePage, { cursor });
+      found.push(...page.items);
+      cursor = page.cursor;
+      // Enough scaling ads already, or nothing left to read.
+      if (cursor === null || found.filter((f) => f.scaling).length >= PER_RUN) break;
+    }
+    const todo = pickCandidates(found, PER_RUN);
     const out = { fetched: 0, updated: 0, errors: [] as string[] };
     for (const item of todo) {
       try {
