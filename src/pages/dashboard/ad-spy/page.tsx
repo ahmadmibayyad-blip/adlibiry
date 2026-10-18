@@ -27,7 +27,8 @@ type Ad = Doc<"ads">;
 // ("1000-" = at least 1000).
 type Filters = {
   platform?: string;
-  scaling?: boolean;
+  scaling?: boolean; // older saved searches; now stage "scaling"
+  stage?: string; // convex/lib/adStage.ts AdStage
   niche?: string;
   firstSeen?: string; // days
   lastSeen?: string; // days
@@ -66,6 +67,13 @@ const RUN_TIME = [ANY, opt("1-7", "1–7 days"), opt("7-30", "7–30 days"), opt
 const IMPRESSIONS = [ANY, opt("0-10000", "Under 10K"), opt("10000-100000", "10K–100K"), opt("100000-1000000", "100K–1M"), opt("1000000-", "1M+")];
 const LIKES = [ANY, opt("100-", "100+"), opt("1000-", "1K+"), opt("10000-", "10K+"), opt("100000-", "100K+")];
 const SPEND = [ANY, opt("0-1000", "Under $1K"), opt("1000-10000", "$1K–$10K"), opt("10000-50000", "$10K–$50K"), opt("50000-", "$50K+")];
+// Stage labels on the cards (convex/lib/adStage.ts).
+const STAGE = [
+  ANY,
+  opt("scaling", "Scaling"),
+  opt("winning", "Winning (7+ days, $100+ spend)"),
+  opt("testing", "Testing (new or under 1K views)"),
+];
 const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
 const MEDIA = [ANY, opt("video", "Video"), opt("image", "Image"), opt("carousel", "Carousel")];
 const LANDING = [ANY, opt("has", "Has store link")];
@@ -136,7 +144,8 @@ function toQueryArgs(f: Filters, search: string) {
     minAiScore: score.min,
     minCopies: f.repeated ? 2 : undefined,
     activeOnly: f.active || undefined,
-    scalingOnly: f.scaling || undefined,
+    scalingOnly: (f.scaling && !f.stage) || undefined,
+    stage: f.stage,
     hasLandingPage: f.landing === "has" || undefined,
   };
 }
@@ -199,7 +208,7 @@ export default function AdSpyPage() {
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length + (nichesOn ? 1 : 0);
   // Filters set inside "Advanced filters" (everything but platform and the four visible ones).
   const advancedCount = Object.entries(f).filter(
-    ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling"].includes(k) && v !== undefined && v !== false,
+    ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling", "stage"].includes(k) && v !== undefined && v !== false,
   ).length;
   const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
   const clearAll = () => {
@@ -288,11 +297,12 @@ export default function AdSpyPage() {
           <FilterSelect label="Offer" value={f.offer ?? "any"} onChange={setAny("offer")} options={OFFER} active={!!f.offer} />
           <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
           <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
-          <Check
-            label="Scaling"
-            hint="Running 14+ days and still getting budget: views up 10%+ on last week, or engagement above the category's median"
-            checked={!!f.scaling}
-            onChange={(v) => set("scaling", v || undefined)}
+          <FilterSelect
+            label="Ad stage"
+            value={f.stage ?? (f.scaling ? "scaling" : "any")}
+            onChange={(v) => setF((prev) => ({ ...prev, scaling: undefined, stage: v === "any" ? undefined : v }))}
+            options={STAGE}
+            active={!!(f.stage || f.scaling)}
           />
           <button
             type="button"

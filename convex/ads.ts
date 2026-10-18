@@ -11,6 +11,7 @@ import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import { offerTags } from "./lib/offerTags";
+import { adStage, WINNING_MIN_DAYS } from "./lib/adStage";
 
 // ── Ads ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ const listArgs = {
   maxSpend: v.optional(v.number()),
   language: v.optional(v.string()),
   offer: v.optional(v.string()), // lib/offerTags.ts OfferKind: ads whose text makes that offer ("bxgy", "percent"…)
+  stage: v.optional(v.string()), // lib/adStage.ts AdStage: "scaling" | "winning" | "testing"
 };
 
 const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
@@ -79,6 +81,10 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
       c.push(q.and(q.neq(q.field("impressions"), undefined), q.lte(q.field("impressions"), args.maxImpressions)));
     if (args.maxLikes !== undefined) c.push(q.lte(q.field("likes"), args.maxLikes));
     if (args.language) c.push(q.eq(q.field("language"), args.language));
+    // The stage itself needs the spend range, so the page is trimmed after; these narrow the read.
+    if (args.stage) c.push(q.neq(q.field("isActive"), false));
+    if (args.stage === "scaling") c.push(q.eq(q.field("isScaling"), true));
+    if (args.stage === "winning") c.push(q.gt(q.field("daysRunning"), WINNING_MIN_DAYS));
     return c.length === 0 ? true : c.length === 1 ? c[0] : q.and(...c);
   };
 
@@ -139,6 +145,7 @@ ${a.bodyText}`).some((t) => t.kind === args.offer));
       return s !== undefined && s <= args.maxSpend!;
     });
   }
+  if (args.stage) page = page.filter((a) => adStage(a) === args.stage);
   return { ...result, page };
 };
 

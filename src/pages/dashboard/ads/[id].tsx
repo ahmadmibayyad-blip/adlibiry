@@ -19,6 +19,7 @@ import LooksSimilar from "../_components/LooksSimilar.tsx";
 import { AIToolsGrid, SideTools } from "../_components/ProductTools.tsx";
 import AdMedia from "../_components/AdMedia.tsx";
 import { AdVideoAction } from "../_components/DownloadVideoButton.tsx";
+import AdStageBadge from "@/components/AdStageBadge.tsx";
 import { ChartCard, CollectingData, ComparisonRow, RangeSwitch, StatTile, TimeChart } from "../_components/charts.tsx";
 import { dailyChange, money, pct, SERIES, type Point, type Range } from "../_components/chartUtils.ts";
 
@@ -166,6 +167,7 @@ export default function AdDetailPage() {
               {ad.mediaType && <span className="text-xs px-2 py-0.5 rounded bg-muted capitalize">{ad.mediaType}</span>}
               <span className="text-xs px-2 py-0.5 rounded bg-muted">{ad.niche}</span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded bg-foreground text-background">Ad score {ad.aiScore}</span>
+              <AdStageBadge ad={ad} className="text-xs px-2 rounded" />
             </div>
             <div className="flex items-center gap-2 mb-2 min-w-0">
               {ad.advertiserAvatar && <img src={ad.advertiserAvatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />}
