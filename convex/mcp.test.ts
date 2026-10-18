@@ -56,7 +56,7 @@ describe("MCP server", () => {
     expect(ack.status).toBe(202);
 
     const list = await (await t.fetch("/mcp", { method: "POST", headers, body: rpc(2, "tools/list") })).json();
-    expect(list.result.tools.map((x: { name: string }) => x.name)).toEqual(["search_ads", "search_products", "list_niches"]);
+    expect(list.result.tools.map((x: { name: string }) => x.name)).toEqual(["search_ads", "search_products", "search_stores", "list_niches", "list_store_tech"]);
     expect(list.result.tools[1].inputSchema.type).toBe("object");
 
     const call = await (await t.fetch("/mcp", { method: "POST", headers, body: rpc(3, "tools/call", { name: "search_products", arguments: { limit: 5 } }) })).json();
@@ -68,6 +68,32 @@ describe("MCP server", () => {
 
     const unknown = await (await t.fetch("/mcp", { method: "POST", headers, body: rpc(5, "nope") })).json();
     expect(unknown.error.code).toBe(-32601);
+  });
+
+  it("finds stores by the app they use, and lists the tech to filter by", async () => {
+    const { t, key } = await setup();
+    await t.run(async (ctx) => {
+      const store = {
+        logoUrl: "", niche: "Pet Supplies", country: "DK", platform: "Shopify", estimatedRevenueRange: "$10K–$30K/mo", trafficRange: "5K–10K visits/mo",
+        activeAdsCount: 4, bestSellers: [{ title: "Cooling mat", imageUrl: "", price: 39, estSalesRange: "100–300 sold" }], isHighTraffic: false,
+        spottedAt: "2026-10-01T00:00:00.000Z",
+      };
+      const tech = (apps: string[]) => ({ checkedAt: "2026-10-10T00:00:00.000Z", ok: true, theme: "Dawn", apps, pixels: ["Meta"] });
+      await ctx.db.insert("stores", { ...store, name: "PawCool", url: "https://pawcool.dk", tech: tech(["Klaviyo", "Judge.me"]) });
+      await ctx.db.insert("stores", { ...store, name: "DogNest", url: "https://dognest.dk", tech: tech(["Judge.me"]) });
+      await ctx.db.insert("stores", { ...store, name: "Unread", url: "https://unread.dk" });
+    });
+    const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    const call = async (id: number, name: string, args: object) =>
+      JSON.parse((await (await t.fetch("/mcp", { method: "POST", headers, body: rpc(id, "tools/call", { name, arguments: args }) })).json()).result.content[0].text);
+
+    const stores = await call(1, "search_stores", { app: "klaviyo" });
+    expect(stores).toHaveLength(1);
+    expect(stores[0]).toMatchObject({ name: "PawCool", website: "https://pawcool.dk", theme: "Dawn", apps: ["Klaviyo", "Judge.me"], adsRunning: 4 });
+    expect(stores[0].bestSellers).toEqual([{ title: "Cooling mat", price: 39, salesEstimate: "100–300 sold" }]);
+
+    const tech = await call(2, "list_store_tech", {});
+    expect(tech).toMatchObject({ read: 2, themes: [{ value: "Dawn", n: 2 }], apps: [{ value: "Judge.me", n: 2 }, { value: "Klaviyo", n: 1 }] });
   });
 
   it("accepts the key in the URL for apps that only take a URL", async () => {

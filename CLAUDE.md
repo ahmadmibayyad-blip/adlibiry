@@ -99,6 +99,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   `collectionItems`, kind + refId), separate from Save and the store watchlist. 50 per user, 500 items each; the "Collection" button
   (`src/components/AddToCollection.tsx`) is on the ad pop-up and page, store pop-up and product page. Product merges move items (`moveProductItems`),
   and a product in a collection isn't deleted when it loses its ads. Adding an ad hosts its media like a saved ad.
+- AI data tools (`lib/aiTools.ts`, shared by Ask AI `assistant.ts`, agents `agentRunner.ts` and the MCP server `mcp.ts`): search_ads,
+  search_products, search_stores (`stores.listInternal`: name, niche, country, theme/app/pixel, ads running, revenue floor), list_niches and
+  list_store_tech (`stores.techOptionsInternal`). Search tools' `limit` is capped at the customer's result limit (`capLimit`).
 - Store tech (`storeTech.ts`, `lib/storeTech.ts`): the daily "storeTech" job reads up to 60 listed stores' home pages (plain fetch, no browser)
   and saves theme, apps and pixels on `stores.tech` (again after 30 days; a failed read keeps the last good one). A Store Inspector run copies
   its result onto the store with the same `host`. Stores page filters Theme / Uses app / Pixel (`stores.list` theme/app/pixel, options from

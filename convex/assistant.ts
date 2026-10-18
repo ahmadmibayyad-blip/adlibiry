@@ -7,7 +7,7 @@ import { action, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { claudeClient } from "./lib/claudeClient";
-import { capLimit, listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
+import { capLimit, listNichesTool, listStoreTechTool, searchAdsTool, searchProductsTool, searchStoresTool } from "./lib/aiTools";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
 // A chat assistant for signed-in customers. Claude answers from the app's own
@@ -29,6 +29,8 @@ Pages customers can open:
 - Niche research: /dashboard/research
 - Store tracker: /dashboard/stores
 
+Use search_stores for questions about stores: who sells something, which stores use a theme, app or pixel (values from list_store_tech), their estimated revenue, traffic and best sellers. Store revenue, traffic and sales are estimates.
+
 When you mention a product from a tool result, link it as /dashboard/products/<id>. Ads have no page of their own; point to Ad Spy and name the advertiser and headline so the customer can find it.
 
 Keep answers short and practical: lead with the answer, use short lists, no long preambles. Reply in the customer's language.`;
@@ -39,7 +41,9 @@ function makeTools(ctx: ActionCtx, maxResults: number | null) {
   return [
     betaZodTool({ ...searchAdsTool, run: (input) => searchAdsTool.run(ctx, capLimit(input, maxResults)) }),
     betaZodTool({ ...searchProductsTool, run: (input) => searchProductsTool.run(ctx, capLimit(input, maxResults)) }),
+    betaZodTool({ ...searchStoresTool, run: (input) => searchStoresTool.run(ctx, capLimit(input, maxResults)) }),
     betaZodTool({ ...listNichesTool, run: () => listNichesTool.run(ctx) }),
+    betaZodTool({ ...listStoreTechTool, run: () => listStoreTechTool.run(ctx) }),
   ];
 }
 
