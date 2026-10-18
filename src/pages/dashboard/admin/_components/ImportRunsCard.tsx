@@ -14,6 +14,7 @@ const LABELS: Record<string, string> = {
   apify: "Apify Meta Ad Library",
   metaAdLibrary: "Meta Ad Library API (official)",
   adEmbeddings: "Looks similar: ad images (Voyage AI)",
+  adMedia: "Ad media copies (saved and new ads)",
   pipispy: "PiPiSpy",
   aliexpressCosts: "AliExpress suppliers",
   transcripts: "Video transcripts (Deepgram)",

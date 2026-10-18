@@ -274,6 +274,13 @@ export default defineSchema({
     pageActiveAds: v.optional(v.number()),    // how many ads that advertiser has live
     // "Looks similar" (convex/adEmbeddings.ts): "done" = in adEmbeddings, "none" = no image to embed, "failed" = couldn't be read.
     embedStatus: v.optional(v.string()),
+    // Our copies of the media in Convex storage (lib/adMedia.ts): used when the source link has expired.
+    hostedImageId: v.optional(v.id("_storage")),
+    hostedImageUrl: v.optional(v.string()),
+    hostedVideoId: v.optional(v.id("_storage")),
+    hostedVideoUrl: v.optional(v.string()),
+    mediaStatus: v.optional(v.string()), // image: "done" | "none" | "failed"
+    videoStatus: v.optional(v.string()), // video (saved ads only): "done" | "failed"
     sources: v.optional(v.array(v.string())), // every source that has delivered this ad
     sourceFields: v.optional(v.object({ live: v.optional(v.object({ source: v.string(), at: v.string() })), advertiser: v.optional(v.object({ source: v.string(), at: v.string() })), engagement: v.optional(v.object({ source: v.string(), at: v.string() })) })), // who wrote each field group
     landingHost: v.optional(v.string()),      // shop domain of the landing page (not marketplaces), ties ads to tracked stores
@@ -298,6 +305,7 @@ export default defineSchema({
     .index("by_hash_band_2", ["hashBand2"])
     .index("by_hash_band_3", ["hashBand3"])
     .index("by_embed_status", ["embedStatus"])
+    .index("by_media_status", ["mediaStatus"])
     .index("by_landing_host", ["landingHost"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])

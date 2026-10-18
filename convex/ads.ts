@@ -7,6 +7,7 @@ import type { Expression, FilterBuilder, NamedTableInfo } from "convex/server";
 import type { DataModel } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 import type { SiteStats } from "./stats";
+import { internal } from "./_generated/api";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import { offerTags } from "./lib/offerTags";
@@ -286,6 +287,8 @@ export const toggleSaveAd = mutation({
         adId: args.adId,
         savedAt: new Date().toISOString(),
       });
+      // Keep our own copy of its image and video, so the saved ad doesn't go blank when the source link expires.
+      await ctx.scheduler.runAfter(0, internal.adMediaAction.hostSaved, { adId: args.adId });
       return { saved: true };
     }
   },

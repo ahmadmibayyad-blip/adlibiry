@@ -9,7 +9,7 @@ import { summarizeRun } from "./lib/importRuns";
 // exhausted API credit balance. Admin → Data sources shows the latest run of
 // each job. Before this, crons discarded the results and failures went unseen.
 
-export const JOBS = ["adlibrary", "nexscopePricing", "nexscopeDiscovery", "nexscopeTikTok", "apify", "winninghunter", "metaAdLibrary", "pipispy", "aliexpressCosts", "transcripts", "adEmbeddings"] as const;
+export const JOBS = ["adlibrary", "nexscopePricing", "nexscopeDiscovery", "nexscopeTikTok", "apify", "winninghunter", "metaAdLibrary", "pipispy", "aliexpressCosts", "transcripts", "adEmbeddings", "adMedia"] as const;
 const job = v.union(...JOBS.map((j) => v.literal(j)));
 const KEEP_DAYS = 60;
 
@@ -49,6 +49,8 @@ async function runJob(ctx: ActionCtx, name: (typeof JOBS)[number]): Promise<unkn
       return await ctx.runAction(internal.transcripts.dailyTranscripts, {});
     case "adEmbeddings":
       return await ctx.runAction(internal.adEmbeddingsAction.dailyEmbed, {});
+    case "adMedia":
+      return await ctx.runAction(internal.adMediaAction.daily, {});
     case "aliexpressCosts":
       return await ctx.runAction(internal.aliexpress.dailyCosts, {});
     case "pipispy":

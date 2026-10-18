@@ -10,6 +10,7 @@ import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFo
 import { useCpm } from "@/hooks/use-cpm.ts";
 import { adSpend } from "@/lib/euSpend.ts";
 import { isPlayable, tiktokEmbedUrl, tiktokVideoId } from "@/lib/adVideo.ts";
+import { useMediaFallback } from "@/lib/useMediaFallback.ts";
 
 type Ad = Doc<"ads">;
 
@@ -83,7 +84,9 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
     window.dispatchEvent(new CustomEvent(PLAY_EVENT, { detail: ad._id }));
     setPlaying(true);
   };
-  const [imgFailed, setImgFailed] = useState(false);
+  // Source link first, our copy when it has expired (lib/useMediaFallback.ts).
+  const image = useMediaFallback(ad.creativeUrl, ad.hostedImageUrl);
+  const video = useMediaFallback(ad.videoUrl, ad.hostedVideoUrl);
   // Play icon only when the popup can actually play it (file or TikTok embed).
   const isVideo = isPlayable(ad);
   const [cpm] = useCpm();
@@ -143,20 +146,21 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
         {ad.videoUrl && hovering ? (
           <video
             ref={videoRef}
-            src={ad.videoUrl}
-            poster={ad.creativeUrl}
+            src={video.src}
+            poster={image.src}
+            onError={video.onError}
             muted
             loop
             playsInline
             preload="none"
             className="w-full h-full object-cover"
           />
-        ) : !imgFailed && ad.creativeUrl ? (
+        ) : !image.failed ? (
           <img
-            src={ad.creativeUrl}
+            src={image.src}
             alt=""
             loading="lazy"
-            onError={() => setImgFailed(true)}
+            onError={image.onError}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -191,7 +195,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
           // Inline player; clicks here don't open the ad.
           <div className="absolute inset-0 z-10 bg-black" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             {ad.videoUrl ? (
-              <video src={ad.videoUrl} poster={ad.creativeUrl} autoPlay controls playsInline className="w-full h-full object-contain" />
+              <video src={video.src} poster={image.src} onError={video.onError} autoPlay controls playsInline className="w-full h-full object-contain" />
             ) : tiktokId ? (
               <iframe
                 src={`${tiktokEmbedUrl(tiktokId)}&autoplay=1`}

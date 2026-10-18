@@ -1,3 +1,4 @@
+import { deleteHostedMedia } from "../adMedia";
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requireAdmin } from "./helpers";
@@ -50,6 +51,7 @@ export const removeAdImport = mutation({
           .unique();
         if (link) await ctx.db.delete("syncLinks", link._id);
       }
+      await deleteHostedMedia(ctx, ad);
       await ctx.db.delete("ads", ad._id);
     }
     if (now.length) await markStatsDirty(ctx);
@@ -96,6 +98,7 @@ export const removeProductListingAds = mutation({
           .unique();
         if (link) await ctx.db.delete("syncLinks", link._id);
       }
+      await deleteHostedMedia(ctx, ad);
       await ctx.db.delete("ads", ad._id);
       deleted += 1;
     }

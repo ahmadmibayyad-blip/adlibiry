@@ -123,6 +123,10 @@ crons.daily("transcribe video ads", { hourUTC: 10, minuteUTC: 40 }, internal.imp
 // (convex/adEmbeddingsAction.ts). After the morning imports and the pipeline.
 crons.daily("embed ad images for Looks similar", { hourUTC: 11, minuteUTC: 10 }, internal.importRuns.run, { job: "adEmbeddings" });
 
+// Copies new and saved ads' images (and saved ads' videos) to our storage before
+// their source links expire (convex/adMediaAction.ts).
+crons.daily("copy ad media to our storage", { hourUTC: 11, minuteUTC: 40 }, internal.importRuns.run, { job: "adMedia" });
+
 // Hooks of the week: Mondays after the morning imports (convex/hooksBuilder.ts).
 crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 40 }, internal.hooksBuilder.buildWeekly, {});
 
