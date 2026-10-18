@@ -29,7 +29,7 @@ const listArgs = {
   minAiScore: v.optional(v.number()), // 0-100
   source: v.optional(v.string()), // "meta_ad_library" | "curated" | "adlibrary_api"
   gender: v.optional(v.string()), // from ad.targeting.gender, e.g. "All", "Male", "Female"
-  sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" | "longestRunning" | "impressions" | "comments" | "shares" | "lastSeen" | "copies" | "score" | "added" (newest in AdSpy Pro)
+  sort: v.optional(v.string()), // "newest" | "mostLiked" | "highestSpend" | "longestRunning" | "impressions" | "comments" | "shares" | "lastSeen" | "copies" | "score" | "added" (newest in AdSpy Pro) | "topRank" | "pageAds"
   mediaType: v.optional(v.string()), // "video" | "image" | "carousel"
   activeOnly: v.optional(v.boolean()),
   firstSeenWithinDays: v.optional(v.number()),
@@ -47,6 +47,8 @@ const listArgs = {
   language: v.optional(v.string()),
   offer: v.optional(v.string()), // lib/offerTags.ts OfferKind: ads whose text makes that offer ("bxgy", "percent"…)
   stage: v.optional(v.string()), // lib/adStage.ts AdStage: "scaling" | "winning" | "testing"
+  maxPageRank: v.optional(v.number()), // the ad is in its advertiser's top N live ads (pageRank, lib/adRank.ts)
+  minPageAds: v.optional(v.number()), // the advertiser has at least N live ads (pageActiveAds)
 };
 
 const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
@@ -81,6 +83,9 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
       c.push(q.and(q.neq(q.field("impressions"), undefined), q.lte(q.field("impressions"), args.maxImpressions)));
     if (args.maxLikes !== undefined) c.push(q.lte(q.field("likes"), args.maxLikes));
     if (args.language) c.push(q.eq(q.field("language"), args.language));
+    if (args.maxPageRank !== undefined)
+      c.push(q.and(q.neq(q.field("pageRank"), undefined), q.lte(q.field("pageRank"), args.maxPageRank)));
+    if (args.minPageAds !== undefined) c.push(q.gte(q.field("pageActiveAds"), args.minPageAds));
     // The stage itself needs the spend range, so the page is trimmed after; these narrow the read.
     if (args.stage) c.push(q.neq(q.field("isActive"), false));
     if (args.stage === "scaling") c.push(q.eq(q.field("isScaling"), true));
@@ -120,8 +125,13 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
       : args.sort === "comments" ? base.withIndex("by_comments")
       : args.sort === "shares" ? base.withIndex("by_shares")
       : args.sort === "added" ? base.withIndex("by_creation_time")
+      : args.sort === "pageAds" ? base.withIndex("by_page_active_ads")
       : base.withIndex("by_first_seen");
-    result = await sorted.order("desc").filter(conds).paginate(args.paginationOpts);
+    result =
+      args.sort === "topRank"
+        ? // #1 first: ascending, skipping ads without a rank (stopped or never ranked).
+          await base.withIndex("by_page_rank", (q) => q.gte("pageRank", 1)).order("asc").filter(conds).paginate(args.paginationOpts)
+        : await sorted.order("desc").filter(conds).paginate(args.paginationOpts);
   }
 
   let page = result.page;

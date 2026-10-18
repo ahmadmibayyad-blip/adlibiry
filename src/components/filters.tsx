@@ -12,10 +12,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { readJson, writeJson } from "@/lib/filterUtils.ts";
 
 
-export function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+export function Chip({ on, onClick, children, title }: { on: boolean; onClick: () => void; children: React.ReactNode; title?: string }) {
   return (
     <button
       onClick={onClick}
+      title={title}
+      aria-pressed={on}
       className={cn(
         "flex items-center gap-1.5 h-10 sm:h-8 px-3 rounded-lg text-xs border cursor-pointer whitespace-nowrap transition-colors shrink-0",
         on ? "bg-primary/15 border-primary text-primary font-medium" : "border-border bg-card text-muted-foreground hover:text-foreground",
