@@ -420,7 +420,7 @@ describe("admin", () => {
     const status = await runPipeline(t);
     expect(status?.log?.map((l) => l.stage)).toEqual([
       "hashImages", "keys", "link", "landingPages", "dedupe", "stores", "aggregate", "calibrateScan", "calibrateApply",
-      "winners", "fusion", "snapshotProducts", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails", "done",
+      "winners", "fusion", "snapshotProducts", "rankAds", "snapshotAds", "prune", "alerts", "storeAds", "lists", "emails", "done",
     ]);
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
     expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runFrom, { stage: "winners" })).toEqual({ started: true });
@@ -715,5 +715,43 @@ describe("pipeline never gets stuck", () => {
     await t.mutation(internal.productPipeline.watchdog, {});
     const d = await t.run(async (ctx) => (await ctx.db.query("siteStats").withIndex("by_key", (q) => q.eq("key", "productDedup")).unique())?.data);
     expect(d).toMatchObject({ state: "stalled" });
+  });
+});
+
+describe("rank among the advertiser's live ads", () => {
+  it("ranks live ads by views, skips stopped and nameless ones, and keeps a daily history", async () => {
+    const t = convexTest(schema, modules);
+    const mk = (n: number, over: Partial<NewAd>) =>
+      ad({ headline: `Ad ${n}`, creativeUrl: `https://cdn.example.com/${n}.jpg`, landingPageUrl: `https://shop${n}.example.com/`, ...over });
+    const ids = await t.run(async (ctx) => ({
+      small: await ctx.db.insert("ads", mk(1, { views: "1.0K", isActive: true })),
+      big: await ctx.db.insert("ads", mk(2, { views: "50.0K", isActive: true })),
+      mid: await ctx.db.insert("ads", mk(3, { views: "9.0K", isActive: true })),
+      stopped: await ctx.db.insert("ads", mk(4, { views: "90.0K", isActive: false, pageRank: 1, pageActiveAds: 4 })),
+      other: await ctx.db.insert("ads", mk(5, { advertiserName: "Solo Brand", views: "5.0K" })),
+      nameless: await ctx.db.insert("ads", mk(6, { advertiserName: "Unknown advertiser", views: "5.0K" })),
+    }));
+    const status = await runPipeline(t);
+    expect(status?.state).toBe("done");
+    const got = await t.run(async (ctx) => {
+      const out: Record<string, [number | null, number | null]> = {};
+      for (const [k, id] of Object.entries(ids)) {
+        const a = (await ctx.db.get("ads", id))!;
+        out[k] = [a.pageRank ?? null, a.pageActiveAds ?? null];
+      }
+      return out;
+    });
+    expect(got).toEqual({
+      big: [1, 3],
+      mid: [2, 3],
+      small: [3, 3],
+      stopped: [null, null],
+      other: [1, 1],
+      nameless: [null, null],
+    });
+    const history = await t.run((ctx) =>
+      ctx.db.query("dailySnapshots").withIndex("by_entity_day", (q) => q.eq("kind", "ad").eq("entityId", ids.mid)).collect(),
+    );
+    expect(history.map((h) => [h.day, h.rank, h.rankOf])).toEqual([["2026-09-30", 2, 3]]);
   });
 });

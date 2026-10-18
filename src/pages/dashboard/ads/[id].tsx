@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils.ts";
 import { compactNumber, flag, spendLabel } from "@/lib/adFormat.ts";
 import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
+import { rankTrend } from "@/convex/lib/adRank.ts";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
 import FollowAdvertiser from "../_components/FollowAdvertiser.tsx";
@@ -110,6 +111,11 @@ export default function AdDetailPage() {
   const likes = series((r) => r.likes);
   const comments = series((r) => r.comments);
   const peak = newViews.reduce((m, p) => Math.max(m, p.value), 0);
+  // Days the ad was live and ranked; a stopped ad has no rank.
+  const ranked = rows.filter((r) => typeof r.rank === "number");
+  const rankPoints: Point[] = ranked.map((r) => ({ day: r.day, value: r.rank! }));
+  const trend = rankTrend(ranked);
+  const showRank = (ad.pageActiveAds ?? 0) > 1 || ranked.some((r) => (r.rankOf ?? 0) > 1);
   const spend = spendLabel(ad.spendEstimate);
   const gmv = ad.gmv ?? gmvFromText(ad.bodyText) ?? 0;
 
@@ -172,6 +178,13 @@ export default function AdDetailPage() {
             {/* Only the numbers we have: missing data is left out, not shown as "—". */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-4">
               {ad.daysRunning > 0 && <StatTile label="Running" value={`${ad.daysRunning} days`} />}
+              {ad.pageRank && (ad.pageActiveAds ?? 0) > 1 ? (
+                <StatTile
+                  label="Rank on page"
+                  value={`#${ad.pageRank} of ${ad.pageActiveAds}`}
+                  hint={`#${ad.pageRank} by views among ${ad.advertiserName}'s ${ad.pageActiveAds} live ads`}
+                />
+              ) : null}
               {adViews(ad) ? <StatTile label="Views" value={compactNumber(adViews(ad))} /> : null}
               {ad.likes ? <StatTile label="Likes" value={compactNumber(ad.likes)} /> : null}
               {ad.comments ? <StatTile label="Comments" value={compactNumber(ad.comments)} /> : null}
@@ -203,6 +216,24 @@ export default function AdDetailPage() {
             >
               <TimeChart kind="bar" points={newViews} label="new views" />
             </ChartCard>
+            {showRank && (
+              <ChartCard
+                title={`Rank among ${knownAdvertiser ? `${ad.advertiserName}'s` : "the advertiser's"} live ads`}
+                points={rankPoints}
+                format={(n) => `#${Math.round(n)}`}
+                enough={rankPoints.length >= 2}
+                firstDay={ranked[0]?.day ?? rows[0]?.day}
+                headline={
+                  trend && (
+                    <span className={cn(trend === "rising" && "text-green-500", trend === "falling" && "text-red-500")}>
+                      {trend === "rising" ? "▲ climbing" : trend === "falling" ? "▼ slipping" : "steady"}
+                    </span>
+                  )
+                }
+              >
+                <TimeChart kind="line" points={rankPoints} label="rank" format={(n) => `#${Math.round(n)}`} reversed domain={[1, Math.max(2, ...ranked.map((r) => r.rankOf ?? 1))]} />
+              </ChartCard>
+            )}
             <div className="bg-card border border-border rounded-xl p-4 min-w-0">
               <h3 className="text-sm font-semibold mb-3">Likes & comments (total)</h3>
               {!enough ? (

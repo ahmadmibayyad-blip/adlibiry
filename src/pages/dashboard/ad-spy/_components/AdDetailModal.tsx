@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button.tsx";
 import {
   Heart, Eye, Calendar, Zap, ExternalLink, Bookmark, BookmarkCheck,
-  Users, Target, DollarSign, ShoppingBag, MessageCircle, Share2, Copy, Globe, Library, Clock,
+  Users, Target, DollarSign, ShoppingBag, MessageCircle, Share2, Copy, Globe, Library, Clock, Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { toast } from "sonner";
@@ -196,6 +196,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                 { icon: DollarSign, label: "Est. spend", value: spend ?? undefined },
                 { icon: Users, label: "Reach", value: aud?.totalReach ? compactNumber(aud.totalReach) : undefined },
                 { icon: Calendar, label: "Days running", value: ad.daysRunning > 0 ? `${ad.daysRunning}` : undefined },
+                { icon: Trophy, label: "Rank on page", value: ad.pageRank && (ad.pageActiveAds ?? 0) > 1 ? `#${ad.pageRank} of ${ad.pageActiveAds}` : undefined },
                 { icon: Globe, label: "Countries", value: allCountries.length ? `${allCountries.length}` : undefined },
               ]
                 .filter((s): s is typeof s & { value: string } => !!s.value)

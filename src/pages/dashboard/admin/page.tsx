@@ -185,6 +185,7 @@ const PIPELINE_STAGES: Record<string, string> = {
   winners: "Rebuilding Winning Products",
   fusion: "Queuing source enrichment (new winners, niche spikes, missing ads)",
   snapshotProducts: "Saving product history",
+  rankAds: "Ranking each advertiser's ads",
   snapshotAds: "Saving ad history",
   prune: "Removing history older than 90 days",
   alerts: "Sending follow alerts",

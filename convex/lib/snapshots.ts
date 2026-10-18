@@ -7,7 +7,7 @@
 // inside the 90-day retention window and its history never disappears.
 export const SNAPSHOT_REFRESH_DAYS = 30;
 
-const VALUE_KEYS = ["score", "adsRunning", "views", "likes", "comments", "spend", "gmv", "trend", "saturation"] as const;
+const VALUE_KEYS = ["score", "adsRunning", "views", "likes", "comments", "spend", "gmv", "trend", "saturation", "rank", "rankOf"] as const;
 type Values = Partial<Record<(typeof VALUE_KEYS)[number], unknown>>;
 
 export function daysBetween(from: string, to: string): number {
