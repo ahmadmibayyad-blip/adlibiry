@@ -134,6 +134,14 @@ export function autoMap(header: string[]): ColumnMap {
   return map;
 }
 
+// A TikTok file: named after TikTok or a TikTok-only tool (Kalodata, FastMoss, EchoTik, Tabcut), a column
+// that says TikTok, or TikTok links in the first rows. Its products go to the TikTok Shop page, its ads in as TikTok.
+export function isTikTokFile(fileName: string, table: string[][]): boolean {
+  if (/tiktok|kalodata|fastmoss|echotik|tabcut/i.test(fileName)) return true;
+  if ((table[0] ?? []).some((h) => /tik\s*tok/i.test(h))) return true;
+  return table.slice(1, 11).some((r) => r.some((c) => /^https?:\/\/(?:[a-z0-9-]+\.)*(tiktok|tiktokcdn(-[a-z]+)?)\.com\//i.test(c.trim())));
+}
+
 export function toNumber(s: string | undefined): number | undefined {
   if (s === undefined) return undefined;
   const t = s.trim();

@@ -13,10 +13,14 @@ export const listAds = query({
   args: {
     paginationOpts: paginationOptsValidator,
     search: v.optional(v.string()),
+    platform: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const result = await ctx.db.query("ads").withIndex("by_first_seen").order("desc").paginate(args.paginationOpts);
+    const result = await (args.platform
+      ? ctx.db.query("ads").withIndex("by_platform", (q) => q.eq("platform", args.platform!))
+      : ctx.db.query("ads").withIndex("by_first_seen")
+    ).order("desc").paginate(args.paginationOpts);
     let page = result.page;
     if (args.search) {
       const term = args.search.toLowerCase();
