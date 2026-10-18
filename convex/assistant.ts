@@ -9,7 +9,7 @@ import { claudeErrorMessage } from "./lib/claudeErrors";
 import { claudeClient } from "./lib/claudeClient";
 import { capLimit, listNichesTool, listStoreTechTool, searchAdsTool, searchProductsTool, searchStoresTool } from "./lib/aiTools";
 import { askKimi, shouldUseKimi } from "./lib/kimiFallback";
-import { asksAboutStores, fallbackSystem, matchNiches, searchWords } from "./lib/assistantFallback";
+import { asksAboutStores, fallbackSystem, matchNiches, matchTech, searchWords } from "./lib/assistantFallback";
 
 // ── AI assistant (Claude) ────────────────────────────────────────────────────
 // A chat assistant for signed-in customers. Claude answers from the app's own
@@ -71,19 +71,26 @@ async function answerWithoutTools(ctx: ActionCtx, history: Turn[], maxResults: n
     () => searchAdsTool.run(ctx, capLimit({ search, niche, sort: "score", limit: 8 }, maxResults)),
     () => searchAdsTool.run(ctx, capLimit({ niche, sort: "longestRunning", limit: 8 }, maxResults)),
   );
-  const stores = asksAboutStores(message)
-    ? await either(
-        () => searchStoresTool.run(ctx, capLimit({ search, niche, limit: 8 }, maxResults)),
-        () => searchStoresTool.run(ctx, capLimit({ niche, limit: 8 }, maxResults)),
-      )
-    : "";
+  // A theme, app or pixel the question names filters stores by it (store names rarely contain it).
+  const tech = matchTech(message, JSON.parse(await listStoreTechTool.run(ctx)));
+  const byTech = Object.keys(tech).length > 0;
+  const stores = byTech
+    ? await searchStoresTool
+        .run(ctx, capLimit({ ...tech, niche, limit: 8 }, maxResults))
+        .then((r) => (r === "[]" && niche ? searchStoresTool.run(ctx, capLimit({ ...tech, limit: 8 }, maxResults)) : r))
+    : asksAboutStores(message)
+      ? await either(
+          () => searchStoresTool.run(ctx, capLimit({ search, niche, limit: 8 }, maxResults)),
+          () => searchStoresTool.run(ctx, capLimit({ niche, limit: 8 }, maxResults)),
+        )
+      : "";
   const answer = await askKimi(
     {
       max_tokens: 4000,
       system: fallbackSystem(SYSTEM, [
         { label: `Products${niche ? ` (category ${niche})` : ""}`, json: products },
         { label: `Ads${niche ? ` (niche ${niche})` : ""}`, json: ads },
-        { label: "Stores", json: stores },
+        { label: `Stores${byTech ? ` using ${Object.values(tech).join(" + ")}` : ""}`, json: stores },
       ]),
       messages: history,
     },
