@@ -18,6 +18,7 @@ const LABELS: Record<string, string> = {
   pipispy: "PiPiSpy",
   aliexpressCosts: "AliExpress suppliers",
   transcripts: "Video transcripts (Deepgram)",
+  storeTech: "Store themes, apps and pixels",
   winninghunter: "WinningHunter ads",
 };
 

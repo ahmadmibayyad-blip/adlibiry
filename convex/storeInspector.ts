@@ -11,6 +11,7 @@ import type { Teardown } from "./lib/storeTeardown";
 import { cdxUrl, storeHistory, type StoreHistory } from "./lib/storeHistory";
 import type { StoreAd, StoreAnalysis } from "./lib/storeAnalysis";
 import { watchLimit, watchLimitMessage } from "./stores";
+import { techFromInspection } from "./storeTech";
 
 // Store Inspector: paste a store's link, see its theme and apps (lib/storeInspect.ts) and a
 // teardown of its main product page (lib/storeTeardown.ts: bundle tiers, reviews, price,
@@ -49,7 +50,10 @@ export const before = internalQuery({
 export const save = internalMutation({
   args: { userId: v.id("users"), host: v.string(), url: v.string(), result: v.any() },
   handler: async (ctx, args) => {
-    return ctx.db.insert("storeInspections", { ...args, inspectedAt: new Date().toISOString() });
+    const inspectedAt = new Date().toISOString();
+    // The Stores page's theme/app/pixel filters read it off the listed store.
+    await techFromInspection(ctx, args.host, args.result as Inspection, inspectedAt);
+    return ctx.db.insert("storeInspections", { ...args, inspectedAt });
   },
 });
 

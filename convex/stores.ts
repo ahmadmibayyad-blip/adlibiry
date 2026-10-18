@@ -10,6 +10,7 @@ import { internal } from "./_generated/api";
 import { byTier, tierOf } from "./lib/billing";
 import { AD_STORE_BEST_SELLERS, inspectionSummary } from "./lib/adStore";
 import type { Inspection } from "./lib/storeInspect";
+import { hasTechFilter, matchesTech, techFacets } from "./lib/storeTech";
 
 // ── Store search & profiles ─────────────────────────────────────────────────
 
@@ -22,6 +23,10 @@ const listArgs = {
   minActiveAds: v.optional(v.number()),
   country: v.optional(v.string()), // ISO country code
   highTrafficOnly: v.optional(v.boolean()),
+  // From the store's home page (stores.tech, lib/storeTech.ts); stores not read yet don't match.
+  theme: v.optional(v.string()),
+  app: v.optional(v.string()),
+  pixel: v.optional(v.string()),
 };
 
 const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
@@ -30,7 +35,8 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
     args.minTraffic !== undefined ||
     args.minActiveAds !== undefined ||
     args.country !== undefined ||
-    args.highTrafficOnly;
+    args.highTrafficOnly ||
+    hasTechFilter(args);
 
   if (!hasNumericFilters) {
     if (args.search) {
@@ -59,6 +65,7 @@ const listImpl = async (ctx: QueryCtx, args: ObjectType<typeof listArgs>) => {
   if (args.niche) filtered = filtered.filter((s) => s.niche === args.niche);
   if (args.country) filtered = filtered.filter((s) => s.country === args.country);
   if (args.highTrafficOnly) filtered = filtered.filter((s) => s.isHighTraffic);
+  if (hasTechFilter(args)) filtered = filtered.filter((s) => matchesTech(s.tech, args));
   if (args.search) {
     const term = args.search.toLowerCase();
     filtered = filtered.filter((s) => s.name.toLowerCase().includes(term) || s.url.toLowerCase().includes(term));
@@ -92,6 +99,17 @@ export const list = query({
 
 // Same data for backend code that runs without a signed-in user (agents, assistant tools, MCP).
 export const listInternal = internalQuery({ args: listArgs, handler: listImpl });
+
+/** The themes, apps and pixels seen on listed stores, for the filter dropdowns (most common first). */
+export const techOptions = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireSignedIn(ctx);
+    // The same stores the filters look through.
+    const stores = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(1000);
+    return techFacets(stores.map((s) => s.tech));
+  },
+});
 
 export const getById = query({
   args: { id: v.id("stores") },
