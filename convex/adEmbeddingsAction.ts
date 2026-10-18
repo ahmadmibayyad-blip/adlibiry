@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { fetchImage, mapParallel } from "./imageHashAction";
 import { isUsableHash } from "./lib/imageHash";
+import { imageSize } from "./lib/imageSize";
 import { EMBED_BATCH, EMBED_SIZE, VOYAGE_URL, dailyImageCap, describeVoyageError, parseVoyage, voyageBody } from "./lib/adEmbeddings";
 
 // Daily (importRuns job "adEmbeddings"): ad images → Voyage multimodal vectors
@@ -13,19 +14,21 @@ import { EMBED_BATCH, EMBED_SIZE, VOYAGE_URL, dailyImageCap, describeVoyageError
 // before sending, since Voyage bills by pixel.
 
 // Actions stop at 10 minutes and the budget is only checked between batches, so it leaves room for one slow
-// batch: 24 images, 3 at a time, each fetch up to 10 s, then Voyage (up to 60 s) ≈ 2.5 minutes at worst.
+// batch: 24 downloads (8 at a time, up to 10 s each), decoding and Voyage (up to 60 s) ≈ 2 minutes at worst.
 const TIME_BUDGET_MS = 6 * 60_000;
 const PER_LOOP = 24;
-// Node actions get 512 MB. A decoded photo is width × height × 4 bytes (a 4000 px one ~64 MB), so only a few are
-// decoded at once and big files are skipped: ad images are normally well under 1 MB.
-const DECODE_PARALLEL = 3;
+// Node actions get 512 MB, and a decoded image takes width × height × 4 bytes plus Jimp's working copies.
+// Images are downloaded in parallel but decoded one at a time, and ones too big in bytes or pixels are skipped
+// (ad images are normally around 1 MP and well under 1 MB).
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_PIXELS = 12_000_000;
 
-// A 256 px JPEG data URL of the image, or null when it can't be read.
-async function shrunk(url: string): Promise<string | null> {
+// A 256 px JPEG data URL of the downloaded image, or null when it's too big or can't be read.
+async function shrunk(buf: Buffer | null): Promise<string | null> {
+  if (!buf) return null;
+  const size = imageSize(buf);
+  if (size && size.width * size.height > MAX_PIXELS) return null;
   try {
-    const buf = await fetchImage(url, MAX_IMAGE_BYTES);
-    if (!buf) return null;
     const { Jimp } = await import("jimp");
     const img = await Jimp.read(buf);
     img.scaleToFit({ w: EMBED_SIZE, h: EMBED_SIZE });
@@ -52,7 +55,12 @@ export const dailyEmbed = internalAction({
       // No image, or one the hash job already couldn't read: nothing to embed.
       const none = batch.filter((a) => !a.url || a.imageHash === "" || (a.imageHash !== undefined && !isUsableHash(a.imageHash))).map((a) => a.id);
       const todo = batch.filter((a) => !none.includes(a.id));
-      const images = await mapParallel(todo, async (a) => ({ id: a.id, dataUrl: await shrunk(a.url) }), DECODE_PARALLEL);
+      const files = await mapParallel(todo, async (a) => ({ id: a.id, buf: await fetchImage(a.url, MAX_IMAGE_BYTES).catch(() => null) }));
+      const images: { id: Id<"ads">; dataUrl: string | null }[] = [];
+      for (const f of files) {
+        images.push({ id: f.id, dataUrl: await shrunk(f.buf) });
+        f.buf = null; // let it go before the next one is decoded
+      }
       const readable = images.filter((i): i is { id: Id<"ads">; dataUrl: string } => i.dataUrl !== null);
       const failed = images.filter((i) => i.dataUrl === null).map((i) => i.id);
 
