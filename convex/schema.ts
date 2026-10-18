@@ -37,7 +37,8 @@ export default defineSchema({
     .index("email", ["email"])
     .index("phone", ["phone"])
     .index("by_token", ["tokenIdentifier"])
-    .index("by_customer_id", ["customerId"]),
+    .index("by_customer_id", ["customerId"])
+    .index("by_role", ["role"]),
 
   // Winning Products: admin-curated examples, plus real winning products
   // auto-discovered from AdLibrary.com's top-performing ads per niche

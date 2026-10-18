@@ -104,6 +104,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.
   The daily Meta API import (`metaAdLibrary.ts`) also searches each offer's phrase per country (`META_OFFER_SEARCH=off` stops it);
   Ad Spy's Offer filter reads the ad text with `convex/lib/offerTags.ts`.
+  Each run first asks Meta's debug_token when META_ACCESS_TOKEN ends (`metaToken.ts`, `lib/metaAdLibrary.ts` readTokenDebug: the earlier of
+  expires_at and data_access_expires_at), saved in siteStats "metaToken" and shown under the Meta row in Admin → Daily imports; in its last
+  7 days (or once dead) every admin gets one in-app alert a day (`admin_alert`, users `by_role` index). A long-lived user token lasts ~60 days.
 - Launch → "Mirror a page" (Full store, `mirrorUrl`; UI names: Mirror, Inspect, Watchlist, AdSpy score): launchRun reads that product page with Store Teardown (`lib/pageFetch.ts`),
   `lib/pageMirror.ts` turns it into a plan (section order, bundle deals as items + % off, buy-box extras) saved as `launches.mirror`;
   both themes' product templates follow it and the bundle discounts use its quantities (`bundleQty`). Structure only, never text or photos.

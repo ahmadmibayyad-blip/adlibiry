@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import { META_FIELDS, META_SEARCH_TERMS, describeMetaError, metaAdToExternal, metaCountries, type MetaApiError, type MetaArchiveAd } from "./lib/metaAdLibrary";
 import { dailyOfferPhrases } from "./lib/offerSearch";
 import { classifyNiche } from "./lib/category";
+import { checkMetaToken } from "./metaToken";
 
 // Daily import from Meta's official Ad Library API (crons.ts → importRuns
 // "metaAdLibrary"). Needs a Meta app access token with Ad Library API access
@@ -45,6 +46,8 @@ export const dailyImport = internalAction({
   handler: async (ctx): Promise<{ notConfigured: string } | { fetched: number; created: number; updated: number; errors: string[] }> => {
     const token = process.env.META_ACCESS_TOKEN?.trim();
     if (!token) return { notConfigured: "META_ACCESS_TOKEN isn't set (Meta Ad Library API)" };
+    // Saves when the token ends, for Admin and the expiry alert (metaToken.ts).
+    await checkMetaToken(ctx, token);
     const { use: countries, skipped } = metaCountries(process.env.META_AD_COUNTRIES ?? process.env.META_ADS_COUNTRIES);
     const out = { fetched: 0, created: 0, updated: 0, errors: [] as string[] };
     if (skipped.length) out.errors.push(`Skipped ${skipped.join(", ")}: Meta's API only has commercial ads for EU countries and the UK.`);

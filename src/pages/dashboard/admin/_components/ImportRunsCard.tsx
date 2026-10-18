@@ -34,6 +34,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 export default function ImportRunsCard() {
   const runs = useQuery(api.importRuns.latest, {});
   const runNow = useMutation(api.importRuns.runNow);
+  const metaToken = useQuery(api.metaToken.status, {});
   // Jobs started here, until a newer run shows up in the log.
   const [started, setStarted] = useState<Record<string, number>>({});
 
@@ -82,6 +83,16 @@ export default function ImportRunsCard() {
                   </Button>
                 </div>
                 {last && <p className="text-xs text-muted-foreground mt-1">{last.summary}</p>}
+                {job === "metaAdLibrary" && metaToken && (
+                  <p
+                    className={cn(
+                      "text-xs mt-1",
+                      metaToken.level === "dead" ? "text-bad font-medium" : metaToken.level === "soon" ? "text-warn font-medium" : "text-muted-foreground",
+                    )}
+                  >
+                    {metaToken.text} Checked {formatDistanceToNow(metaToken.checkedAt, { addSuffix: true })}.
+                  </p>
+                )}
                 {last && last.errors.length > 0 && (
                   <details className="mt-1">
                     <summary className="text-xs text-bad cursor-pointer">

@@ -186,3 +186,43 @@ export function describeMetaError(err: MetaApiError | undefined, status: number)
   if (code === 100) return { message: `Meta rejected a parameter (code 100).${raw}`, stop: false, retry: false };
   return { message: `Meta API error ${code ?? `HTTP ${status}`}.${raw}`, stop: false, retry: false };
 }
+
+// ── Token expiry ────────────────────────────────────────────────────────────
+// A long-lived user token lasts ~60 days and Meta says nothing when it runs
+// out: the import just starts failing with code 190. debug_token (a token may
+// inspect itself) tells us when it ends; convex/metaToken.ts saves that for
+// Admin → Daily imports and alerts admins in the last week.
+
+export const TOKEN_WARN_DAYS = 7;
+const DAY_MS = 86_400_000;
+
+export type MetaTokenState = { valid: boolean; expiresAt: number | null; error?: string };
+
+type DebugReply = { data?: { is_valid?: boolean; expires_at?: number; data_access_expires_at?: number; error?: { message?: string } }; error?: MetaApiError };
+
+/**
+ * debug_token's reply as when the token stops working (ms; null = never). Meta gives two
+ * dates, the token's own and its data access (90 days); 0 means "never" for either.
+ */
+export function readTokenDebug(body: unknown, status: number): MetaTokenState {
+  const b = (body ?? {}) as DebugReply;
+  if (!b.data) return { valid: false, expiresAt: null, error: describeMetaError(b.error, status).message };
+  const ends = [b.data.expires_at, b.data.data_access_expires_at].filter((t): t is number => typeof t === "number" && t > 0).map((t) => t * 1000);
+  const expiresAt = ends.length ? Math.min(...ends) : null;
+  if (!b.data.is_valid) return { valid: false, expiresAt, error: b.data.error?.message?.slice(0, 200) ?? "Meta says the token is no longer valid." };
+  return { valid: true, expiresAt };
+}
+
+/** How the Admin row and the alert describe the token: level and words. */
+export function tokenWarning(s: MetaTokenState, now: number): { level: "ok" | "soon" | "dead"; text: string } {
+  if (!s.valid || (s.expiresAt !== null && s.expiresAt <= now)) {
+    return { level: "dead", text: "The Meta token has expired. Make a new long-lived token and update META_ACCESS_TOKEN." };
+  }
+  if (s.expiresAt === null) return { level: "ok", text: "The Meta token doesn't expire." };
+  const days = Math.floor((s.expiresAt - now) / DAY_MS);
+  const date = new Date(s.expiresAt).toISOString().slice(0, 10);
+  const left = days < 1 ? "today" : days === 1 ? "in 1 day" : `in ${days} days`;
+  return days < TOKEN_WARN_DAYS
+    ? { level: "soon", text: `The Meta token expires ${left} (${date}). Make a new long-lived token and update META_ACCESS_TOKEN before then.` }
+    : { level: "ok", text: `The Meta token expires ${left} (${date}).` };
+}
