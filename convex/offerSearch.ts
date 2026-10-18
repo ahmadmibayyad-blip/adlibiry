@@ -46,6 +46,8 @@ export const TRIAL_SEARCHES_PER_DAY = 5; // each search is a paid Apify run
 const searchLimit = (user: Doc<"users">) =>
   byTier(user, { admin: 1000, paid: PRO_SEARCHES_PER_DAY, trial: TRIAL_SEARCHES_PER_DAY, free: FREE_SEARCHES_PER_DAY });
 const MAX_ADS = 150;
+// Apify's account limit (its monthly usage limit, or no credit left): it won't pass in a minute.
+const APIFY_ACCOUNT_LIMIT = /hard limit|usage limit|platform-feature-disabled|insufficient|credit/i;
 const CACHE_MS = 6 * 3_600_000;
 // The Ad Library scraper charges $0.00075 per ad: one search costs at most about $0.18.
 const capUsd = () => Math.round((MAX_ADS * 0.00075 * 1.5 + 0.01) * 100) / 100;
@@ -149,8 +151,7 @@ export const start = action({
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      // Apify's account limit (its monthly usage limit, or no credit left) won't pass in a minute.
-      const accountLimit = /hard limit|usage limit|platform-feature-disabled|insufficient|credit/i.test(msg);
+      const accountLimit = APIFY_ACCOUNT_LIMIT.test(msg);
       await ctx.runMutation(internal.offerSearch.finished, {
         runToken,
         error: accountLimit ? "Offer Search has used this month's search credit. It's back once the account is topped up." : "The search couldn't start. Please try again in a minute.",
@@ -363,6 +364,13 @@ export const dailyResearch = internalAction({
         out.ads += perCountry;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        // The Apify account's monthly limit or credit stops every country alike: say it once and stop.
+        if (APIFY_ACCOUNT_LIMIT.test(msg)) {
+          const error = "The Apify account has reached its monthly usage limit (or has no credit left). Raise it at console.apify.com → Settings → Usage & billing.";
+          await ctx.runMutation(internal.offerSearch.finished, { runToken, error });
+          out.errors.push(error);
+          break;
+        }
         await ctx.runMutation(internal.offerSearch.finished, { runToken, error: msg.slice(0, 200) });
         out.errors.push(`${country}: ${msg.slice(0, 200)}`);
       }
