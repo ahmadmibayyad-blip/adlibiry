@@ -11,6 +11,7 @@ import { parseRangeUpperBound } from "./lib/rangeParsing";
 import { stableToken } from "./lib/authIdentity";
 import { requireAdmin } from "./admin/helpers";
 import { offerTags } from "./lib/offerTags";
+import { internal } from "./_generated/api";
 
 // ── Ads ───────────────────────────────────────────────────────────────────
 
@@ -276,6 +277,8 @@ export const toggleSaveAd = mutation({
         adId: args.adId,
         savedAt: new Date().toISOString(),
       });
+      // Keep our own copy of its image and video, so the saved ad doesn't go blank when the source link expires.
+      await ctx.scheduler.runAfter(0, internal.adMediaAction.hostSaved, { adId: args.adId });
       return { saved: true };
     }
   },

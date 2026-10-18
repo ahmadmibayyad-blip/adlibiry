@@ -10,6 +10,8 @@
 
 import type * as adEmbeddings from "../adEmbeddings.js";
 import type * as adEmbeddingsAction from "../adEmbeddingsAction.js";
+import type * as adMedia from "../adMedia.js";
+import type * as adMediaAction from "../adMediaAction.js";
 import type * as adQueue from "../adQueue.js";
 import type * as adQueueAi from "../adQueueAi.js";
 import type * as adlibrary_client from "../adlibrary/client.js";
@@ -63,6 +65,7 @@ import type * as launchRun from "../launchRun.js";
 import type * as lib_adCopy from "../lib/adCopy.js";
 import type * as lib_adEmbeddings from "../lib/adEmbeddings.js";
 import type * as lib_adFields from "../lib/adFields.js";
+import type * as lib_adMedia from "../lib/adMedia.js";
 import type * as lib_adspyBackend from "../lib/adspyBackend.js";
 import type * as lib_aiFacts from "../lib/aiFacts.js";
 import type * as lib_aiQuota from "../lib/aiQuota.js";
@@ -166,6 +169,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   adEmbeddings: typeof adEmbeddings;
   adEmbeddingsAction: typeof adEmbeddingsAction;
+  adMedia: typeof adMedia;
+  adMediaAction: typeof adMediaAction;
   adQueue: typeof adQueue;
   adQueueAi: typeof adQueueAi;
   "adlibrary/client": typeof adlibrary_client;
@@ -219,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "lib/adCopy": typeof lib_adCopy;
   "lib/adEmbeddings": typeof lib_adEmbeddings;
   "lib/adFields": typeof lib_adFields;
+  "lib/adMedia": typeof lib_adMedia;
   "lib/adspyBackend": typeof lib_adspyBackend;
   "lib/aiFacts": typeof lib_aiFacts;
   "lib/aiQuota": typeof lib_aiQuota;

@@ -1,3 +1,4 @@
+import { deleteHostedMedia } from "../adMedia";
 import { markStatsDirty } from "../stats";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
@@ -96,6 +97,7 @@ export const deleteAd = mutation({
     const existing = await ctx.db.get("ads", args.id);
     if (!existing) throw new ConvexError({ code: "NOT_FOUND", message: "Ad not found" });
     await markStatsDirty(ctx);
+    await deleteHostedMedia(ctx, existing);
     await ctx.db.delete("ads", args.id);
     return { success: true };
   },
