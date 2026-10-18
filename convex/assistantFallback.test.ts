@@ -53,7 +53,7 @@ describe("Ask AI when Claude can't answer", () => {
     expect(system.content).toContain("can't call tools");
     expect(system.content).toContain('"title":"Pet cooling mat"');
     expect(system.content).toContain('"marginPercent":77');
-    expect(kimiBody!.messages.at(-1)).toEqual({ role: "user", content: ask.messages[0].content });
+    expect(kimiBody!.messages[kimiBody!.messages.length - 1]).toEqual({ role: "user", content: ask.messages[0].content });
   });
 
   it("still says the AI is out of credit when there's no backup", async () => {
