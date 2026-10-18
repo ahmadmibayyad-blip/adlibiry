@@ -12,7 +12,10 @@ import { EMBED_BATCH, EMBED_SIZE, VOYAGE_URL, dailyImageCap, describeVoyageError
 // VOYAGE_DAILY_IMAGES a day (default 3,000); images are shrunk to 256 px
 // before sending, since Voyage bills by pixel.
 
-const TIME_BUDGET_MS = 8 * 60_000; // actions stop at 10 minutes
+// Actions stop at 10 minutes and the budget is only checked between batches, so it leaves room for one slow
+// batch: 24 images, 3 at a time, each fetch up to 10 s, then Voyage (up to 60 s) ≈ 2.5 minutes at worst.
+const TIME_BUDGET_MS = 6 * 60_000;
+const PER_LOOP = 24;
 // Node actions get 512 MB. A decoded photo is width × height × 4 bytes (a 4000 px one ~64 MB), so only a few are
 // decoded at once and big files are skipped: ad images are normally well under 1 MB.
 const DECODE_PARALLEL = 3;
@@ -43,7 +46,7 @@ export const dailyEmbed = internalAction({
     const out = { fetched: 0, updated: 0, errors: [] as string[] };
 
     while (out.fetched < cap && Date.now() - started < TIME_BUDGET_MS) {
-      const batch = await ctx.runQuery(internal.adEmbeddings.nextToEmbed, { limit: Math.min(EMBED_BATCH, cap - out.fetched) });
+      const batch = await ctx.runQuery(internal.adEmbeddings.nextToEmbed, { limit: Math.min(PER_LOOP, EMBED_BATCH, cap - out.fetched) });
       if (!batch.length) break;
       out.fetched += batch.length;
       // No image, or one the hash job already couldn't read: nothing to embed.
