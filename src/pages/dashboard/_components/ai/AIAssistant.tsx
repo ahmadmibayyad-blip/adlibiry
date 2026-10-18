@@ -20,7 +20,7 @@ const SUGGESTIONS = [
   "Find 5 winning pet products with good margins",
   "Which beauty ads have been running the longest?",
   "Write 3 TikTok hooks for a posture corrector",
-  "What category should a beginner start with?",
+  "Which pet stores use Klaviyo, and what do they sell?",
 ];
 
 function loadChat(): Msg[] {

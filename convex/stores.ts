@@ -101,15 +101,22 @@ export const list = query({
 export const listInternal = internalQuery({ args: listArgs, handler: listImpl });
 
 /** The themes, apps and pixels seen on listed stores, for the filter dropdowns (most common first). */
+const techOptionsImpl = async (ctx: QueryCtx) => {
+  // The same stores the filters look through.
+  const stores = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(1000);
+  return techFacets(stores.map((s) => s.tech));
+};
+
 export const techOptions = query({
   args: {},
   handler: async (ctx) => {
     await requireSignedIn(ctx);
-    // The same stores the filters look through.
-    const stores = await ctx.db.query("stores").withIndex("by_spotted").order("desc").take(1000);
-    return techFacets(stores.map((s) => s.tech));
+    return await techOptionsImpl(ctx);
   },
 });
+
+// For the AI tools (lib/aiTools.ts list_store_tech).
+export const techOptionsInternal = internalQuery({ args: {}, handler: techOptionsImpl });
 
 export const getById = query({
   args: { id: v.id("stores") },

@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { claudeClient } from "./lib/claudeClient";
-import { capLimit, listNichesTool, searchAdsTool, searchProductsTool } from "./lib/aiTools";
+import { capLimit, listNichesTool, listStoreTechTool, searchAdsTool, searchProductsTool, searchStoresTool } from "./lib/aiTools";
 
 // Runs AI agents (see convex/agents.ts): Claude looks through the app's data
 // with the same read-only tools as the assistant and writes a briefing.
@@ -36,7 +36,9 @@ function tools(ctx: ActionCtx, maxResults: number | null) {
   return [
     betaZodTool({ ...searchAdsTool, run: (input) => searchAdsTool.run(ctx, capLimit(input, maxResults)) }),
     betaZodTool({ ...searchProductsTool, run: (input) => searchProductsTool.run(ctx, capLimit(input, maxResults)) }),
+    betaZodTool({ ...searchStoresTool, run: (input) => searchStoresTool.run(ctx, capLimit(input, maxResults)) }),
     betaZodTool({ ...listNichesTool, run: () => listNichesTool.run(ctx) }),
+    betaZodTool({ ...listStoreTechTool, run: () => listStoreTechTool.run(ctx) }),
   ];
 }
 

@@ -106,6 +106,60 @@ export const listNichesTool = {
   },
 };
 
+const storeSearchInput = z.object({
+  search: z.string().optional().describe("Words in the store's name or domain, e.g. 'paw'"),
+  niche: z.string().optional().describe("Exact niche name from list_niches"),
+  country: z.string().optional().describe("ISO country code, e.g. 'US', 'DK'"),
+  theme: z.string().optional().describe("Shopify theme name from list_store_tech, e.g. 'Dawn'"),
+  app: z.string().optional().describe("App the store uses, from list_store_tech, e.g. 'Klaviyo'"),
+  pixel: z.string().optional().describe("Tracking pixel, from list_store_tech, e.g. 'TikTok'"),
+  minActiveAds: z.number().optional().describe("Only stores with at least this many ads running now"),
+  minRevenue: z.number().optional().describe("Monthly revenue floor in USD (compared with the top of the estimated range)"),
+  limit: z.number().min(1).max(15).optional().describe("How many stores to return (default 8)"),
+});
+
+export const searchStoresTool = {
+  name: "search_stores",
+  description:
+    "Search the Shopify stores AdSpy Pro tracks. Returns up to `limit` stores with id, name, website, niche, country, estimated monthly revenue " +
+    "and traffic (ranges), ads running now, best sellers, and the theme, apps and tracking pixels read from the store's home page. Theme/app/pixel " +
+    "filters only match stores whose home page has been read; get valid values from list_store_tech.",
+  inputSchema: storeSearchInput,
+  async run(ctx: Ctx, { limit, search, ...filters }: z.infer<typeof storeSearchInput>): Promise<string> {
+    const result = await ctx.runQuery(internal.stores.listInternal, {
+      paginationOpts: { numItems: limit ?? 8, cursor: null },
+      ...filters,
+      ...(search?.trim() ? { search: search.trim() } : {}),
+    });
+    return JSON.stringify(
+      result.page.map((s) => ({
+        id: s._id,
+        name: s.name,
+        website: s.url,
+        niche: s.niche,
+        country: s.country,
+        revenueEstimate: s.estimatedRevenueRange || undefined,
+        trafficEstimate: s.trafficRange || undefined,
+        adsRunning: s.activeAdsCount,
+        bestSellers: s.bestSellers.slice(0, 3).map((b) => ({ title: clip(b.title, 80), price: b.price, salesEstimate: b.estSalesRange || undefined })),
+        theme: s.tech?.ok ? s.tech.theme : undefined,
+        apps: s.tech?.ok && s.tech.apps.length ? s.tech.apps : undefined,
+        pixels: s.tech?.ok && s.tech.pixels.length ? s.tech.pixels : undefined,
+      })),
+    );
+  },
+};
+
+export const listStoreTechTool = {
+  name: "list_store_tech",
+  description:
+    "List the Shopify themes, apps and tracking pixels seen on tracked stores, most common first, with how many stores use each; values to pass as theme/app/pixel in search_stores.",
+  inputSchema: z.object({}),
+  async run(ctx: Ctx): Promise<string> {
+    return JSON.stringify(await ctx.runQuery(internal.stores.techOptionsInternal, {}));
+  },
+};
+
 // Caps a search tool's `limit` at the customer's per-list result limit
 // (free and trial accounts), so the assistant and agents can't return more
 // rows than the app shows. null: no cap.
@@ -113,4 +167,4 @@ export function capLimit<T extends { limit?: number }>(input: T, max: number | n
   return max === null ? input : { ...input, limit: Math.min(input.limit ?? 8, max) };
 }
 
-export const DATA_TOOLS = [searchAdsTool, searchProductsTool, listNichesTool] as const;
+export const DATA_TOOLS = [searchAdsTool, searchProductsTool, searchStoresTool, listNichesTool, listStoreTechTool] as const;
