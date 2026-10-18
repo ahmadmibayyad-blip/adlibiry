@@ -49,9 +49,21 @@ const product = (over: Partial<NewProduct>): NewProduct => ({
 // Passes the Winning Products gates: ~$10K+/month in sales and 5 live ads.
 const winner = (over: Partial<NewProduct>): NewProduct => product({ price: 50, unitsPerMonth: 1000, adsCount: 5, ...over });
 
+// convex-test gives up after 10,000 timer pumps; with the whole suite running in parallel the pipeline's real
+// async work can outlast them while still finishing fine. Keep waiting a few rounds before calling it stuck.
+async function finishAll(t: ReturnType<typeof convexTest>) {
+  for (let round = 0; ; round++) {
+    try {
+      return await t.finishAllScheduledFunctions(vi.runAllTimers);
+    } catch (e) {
+      if (round >= 5 || !/timer pumps/.test(String(e))) throw e;
+    }
+  }
+}
+
 async function runPipeline(t: ReturnType<typeof convexTest>) {
   await t.mutation(internal.productPipeline.start, {});
-  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  await finishAll(t);
   return await t.withIdentity({ subject: "test|s" }).query(api.productPipeline.status, {});
 }
 
@@ -161,7 +173,7 @@ describe("saturation and duplicates", () => {
       return { userId, keepId, dupId, adId };
     });
     await t.withIdentity({ subject: "admin|s" }).mutation(api.productPipeline.mergeDuplicatesNow, {});
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await finishAll(t);
     const status = await t.withIdentity({ subject: "admin|s" }).query(api.productPipeline.dedupStatus, {});
     expect(status).toMatchObject({ state: "done", merged: 1 });
     await t.run(async (ctx) => {
@@ -289,7 +301,7 @@ describe("same-store duplicates", () => {
     });
     await runPipeline(t); // fills storeHost
     await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.mergeDuplicatesNow, {});
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await finishAll(t);
     const products = await t.run((ctx) => ctx.db.query("products").collect());
     expect(products.map((p) => p.title).sort()).toEqual(["Cat water fountain", "Dog Cooling Mat for Large Dogs"]);
     expect(products.find((p) => p.title.startsWith("Dog"))?.aliases).toEqual(["Large dog cooling mat"]);
@@ -336,12 +348,12 @@ describe("winner gates and score v2", () => {
 
     // Switching to v2 makes the calibrated scores live; back to v1 restores the importers' scores.
     await admin.mutation(api.productPipeline.setScoreModel, { model: "v2" });
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await finishAll(t);
     const live = await t.run((ctx) => ctx.db.query("products").collect());
     expect(live.every((p) => p.aiScore === p.scoreParts!.v2)).toBe(true);
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
     await admin.mutation(api.productPipeline.setScoreModel, { model: "v1" });
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await finishAll(t);
     const restored = await t.run((ctx) => ctx.db.query("products").collect());
     expect(restored.every((p) => p.aiScore === 99)).toBe(true);
   });
@@ -424,7 +436,7 @@ describe("admin", () => {
     ]);
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
     expect(await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runFrom, { stage: "winners" })).toEqual({ started: true });
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await finishAll(t);
     const again = await t.withIdentity({ subject: "a1|s" }).query(api.productPipeline.status, {});
     expect(again?.log?.[0].stage).toBe("winners");
     expect(again?.state).toBe("done");
@@ -647,7 +659,7 @@ describe("Winning Products every 3 days", () => {
     const before = await ids(t);
     vi.setSystemTime(new Date("2026-10-01T08:05:00Z"));
     await t.withIdentity({ subject: "a1|s" }).mutation(api.productPipeline.runNow, {});
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await finishAll(t);
     const after = await ids(t);
     expect([...after].filter((id) => !before.has(id)).length).toBeGreaterThan(0);
     expect((await t.query(api.winners.summary, {})).roundDay).toBe("2026-10-01");
@@ -683,7 +695,7 @@ describe("pipeline never gets stuck", () => {
       }),
     );
     await t.mutation(internal.productPipeline.watchdog, {});
-    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await finishAll(t);
     const status = await t.withIdentity({ subject: "test|s" }).query(api.productPipeline.status, {});
     expect(status?.state).toBe("done");
     expect(status?.warnings?.[0]).toMatch(/Merging duplicates: no progress for 30 min/);
