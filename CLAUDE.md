@@ -119,6 +119,14 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Offer Search (`convex/offerSearch.ts`, `/dashboard/offer-search`) searches Meta's Ad Library for an offer in the country's
   language through Apify (trigger "offer", counted against `APIFY_DAILY_BUDGET_USD`); its ads also land in Ad Spy.
   Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.
+  Each found store (top 40) gets: EU reach (EU/UK searches, from the scraper's ad details, no extra cost; spend = reach × the user's CPM in
+  the app), Shopify + currency + country from `/meta.json`, and up to 2 products its ads link to from `/products/<handle>.json` (name, price,
+  compare-at, photo). The results (`offer-search/_components/StoreResults.tsx`, `filterStores`) filter by Shopify / ads / days running and sort
+  by ads, days or EU reach. Quick actions: Track store and Collection (`ensureStore` adds the store to `stores`, source "offerSearch", only
+  when used), Find on AliExpress (`aliexpressFor`, picture search on the product photo, `PICTURE_LOOKUPS_PER_DAY`), In Ad Spy (`?q=`).
+  Offer research (Admin → Offer research, importRuns job "offerResearch", 09:50 UTC): every offer's main phrase in every Offer Search country,
+  `OFFER_RESEARCH_ADS` ads a day in all (default 1,000, ~$0.75; "off" stops it), one run per country, within `APIFY_DAILY_BUDGET_USD`.
+  Saved as `offerSearches` rows with `daily` = the day and no user (`research` query, admins only).
   The daily Meta API import (`metaAdLibrary.ts`) also searches each offer's phrase per country (`META_OFFER_SEARCH=off` stops it);
   Ad Spy's Offer filter reads the ad text with `convex/lib/offerTags.ts`.
   Each run first asks Meta's debug_token when META_ACCESS_TOKEN ends (`metaToken.ts`, `lib/metaAdLibrary.ts` readTokenDebug: the earlier of

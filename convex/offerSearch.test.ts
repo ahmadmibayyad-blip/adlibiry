@@ -40,7 +40,8 @@ describe("Offer Search", () => {
       }
       if (url.includes("/datasets/ds1/items")) return json(items);
       if (url.includes("/actor-runs/run1")) return json({ data: { status: "SUCCEEDED", defaultDatasetId: "ds1", usageTotalUsd: 0.05 } });
-      if (url === "https://pawtech.dk/products.json?limit=1") return json({ products: [{ id: 1 }] });
+      if (url === "https://pawtech.dk/meta.json") return json({ myshopify_domain: "pawtech.myshopify.com", currency: "DKK", country: "DK" });
+      if (url === "https://pawtech.dk/products/seat.json") return json({ product: { title: "Hundesæde", variants: [{ price: "299.00", compare_at_price: "499.00" }], image: { src: "https://cdn.shopify.com/seat.jpg" } } });
       return new Response("", { status: 404 });
     }));
     const { t, user } = await setup();
@@ -65,6 +66,13 @@ describe("Offer Search", () => {
       ["helysta.dk", 1, false],
     ]);
     expect(done!.stores[0].offers.map((o) => o.label)).toEqual(expect.arrayContaining(["Buy 2 get 1", "Free shipping"]));
+    // The Shopify store's currency and the product its ads link to, read from the store itself.
+    expect(done!.stores[0]).toMatchObject({
+      currency: "DKK",
+      storeCountry: "DK",
+      products: [{ handle: "seat", title: "Hundesæde", price: 299, compareAt: 499, url: "https://pawtech.dk/products/seat", image: "https://cdn.shopify.com/seat.jpg" }],
+    });
+    expect(done!.stores[1]).not.toHaveProperty("products");
     // The ads also land in Ad Spy, tied to their store right away (Store Inspector's AI reads them).
     const ads = await t.run((ctx) => ctx.db.query("ads").collect());
     expect(ads).toHaveLength(3);
@@ -105,5 +113,91 @@ describe("Offer Search", () => {
     const { user } = await setup();
     const { id } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
     expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ status: "failed", error: expect.stringContaining("this month's search credit") });
+  });
+});
+
+describe("Offer research (Admin)", () => {
+  it("runs every offer in every country once a day, within the Apify budget, and shows the results to admins", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    vi.stubEnv("OFFER_RESEARCH_ADS", "160");
+    const runInputs: { urls: { url: string }[]; count: number }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("api.apify.com/v2/acts/")) {
+        runInputs.push(JSON.parse(String(init?.body)));
+        return json({ data: { id: `run${runInputs.length}`, status: "RUNNING" } });
+      }
+      if (url.includes("/datasets/ds1/items")) return json(items);
+      return new Response("", { status: 404 });
+    }));
+    const { t, user } = await setup();
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "admin1", role: "admin" }));
+    const admin = t.withIdentity({ subject: "admin1|s" });
+
+    const result = await t.action(internal.offerSearch.dailyResearch, {});
+    // 16 countries × 10 ads (160 shared out), each run every offer's main phrase in the country's language.
+    expect(result).toEqual({ started: 16, ads: 160, errors: [] });
+    expect(runInputs.every((r) => r.count === 10 && r.urls.length === 5)).toBe(true);
+
+    // Denmark's run finishes; the others are still running.
+    const dk = await t.run(async (ctx) => (await ctx.db.query("offerSearches").collect()).find((r) => r.country === "DK")!);
+    await t.action(internal.apify.handleWebhook, { token: dk.runToken!, datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    const view = await admin.query(api.offerSearch.research, {});
+    expect(view.days).toHaveLength(1);
+    expect(view.countries).toHaveLength(16);
+    const denmark = view.countries.find((c) => c.country === "DK")!;
+    expect(denmark).toMatchObject({ status: "done", adsFound: 3 });
+    expect(denmark.stores.map((s) => [s.host, s.country])).toEqual([
+      ["pawtech.dk", "DK"],
+      ["helysta.dk", "DK"],
+    ]);
+    expect(view.countries.find((c) => c.country === "SE")).toMatchObject({ status: "running" });
+    // Daily rows belong to no one: they don't count against anyone's searches.
+    expect(await user.query(api.offerSearch.recent, {})).toMatchObject({ used: 0, searches: [] });
+    await expect(user.query(api.offerSearch.research, {})).rejects.toThrow();
+  });
+
+  it("stops at the Apify daily budget and can be switched off", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    vi.stubEnv("APIFY_DAILY_BUDGET_USD", "0.11");
+    vi.stubGlobal("fetch", vi.fn(async () => json({ data: { id: "run", status: "RUNNING" } })));
+    const { t } = await setup();
+    const result = await t.action(internal.offerSearch.dailyResearch, {});
+    // Each run reserves its cap (63 ads ≈ $0.08), so only one fits in $0.11.
+    expect(result).toMatchObject({ started: 1, errors: [expect.stringContaining("budget is used up")] });
+    vi.stubEnv("OFFER_RESEARCH_ADS", "off");
+    expect(await t.action(internal.offerSearch.dailyResearch, {})).toEqual({ notConfigured: "OFFER_RESEARCH_ADS is off" });
+  });
+});
+
+describe("Offer Search store actions", () => {
+  it("adds a found store to AdSpy once, to track it or put it in a collection", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
+    const { t, user } = await setup();
+    expect(await user.query(api.offerSearch.storeStates, { hosts: ["pawtech.dk"] })).toEqual([]);
+    const id = await user.mutation(api.offerSearch.ensureStore, { host: "pawtech.dk", name: "PawTech", shopify: true, country: "DK" });
+    expect(await user.mutation(api.offerSearch.ensureStore, { host: "pawtech.dk" })).toBe(id);
+    expect(await t.run((ctx) => ctx.db.get("stores", id))).toMatchObject({ name: "PawTech", host: "pawtech.dk", platform: "Shopify", country: "DK", source: "offerSearch" });
+    await user.mutation(api.stores.toggleTrackStore, { storeId: id });
+    expect(await user.query(api.offerSearch.storeStates, { hosts: ["pawtech.dk", "helysta.dk"] })).toEqual([{ host: "pawtech.dk", storeId: id, tracked: true }]);
+    await expect(user.mutation(api.offerSearch.ensureStore, { host: "not a store" })).rejects.toThrow(/store address/);
+  });
+
+  it("finds the product on AliExpress by its photo", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    const bodies: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      expect(String(u)).toContain("run-sync-get-dataset-items");
+      return json([
+        { site: "aliexpress", title: "Pet car seat cover", price: 12.5, currency: "USD", productUrl: "https://www.aliexpress.com/item/100.html?spm=x", imageUrl: "https://ae/1.jpg" },
+        { site: "1688", title: "Other site", price: 3, currency: "USD", productUrl: "https://detail.1688.com/1.html" },
+      ]);
+    }));
+    const { user } = await setup();
+    const r = await user.action(api.offerSearch.aliexpressFor, { imageUrl: "https://cdn.shopify.com/seat.jpg" });
+    expect(r).toEqual({ matches: [expect.objectContaining({ title: "Pet car seat cover", price: 12.5, url: "https://www.aliexpress.com/item/100.html" })] });
+    expect(JSON.parse(bodies[0])).toMatchObject({ imageUrl: "https://cdn.shopify.com/seat.jpg", destination: "aliexpress" });
+    expect(await user.action(api.offerSearch.aliexpressFor, { imageUrl: "not-a-url" })).toEqual({ skipped: expect.stringContaining("no photo") });
   });
 });

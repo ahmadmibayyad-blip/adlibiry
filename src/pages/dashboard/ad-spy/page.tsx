@@ -219,7 +219,8 @@ export default function AdSpyPage() {
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
 
-  const [search, setSearch] = useState("");
+  // ?q=… (Offer Search's "In Ad Spy") starts with that search.
+  const [search, setSearch] = useState(() => params.get("q") ?? "");
   const [debouncedSearch] = useDebounce(search, 300);
   const navigate = useNavigate();
 
