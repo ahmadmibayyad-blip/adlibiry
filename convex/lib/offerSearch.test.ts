@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { adLink, adLibrarySearchUrl, dailyOfferPhrases, groupByStore, OFFER_COUNTRIES, OFFER_IDS, OFFERS, searchKey, searchPhrases, storeHost, toSearchAd } from "./offerSearch";
+import {
+  adLink,
+  adLibrarySearchUrl,
+  dailyOfferPhrases,
+  filterStores,
+  groupByStore,
+  OFFER_COUNTRIES,
+  OFFER_IDS,
+  OFFERS,
+  productHandle,
+  readShopifyProduct,
+  readShopMeta,
+  researchAdsPerCountry,
+  researchUrls,
+  searchKey,
+  searchPhrases,
+  storeHost,
+  toSearchAd,
+  type FoundStore,
+} from "./offerSearch";
 
 const DAY = 86_400_000;
 const NOW = Date.parse("2026-10-12T12:00:00Z");
@@ -73,5 +92,71 @@ describe("Offer Search", () => {
     expect(stores[1]).toMatchObject({ ads: 1, oldestDays: 90 });
     expect(stores[1].sample[0].offers).toContain("50% off");
     expect(storeHost("https://instagram.com/x")).toBeNull();
+  });
+});
+
+describe("Offer Search store details", () => {
+  it("reads the EU reach from the ad details, and adds it up per store with its most linked products first", () => {
+    expect(toSearchAd({ ad_archive_id: "9", snapshot: {}, aaa_info: { eu_total_reach: 12_500 } })).toMatchObject({ reach: 12_500 });
+    expect(toSearchAd({ ad_archive_id: "9", snapshot: {} })).not.toHaveProperty("reach");
+    const ad = (id: string, link: string, reach?: number) => ({ id, pageName: "Paw", link, headline: "", body: "", startMs: NOW - DAY, copies: 1, ...(reach ? { reach } : {}) });
+    const [store] = groupByStore(
+      [
+        ad("1", "https://pawtech.dk/products/bowl", 1000),
+        ad("2", "https://pawtech.dk/collections/all/products/seat?variant=1", 2500),
+        ad("3", "https://pawtech.dk/products/seat/"),
+      ],
+      NOW,
+    );
+    expect(store).toMatchObject({ reach: 3500, productPaths: ["/products/seat", "/products/bowl"] });
+    expect(groupByStore([ad("4", "https://helysta.dk/")], NOW)[0]).not.toHaveProperty("reach");
+    expect(productHandle("/collections/x/products/Seat-Cover")).toBe("seat-cover");
+    expect(productHandle("/pages/about")).toBeNull();
+  });
+
+  it("knows a Shopify store by its /meta.json and reads a product's price, compare-at price and photo", () => {
+    expect(readShopMeta({ myshopify_domain: "x.myshopify.com", currency: "DKK", country: "DK" })).toEqual({ currency: "DKK", country: "DK" });
+    expect(readShopMeta({ name: "not shopify" })).toBeNull();
+    expect(readShopMeta(null)).toBeNull();
+    const product = { product: { title: " Hundesæde ", variants: [{ price: "299.00", compare_at_price: "599.00" }], image: { src: "//cdn.shopify.com/s/files/seat.jpg" } } };
+    expect(readShopifyProduct(product, "pawtech.dk", "seat")).toEqual({
+      handle: "seat",
+      url: "https://pawtech.dk/products/seat",
+      title: "Hundesæde",
+      price: 299,
+      compareAt: 599,
+      image: "https://cdn.shopify.com/s/files/seat.jpg",
+    });
+    // A compare-at price no higher than the price isn't a discount.
+    expect(readShopifyProduct({ product: { title: "Bowl", variants: [{ price: "99", compare_at_price: "99" }] } }, "pawtech.dk", "bowl")).toEqual({
+      handle: "bowl",
+      url: "https://pawtech.dk/products/bowl",
+      title: "Bowl",
+      price: 99,
+    });
+    expect(readShopifyProduct({ errors: "Not Found" }, "pawtech.dk", "gone")).toBeNull();
+  });
+
+  it("filters and sorts the stores the way the page's dropdowns ask", () => {
+    const store = (host: string, ads: number, oldestDays: number, extra: Partial<FoundStore> = {}): FoundStore => ({
+      host, advertisers: [], ads, copies: ads, oldestDays, offers: [], productPaths: [], sample: [], ...extra,
+    });
+    const stores = [store("a.dk", 9, 10, { shopify: true, country: "DK" }), store("b.dk", 2, 160, { reach: 90_000, country: "DK" }), store("c.se", 5, 40, { shopify: true, reach: 1000, country: "SE" })];
+    expect(filterStores(stores, {}).map((s) => s.host)).toEqual(["a.dk", "c.se", "b.dk"]);
+    expect(filterStores(stores, { sort: "days" }).map((s) => s.host)).toEqual(["b.dk", "c.se", "a.dk"]);
+    expect(filterStores(stores, { sort: "reach" }).map((s) => s.host)).toEqual(["b.dk", "c.se", "a.dk"]);
+    expect(filterStores(stores, { shopifyOnly: true, minAds: 6 }).map((s) => s.host)).toEqual(["a.dk"]);
+    expect(filterStores(stores, { minDays: 30, country: "SE" }).map((s) => s.host)).toEqual(["c.se"]);
+    // The page's list is left as it was.
+    expect(stores.map((s) => s.host)).toEqual(["a.dk", "b.dk", "c.se"]);
+  });
+
+  it("shares the daily research out over the countries, every offer in each", () => {
+    expect(researchAdsPerCountry(1000, 16)).toBe(63);
+    expect(researchAdsPerCountry(50, 16)).toBe(10);
+    expect(researchAdsPerCountry(1000, 0)).toBe(0);
+    const urls = researchUrls("dk");
+    expect(urls).toHaveLength(OFFER_IDS.length);
+    expect(decodeURIComponent(urls[2].replace(/\+/g, " "))).toContain("q=gratis fragt");
   });
 });

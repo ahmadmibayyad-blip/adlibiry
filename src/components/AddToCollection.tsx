@@ -14,8 +14,21 @@ type Kind = "ad" | "store" | "product";
 
 // "Collection" button: tick the user's named collections this ad, store or
 // product belongs in, or start a new one with it (convex/collections.ts).
-export default function AddToCollection({ kind, refId, className, iconOnly }: { kind: Kind; refId: string; className?: string; iconOnly?: boolean }) {
-  const [open, setOpen] = useState(false);
+export default function AddToCollection({
+  kind,
+  refId,
+  className,
+  iconOnly,
+  defaultOpen,
+}: {
+  kind: Kind;
+  refId: string;
+  className?: string;
+  iconOnly?: boolean;
+  /** Opens at once (Offer Search adds the store first, then shows this). */
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const list = useQuery(api.collections.mine, { kind, refId });

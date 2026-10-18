@@ -454,7 +454,7 @@ export default defineSchema({
 
   // Offer Search (offerSearch.ts): one search of the Ad Library for an offer in a country, and the stores found.
   offerSearches: defineTable({
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")), // missing on the daily offer research (`daily`)
     key: v.string(),                 // lib/offerSearch.ts searchKey: country + phrases
     country: v.string(),
     offer: v.optional(v.string()),   // lib/offerSearch.ts OfferId; missing for the user's own phrase
@@ -467,10 +467,12 @@ export default defineSchema({
     error: v.optional(v.string()),
     adsFound: v.optional(v.number()),
     stores: v.optional(v.any()),     // lib/offerSearch.ts FoundStore[]
+    daily: v.optional(v.string()),   // the day, for Admin → Offer research (offerSearch.dailyResearch)
   })
     .index("by_user", ["userId", "createdAt"])
     .index("by_key", ["key", "createdAt"])
-    .index("by_token", ["runToken"]),
+    .index("by_token", ["runToken"])
+    .index("by_daily", ["daily", "country"]),
 
   apifyRuns: defineTable({
     token: v.string(),

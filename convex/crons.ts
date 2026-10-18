@@ -121,6 +121,10 @@ crons.daily("transcribe video ads", { hourUTC: 10, minuteUTC: 40 }, internal.imp
 // Listed stores' theme, apps and pixels for the Stores filters (convex/storeTech.ts).
 crons.daily("read store tech", { hourUTC: 11, minuteUTC: 10 }, internal.importRuns.run, { job: "storeTech" });
 
+// Offer research for Admin → Offer research: every offer in every Offer Search country, 1,000 ads a day
+// (OFFER_RESEARCH_ADS) through Apify; before the embedding job so the new ads get their vectors the same day.
+crons.daily("research offers in every country", { hourUTC: 9, minuteUTC: 50 }, internal.importRuns.run, { job: "offerResearch" });
+
 // Ad images → vectors for "Looks similar" — only runs when VOYAGE_API_KEY is set
 // (convex/adEmbeddingsAction.ts). After the morning imports and the pipeline.
 crons.daily("embed ad images for Looks similar", { hourUTC: 11, minuteUTC: 10 }, internal.importRuns.run, { job: "adEmbeddings" });

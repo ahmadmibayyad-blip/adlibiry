@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
 import {
   ShieldCheck, LayoutGrid, Package, Megaphone, Users, Plus, Search,
-  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw, Upload, Combine, BookOpen,
+  Pencil, Trash2, TrendingUp, Bookmark, UserCog, RefreshCw, Upload, Combine, BookOpen, Tags,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -43,9 +43,10 @@ import ClearImpossiblePrices from "./_components/ClearImpossiblePrices.tsx";
 import RebuildResearch from "./_components/RebuildResearch.tsx";
 import RemoveLastProductImport from "./_components/RemoveLastProductImport.tsx";
 import KnowledgeEditor from "./_components/KnowledgeEditor.tsx";
+import OfferResearchTab from "./_components/OfferResearchTab.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 
-type Tab = "overview" | "products" | "ads" | "users" | "knowledge";
+type Tab = "overview" | "products" | "ads" | "offers" | "users" | "knowledge";
 type Product = Doc<"products">;
 type Ad = Doc<"ads">;
 type UserDoc = Doc<"users">;
@@ -57,6 +58,7 @@ export default function AdminPage() {
     { id: "overview", label: "Overview", icon: LayoutGrid },
     { id: "products", label: "Products", icon: Package },
     { id: "ads", label: "Ads", icon: Megaphone },
+    { id: "offers", label: "Offer research", icon: Tags },
     { id: "users", label: "Users", icon: Users },
     { id: "knowledge", label: "Knowledge", icon: BookOpen },
   ];
@@ -100,6 +102,7 @@ export default function AdminPage() {
         {tab === "overview" && <OverviewTab />}
         {tab === "products" && <ProductsTab />}
         {tab === "ads" && <AdsTab />}
+        {tab === "offers" && <OfferResearchTab />}
         {tab === "users" && <UsersTab />}
         {tab === "knowledge" && <KnowledgeEditor />}
       </div>

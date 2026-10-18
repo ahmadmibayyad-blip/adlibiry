@@ -129,6 +129,17 @@ export function adLibrarySearchUrl(country: string, phrase: string): string {
   return `https://www.facebook.com/ads/library/?${p.toString()}`;
 }
 
+/** The daily offer research (Admin → Offer research): every offer's main phrase, one run per country. */
+export function researchUrls(country: string): string[] {
+  return dailyOfferPhrases(country).map((p) => adLibrarySearchUrl(country, p.phrase));
+}
+
+/** Ads per country for a day's research: the total shared out, at least the scraper's minimum of 10. */
+export function researchAdsPerCountry(total: number, countries: number): number {
+  if (!(countries > 0)) return 0;
+  return Math.max(10, Math.ceil(Math.max(0, total) / countries));
+}
+
 /** One ad from the Ad Library, the parts Offer Search needs. */
 export type SearchAd = {
   id: string;
@@ -140,6 +151,8 @@ export type SearchAd = {
   image?: string;
   startMs?: number;
   copies: number;
+  /** EU/UK reach from the ad's details (Meta's DSA data); EU and UK searches only. */
+  reach?: number;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -196,6 +209,10 @@ export function toSearchAd(it: Json): SearchAd | null {
     })(),
     ...(Number.isFinite(startNum) && startNum > 0 ? { startMs: startNum < 1e12 ? startNum * 1000 : startNum } : {}),
     copies: Math.max(1, Number(get(it, "collation_count", "collationCount") ?? 1) || 1),
+    ...(() => {
+      const reach = Number(get(it, "aaa_info.eu_total_reach", "transparency_by_location.eu_transparency.eu_total_reach", "transparency_by_location.uk_transparency.total_reach", "eu_total_reach") ?? 0);
+      return reach > 0 ? { reach } : {};
+    })(),
   };
 }
 
@@ -210,6 +227,17 @@ export function storeHost(link: string): string | null {
     return null;
   }
 }
+
+/** A product a store's ads link to, read from the Shopify store's /products/<handle>.json. */
+export type FoundProduct = {
+  handle: string;
+  url: string;
+  title: string;
+  /** In the store's currency (FoundStore.currency). */
+  price?: number;
+  compareAt?: number;
+  image?: string;
+};
 
 export type FoundStore = {
   host: string;
@@ -226,7 +254,64 @@ export type FoundStore = {
   productPaths: string[];
   sample: { id: string; headline: string; image?: string; days: number; offers: string[] }[];
   shopify?: boolean;
+  /** EU/UK reach of these ads together (spend = reach ÷ 1,000 × CPM); missing outside the EU and UK. */
+  reach?: number;
+  /** From the store's /meta.json (Shopify): its currency and the country it's registered in. */
+  currency?: string;
+  storeCountry?: string;
+  /** The products its ads link to, most linked first. */
+  products?: FoundProduct[];
+  /** Set where several countries' results are shown together (Admin → Offer research). */
+  country?: string;
 };
+
+/** "/collections/x/products/seat-cover/" → "seat-cover"; null for links that aren't to a product. */
+export function productHandle(path: string): string | null {
+  const m = /\/products\/([^/?#]+)/.exec(path);
+  return m ? decodeURIComponent(m[1]).toLowerCase() : null;
+}
+
+/** A Shopify store's /meta.json: null when it isn't one (the Shopify check). */
+export function readShopMeta(json: unknown): { currency?: string; country?: string } | null {
+  const m = (json ?? {}) as { myshopify_domain?: unknown; currency?: unknown; country?: unknown };
+  if (typeof m.myshopify_domain !== "string" || !m.myshopify_domain) return null;
+  return {
+    ...(typeof m.currency === "string" && /^[A-Z]{3}$/.test(m.currency) ? { currency: m.currency } : {}),
+    ...(typeof m.country === "string" && /^[A-Z]{2}$/.test(m.country) ? { country: m.country } : {}),
+  };
+}
+
+/** A Shopify /products/<handle>.json as a FoundProduct (first variant's price); null when it isn't a product. */
+export function readShopifyProduct(json: unknown, host: string, handle: string): FoundProduct | null {
+  const p = ((json ?? {}) as { product?: Json }).product;
+  if (!p || typeof p.title !== "string" || !p.title.trim()) return null;
+  const v = Array.isArray(p.variants) ? p.variants[0] : undefined;
+  const price = Number(v?.price);
+  const compareAt = Number(v?.compare_at_price);
+  const src = p.image?.src ?? (Array.isArray(p.images) ? p.images[0]?.src : undefined);
+  const image = typeof src === "string" ? (src.startsWith("//") ? `https:${src}` : src) : "";
+  return {
+    handle,
+    url: `https://${host}/products/${encodeURIComponent(handle)}`,
+    title: p.title.trim().slice(0, 200),
+    ...(price > 0 ? { price } : {}),
+    ...(compareAt > price && price > 0 ? { compareAt } : {}),
+    ...(/^https:\/\//.test(image) ? { image } : {}),
+  };
+}
+
+export type StoreSort = "ads" | "days" | "reach";
+export type StoreFilter = { shopifyOnly?: boolean; minAds?: number; minDays?: number; country?: string; sort?: StoreSort };
+
+/** The page's filters and sorting over a search's stores (Offer Search and Admin → Offer research). */
+export function filterStores(stores: FoundStore[], f: StoreFilter): FoundStore[] {
+  const out = stores.filter(
+    (s) => (!f.shopifyOnly || s.shopify) && s.ads >= (f.minAds ?? 0) && s.oldestDays >= (f.minDays ?? 0) && (!f.country || s.country === f.country),
+  );
+  if (f.sort === "days") return out.sort((a, b) => b.oldestDays - a.oldestDays || b.ads - a.ads);
+  if (f.sort === "reach") return out.sort((a, b) => (b.reach ?? 0) - (a.reach ?? 0) || b.ads - a.ads);
+  return out.sort((a, b) => b.ads - a.ads || b.copies - a.copies || b.oldestDays - a.oldestDays);
+}
 
 /** The ads grouped by the store they link to, busiest first: most ads, then longest running. */
 export function groupByStore(ads: SearchAd[], now = Date.now()): FoundStore[] {
@@ -248,15 +333,17 @@ export function groupByStore(ads: SearchAd[], now = Date.now()): FoundStore[] {
       .map((ad) => ({ ad, days: days(ad), offers: [...new Set(offerTags(`${ad.headline}\n${ad.body}`).map((t) => t.label))] }))
       .sort((a, b) => b.days - a.days);
     for (const x of sample) for (const o of x.offers) offerCount.set(o, (offerCount.get(o) ?? 0) + 1);
-    const paths = new Set<string>();
+    // Product links, most linked first, as /products/<handle> whatever collection they went through.
+    const paths = new Map<string, number>();
     for (const ad of g.ads) {
       try {
-        const path = new URL(ad.link).pathname;
-        if (/\/products\/[^/]+/.test(path)) paths.add(path.replace(/\/$/, ""));
+        const handle = productHandle(new URL(ad.link).pathname);
+        if (handle) paths.set(`/products/${handle}`, (paths.get(`/products/${handle}`) ?? 0) + 1);
       } catch {
         // not a URL
       }
     }
+    const reach = g.ads.reduce((n, a) => n + (a.reach ?? 0), 0);
     return {
       host,
       advertisers: [...new Set(g.ads.map((a) => a.pageName))].slice(0, 3),
@@ -265,7 +352,8 @@ export function groupByStore(ads: SearchAd[], now = Date.now()): FoundStore[] {
       copies: g.ads.reduce((n, a) => n + a.copies, 0),
       oldestDays: sample[0]?.days ?? 0,
       offers: [...offerCount.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 5),
-      productPaths: [...paths].slice(0, 5),
+      productPaths: [...paths.entries()].sort((a, b) => b[1] - a[1]).map(([p]) => p).slice(0, 5),
+      ...(reach > 0 ? { reach } : {}),
       sample: sample.slice(0, 3).map((x) => ({ id: x.ad.id, headline: x.ad.headline || x.ad.body.split("\n")[0].slice(0, 120), ...(x.ad.image ? { image: x.ad.image } : {}), days: x.days, offers: x.offers.slice(0, 3) })),
     };
   });
