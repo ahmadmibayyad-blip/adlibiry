@@ -155,6 +155,15 @@ export default defineSchema({
       orders: v.optional(v.number()), // last 30 days
       similarity: v.number(),
     }))),
+    // AliExpress listings that look like the product photo (convex/aliexpressImage.ts), most similar first.
+    pictureMatches: v.optional(v.array(v.object({
+      title: v.string(),
+      price: v.number(),
+      url: v.string(),
+      imageUrl: v.optional(v.string()),
+      orders: v.optional(v.number()), // as AliExpress counts them
+    }))),
+    pictureLookupAt: v.optional(v.string()),
     // Distinct advertisers per country among ads seen in the last 7 days
     // (our own data), most crowded first; "level" as lib/productMatch saturationFromCompetition.
     saturationByCountry: v.optional(v.array(v.object({ country: v.string(), advertisers: v.number(), level: v.string() }))),
