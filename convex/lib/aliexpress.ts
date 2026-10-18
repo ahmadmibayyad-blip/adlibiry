@@ -153,9 +153,16 @@ const ACCESSORY = new Set(
     "sticker decal holder stand mount bag pouch").split(" "),
 );
 
-/** True when a look-alike listing names an accessory word the product's own title doesn't have. */
+/**
+ * True when a look-alike listing sells an accessory the product itself isn't: what the
+ * listing is (its head noun) is an accessory word, or it's a multipack ("20PCS", "12 Pack")
+ * of one. A product listing that merely mentions one ("Fountain with Auto Filter") stays.
+ */
 export function isAccessoryOf(productTitle: string, listingTitle: string): boolean {
   const own = new Set(titleWords(productTitle));
+  const head = headNoun(listingTitle);
+  if (head && ACCESSORY.has(head) && !own.has(head)) return true;
+  if (!/\b\d+\s*(?:pcs|pc|pack|pieces)\b|\bpack of \d+/i.test(listingTitle)) return false;
   return titleWords(listingTitle).some((w) => ACCESSORY.has(w) && !own.has(w));
 }
 
