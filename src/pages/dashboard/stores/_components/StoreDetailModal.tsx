@@ -17,6 +17,7 @@ import ProductImage from "@/components/ProductImage.tsx";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import StoreCatalog from "./StoreCatalog.tsx";
+import AddToCollection from "@/components/AddToCollection.tsx";
 
 type StoreDoc = Doc<"stores">;
 
@@ -119,6 +120,7 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
                 <><Bookmark className="w-4 h-4 mr-2" />Track Store</>
               )}
             </Button>
+            <AddToCollection kind="store" refId={store._id} />
           </Authenticated>
           <Unauthenticated>
             <Button variant="outline" onClick={() => toast.error("Please sign in to track stores")}>

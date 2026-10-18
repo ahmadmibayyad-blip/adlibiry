@@ -502,6 +502,27 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_and_ad", ["userId", "adId"]),
 
+  // Named collections (convex/collections.ts): the user's own folders of ads,
+  // stores and products, e.g. "Pet winners" or "Test next week".
+  collections: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    itemCount: v.number(),
+    createdAt: v.string(), // ISO 8601 UTC
+    updatedAt: v.string(), // last item added or removed
+  }).index("by_user", ["userId", "updatedAt"]),
+
+  collectionItems: defineTable({
+    collectionId: v.id("collections"),
+    userId: v.id("users"),
+    kind: v.string(),  // "ad" | "store" | "product"
+    refId: v.string(), // the ad, store or product _id
+    addedAt: v.string(),
+  })
+    .index("by_collection", ["collectionId", "addedAt"])
+    .index("by_user_ref", ["userId", "kind", "refId"])
+    .index("by_ref", ["kind", "refId"]),
+
   // Product Research: trending keywords, modeled after Google Trends interest-over-time
   trends: defineTable({
     keyword: v.string(),

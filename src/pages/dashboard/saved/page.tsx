@@ -1,30 +1,35 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { motion } from "motion/react";
-import { Bookmark, Package, Megaphone } from "lucide-react";
+import { Bookmark, Package, Megaphone, Folder } from "lucide-react";
 import { useState } from "react";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import AdCard, { AdCardSkeleton } from "../ad-spy/_components/AdCard.tsx";
 import AdDetailModal from "../ad-spy/_components/AdDetailModal.tsx";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import Collections from "./_components/Collections.tsx";
 import { cn } from "@/lib/utils.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 
 type Ad = Doc<"ads">;
-type Tab = "products" | "ads";
+type Tab = "products" | "ads" | "collections";
 
 export default function SavedProducts() {
-  const [tab, setTab] = useState<Tab>("products");
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = params.has("collection") ? "collections" : ((params.get("tab") as Tab | null) ?? "products");
+  const setTab = (t: Tab) => setParams(t === "products" ? {} : { tab: t });
   const savedProducts = useQuery(api.products.getSaved, {});
   const savedAds = useQuery(api.ads.getSavedAds, {});
+  const collections = useQuery(api.collections.mine, {});
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const tabs: { id: Tab; label: string; icon: typeof Package; count: number | undefined }[] = [
     { id: "products", label: "Products", icon: Package, count: savedProducts?.length },
     { id: "ads", label: "Ads", icon: Megaphone, count: savedAds?.length },
+    { id: "collections", label: "Collections", icon: Folder, count: collections?.length },
   ];
 
   return (
@@ -40,7 +45,7 @@ export default function SavedProducts() {
           <h1 className="text-2xl font-bold">Saved</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Products and ads you've bookmarked for later research.
+          Products and ads you've bookmarked, and your own collections of ads, stores and products.
         </p>
       </motion.div>
 
@@ -66,7 +71,9 @@ export default function SavedProducts() {
         ))}
       </div>
 
-      {tab === "products" ? (
+      {tab === "collections" ? (
+        <Collections />
+      ) : tab === "products" ? (
         savedProducts === undefined ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {Array.from({ length: 4 }).map((_, i) => (
