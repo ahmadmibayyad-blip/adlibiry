@@ -86,6 +86,11 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   language is translated once for everyone; a new one counts against the AI daily limit.
   Video ads without one get "Transcribe video" (ad page and pop-up, `transcripts.transcribe`): saved on the ad for everyone, tries
   `hostedVideoUrl` when the source link fails, daily limit per user `TRANSCRIBE_RUNS` (`lib/deepgram.ts`, counted in `transcribeRuns`).
+- Video analysis (ad page → "Why this video works", `AdVideoAnalysis.tsx`): `videoAnalysis.start` claims a run and schedules `run`, which sends
+  the ad's video (hostedVideoUrl first) to Apify's `tubetext/video-ad-analyzer` (~$0.05, ~1 min; failed ads are free): hook, angle, offer, beats,
+  shot list, pacing (`lib/videoAnalysis.ts` readAnalysis). Kept per ad for everyone (`videoAnalyses`); per-user daily `ANALYZE_RUNS`
+  (`analyzeRuns`), all users `VIDEO_ANALYSES_PER_DAY` (default 100); needs `APIFY_TOKEN`. "Write my version" (`videoAnalysisAi.writeVariant`):
+  Claude writes a script + shot timeline for the user's product on that structure (not saved, AI daily limit).
 - Collections (`collections.ts`, Saved → Collections, `?collection=<id>`): named folders of ads, stores and products (`collections` +
   `collectionItems`, kind + refId), separate from Save and the store watchlist. 50 per user, 500 items each; the "Collection" button
   (`src/components/AddToCollection.tsx`) is on the ad pop-up and page, store pop-up and product page. Product merges move items (`moveProductItems`),
