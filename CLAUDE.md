@@ -81,6 +81,10 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   shows spend = reach ÷ 1,000 × CPM, like Minea ($9) and WinningHunter ($11); others keep their source's `spendEstimate`. The CPM is the user's
   (Ad Spy → CPM box, localStorage `adspy-cpm`, default 9) and goes to `ads.list` as `cpm` for the spend filter. "Highest est. spend" sorts by
   the `by_eu_reach` index. `ads.advertiserReach` totals an advertiser's EU reach over the ads we have (ad page line).
+- EU reach sources: the daily Apify import (`apify.ts`, curious_coder scraper) asks for ad details (`scrapeAdDetails`) in EU/UK countries and
+  saves `aaa_info.eu_total_reach` + the age/gender/country split as `audience` (`metaAudience`), like the official Meta API import, without
+  its 60-day token. `APIFY_COUNTRIES` defaults to DK,SE,DE,NL,FR (`DAILY_COUNTRIES`, ~$1.15/day; "off" stops it). AdLibrary's API needs
+  their Business subscription (HTTP 401 otherwise).
 - Video transcripts (`transcripts.ts`, Deepgram, `DEEPGRAM_API_KEY`) show on the ad page ("What's said", `AdTranscript.tsx`) with the spoken hook;
   Translate (`transcriptsAi.translate`, languages in `lib/transcriptLanguages.ts`) keeps each language on the ad (`transcriptTranslations`), so a
   language is translated once for everyone; a new one counts against the AI daily limit.
