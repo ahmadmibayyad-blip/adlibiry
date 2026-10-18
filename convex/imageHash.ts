@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { ADS_PER_ROUND, PRODUCTS_PER_ROUND, productHashFields } from "./lib/imageHash";
+import { ADS_PER_ROUND, PRODUCTS_PER_ROUND, hashBandFields, productHashFields } from "./lib/imageHash";
 
 // Reads and writes for image hashing; the fetching is in imageHashAction.ts
 // (Node). Products are scanned page by page because a hash goes stale when
@@ -39,7 +39,7 @@ export const saveHashes = internalMutation({
       if (current?.imageUrl === p.url) await ctx.db.patch("products", p.id, productHashFields(p.hash, p.url));
     }
     for (const a of args.ads) {
-      if (await ctx.db.get("ads", a.id)) await ctx.db.patch("ads", a.id, { imageHash: a.hash });
+      if (await ctx.db.get("ads", a.id)) await ctx.db.patch("ads", a.id, { imageHash: a.hash, ...hashBandFields(a.hash) });
     }
   },
 });

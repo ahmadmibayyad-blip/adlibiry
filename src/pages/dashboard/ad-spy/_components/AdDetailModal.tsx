@@ -15,6 +15,7 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import CountrySaturationCard from "../../_components/ai/CountrySaturationCard.tsx";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
+import SameCreative from "../../_components/SameCreative.tsx";
 import AdMedia from "../../_components/AdMedia.tsx";
 import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
 import ProductImage from "@/components/ProductImage.tsx";
@@ -299,6 +300,10 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                 <p className="text-[11px] text-muted-foreground">Detailed audience data is still being fetched for this ad.</p>
               )}
             </div>
+
+            <Authenticated>
+              <SameCreative adId={ad._id} compact />
+            </Authenticated>
 
             {/* Actions */}
             <div className="flex flex-wrap gap-2">

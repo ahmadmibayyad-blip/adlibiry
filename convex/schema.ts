@@ -264,6 +264,11 @@ export default defineSchema({
     gmv: v.optional(v.number()),              // est. sales from this ad (TikTok Shop), USD
     productId: v.optional(v.id("products")),  // the product this ad sells (convex/productPipeline.ts)
     imageHash: v.optional(v.string()),        // perceptual hash of creativeUrl ("" = couldn't be read), see products.imageHash
+    // The hash in four parts, for finding the same creative elsewhere (ads.sameCreative, lib/imageHash.ts hashBands).
+    hashBand0: v.optional(v.string()),
+    hashBand1: v.optional(v.string()),
+    hashBand2: v.optional(v.string()),
+    hashBand3: v.optional(v.string()),
     isScaling: v.optional(v.boolean()),       // 14+ days and views growing or engagement above niche median (lib/scaling.ts)
     pageRank: v.optional(v.number()),         // rank among the advertiser's live ads, 1 = most views (lib/adRank.ts); unset when stopped
     pageActiveAds: v.optional(v.number()),    // how many ads that advertiser has live
@@ -286,6 +291,10 @@ export default defineSchema({
     .index("by_advertiser", ["advertiserName"])
     .index("by_product", ["productId"])
     .index("by_image_hash", ["imageHash"])
+    .index("by_hash_band_0", ["hashBand0"])
+    .index("by_hash_band_1", ["hashBand1"])
+    .index("by_hash_band_2", ["hashBand2"])
+    .index("by_hash_band_3", ["hashBand3"])
     .index("by_landing_host", ["landingHost"])
     .index("by_platform", ["platform"])
     .index("by_niche", ["niche"])
