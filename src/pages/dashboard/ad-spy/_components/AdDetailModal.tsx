@@ -19,6 +19,7 @@ import { adSpend } from "@/lib/euSpend.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 import SameCreative from "../../_components/SameCreative.tsx";
 import AdStore from "../../_components/AdStore.tsx";
+import AdTranscript from "./AdTranscript.tsx";
 import LooksSimilar from "../../_components/LooksSimilar.tsx";
 import AdMedia from "../../_components/AdMedia.tsx";
 import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
@@ -310,6 +311,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
             </div>
 
             <Authenticated>
+              <AdTranscript ad={ad} compact />
               <AdStore adId={ad._id} compact />
               <SameCreative adId={ad._id} compact />
               <LooksSimilar adId={ad._id} compact />
