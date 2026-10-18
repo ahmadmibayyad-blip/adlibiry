@@ -23,6 +23,7 @@ import LooksSimilar from "../../_components/LooksSimilar.tsx";
 import AdMedia from "../../_components/AdMedia.tsx";
 import { AdVideoAction } from "../../_components/DownloadVideoButton.tsx";
 import ProductImage from "@/components/ProductImage.tsx";
+import AdStageBadge from "@/components/AdStageBadge.tsx";
 
 type Ad = Doc<"ads">;
 
@@ -182,6 +183,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
                   <Zap className="w-3.5 h-3.5 text-primary" />Ad score
+                  <AdStageBadge ad={ad} />
                 </div>
                 <p className="text-xs text-muted-foreground">Runtime, engagement, reach and ad copies combined.</p>
               </div>

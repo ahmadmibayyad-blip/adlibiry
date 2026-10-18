@@ -29,7 +29,8 @@ type Ad = Doc<"ads">;
 // ("1000-" = at least 1000).
 type Filters = {
   platform?: string;
-  scaling?: boolean;
+  scaling?: boolean; // older saved searches; now stage "scaling"
+  stage?: string; // convex/lib/adStage.ts AdStage
   niche?: string;
   firstSeen?: string; // days
   lastSeen?: string; // days
@@ -48,6 +49,8 @@ type Filters = {
   reach?: string; // range, EU reach
   eu?: boolean; // only ads with EU reach
   score?: string; // range
+  rank?: string; // max rank on the advertiser's page, e.g. "10" = top 10
+  pageAds?: string; // min live ads the advertiser has
   newAds?: boolean;
   repeated?: boolean;
   active?: boolean;
@@ -70,7 +73,43 @@ const RUN_TIME = [ANY, opt("1-7", "1–7 days"), opt("7-30", "7–30 days"), opt
 const IMPRESSIONS = [ANY, opt("0-10000", "Under 10K"), opt("10000-100000", "10K–100K"), opt("100000-1000000", "100K–1M"), opt("1000000-", "1M+")];
 const LIKES = [ANY, opt("100-", "100+"), opt("1000-", "1K+"), opt("10000-", "10K+"), opt("100000-", "100K+")];
 const SPEND = [ANY, opt("0-100", "Under $100"), opt("100-1000", "$100–$1K"), opt("1000-10000", "$1K–$10K"), opt("10000-50000", "$10K–$50K"), opt("50000-", "$50K+")];
+// Stage labels on the cards (convex/lib/adStage.ts).
+const STAGE = [
+  ANY,
+  opt("scaling", "Scaling"),
+  opt("winning", "Winning (7+ days, $100+ spend)"),
+  opt("testing", "Testing (new or under 1K views)"),
+];
 const REACH = [ANY, opt("0-1000", "Under 1K"), opt("1000-10000", "1K–10K"), opt("10000-100000", "10K–100K"), opt("100000-1000000", "100K–1M"), opt("1000000-", "1M+")];
+// Rank among the advertiser's live ads, and how many it runs (convex/lib/adRank.ts).
+const RANK = [ANY, opt("1", "#1 on its page"), opt("3", "Top 3 on its page"), opt("10", "Top 10 on its page")];
+const PAGE_ADS = [ANY, opt("5", "5+ live ads"), opt("10", "10+ live ads"), opt("30", "30+ live ads"), opt("80", "80+ live ads")];
+
+// One-click views: each sets these filters and clears the rest (sort stays).
+const PRESETS: { id: string; label: string; hint: string; filters: Filters }[] = [
+  {
+    id: "us-winners",
+    label: "US winners",
+    hint: "Winning US ads in the top 10 of an advertiser running 10+ ads",
+    filters: { country: "US", stage: "winning", rank: "10", pageAds: "10" },
+  },
+  { id: "scaling", label: "Scaling now", hint: "Ads running 14+ days that are still getting budget", filters: { stage: "scaling" } },
+  {
+    id: "page-leaders",
+    label: "#1 on their page",
+    hint: "The best performing live ad of advertisers running 5+ ads",
+    filters: { rank: "1", pageAds: "5" },
+  },
+  { id: "big-spenders", label: "Big spenders", hint: "Live ads with an estimated $50K+ spent", filters: { spend: "50000-", active: true } },
+  { id: "fresh-tests", label: "Fresh tests", hint: "Ads first seen this week that are still testing", filters: { stage: "testing", firstSeen: "7" } },
+];
+
+const sameFilters = (a: Filters, b: Filters) => {
+  const keys = (f: Filters) => Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false);
+  const ka = keys(a);
+  return ka.length === keys(b).length && ka.every(([k, v]) => b[k as keyof Filters] === v);
+};
+
 const SCORE = [ANY, opt("40-", "40+"), opt("60-", "60+"), opt("80-", "80+")];
 const MEDIA = [ANY, opt("video", "Video"), opt("image", "Image"), opt("carousel", "Carousel")];
 const LANDING = [ANY, opt("has", "Has store link")];
@@ -107,6 +146,8 @@ const SORTS = [
   opt("shares", "Most shares"),
   opt("copies", "Most ad copies"),
   opt("longestRunning", "Longest running"),
+  opt("topRank", "Rank on page (#1 first)"),
+  opt("pageAds", "Advertiser's live ads"),
 ];
 
 // Panel state → ads.list args.
@@ -141,14 +182,18 @@ function toQueryArgs(f: Filters, search: string, cpm: number) {
     minSpend: spend.min,
     maxSpend: spend.max,
     // The server works spend out with the same CPM as the cards.
-    cpm: spend.min !== undefined || spend.max !== undefined ? cpm : undefined,
+    // The stage labels use the same spend (lib/adStage.ts).
+    cpm: spend.min !== undefined || spend.max !== undefined || f.stage ? cpm : undefined,
     minReach: reach.min,
     maxReach: reach.max,
     euOnly: f.eu || undefined,
     minAiScore: score.min,
     minCopies: f.repeated ? 2 : undefined,
+    maxPageRank: f.rank ? Number(f.rank) : undefined,
+    minPageAds: f.pageAds ? Number(f.pageAds) : undefined,
     activeOnly: f.active || undefined,
-    scalingOnly: f.scaling || undefined,
+    scalingOnly: (f.scaling && !f.stage) || undefined,
+    stage: f.stage,
     hasLandingPage: f.landing === "has" || undefined,
   };
 }
@@ -212,9 +257,10 @@ export default function AdSpyPage() {
   const activeCount = Object.entries(f).filter(([k, v]) => k !== "sort" && v !== undefined && v !== false).length + (nichesOn ? 1 : 0);
   // Filters set inside "Advanced filters" (everything but platform and the four visible ones).
   const advancedCount = Object.entries(f).filter(
-    ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling"].includes(k) && v !== undefined && v !== false,
+    ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling", "stage"].includes(k) && v !== undefined && v !== false,
   ).length;
   const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
+  const preset = PRESETS.find((p) => sameFilters(f, p.filters));
   const clearAll = () => {
     setF((prev) => ({ sort: prev.sort }));
     setUseMine(false);
@@ -288,8 +334,15 @@ export default function AdSpyPage() {
           <ImageSearchDialog trigger="icon" />
         </div>
 
-        {/* The four most-used filters stay visible; the rest fold away. */}
+        {/* The four most-used filters stay visible; the rest fold away. Quick view sets a ready-made filter set. */}
         <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect
+            label="Quick view"
+            value={preset?.id ?? "none"}
+            onChange={(id) => setF((prev) => ({ sort: prev.sort, ...PRESETS.find((p) => p.id === id)?.filters }))}
+            options={[opt("none", "None"), ...PRESETS.map((p) => opt(p.id, p.label))]}
+            active={!!preset}
+          />
           <FilterSelect label="Country" value={f.country ?? "any"} onChange={setAny("country")} options={countryOptions} active={!!f.country} />
           <FilterSelect
             label="Category"
@@ -302,11 +355,12 @@ export default function AdSpyPage() {
           <FilterSelect label="Ad run time" value={f.runTime ?? "any"} onChange={setAny("runTime")} options={RUN_TIME} active={!!f.runTime} />
           <FilterSelect label="Ad spend (USD)" value={f.spend ?? "any"} onChange={setAny("spend")} options={SPEND} active={!!f.spend} />
           <CpmSetting />
-          <Check
-            label="Scaling"
-            hint="Running 14+ days and still getting budget: views up 10%+ on last week, or engagement above the category's median"
-            checked={!!f.scaling}
-            onChange={(v) => set("scaling", v || undefined)}
+          <FilterSelect
+            label="Ad stage"
+            value={f.stage ?? (f.scaling ? "scaling" : "any")}
+            onChange={(v) => setF((prev) => ({ ...prev, scaling: undefined, stage: v === "any" ? undefined : v }))}
+            options={STAGE}
+            active={!!(f.stage || f.scaling)}
           />
           <button
             type="button"
@@ -319,6 +373,7 @@ export default function AdSpyPage() {
             <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAdvanced && "rotate-180")} />
           </button>
         </div>
+        {preset && <p className="text-[11px] text-muted-foreground -mt-1">{preset.label}: {preset.hint}.</p>}
 
         {showAdvanced && (
         <>
@@ -351,6 +406,8 @@ export default function AdSpyPage() {
           <FilterSelect label="Impressions" value={f.impressions ?? "any"} onChange={setAny("impressions")} options={IMPRESSIONS} active={!!f.impressions} />
           <FilterSelect label="Engagement (likes)" value={f.likes ?? "any"} onChange={setAny("likes")} options={LIKES} active={!!f.likes} />
           <FilterSelect label="Ad score" value={f.score ?? "any"} onChange={setAny("score")} options={SCORE} active={!!f.score} />
+          <FilterSelect label="Rank on page" value={f.rank ?? "any"} onChange={setAny("rank")} options={RANK} active={!!f.rank} />
+          <FilterSelect label="Advertiser's live ads" value={f.pageAds ?? "any"} onChange={setAny("pageAds")} options={PAGE_ADS} active={!!f.pageAds} />
           <div className="flex flex-wrap items-center gap-3 ml-1">
             <Check label="New ads" hint="First seen in the last 7 days" checked={!!f.newAds} onChange={(v) => set("newAds", v || undefined)} />
             <Check label="Repeated ads" hint="The same creative runs as 2+ ad copies — a scaling signal" checked={!!f.repeated} onChange={(v) => set("repeated", v || undefined)} />
