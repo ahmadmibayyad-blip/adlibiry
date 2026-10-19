@@ -15,6 +15,7 @@ import {
   researchUrls,
   searchKey,
   searchPhrases,
+  shortError,
   storeHost,
   toSearchAd,
   type FoundStore,
@@ -158,5 +159,18 @@ describe("Offer Search store details", () => {
     const urls = researchUrls("dk");
     expect(urls).toHaveLength(OFFER_IDS.length);
     expect(decodeURIComponent(urls[2].replace(/\+/g, " "))).toContain("q=gratis fragt");
+  });
+});
+
+describe("shortError", () => {
+  it("keeps the message and drops Convex's prefix, request id and stack", () => {
+    const raw = [
+      'Uncaught Error: Apify 403: { "error": { "type": "platform-feature-disabled", "message": "Monthly usage hard limit exceeded" } }',
+      "    at startRun (../../convex/apify.ts:124:20)",
+      "    at async handler (../../convex/apify.ts:212:18)",
+    ].join("\n");
+    expect(shortError(raw)).toBe('Apify 403: { "error": { "type": "platform-feature-disabled", "message": "Monthly usage hard limit exceeded" } }');
+    expect(shortError("[CONVEX A(apify:startTrackedRun)] [Request ID: abc123] Server Error Uncaught Error: boom at async x")).toBe("boom");
+    expect(shortError("plain message")).toBe("plain message");
   });
 });

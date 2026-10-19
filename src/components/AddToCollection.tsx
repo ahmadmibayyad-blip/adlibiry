@@ -6,6 +6,7 @@ import { Check, FolderPlus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
+import { Spinner } from "@/components/ui/spinner.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
 import { cn } from "@/lib/utils.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
@@ -31,17 +32,23 @@ export default function AddToCollection({
   const [open, setOpen] = useState(!!defaultOpen);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  // The collection being ticked or unticked, so a quick second tap doesn't undo the first.
+  const [pending, setPending] = useState<Id<"collections"> | null>(null);
   const list = useQuery(api.collections.mine, { kind, refId });
   const toggle = useMutation(api.collections.toggleItem);
   const create = useMutation(api.collections.create);
   const inAny = list?.some((c) => c.has);
 
   const onToggle = async (id: Id<"collections">, label: string) => {
+    if (pending) return;
+    setPending(id);
     try {
       const r = await toggle({ id, kind, refId });
       toast.success(r.added ? `Added to ${label}` : `Removed from ${label}`);
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't update the collection"));
+    } finally {
+      setPending(null);
     }
   };
 
@@ -66,7 +73,7 @@ export default function AddToCollection({
         <Button
           variant="outline"
           size={iconOnly ? "icon" : "default"}
-          className={cn(inAny && "border-primary/50 text-primary", className)}
+          className={cn(iconOnly ? "size-10 sm:size-9" : "h-10 sm:h-9", inAny && "border-primary/50 text-primary", className)}
           aria-label="Add to collection"
           title="Add to collection"
           onClick={(e) => e.stopPropagation()}
@@ -88,7 +95,9 @@ export default function AddToCollection({
                 key={c._id}
                 type="button"
                 onClick={() => onToggle(c._id, c.name)}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-secondary cursor-pointer"
+                disabled={pending !== null}
+                aria-pressed={c.has}
+                className="flex min-h-10 sm:min-h-0 w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-secondary cursor-pointer disabled:cursor-wait disabled:opacity-70"
               >
                 <span
                   className={cn(
@@ -110,11 +119,11 @@ export default function AddToCollection({
             onChange={(e) => setName(e.target.value)}
             placeholder="New collection"
             maxLength={60}
-            className="h-8 text-sm"
+            className="h-10 sm:h-8 text-sm"
             aria-label="New collection name"
           />
-          <Button type="submit" size="sm" className="h-8 shrink-0" disabled={!name.trim() || busy} aria-label="Create collection">
-            <Plus className="w-4 h-4" />
+          <Button type="submit" size="sm" className="h-10 sm:h-8 shrink-0" disabled={!name.trim() || busy} aria-label="Create collection">
+            {busy ? <Spinner className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           </Button>
         </form>
       </PopoverContent>

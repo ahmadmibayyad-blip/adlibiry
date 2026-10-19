@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { ConvexError } from "convex/values";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import { useNavigate } from "react-router-dom";
 import { Camera, ExternalLink, ImageUp, Search } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -60,18 +60,21 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
     setError(null);
     setResult(null);
     setBusy(true);
+    let image: { data: string; preview: string };
     try {
-      const { data, preview } = await shrink(file);
-      setPreview(preview);
-      setResult(await search({ imageBase64: data, mediaType: "image/jpeg" }));
+      image = await shrink(file);
     } catch (e) {
-      setError(
-        e instanceof ConvexError && typeof (e.data as { message?: unknown })?.message === "string"
-          ? (e.data as { message: string }).message
-          : e instanceof Error
-            ? e.message
-            : "Image search failed. Please try again.",
-      );
+      // Our own message (the image couldn't be read in this browser).
+      setError(e instanceof Error ? e.message : "Couldn't read that image.");
+      setBusy(false);
+      return;
+    }
+    try {
+      setPreview(image.preview);
+      setResult(await search({ imageBase64: image.data, mediaType: "image/jpeg" }));
+    } catch (e) {
+      // Server errors carry their wording in ConvexError data; anything else stays generic, not a stack trace.
+      setError(errorMessage(e, "Image search failed. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -105,7 +108,9 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
               void run(e.dataTransfer.files[0]);
             }}
             onPaste={(e) => void run([...e.clipboardData.files][0])}
-            className="flex flex-col sm:flex-row items-center gap-4 border border-dashed border-border rounded-xl p-4"
+            tabIndex={0}
+            aria-label="Drop or paste an image here"
+            className="outline-none focus-visible:ring-2 focus-visible:ring-ring flex flex-col sm:flex-row items-center gap-4 border border-dashed border-border rounded-xl p-4"
           >
             {preview ? (
               <img src={preview} alt="Your photo" className="w-28 h-28 rounded-lg object-cover border border-border" />
@@ -117,11 +122,11 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
             <div className="flex-1 text-center sm:text-left">
               <p className="text-sm mb-2">Drop an image here, paste a screenshot, or</p>
               <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => void run(e.target.files?.[0])} />
-              <Button size="sm" onClick={() => input.current?.click()} disabled={busy}>
+              <Button size="sm" className="h-10 sm:h-8" onClick={() => input.current?.click()} disabled={busy}>
                 {busy ? <Spinner /> : <ImageUp className="w-4 h-4 mr-1.5" />}
                 {busy ? "Looking…" : "Choose image"}
               </Button>
-              <p className="text-[11px] text-muted-foreground mt-2">Counts as 1 AI request.</p>
+              <p className="text-xs text-muted-foreground mt-2">Counts as 1 AI request.</p>
             </div>
           </div>
 
@@ -167,7 +172,7 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
                       href={m.url}
                       target="_blank"
                       rel="noopener noreferrer sponsored"
-                      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border text-xs hover:bg-muted shrink-0"
+                      className="inline-flex items-center gap-1 h-10 sm:h-8 px-2.5 rounded-md border border-border text-xs hover:bg-muted shrink-0"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       Open
@@ -192,7 +197,7 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
                         setOpen(false);
                         navigate(`/dashboard/products?search=${encodeURIComponent(t)}`);
                       }}
-                      className="text-xs px-2.5 h-7 rounded-full border border-border bg-muted/50 hover:border-primary/40 inline-flex items-center gap-1 cursor-pointer"
+                      className="text-xs px-2.5 h-10 sm:h-7 rounded-full border border-border bg-muted/50 hover:border-primary/40 inline-flex items-center gap-1 cursor-pointer"
                     >
                       <Search className="w-3 h-3" />
                       {t}
@@ -204,7 +209,7 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
               <section>
                 <h3 className="text-sm font-semibold mb-2">Matching products ({result.products.length})</h3>
                 {result.products.length ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3" onClick={() => setOpen(false)}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3" onClick={() => setOpen(false)}>
                     {result.products.map((p) => (
                       <ProductCard key={p._id} product={p} />
                     ))}

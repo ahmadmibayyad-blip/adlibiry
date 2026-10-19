@@ -8,12 +8,14 @@ import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { Spinner } from "@/components/ui/spinner.tsx";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty.tsx";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
+import { cn } from "@/lib/utils.ts";
 import AdCard from "../../ad-spy/_components/AdCard.tsx";
 import AdDetailModal from "../../ad-spy/_components/AdDetailModal.tsx";
 import StoreCard from "../../stores/_components/StoreCard.tsx";
@@ -44,21 +46,25 @@ export default function Collections() {
 function NewCollection() {
   const create = useMutation(api.collections.create);
   const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || busy) return;
+    setBusy(true);
     try {
       await create({ name });
       setName("");
     } catch (err) {
       toast.error(errorMessage(err, "Couldn't create the collection"));
+    } finally {
+      setBusy(false);
     }
   };
   return (
     <form onSubmit={submit} className="flex gap-2 max-w-md mb-6">
-      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="New collection, e.g. Pet winners" maxLength={60} aria-label="New collection name" />
-      <Button type="submit" disabled={!name.trim()}>
-        <FolderPlus className="w-4 h-4 mr-2" />Create
+      <Input className="h-10 sm:h-9" value={name} onChange={(e) => setName(e.target.value)} placeholder="New collection, e.g. Pet winners" maxLength={60} aria-label="New collection name" />
+      <Button type="submit" className="h-10 sm:h-9" disabled={!name.trim() || busy}>
+        {busy ? <Spinner className="w-4 h-4 mr-2" /> : <FolderPlus className="w-4 h-4 mr-2" />}Create
       </Button>
     </form>
   );
@@ -93,7 +99,7 @@ function CollectionList({ onOpen }: { onOpen: (id: Id<"collections">) => void })
               onClick={() => onOpen(c._id)}
               className="group text-left bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all cursor-pointer"
             >
-              <div className="grid grid-cols-3 gap-0.5 aspect-[16/9] bg-muted">
+              <div className={cn("grid gap-0.5 aspect-[16/9] bg-muted", c.covers.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
                 {c.covers.length === 0 ? (
                   <div className="col-span-3 flex items-center justify-center text-muted-foreground">
                     <Folder className="w-8 h-8" />
@@ -118,17 +124,21 @@ function CollectionList({ onOpen }: { onOpen: (id: Id<"collections">) => void })
 
 function RemoveItem({ id, kind, refId }: { id: Id<"collections">; kind: Kind; refId: string }) {
   const toggle = useMutation(api.collections.toggleItem);
+  const [busy, setBusy] = useState(false);
   return (
     <button
       type="button"
+      disabled={busy}
       onClick={async () => {
+        setBusy(true);
         try {
           await toggle({ id, kind, refId });
         } catch (e) {
           toast.error(errorMessage(e, "Couldn't remove it"));
+          setBusy(false);
         }
       }}
-      className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+      className="mt-1 inline-flex min-h-10 sm:min-h-0 items-center gap-1 rounded-md py-1.5 pr-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer disabled:cursor-wait disabled:opacity-60"
     >
       <X className="w-3 h-3" />Remove from collection
     </button>
@@ -156,7 +166,7 @@ function CollectionView({ id, onBack }: { id: Id<"collections">; onBack: () => v
   const [store, setStore] = useState<Doc<"stores"> | null>(null);
 
   const back = (
-    <Button variant="ghost" size="sm" onClick={onBack} className="mb-4 -ml-2">
+    <Button variant="ghost" size="sm" onClick={onBack} className="mb-4 -ml-2 h-10 sm:h-8">
       <ArrowLeft className="w-4 h-4 mr-1.5" />All collections
     </Button>
   );
@@ -187,21 +197,21 @@ function CollectionView({ id, onBack }: { id: Id<"collections">; onBack: () => v
       {back}
       <div className="flex flex-wrap items-center gap-2 mb-6">
         {editing !== null ? (
-          <form onSubmit={saveName} className="flex gap-2">
-            <Input autoFocus value={editing} onChange={(e) => setEditing(e.target.value)} maxLength={60} className="w-64" aria-label="Collection name" />
-            <Button type="submit" size="sm">Save</Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+          <form onSubmit={saveName} className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <Input autoFocus value={editing} onChange={(e) => setEditing(e.target.value)} maxLength={60} className="h-10 sm:h-9 w-full sm:w-64" aria-label="Collection name" />
+            <Button type="submit" size="sm" className="h-10 sm:h-8">Save</Button>
+            <Button type="button" size="sm" variant="ghost" className="h-10 sm:h-8" onClick={() => setEditing(null)}>Cancel</Button>
           </form>
         ) : (
           <>
             <h2 className="text-xl font-bold mr-1">{c.name}</h2>
             <span className="text-sm text-muted-foreground">{itemsLabel(c.itemCount)}</span>
-            <Button variant="ghost" size="icon" onClick={() => setEditing(c.name)} aria-label="Rename collection">
+            <Button variant="ghost" size="icon" className="size-10 sm:size-9" onClick={() => setEditing(c.name)} aria-label="Rename collection">
               <Pencil className="w-4 h-4" />
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Delete collection">
+                <Button variant="ghost" size="icon" className="size-10 sm:size-9" aria-label="Delete collection">
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </AlertDialogTrigger>
@@ -234,9 +244,13 @@ function CollectionView({ id, onBack }: { id: Id<"collections">; onBack: () => v
       </div>
 
       {empty ? (
-        <p className="text-sm text-muted-foreground">
-          Nothing here yet. Open any ad, store or product and use its Collection button to add it.
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><Folder /></EmptyMedia>
+            <EmptyTitle>Nothing here yet</EmptyTitle>
+            <EmptyDescription>Open any ad, store or product and use its Collection button to add it.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           <Section title="Ads" count={c.ads.length}>

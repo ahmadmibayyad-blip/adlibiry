@@ -21,6 +21,7 @@ import {
   researchUrls,
   searchKey,
   searchPhrases,
+  shortError,
   storeHost,
   toSearchAd,
   type FoundProduct,
@@ -371,8 +372,8 @@ export const dailyResearch = internalAction({
           out.errors.push(error);
           break;
         }
-        await ctx.runMutation(internal.offerSearch.finished, { runToken, error: msg.slice(0, 200) });
-        out.errors.push(`${country}: ${msg.slice(0, 200)}`);
+        await ctx.runMutation(internal.offerSearch.finished, { runToken, error: shortError(msg) });
+        out.errors.push(`${country}: ${shortError(msg)}`);
       }
     }
     return out;
@@ -405,7 +406,7 @@ export const research = query({
       .map((r) => ({
         country: r.country,
         status: r.status,
-        error: r.error,
+        ...(r.error ? { error: shortError(r.error) } : {}),
         adsFound: r.adsFound ?? 0,
         stores: ((r.stores ?? []) as FoundStore[]).map((s) => ({ ...s, country: r.country })),
       }));
