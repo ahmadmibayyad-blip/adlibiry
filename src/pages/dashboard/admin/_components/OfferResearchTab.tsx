@@ -71,9 +71,15 @@ export default function OfferResearchTab() {
         )}
         {failed.length ? (
           <ul className="text-xs text-bad space-y-0.5">
-            {failed.map((c) => (
-              <li key={c.country}>
-                {c.country}: {c.error ?? "failed"}
+            {/* One line per distinct error, with the countries it hit (an account limit stops them all alike). */}
+            {Object.entries(
+              failed.reduce<Record<string, string[]>>((acc, c) => {
+                (acc[c.error ?? "Failed"] ??= []).push(c.country);
+                return acc;
+              }, {}),
+            ).map(([error, countries]) => (
+              <li key={error}>
+                {countries.join(", ")}: {error}
               </li>
             ))}
           </ul>

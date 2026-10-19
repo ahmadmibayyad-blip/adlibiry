@@ -81,7 +81,7 @@ export default function AdminPage() {
           </p>
         </motion.div>
 
-        <div className="flex items-center gap-2 mb-6 border-b border-border overflow-x-auto">
+        <div className="flex items-center gap-2 mb-6 border-b border-border overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((t) => (
             <button
               key={t.id}

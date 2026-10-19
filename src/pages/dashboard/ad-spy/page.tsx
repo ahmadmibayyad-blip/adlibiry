@@ -478,7 +478,7 @@ export default function AdSpyPage() {
             <div className="flex justify-center mt-8 text-sm text-muted-foreground">Loading…</div>
           ) : status === "CanLoadMore" ? (
             <div className="flex justify-center mt-8">
-              <Button variant="outline" onClick={showMoreAds} className="px-8">Load more ads</Button>
+              <Button variant="outline" onClick={showMoreAds} className="h-10 px-8">Load more ads</Button>
             </div>
           ) : (
             <p className="text-center mt-8 text-xs text-muted-foreground">
