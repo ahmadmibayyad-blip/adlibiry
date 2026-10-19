@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 const age = (iso: string | undefined) => {
   if (!iso) return "";
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
-  return days < 1 ? "today" : `${days}d ago`; // short: it sits under a narrow TikTok tile
+  return days < 1 ? "today" : `${days}d`; // short: it sits under a narrow TikTok tile
 };
 
 function Card({ icon, title, sub, children }: { icon: ReactNode; title: string; sub?: string; children: ReactNode }) {
