@@ -67,6 +67,8 @@ describe("reading JustOne answers", () => {
       price: 9.5, currency: "USD", sold: 44, rating: 5, reviews: 2, shop: "FRENCHIES USA",
     });
     expect(tiktokShopProducts({ region: "GB", region_supported: false, supported_regions: ["US"] })).toEqual({ items: [], unsupported: true });
+    const twice = { products: [SHOP.data.products[0], { ...SHOP.data.products[0], product_id: "2", title: "Beautiful  DOG dress!" }, { ...SHOP.data.products[0], product_id: "3", seller_info: { shop_name: "Other" } }, { ...SHOP.data.products[0], product_id: "4", title: "Dog raincoat" }] };
+    expect(tiktokShopProducts(twice).items.map((it) => it.id)).toEqual(["1731288426724233804", "4"]);
   });
 
   it("picks the Amazon marketplace, search words and when to look again", () => {

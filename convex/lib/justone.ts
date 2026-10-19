@@ -174,7 +174,18 @@ export function tiktokShopProducts(body: unknown): { items: TikTokShopItem[]; un
       shop: str(obj(p.seller_info).shop_name),
     }];
   });
-  return { items };
+  return { items: uniqueShopItems(items) };
+}
+
+/** TikTok lists one product under several IDs (and resellers copy titles): keep the first, best-placed, of each title. */
+export function uniqueShopItems(items: TikTokShopItem[]): TikTokShopItem[] {
+  const seen = new Set<string>();
+  return items.filter((it) => {
+    const key = it.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** A product's saved lookup; `failed` keeps the last good items. */
