@@ -128,7 +128,7 @@ export default function SuppliersSection({ product }: { product: Doc<"products">
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={opened}
-                  className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border text-xs hover:bg-muted shrink-0"
+                  className="inline-flex items-center gap-1 h-10 sm:h-8 px-2.5 rounded-md border border-border text-xs hover:bg-muted shrink-0"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   Open
@@ -168,7 +168,7 @@ function SupplierRow({ m, onOpen, ordersLabel = "orders" }: { m: Supplier; onOpe
           target="_blank"
           rel="noopener noreferrer sponsored"
           onClick={onOpen}
-          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border text-xs hover:bg-muted"
+          className="inline-flex items-center gap-1 h-10 sm:h-8 px-2.5 rounded-md border border-border text-xs hover:bg-muted"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           Open
@@ -176,12 +176,16 @@ function SupplierRow({ m, onOpen, ordersLabel = "orders" }: { m: Supplier; onOpe
         <button
           type="button"
           aria-label="Copy supplier link"
-          onClick={() => {
-            navigator.clipboard?.writeText(m.url);
-            onOpen();
-            toast.success("Supplier link copied");
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(m.url);
+              onOpen();
+              toast.success("Supplier link copied");
+            } catch {
+              toast.error("Couldn't copy the link. Open it instead.");
+            }
           }}
-          className="inline-flex items-center h-8 px-2 rounded-md border border-border hover:bg-muted cursor-pointer"
+          className="inline-flex items-center justify-center size-10 sm:size-8 rounded-md border border-border hover:bg-muted cursor-pointer"
         >
           <Copy className="w-3.5 h-3.5" />
         </button>

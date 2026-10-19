@@ -7,6 +7,7 @@ import { OFFER_COUNTRIES } from "@/convex/lib/offerSearch.ts";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { Spinner } from "@/components/ui/spinner.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { StoreResults } from "@/pages/dashboard/offer-search/_components/StoreResults.tsx";
 
@@ -18,6 +19,7 @@ export default function OfferResearchTab() {
   const data = useQuery(api.offerSearch.research, day ? { day } : {});
   const runNow = useMutation(api.importRuns.runNow);
   const [started, setStarted] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const stores = useMemo(() => (data?.countries ?? []).flatMap((c) => c.stores), [data]);
   if (data === undefined) return <Skeleton className="h-64 w-full rounded-xl" />;
@@ -28,12 +30,16 @@ export default function OfferResearchTab() {
   const ads = done.reduce((n, c) => n + c.adsFound, 0);
 
   const start = async () => {
+    if (busy || started) return;
+    setBusy(true);
     try {
       await runNow({ job: "offerResearch" });
       setStarted(true);
       toast.success("Offer research started. Each country's results arrive here in 1–5 minutes.");
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't start the research"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -48,8 +54,8 @@ export default function OfferResearchTab() {
               1,000 active ads in all through Apify (~$0.75). The ads also go into Ad Spy. Change the total with OFFER_RESEARCH_ADS in Convex (off stops it).
             </p>
           </div>
-          <Button size="sm" onClick={() => void start()} disabled={started}>
-            <Play className="w-4 h-4 mr-1.5" /> {started ? "Started" : "Run now"}
+          <Button size="sm" className="h-10 sm:h-8" onClick={() => void start()} disabled={busy || started}>
+            {busy ? <Spinner className="w-4 h-4 mr-1.5" /> : <Play className="w-4 h-4 mr-1.5" />} {started ? "Started" : "Run now"}
           </Button>
         </div>
         {data.day ? (

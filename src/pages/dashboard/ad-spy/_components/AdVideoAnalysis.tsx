@@ -55,7 +55,7 @@ export default function AdVideoAnalysis({ ad }: { ad: Doc<"ads"> }) {
               : "AI watches the video: its hook, angle, beats and every shot, then writes your own version for your product."}
         </p>
       </div>
-      <Button variant="outline" size="sm" onClick={run} disabled={running || starting}>
+      <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={run} disabled={running || starting}>
         {running || starting ? (
           <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
         ) : state?.status === "failed" ? (
@@ -63,7 +63,7 @@ export default function AdVideoAnalysis({ ad }: { ad: Doc<"ads"> }) {
         ) : (
           <Sparkles className="w-3.5 h-3.5 mr-1.5" />
         )}
-        {running ? "Analysing…" : state?.status === "failed" ? "Try again" : "Analyse video"}
+        {running ? "Analysing…" : starting ? "Starting…" : state?.status === "failed" ? "Try again" : "Analyse video"}
       </Button>
     </div>
   );
@@ -156,7 +156,8 @@ function AnalysisView({ adId, a }: { adId: Doc<"ads">["_id"]; a: Analysis }) {
           <button
             type="button"
             onClick={() => setShowShots((s) => !s)}
-            className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+            aria-expanded={showShots}
+            className="flex min-h-10 sm:min-h-0 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showShots && "rotate-180")} />
             Shot list ({a.shots.length} shots)
@@ -266,7 +267,7 @@ function WriteVariant({ adId }: { adId: Doc<"ads">["_id"] }) {
               <div className="font-semibold text-sm">{variant.title}</div>
               {variant.hook && <div className="text-sm text-muted-foreground">Hook: “{variant.hook}”</div>}
             </div>
-            <Button variant="outline" size="sm" onClick={copy}>
+            <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={copy}>
               <Copy className="w-3.5 h-3.5 mr-1.5" />Copy
             </Button>
           </div>
@@ -340,7 +341,7 @@ function Voiceover({ text }: { text: string }) {
   return (
     <div className="mt-3 pt-3 border-t border-border">
       {voices === null ? (
-        <Button variant="outline" size="sm" onClick={open} disabled={busy}>
+        <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={open} disabled={busy}>
           {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mic className="w-3.5 h-3.5 mr-1.5" />}
           Make a voiceover
         </Button>
@@ -352,7 +353,7 @@ function Voiceover({ text }: { text: string }) {
             onChange={setVoiceId}
             options={voices.map((v) => ({ value: v.id, label: [v.name, v.gender, v.accent].filter(Boolean).join(" · ") }))}
           />
-          <Button size="sm" onClick={run} disabled={!voiceId || busy}>
+          <Button size="sm" className="h-10 sm:h-8" onClick={run} disabled={!voiceId || busy}>
             {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mic className="w-3.5 h-3.5 mr-1.5" />}
             {busy ? "Recording…" : audio?.text === text ? "Record again" : "Record voiceover"}
           </Button>
@@ -361,14 +362,14 @@ function Voiceover({ text }: { text: string }) {
       {audio && (
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <audio controls src={audio.url} className="h-9 max-w-full" />
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="h-10 sm:h-8">
             <a href={audio.url} download="voiceover.mp3">
               <Download className="w-3.5 h-3.5 mr-1.5" />MP3
             </a>
           </Button>
         </div>
       )}
-      <p className="text-[11px] text-muted-foreground mt-1.5">Reads the voice-over lines in the script's language. AI voice by ElevenLabs.</p>
+      <p className="text-xs text-muted-foreground mt-1.5">Reads the voice-over lines in the script's language. AI voice by ElevenLabs.</p>
     </div>
   );
 }

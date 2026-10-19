@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx";
+import { Spinner } from "@/components/ui/spinner.tsx";
 import { readJson, writeJson } from "@/lib/filterUtils.ts";
 
 
@@ -59,6 +60,7 @@ export function SavedSearches<F>({
   const importLocal = useMutation(api.savedSearches.importLocal);
   const saved = (remote ?? []) as Saved<F>[];
   const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const copied = useRef(false);
 
@@ -81,7 +83,8 @@ export function SavedSearches<F>({
 
   const save = async () => {
     const n = name.trim();
-    if (!n) return;
+    if (!n || saving) return;
+    setSaving(true);
     try {
       await saveRemote({ page: storageKey, name: n, filters, search });
       setName("");
@@ -89,6 +92,8 @@ export function SavedSearches<F>({
       toast.success(`Saved "${n}"`);
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't save the search"));
+    } finally {
+      setSaving(false);
     }
   };
   const remove = (n: string) => {
@@ -111,8 +116,10 @@ export function SavedSearches<F>({
               void save();
             }}
           >
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. DK pets video" className="h-8 text-xs" />
-            <Button type="submit" size="sm" className="h-8" disabled={!name.trim()}>Save</Button>
+            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. DK pets video" aria-label="Search name" className="h-10 sm:h-8 text-xs" />
+            <Button type="submit" size="sm" className="h-10 sm:h-8" disabled={!name.trim() || saving}>
+              {saving ? <Spinner className="w-3.5 h-3.5" /> : "Save"}
+            </Button>
           </form>
         </PopoverContent>
       </Popover>
@@ -124,10 +131,16 @@ export function SavedSearches<F>({
           <PopoverContent className="w-72 p-1" align="end">
             {saved.map((s) => (
               <div key={s.name} className="flex items-center gap-1 rounded-md hover:bg-muted">
-                <button className="flex-1 text-left text-sm px-2 py-1.5 truncate cursor-pointer" onClick={() => onApply(s.filters, s.search)}>
+                <button type="button" className="min-h-10 sm:min-h-0 flex-1 text-left text-sm px-2 py-1.5 truncate cursor-pointer" title={s.name} onClick={() => onApply(s.filters, s.search)}>
                   {s.name}
                 </button>
-                <button className="p-1.5 text-muted-foreground hover:text-destructive cursor-pointer" title="Delete" onClick={() => remove(s.name)}>
+                <button
+                  type="button"
+                  className="inline-flex size-10 sm:size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-destructive cursor-pointer"
+                  title="Delete"
+                  aria-label={`Delete saved search ${s.name}`}
+                  onClick={() => remove(s.name)}
+                >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

@@ -16,6 +16,7 @@ import { useCpm } from "@/hooks/use-cpm.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { formatUsd, spendFromReach } from "@/lib/euSpend.ts";
 import { anyCountryName, flagOf } from "@/lib/countries.ts";
+import { price } from "@/lib/money.ts";
 
 // The stores an offer search found, with filters and sorting, their products (from the Shopify store),
 // EU reach and estimated spend, and quick actions. Used by Offer Search and Admin → Offer research.
@@ -124,7 +125,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
       </div>
       {list.length > shown ? (
         <div className="text-center">
-          <Button variant="outline" size="sm" onClick={() => setShown((n) => n + PAGE)}>
+          <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={() => setShown((n) => n + PAGE)}>
             Show more ({list.length - shown} left)
           </Button>
         </div>
@@ -151,7 +152,7 @@ function StoreCard({
   const storeUrl = `https://${s.host}${s.productPaths[0] ?? ""}`;
   const spend = spendFromReach(s.reach, cpm);
   return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+    <div className="min-w-0 rounded-xl border border-border bg-card p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <a href={`https://${s.host}`} target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline break-all inline-block py-2.5 -my-2.5 sm:py-0 sm:my-0">
@@ -279,13 +280,13 @@ function ProductRow({ product: p, currency }: { product: FoundProduct; currency?
             </p>
           ) : null}
           <div className="flex flex-wrap gap-1.5">
-            <Button asChild size="sm" variant="outline" className="h-9 sm:h-7 text-xs">
+            <Button asChild size="sm" variant="outline" className="h-10 sm:h-7 text-xs">
               <a href={p.url} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="w-3.5 h-3.5 mr-1" /> Open product
               </a>
             </Button>
             {p.image && matches === null ? (
-              <Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs" onClick={() => void onFind()} disabled={busy}>
+              <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs" onClick={() => void onFind()} disabled={busy}>
                 {busy ? <Spinner className="w-3.5 h-3.5 mr-1" /> : <Search className="w-3.5 h-3.5 mr-1" />}
                 Find on AliExpress
               </Button>
@@ -297,13 +298,13 @@ function ProductRow({ product: p, currency }: { product: FoundProduct; currency?
         matches.length === 0 ? (
           <p className="text-xs text-muted-foreground">No look-alike listing on AliExpress.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {matches.map((m) => (
               <a key={m.url} href={m.url} target="_blank" rel="noopener noreferrer" className="group flex gap-2 rounded-md border border-border p-1.5">
-                {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="w-10 h-10 shrink-0 rounded object-cover bg-muted" /> : null}
+                {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="w-10 h-10 shrink-0 rounded object-cover bg-muted" /> : <span className="w-10 h-10 shrink-0 rounded bg-muted" />}
                 <span className="min-w-0">
-                  <span className="block text-[11px] leading-tight line-clamp-2 group-hover:underline">{m.title}</span>
-                  <span className="text-xs font-semibold">${m.price.toFixed(2)}</span>
+                  <span className="block text-xs leading-tight line-clamp-2 group-hover:underline">{m.title}</span>
+                  <span className="text-xs font-semibold">{price(m.price)}</span>
                 </span>
               </a>
             ))}

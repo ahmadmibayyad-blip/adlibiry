@@ -100,6 +100,18 @@ export const OFFER_COUNTRIES: Record<string, { name: string; lang: Lang }> = {
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
 
+/** An error's message without Convex's "Uncaught Error:" prefix, request id or stack, for showing in Admin. */
+export function shortError(message: string, max = 200): string {
+  return message
+    .replace(/\[CONVEX [^\]]*\]\s*/g, "")
+    .replace(/\[Request ID: [^\]]*\]\s*/g, "")
+    .replace(/^(Server Error\s*)?(Uncaught (Convex)?Error:\s*)?/, "")
+    .replace(/\s+at\s+[\w.$<>]+\s*\([^)]*\)[\s\S]*$/, "")
+    .replace(/\s+at\s+async[\s\S]*$/, "")
+    .trim()
+    .slice(0, max);
+}
+
 /**
  * What to type into the Ad Library: up to two of the offer's phrases in the country's language, each with
  * the user's extra words (a product or niche word in that language narrows it), or the user's own phrase.
