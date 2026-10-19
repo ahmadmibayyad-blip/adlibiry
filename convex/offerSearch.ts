@@ -49,6 +49,10 @@ const searchLimit = (user: Doc<"users">) =>
 const MAX_ADS = 150;
 // Apify's account limit (its monthly usage limit, or no credit left): it won't pass in a minute.
 const APIFY_ACCOUNT_LIMIT = /hard limit|usage limit|platform-feature-disabled|insufficient|credit/i;
+const APIFY_LIMIT_MESSAGE =
+  "The Apify account has reached its monthly usage limit (or has no credit left). Raise it at console.apify.com → Settings → Usage & billing.";
+/** A run's error as Admin shows it: the account-limit sentence, or the message without Convex's prefix and stack. */
+const adminError = (error: string) => (APIFY_ACCOUNT_LIMIT.test(error) ? APIFY_LIMIT_MESSAGE : shortError(error));
 const CACHE_MS = 6 * 3_600_000;
 // The Ad Library scraper charges $0.00075 per ad: one search costs at most about $0.18.
 const capUsd = () => Math.round((MAX_ADS * 0.00075 * 1.5 + 0.01) * 100) / 100;
@@ -367,9 +371,8 @@ export const dailyResearch = internalAction({
         const msg = e instanceof Error ? e.message : String(e);
         // The Apify account's monthly limit or credit stops every country alike: say it once and stop.
         if (APIFY_ACCOUNT_LIMIT.test(msg)) {
-          const error = "The Apify account has reached its monthly usage limit (or has no credit left). Raise it at console.apify.com → Settings → Usage & billing.";
-          await ctx.runMutation(internal.offerSearch.finished, { runToken, error });
-          out.errors.push(error);
+          await ctx.runMutation(internal.offerSearch.finished, { runToken, error: APIFY_LIMIT_MESSAGE });
+          out.errors.push(APIFY_LIMIT_MESSAGE);
           break;
         }
         await ctx.runMutation(internal.offerSearch.finished, { runToken, error: shortError(msg) });
@@ -406,7 +409,7 @@ export const research = query({
       .map((r) => ({
         country: r.country,
         status: r.status,
-        ...(r.error ? { error: shortError(r.error) } : {}),
+        ...(r.error ? { error: adminError(r.error) } : {}),
         adsFound: r.adsFound ?? 0,
         stores: ((r.stores ?? []) as FoundStore[]).map((s) => ({ ...s, country: r.country })),
       }));
