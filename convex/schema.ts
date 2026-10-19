@@ -147,6 +147,10 @@ export default defineSchema({
     // Review videos on YouTube (youtube.ts, lib/youtube.ts ProductVideos) and when they were last looked for.
     youtube: v.optional(v.any()),
     youtubeCheckedAt: v.optional(v.string()),
+    // AliExpress best sellers, Amazon (per marketplace), TikTok videos and TikTok Shop (justone.ts, lib/justone.ts ProductMarkets),
+    // and when each was last looked up (key from marketKey).
+    markets: v.optional(v.any()),
+    marketsChecked: v.optional(v.any()),
     supplierMatches: v.optional(v.array(v.object({
       title: v.string(),
       price: v.number(),
@@ -761,6 +765,10 @@ export default defineSchema({
   // PageSpeed results per store (storeSpeed.ts), and YouTube searches per day (youtube.ts).
   storeSpeeds: defineTable({ host: v.string(), result: v.any(), at: v.number() }).index("by_host", ["host"]),
   youtubeUsage: defineTable({ day: v.string(), count: v.number() }).index("by_day", ["day"]),
+  // JustOne lookups per day and kind (justone.ts), and live TikTok Shop searches: kept 24 h per keyword and region, counted per user.
+  justoneUsage: defineTable({ day: v.string(), kind: v.string(), count: v.number() }).index("by_day_kind", ["day", "kind"]),
+  tiktokShopSearches: defineTable({ key: v.string(), result: v.any(), at: v.number() }).index("by_key", ["key"]),
+  tiktokShopRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]),
   // Profit (profit.ts): each day's numbers per store, with the ad spend the user typed in; and their cost settings.
   profitDays: defineTable({
     userId: v.id("users"),

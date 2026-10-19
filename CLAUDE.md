@@ -192,6 +192,15 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Store Inspector → Speed (`storeSpeed.check`, `PAGESPEED_API_KEY`, required: no key = 429): phone + desktop, 24 h cache per store (`storeSpeeds`).
 - Product page → On YouTube (`youtube.productVideosFor`, `YOUTUBE_API_KEY`): a search is 100 of the 10,000 daily quota units, so
   `YOUTUBE_SEARCHES_PER_DAY` (default 90); saved on the product (`youtube`), refreshed after 14 days. The same Google key can serve PageSpeed.
+- JustOne API (`justone.ts`, parsers in `lib/justone.ts`; `JUSTONE_API_KEY`, the lowercase `justone_api_key` works too; token in the
+  `?token=` query, only answers with code 0 are billed): when a product page opens, `marketsFor` looks up AliExpress best sellers (by orders,
+  in USD), Amazon in the user's marketplace (`amazonMarket`: target country or its nearest Amazon, DK → DE; price as shown, "bought last
+  month"), the most-liked TikTok videos of the last 30 days and TikTok Shop (US), all saved on the product (`markets`, Amazon per country;
+  `marketsChecked`), again after a week, a day after a failure (last good items kept). `JUSTONE_LOOKUPS_PER_DAY` (default 300) per kind for
+  all users (`justoneUsage`). Shown by `products/_components/MarketsSection.tsx`. TikTok Shop page → "Search TikTok Shop" (`tiktokShopSearch`):
+  live search, kept 24 h per word and region (`tiktokShopSearches`), per-user daily `TIKTOK_SHOP_SEARCHES`; JustOne's TikTok Shop covers
+  US, BR, MX, JP and Southeast Asia only (UK/EU refused, and that refusal comes back as code 0). TikTok cover links are signed and expire.
+  `justone:probe` (internal) tries any endpoint from the Convex dashboard; the endpoint list is https://docs.justoneapi.com/llms.txt.
 - Screenshot to page → photos: placehold.co placeholders with a text get a Pexels photo (`lib/pexels.ts`, `PEXELS_API_KEY`, 200 searches/hour),
   cropped via Pexels' CDN params; credits saved in `screenPages.photoCredits` and shown with a link to Pexels (their API terms).
 

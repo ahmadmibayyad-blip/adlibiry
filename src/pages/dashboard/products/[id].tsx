@@ -30,6 +30,7 @@ import FollowProduct, { FollowMenuItem } from "./_components/FollowProduct.tsx";
 import VerdictPanel from "./_components/VerdictPanel.tsx";
 import SourceAgreement from "./_components/SourceAgreement.tsx";
 import SuppliersSection from "./_components/SuppliersSection.tsx";
+import MarketsSection from "./_components/MarketsSection.tsx";
 import YoutubeSection from "./_components/YoutubeSection.tsx";
 
 const saturationColors: Record<string, string> = {
@@ -406,6 +407,8 @@ export default function ProductDetail() {
           <div id="suppliers" className="scroll-mt-20 empty:hidden">
             <SuppliersSection product={product} />
           </div>
+
+          <MarketsSection product={product} />
 
           <YoutubeSection product={product} />
 

@@ -13,15 +13,18 @@ import { cn } from "@/lib/utils.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
+import ShopSearch from "./_components/ShopSearch.tsx";
 
 // Everything from TikTok in one place:
 // - Best sellers: TikTok Shop products ranked by estimated monthly sales from the
 //   shop's own daily sales counts (Nexscope data, refreshed daily).
+// - Search TikTok Shop: a live search of the shop (JustOne API, _components/ShopSearch.tsx).
 // - From TikTok ads: the products behind the TikTok ads in Ad Spy.
 // - TikTok ads: the TikTok ads themselves (Ad Spy with the TikTok filter).
 
 const TABS = [
   { key: "best", label: "Best sellers" },
+  { key: "search", label: "Search TikTok Shop" },
   { key: "advertised", label: "From TikTok ads" },
   { key: "ads", label: "TikTok ads" },
 ] as const;
@@ -163,7 +166,7 @@ export default function TikTokShopPage() {
             <h1 className="text-2xl font-bold">TikTok Shop</h1>
           </div>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Everything from TikTok: the shop's best sellers (ranked by estimated sales per month, updated every morning), the products
+            Everything from TikTok: the shop's best sellers (ranked by estimated sales per month, updated every morning), a live search of the shop, the products
             behind TikTok ads, and the TikTok ads themselves.
           </p>
         </div>
@@ -189,6 +192,7 @@ export default function TikTokShopPage() {
 
       <TrialLimitNotice />
       {tab === "best" && <BestSellers niches={mine} />}
+      {tab === "search" && <ShopSearch />}
       {tab === "advertised" && <FromTikTokAds niches={mine} />}
       {tab === "ads" && <TikTokAds niches={mine} />}
     </div>
