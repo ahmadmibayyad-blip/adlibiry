@@ -3,7 +3,7 @@ import { useAction, useConvexAuth, useQuery } from "convex/react";
 import { Heart, Play, ShoppingBag, Star, Store, TrendingUp } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
-import { amazonMarket, type AmazonItem, type MarketEntry, type ProductMarkets } from "@/convex/lib/justone.ts";
+import { amazonMarket, uniqueShopItems, type AmazonItem, type MarketEntry, type ProductMarkets } from "@/convex/lib/justone.ts";
 import { compactNumber } from "@/lib/adFormat.ts";
 import { price } from "@/lib/money.ts";
 import { Spinner } from "@/components/ui/spinner.tsx";
@@ -124,13 +124,17 @@ export default function MarketsSection({ product }: { product: Doc<"products"> }
                     {vid.cover ? (
                       <img src={vid.cover} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
                     ) : null}
-                    <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-white text-xs flex items-center gap-2">
-                      <span className="inline-flex items-center gap-0.5"><Heart className="w-3 h-3" aria-hidden /> {compactNumber(vid.likes ?? 0)}</span>
-                      {vid.plays ? <span className="inline-flex items-center gap-0.5"><Play className="w-3 h-3" aria-hidden /> {compactNumber(vid.plays)}</span> : null}
-                    </span>
+                    {/* Views on the picture, likes and age underneath: two numbers don't fit a narrow tile. */}
+                    {vid.plays ? (
+                      <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-white text-xs font-medium inline-flex items-center gap-1">
+                        <Play className="w-3 h-3 shrink-0" aria-hidden /> {compactNumber(vid.plays)}<span className="sr-only"> views</span>
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="block text-xs text-muted-foreground mt-1 truncate group-hover:underline">
-                    {vid.author ? `@${vid.author}` : "TikTok"} · {age(vid.createdAt)}
+                  <span className="block text-xs mt-1 truncate group-hover:underline">{vid.author ? `@${vid.author}` : "TikTok"}</span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap overflow-hidden">
+                    <Heart className="w-3 h-3 shrink-0" aria-hidden /> {compactNumber(vid.likes ?? 0)}<span className="sr-only"> likes</span>
+                    <span className="truncate">· {age(vid.createdAt)}</span>
                   </span>
                 </a>
               </li>
@@ -150,7 +154,7 @@ export default function MarketsSection({ product }: { product: Doc<"products"> }
       {shop?.items.length ? (
         <Card icon={<ShoppingBag className="w-4 h-4 text-primary" />} title="On TikTok Shop (US)" sub="The same kind of product in TikTok's own shop, with what it has sold.">
           <ul className="space-y-1">
-            {shop.items.slice(0, 4).map((it) => (
+            {uniqueShopItems(shop.items).slice(0, 4).map((it) => (
               <Row key={it.id} href={it.url} image={it.image} title={it.title}>
                 {it.price ? <span className="font-medium text-foreground">{it.currency === "USD" || !it.currency ? price(it.price) : `${it.currency} ${it.price.toFixed(2)}`}</span> : null}
                 {it.sold ? <span>{compactNumber(it.sold)} sold</span> : null}
