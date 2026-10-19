@@ -4,6 +4,7 @@ import { api, internal } from "./_generated/api";
 import { NICHE_KEYWORDS } from "./adlibrary/client";
 import { toAlpha2List } from "./lib/countryCodes";
 import { classifyNiche } from "./lib/category";
+import { retryOnConflict } from "./lib/writeConflict";
 import { META_COMMERCIAL_COUNTRIES, metaAudience } from "./lib/metaAdLibrary";
 import { adFields } from "./sources/links";
 import type { Infer } from "convex/values";
@@ -240,6 +241,9 @@ export const handleWebhook = internalAction({
         status: "failed",
         result: `Import stopped: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300),
       });
+      // Offer Search's stores come from the dataset itself, so the user still gets them when copying the ads
+      // into Ad Spy failed.
+      if (run.trigger === "offer") await ctx.runAction(internal.offerSearch.finish, { runToken: args.token, datasetId: args.datasetId });
       return { ok: false };
     }
     // Offer Search groups the same ads by store for the user who searched.
@@ -302,7 +306,9 @@ export const importDataset = internalAction({
       const batch: Infer<typeof externalAd>[] = [];
       const flush = async () => {
         if (!batch.length) return;
-        const r = await ctx.runMutation(internal.sources.links.upsertExternalAds, { ads: batch.splice(0) });
+        const ads = batch.splice(0);
+        // Several imports at once (Offer research) can touch the same ad or store: try the batch again then.
+        const r = await retryOnConflict(() => ctx.runMutation(internal.sources.links.upsertExternalAds, { ads }));
         result.created += r.created;
         result.updated += r.updated;
         for (const e of r.errors) if (result.errors.length < 10) result.errors.push(e);
