@@ -20,7 +20,8 @@ import {
   ShoppingBag, Rocket, Menu, BookOpen, Tags, Wand2, PiggyBank, PackageCheck, ClipboardCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useScrollMemory } from "@/hooks/use-history-state.ts";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -100,6 +101,9 @@ const planColors: Record<string, string> = {
 export default function DashboardLayout() {
 
   const location = useLocation();
+  // Back to a list lands where the user left it (the page scrolls inside <main>, not the window).
+  const mainRef = useRef<HTMLElement>(null);
+  useScrollMemory(mainRef);
   const { user, signout } = useAuth();
   const { plan } = useUserPlan();
   const isAdmin = useQuery(api.users.isAdmin);
@@ -269,7 +273,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
+        <main ref={mainRef} className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           {/* Remount pages when the currency changes so every amount updates. */}
           {/* Pages load on first open (App.tsx); the sidebar stays while they do. */}
           <Suspense fallback={<PageLoading />}>

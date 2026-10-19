@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePaginatedQuery } from "convex/react";
 import { ShoppingBag } from "lucide-react";
@@ -7,6 +7,7 @@ import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import MyNichesChip from "@/components/MyNichesChip.tsx";
+import { useHistoryState, useLoadedCount } from "@/hooks/use-history-state.ts";
 import { useMyNiches } from "@/hooks/use-my-niches.ts";
 import { cn } from "@/lib/utils.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
@@ -51,7 +52,10 @@ function LoadMore({ show, onClick }: { show: boolean; onClick: () => void }) {
 }
 
 function BestSellers({ niches }: { niches?: string[] }) {
-  const { results, status, loadMore } = usePaginatedQuery(api.products.tiktokShop, niches ? { niches } : {}, { initialNumItems: PAGE });
+  // As many as were loaded before opening a product, so Back lands in the same place.
+  const [firstPage, rememberLoaded] = useLoadedCount("best", PAGE);
+  const { results, status, loadMore } = usePaginatedQuery(api.products.tiktokShop, niches ? { niches } : {}, { initialNumItems: firstPage });
+  useEffect(() => rememberLoaded(results.length), [results.length, rememberLoaded]);
   if (status === "LoadingFirstPage") return <ProductSkeletons />;
   if (!results.length) return <Empty title="No TikTok Shop products yet" hint={`They're imported every morning. Try turning off "My categories".`} />;
   return (
@@ -78,7 +82,7 @@ function FromTikTokAds({ niches }: { niches?: string[] }) {
     });
   }, [results]);
   // Many TikTok ads aren't linked to a product, so a page can come back short: keep reading until the grid is full.
-  const [target, setTarget] = useState(PAGE);
+  const [target, setTarget] = useHistoryState("advertised:target", PAGE);
   const topUps = useRef(0);
   useEffect(() => {
     if (status === "CanLoadMore" && products.length < target && topUps.current < 10) {
@@ -109,7 +113,9 @@ function FromTikTokAds({ niches }: { niches?: string[] }) {
 
 function TikTokAds({ niches }: { niches?: string[] }) {
   const navigate = useNavigate();
-  const { results, status, loadMore } = usePaginatedQuery(api.ads.list, { platform: "TikTok", ...(niches ? { niches } : {}) }, { initialNumItems: PAGE });
+  const [firstPage, rememberLoaded] = useLoadedCount("ads", PAGE);
+  const { results, status, loadMore } = usePaginatedQuery(api.ads.list, { platform: "TikTok", ...(niches ? { niches } : {}) }, { initialNumItems: firstPage });
+  useEffect(() => rememberLoaded(results.length), [results.length, rememberLoaded]);
   if (status === "LoadingFirstPage")
     return (
       <div className={AD_GRID}>
@@ -143,7 +149,7 @@ function ProductSkeletons() {
 
 export default function TikTokShopPage() {
   const { niches } = useMyNiches();
-  const [useMine, setUseMine] = useState(true);
+  const [useMine, setUseMine] = useHistoryState("useMine", true);
   const [params, setParams] = useSearchParams();
   const tab: Tab = TABS.some((t) => t.key === params.get("tab")) ? (params.get("tab") as Tab) : "best";
   const mine = useMine && niches.length ? niches : undefined;
