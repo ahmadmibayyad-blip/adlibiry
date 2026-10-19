@@ -9,6 +9,7 @@ import { requireAdmin } from "./admin/helpers";
 import type { SiteStats } from "./stats";
 import { recordEvent } from "./events";
 import { sortProducts, sortsSearch } from "./lib/productSort";
+import { imageLinkExpired } from "./lib/imageExpiry";
 
 // ── Products ────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,9 @@ export const tiktokAdvertised = query({
         if (!ad.productId || seen.has(ad.productId)) continue;
         seen.add(ad.productId);
         const p = await ctx.db.get("products", ad.productId);
-        if (p && !p.isService && (!args.niches?.length || args.niches.includes(p.category))) page.push(p);
+        // Older products whose only photo was an ad's signed link that has expired (no copy was made in time): skip them.
+        if (!p || p.isService || !p.imageUrl || imageLinkExpired(p.imageUrl)) continue;
+        if (!args.niches?.length || args.niches.includes(p.category)) page.push(p);
       }
       return { ...ads, page };
     });
