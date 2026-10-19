@@ -214,3 +214,7 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 
 - Components: shadcn/ui in `src/components/ui`, icons from `lucide-react`, toasts via `sonner`, charts via `src/pages/dashboard/_components/charts.tsx`.
 - Filters use dropdowns (`src/components/FilterSelect.tsx`), not chip rows. The Products page starts in grid view.
+- Back to a list keeps the user's place (`src/hooks/use-history-state.ts`): the dashboard scrolls inside `<main>`, so `useScrollMemory` in
+  DashboardLayout saves its scroll per history entry and restores it on Back/Forward once the page is tall enough. List pages keep filters,
+  search, view and how many items are loaded with `useHistoryState` / `useLoadedCount` (sessionStorage, per `location.key`); use them for new
+  list state that should survive opening an item and coming back.

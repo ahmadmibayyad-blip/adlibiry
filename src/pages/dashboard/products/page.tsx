@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { Link, useSearchParams } from "react-router-dom";
 import ImageSearchDialog from "../_components/ImageSearchDialog.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
+import { useHistoryState } from "@/hooks/use-history-state.ts";
 import { compactNumber } from "@/lib/adFormat.ts";
 import { api } from "@/convex/_generated/api.js";
 import { TrendingUp, X, Search, LayoutGrid, Table2, ChevronDown, EyeOff } from "lucide-react";
@@ -136,14 +137,15 @@ function toQueryArgs(f: Filters, search: string) {
 }
 
 export default function ProductsFeed() {
-  const [f, setF] = useState<Filters>({});
+  // Filters, search, view and how many are loaded come back on Back from a product (use-history-state.ts).
+  const [f, setF] = useHistoryState<Filters>("filters", {});
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
   const [params] = useSearchParams();
   // ?search=… (e.g. from image search) presets the search box.
-  const [search, setSearch] = useState(() => params.get("search") ?? "");
+  const [search, setSearch] = useHistoryState("search", () => params.get("search") ?? "");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [view, setView] = useState<"table" | "grid">("grid");
+  const [view, setView] = useHistoryState<"table" | "grid">("view", "grid");
 
   const stats = useQuery(api.stats.get, {});
   const categories = stats?.products.categories ?? [];
@@ -151,7 +153,7 @@ export default function ProductsFeed() {
 
   // The user's niches apply until they pick niches themselves (or turn it off).
   const { niches: myNiches } = useMyNiches();
-  const [useMine, setUseMine] = useState(true);
+  const [useMine, setUseMine] = useHistoryState("useMine", true);
   const mineApplies = useMine && !f.categories?.length && !f.category && myNiches.length > 0;
   const args = toQueryArgs(mineApplies ? { ...f, categories: myNiches } : f, debouncedSearch);
   const { results, status, loadMore } = usePaginatedQuery(api.products.list, args, { initialNumItems: 30 });
@@ -160,7 +162,7 @@ export default function ProductsFeed() {
   // keep reading until the list has as many products as asked for.
   const PAGE = 30;
   const filterKey = JSON.stringify(args);
-  const [wanted, setWanted] = useState({ key: filterKey, n: PAGE });
+  const [wanted, setWanted] = useHistoryState("wanted", { key: filterKey, n: PAGE });
   const target = wanted.key === filterKey ? wanted.n : PAGE;
   const topUps = useRef({ key: "", target: 0, n: 0 });
   useEffect(() => {

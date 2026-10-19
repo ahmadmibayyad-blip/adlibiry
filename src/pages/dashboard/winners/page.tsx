@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { LayoutGrid, Search, Table2, Trophy, X } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { cn } from "@/lib/utils.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
+import { useHistoryState, useLoadedCount } from "@/hooks/use-history-state.ts";
 import { compactNumber } from "@/lib/adFormat.ts";
 import { Button } from "@/components/ui/button.tsx";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
@@ -92,21 +93,24 @@ function toQueryArgs(f: Filters, search: string, mode: Mode) {
 }
 
 export default function WinnersPage() {
-  const [mode, setMode] = useState<Mode>("mixed");
+  // Mode, filters, search, view and how many are loaded come back on Back from a product (use-history-state.ts).
+  const [mode, setMode] = useHistoryState<Mode>("mode", "mixed");
   const [searchParams] = useSearchParams();
   // ?niche=… (e.g. from the dashboard's "Top niches") opens one niche.
-  const [f, setF] = useState<Filters>(() => (searchParams.get("niche") ? { niche: searchParams.get("niche")! } : {}));
+  const [f, setF] = useHistoryState<Filters>("filters", () => (searchParams.get("niche") ? { niche: searchParams.get("niche")! } : {}));
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setF((prev) => ({ ...prev, [key]: value }));
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useHistoryState("search", "");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [view, setView] = useState<"grid" | "table">("grid");
+  const [view, setView] = useHistoryState<"grid" | "table">("view", "grid");
 
   const summary = useQuery(api.winners.summary, {});
   const { niches: myNiches } = useMyNiches();
-  const [useMine, setUseMine] = useState(true);
+  const [useMine, setUseMine] = useHistoryState("useMine", true);
   const args = { ...toQueryArgs(f, debouncedSearch, mode), ...(useMine && !f.niche && myNiches.length ? { niches: myNiches } : {}) };
-  const { results, status, loadMore } = usePaginatedQuery(api.winners.feed, args, { initialNumItems: PAGE });
+  const [firstPage, rememberLoaded] = useLoadedCount("winners", PAGE);
+  const { results, status, loadMore } = usePaginatedQuery(api.winners.feed, args, { initialNumItems: firstPage });
+  useEffect(() => rememberLoaded(results.length), [results.length, rememberLoaded]);
 
   const slots = summary?.slots ?? 50;
   const minScore = summary?.minScore ?? 65;

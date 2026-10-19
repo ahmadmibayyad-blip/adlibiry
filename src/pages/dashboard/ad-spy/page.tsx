@@ -8,6 +8,7 @@ import AdCard, { AdCardSkeleton } from "./_components/AdCard.tsx";
 import ImageSearchDialog from "../_components/ImageSearchDialog.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useDebounce } from "@/hooks/use-debounce.ts";
+import { useHistoryState } from "@/hooks/use-history-state.ts";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -207,7 +208,8 @@ const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code ==
 export default function AdSpyPage() {
   // ?source=…&sort=…&platform=…&niche=…&country=…&firstSeen=… (e.g. from an admin import's "View" link) preset the filters.
   const [params] = useSearchParams();
-  const [f, setF] = useState<Filters>(() => ({
+  // Filters, search and how many ads are loaded come back on Back from an ad (use-history-state.ts).
+  const [f, setF] = useHistoryState<Filters>("filters", () => ({
     ...(params.get("source") ? { source: params.get("source")! } : {}),
     ...(params.get("sort") ? { sort: params.get("sort")! } : {}),
     ...(params.get("platform") ? { platform: params.get("platform")! } : {}),
@@ -220,17 +222,17 @@ export default function AdSpyPage() {
   const setAny = (key: keyof Filters) => (v: string) => set(key, (v === "any" ? undefined : v) as never);
 
   // ?q=… (Offer Search's "In Ad Spy") starts with that search.
-  const [search, setSearch] = useState(() => params.get("q") ?? "");
+  const [search, setSearch] = useHistoryState("search", () => params.get("q") ?? "");
   const [debouncedSearch] = useDebounce(search, 300);
   const navigate = useNavigate();
 
-  const [excludeViewed, setExcludeViewed] = useState(false);
+  const [excludeViewed, setExcludeViewed] = useHistoryState("excludeViewed", false);
   const [viewed, setViewed] = useState<string[]>(() => readJson<string[]>(VIEWED_KEY, []));
   const viewedSet = useMemo(() => new Set(viewed), [viewed]);
 
   const facets = useQuery(api.ads.getFacets, {});
   const { niches: myNiches } = useMyNiches();
-  const [useMine, setUseMine] = useState(true);
+  const [useMine, setUseMine] = useHistoryState("useMine", true);
   const nichesOn = useMine && !f.niche && myNiches.length > 0;
   const [cpm] = useCpm();
   const args = { ...toQueryArgs(f, debouncedSearch, cpm), ...(nichesOn ? { niches: myNiches } : {}) };
@@ -242,7 +244,7 @@ export default function AdSpyPage() {
   // "Load more").
   const PAGE = 24;
   const filterKey = JSON.stringify(args) + excludeViewed;
-  const [wanted, setWanted] = useState({ key: filterKey, n: PAGE });
+  const [wanted, setWanted] = useHistoryState("wanted", { key: filterKey, n: PAGE });
   const target = wanted.key === filterKey ? wanted.n : PAGE;
   const topUps = useRef({ key: "", target: 0, n: 0 });
   useEffect(() => {
@@ -260,7 +262,7 @@ export default function AdSpyPage() {
   const advancedCount = Object.entries(f).filter(
     ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling", "stage"].includes(k) && v !== undefined && v !== false,
   ).length;
-  const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
+  const [showAdvanced, setShowAdvanced] = useHistoryState("advanced", advancedCount > 0);
   const preset = PRESETS.find((p) => sameFilters(f, p.filters));
   const clearAll = () => {
     setF((prev) => ({ sort: prev.sort }));
