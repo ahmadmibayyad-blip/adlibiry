@@ -177,11 +177,12 @@ export function tiktokShopProducts(body: unknown): { items: TikTokShopItem[]; un
   return { items: uniqueShopItems(items) };
 }
 
-/** TikTok lists one product under several IDs (and resellers copy titles): keep the first, best-placed, of each title. */
+/** TikTok lists one product under several IDs (and resellers copy titles): keep the first, best-placed, of each set of title words. */
 export function uniqueShopItems(items: TikTokShopItem[]): TikTokShopItem[] {
   const seen = new Set<string>();
   return items.filter((it) => {
-    const key = it.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    // The same words in any order: sellers reshuffle a title's phrases.
+    const key = [...new Set(it.title.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean))].sort().join(" ");
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
