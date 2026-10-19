@@ -80,6 +80,10 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Ads come from source syncs (`convex/sources`, `convex/adlibrary`, `convex/nexscope`) and admin CSV imports (`source: "csv_import"`).
   All rows of one CSV import share its `firstSeenAt`; Admin → Ads can remove the last import.
 - Scraped CSVs often miss columns (likes, impressions, prices). Check which columns are filled before importing.
+- Product photos from ads: TikTok/Facebook CDN links are signed and expire (`lib/imageExpiry.ts`; the app shows a placeholder rather than
+  request an expired one). When the daily ad media copy (`adMediaAction.ts`) stores an ad's picture, a linked product whose `imageUrl` is
+  missing or signed gets our copy (`adMedia.saveHosted`); `deleteHostedMedia` keeps a picture its product shows. `adMedia:repairProductImages`
+  ({} from the dashboard) fixes older products and logs how many have no copied ad picture.
 - Ad spend estimate (`convex/lib/euSpend.ts`, app side `src/lib/euSpend.ts`): an ad with EU reach (`audience.totalReach`, Meta's DSA data)
   shows spend = reach ÷ 1,000 × CPM, like Minea ($9) and WinningHunter ($11); others keep their source's `spendEstimate`. The CPM is the user's
   (Ad Spy → CPM box, localStorage `adspy-cpm`, default 9) and goes to `ads.list` as `cpm` for the spend filter. "Highest est. spend" sorts by
