@@ -15,7 +15,7 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 import { useCpm } from "@/hooks/use-cpm.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { formatUsd, spendFromReach } from "@/lib/euSpend.ts";
-import { anyCountryName, flagOf } from "@/lib/countries.ts";
+import { anyCountryName } from "@/lib/countries.ts";
 import { price } from "@/lib/money.ts";
 
 // The stores an offer search found, with filters and sorting, their products (from the Shopify store),
@@ -163,7 +163,7 @@ function StoreCard({
         <div className="flex shrink-0 items-center gap-1.5">
           {showCountry && s.country ? (
             <Badge variant="outline" title={anyCountryName(s.country)}>
-              {flagOf(s.country)} {s.country}
+              {s.country}
             </Badge>
           ) : null}
           {s.shopify ? (
@@ -303,8 +303,8 @@ function ProductRow({ product: p, currency }: { product: FoundProduct; currency?
               <a key={m.url} href={m.url} target="_blank" rel="noopener noreferrer" className="group flex gap-2 rounded-md border border-border p-1.5">
                 {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="w-10 h-10 shrink-0 rounded object-cover bg-muted" /> : <span className="w-10 h-10 shrink-0 rounded bg-muted" />}
                 <span className="min-w-0">
-                  <span className="block text-xs leading-tight line-clamp-2 group-hover:underline">{m.title}</span>
-                  <span className="text-xs font-semibold">{price(m.price)}</span>
+                  <span className="text-xs leading-tight line-clamp-2 group-hover:underline" title={m.title}>{m.title}</span>
+                  <span className="block text-xs font-semibold">{price(m.price)}</span>
                 </span>
               </a>
             ))}
