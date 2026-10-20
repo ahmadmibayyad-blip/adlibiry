@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import SimpleProducts from "../_components/SimpleProducts.tsx";
+import { useSimpleView } from "@/hooks/use-simple-view.ts";
 import { Link, useSearchParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { ChevronDown, LayoutGrid, Search, SlidersHorizontal, Table2, Trophy, X } from "lucide-react";
@@ -93,6 +95,11 @@ function toQueryArgs(f: Filters, search: string, mode: Mode) {
 }
 
 export default function WinnersPage() {
+  const [simple] = useSimpleView();
+  return simple ? <SimpleProducts /> : <FullWinnersPage />;
+}
+
+function FullWinnersPage() {
   // Mode, filters, search, view and how many are loaded come back on Back from a product (use-history-state.ts).
   const [mode, setMode] = useHistoryState<Mode>("mode", "mixed");
   const [searchParams] = useSearchParams();

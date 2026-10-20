@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import SimpleAds from "../_components/SimpleAds.tsx";
+import { useSimpleView } from "@/hooks/use-simple-view.ts";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
@@ -206,6 +208,11 @@ const SAVED_KEY = "adspy.savedSearches";
 const countryName = (code: string) => SATURATION_COUNTRIES.find((c) => c.code === code)?.name ?? code;
 
 export default function AdSpyPage() {
+  const [simple] = useSimpleView();
+  return simple ? <SimpleAds /> : <FullAdSpyPage />;
+}
+
+function FullAdSpyPage() {
   // ?source=…&sort=…&platform=…&niche=…&country=…&firstSeen=… (e.g. from an admin import's "View" link) preset the filters.
   const [params] = useSearchParams();
   // Filters, search and how many ads are loaded come back on Back from an ad (use-history-state.ts).

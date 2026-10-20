@@ -42,3 +42,9 @@ export function simpleVerdict(p: ProductFacts, money: (usd: number) => string): 
   const good = reasons.filter((r) => r.ok).slice(0, Math.max(0, 3 - warnings.length));
   return { label, good: label !== "Think twice", reasons: [...good, ...warnings].slice(0, 3) };
 }
+
+// Marketplace titles run long ("MiraLAX Laxative Powder Gentle Constipation Relief for Adults ..."): the first `words` words.
+export function shortTitle(title: string, words = 8) {
+  const parts = title.trim().split(/\s+/);
+  return parts.length > words ? `${parts.slice(0, words).join(" ")}…` : title;
+}

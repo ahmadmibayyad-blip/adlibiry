@@ -9,16 +9,10 @@ import ProductImage from "@/components/ProductImage.tsx";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { cn } from "@/lib/utils.ts";
 import { price } from "@/lib/money.ts";
-import { simpleVerdict } from "@/lib/simpleVerdict.ts";
+import { shortTitle, simpleVerdict } from "@/lib/simpleVerdict.ts";
 
 // Simple view home: one of today's winning products at a time, in plain words,
 // and three big ways into the rest of the app.
-
-// Marketplace titles run long ("MiraLAX Laxative Powder Gentle Constipation Relief for Adults ..."): the first 8 words.
-function shortTitle(title: string) {
-  const words = title.split(/\s+/);
-  return words.length > 8 ? `${words.slice(0, 8).join(" ")}…` : title;
-}
 
 function greeting() {
   const hour = new Date().getHours();
