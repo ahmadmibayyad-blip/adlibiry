@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Puzzle,
   Trophy,
-  ShoppingBag, Rocket, Menu, BookOpen, Tags, Wand2, PiggyBank, PackageCheck, ClipboardCheck } from "lucide-react";
+  ShoppingBag, Rocket, Menu, Home, PlayCircle, BookOpen, Tags, Wand2, PiggyBank, PackageCheck, ClipboardCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import { useEffect, useRef, useState } from "react";
@@ -85,17 +85,19 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ],
   },
 ];
-// Simple view (use-simple-view.ts): the few pages a beginner needs, in one unlabelled group.
-const simpleHrefs = ["/dashboard/winners", "/dashboard/ad-spy", "/dashboard/saved", "/dashboard/profit", "/dashboard/settings"];
+// Simple view (use-simple-view.ts): no sidebar, a top bar with the few pages a beginner needs, in plain words.
+const simpleItems: NavItem[] = [
+  { icon: Home, label: "Today", href: "/dashboard" },
+  { icon: Trophy, label: "Find products", href: "/dashboard/winners", short: "Products" },
+  { icon: PlayCircle, label: "Ads", href: "/dashboard/ad-spy" },
+  { icon: BookmarkCheck, label: "Saved", href: "/dashboard/saved" },
+  { icon: PiggyBank, label: "My store", href: "/dashboard/profit", short: "Store" },
+];
 const adminItem: NavItem = { icon: ShieldCheck, label: "Admin", href: "/dashboard/admin" };
 
 // The bottom bar on phones and tablets: these 4 and "More" (5 at 360px wide), which opens every page.
 const allItems = [homeItem, ...navGroups.flatMap((g) => g.items)];
 const bottomItems = ["/dashboard", "/dashboard/winners", "/dashboard/ad-spy", "/dashboard/launch"].map(
-  (href) => allItems.find((i) => i.href === href)!,
-);
-
-const simpleBottomItems = ["/dashboard", "/dashboard/winners", "/dashboard/ad-spy", "/dashboard/saved"].map(
   (href) => allItems.find((i) => i.href === href)!,
 );
 
@@ -134,12 +136,9 @@ export default function DashboardLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
   const isActive = (href: string) => (href === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(href));
   const [simple] = useSimpleView();
-  const fullGroups = isAdmin
+  const groups = isAdmin
     ? navGroups.map((g) => (g.label === "Account" ? { ...g, items: [...g.items, adminItem] } : g))
     : navGroups;
-  const groups = simple
-    ? [{ label: "", items: simpleHrefs.map((href) => allItems.find((i) => i.href === href)!) }]
-    : fullGroups;
   const unreadLabel = !!unreadCount && unreadCount > 0 ? (unreadCount > 9 ? "9+" : String(unreadCount)) : null;
 
   const sidebarLink = (item: NavItem) => (
@@ -187,6 +186,72 @@ export default function DashboardLayout() {
   const groupLabel = (label: string) => label && (
     <div className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none">{label}</div>
   );
+
+  if (simple) {
+    return (
+      <div className="flex flex-col h-screen bg-background overflow-hidden">
+        <header className="flex items-center gap-4 px-4 lg:px-8 h-16 border-b border-border bg-sidebar shrink-0">
+          <Logo />
+          <nav aria-label="Main" className="hidden md:flex items-center gap-1 ml-4">
+            {simpleItems.map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                aria-current={isActive(item.href) ? "page" : undefined}
+                className={cn(
+                  "flex items-center h-11 px-4 rounded-full text-[15px] font-medium transition-colors",
+                  isActive(item.href) ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            <ViewSwitch className="w-36" />
+            <button
+              type="button"
+              onClick={openAssistant}
+              aria-label="Ask AI"
+              className="flex items-center justify-center gap-1.5 h-10 px-3 rounded-full text-sm font-semibold bg-primary text-primary-foreground cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Ask AI</span>
+            </button>
+            <Link to="/dashboard/settings" aria-label="Settings" className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary">
+              <Settings className="w-5 h-5" />
+            </Link>
+            <button onClick={() => signout()} aria-label="Sign out" title="Sign out" className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+        <main ref={mainRef} className="flex-1 overflow-y-auto pb-20 md:pb-0">
+          <Suspense fallback={<PageLoading />}>
+            <Outlet key={currency?.code ?? "USD"} />
+          </Suspense>
+        </main>
+        <AIAssistant />
+        <OnboardingDialog />
+        <nav aria-label="Main" className="md:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50 pb-[env(safe-area-inset-bottom)]">
+          {simpleItems.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className={cn(
+                "flex-1 min-w-0 flex flex-col items-center gap-1 py-2.5 text-xs font-medium",
+                isActive(item.href) ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="text-[11px] leading-tight whitespace-nowrap">{item.short ?? item.label}</span>
+            </Link>
+          ))}
+        </nav>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -298,7 +363,7 @@ export default function DashboardLayout() {
 
         {/* Bottom nav — mobile */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50 pb-[env(safe-area-inset-bottom)]">
-          {(simple ? simpleBottomItems : bottomItems).map((item) => {
+          {bottomItems.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
@@ -320,7 +385,7 @@ export default function DashboardLayout() {
             aria-label="All pages"
             className={cn(
               "relative flex-1 min-w-0 flex flex-col items-center gap-1 py-2.5 px-0.5 text-xs font-medium transition-colors cursor-pointer",
-              !(simple ? simpleBottomItems : bottomItems).some((i) => isActive(i.href)) ?"text-primary" : "text-muted-foreground",
+              !bottomItems.some((i) => isActive(i.href)) ?"text-primary" : "text-muted-foreground",
             )}
           >
             <Menu className="w-5 h-5" />

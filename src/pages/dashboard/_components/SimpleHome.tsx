@@ -10,10 +10,15 @@ import { useAuth } from "@/hooks/use-auth.ts";
 import { cn } from "@/lib/utils.ts";
 import { price } from "@/lib/money.ts";
 import { simpleVerdict } from "@/lib/simpleVerdict.ts";
-import ViewSwitch from "./ViewSwitch.tsx";
 
 // Simple view home: one of today's winning products at a time, in plain words,
 // and three big ways into the rest of the app.
+
+// Marketplace titles run long ("MiraLAX Laxative Powder Gentle Constipation Relief for Adults ..."): the first 8 words.
+function shortTitle(title: string) {
+  const words = title.split(/\s+/);
+  return words.length > 8 ? `${words.slice(0, 8).join(" ")}…` : title;
+}
 
 function greeting() {
   const hour = new Date().getHours();
@@ -50,17 +55,16 @@ export default function SimpleHome() {
   ];
 
   return (
-    <div className="p-5 lg:p-10 max-w-5xl mx-auto space-y-8">
+    <div className="px-5 py-8 lg:px-10 lg:py-12 max-w-5xl mx-auto space-y-10">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-muted-foreground mb-1">
+          <p className="text-lg text-muted-foreground mb-2">
             {greeting()}, {user?.profile?.name?.split(" ")[0] ?? "there"}
           </p>
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight max-w-[18ch] leading-tight">
+          <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight max-w-[18ch] leading-tight">
             Here is one product worth a look today.
           </h1>
         </div>
-        <ViewSwitch className="w-40 lg:hidden" />
       </div>
 
       {top === undefined ? (
@@ -80,7 +84,7 @@ export default function SimpleHome() {
             src={product.imageUrl}
             alt={product.title}
             loading="eager"
-            className="w-full md:w-80 aspect-square shrink-0 rounded-xl object-cover bg-muted"
+            className="w-full md:w-96 aspect-square shrink-0 rounded-xl object-cover bg-muted"
           />
           <div className="flex-1 min-w-0 flex flex-col gap-5">
             <div className="flex flex-col items-start gap-2.5">
@@ -93,7 +97,7 @@ export default function SimpleHome() {
                 {verdict.good ? <Check className="w-4 h-4" /> : <CircleAlert className="w-4 h-4" />}
                 {verdict.label}
               </span>
-              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight leading-snug">{product.title}</h2>
+              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight leading-snug" title={product.title}>{shortTitle(product.title)}</h2>
               <p className="text-muted-foreground">
                 {product.category}
                 {top.length > 1 && ` · ${(index % top.length) + 1} of ${top.length} today`}
@@ -101,7 +105,7 @@ export default function SimpleHome() {
             </div>
 
             {verdict.reasons.length > 0 && (
-              <ul className="space-y-3 text-base sm:text-lg leading-snug">
+              <ul className="space-y-4 text-lg sm:text-xl leading-snug">
                 {verdict.reasons.map((r) => (
                   <li key={r.text} className="flex gap-3">
                     <span
@@ -122,7 +126,7 @@ export default function SimpleHome() {
             <div className="flex flex-wrap gap-3 mt-auto pt-1">
               <Link
                 to={`/dashboard/products/${product._id}`}
-                className="inline-flex items-center h-12 px-6 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90"
+                className="inline-flex items-center h-14 px-7 rounded-xl bg-primary text-primary-foreground text-lg font-semibold hover:opacity-90"
               >
                 See the ads and details
               </Link>
@@ -130,7 +134,7 @@ export default function SimpleHome() {
                 type="button"
                 onClick={onSave}
                 aria-pressed={isSaved}
-                className="inline-flex items-center h-12 px-5 rounded-xl border border-border bg-card font-medium hover:bg-secondary cursor-pointer"
+                className="inline-flex items-center h-14 px-6 rounded-xl border border-border bg-card text-lg font-medium hover:bg-secondary cursor-pointer"
               >
                 {isSaved ? "Saved" : "Save for later"}
               </button>
@@ -138,7 +142,7 @@ export default function SimpleHome() {
                 <button
                   type="button"
                   onClick={() => setIndex((i) => i + 1)}
-                  className="inline-flex items-center h-12 px-4 rounded-xl font-medium text-primary hover:bg-primary/5 cursor-pointer"
+                  className="inline-flex items-center h-14 px-5 rounded-xl text-lg font-medium text-primary hover:bg-primary/5 cursor-pointer"
                 >
                   Show me another
                 </button>
@@ -153,14 +157,14 @@ export default function SimpleHome() {
           <Link
             key={w.to}
             to={w.to}
-            className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 hover:bg-secondary transition-colors"
+            className="flex items-center gap-4 rounded-2xl border border-border bg-card p-6 hover:bg-secondary transition-colors"
           >
             <span aria-hidden className="shrink-0 w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <w.icon className="w-5 h-5" />
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block font-semibold">{w.title}</span>
-              <span className="block text-sm text-muted-foreground">{w.text}</span>
+              <span className="block text-lg font-semibold">{w.title}</span>
+              <span className="block text-muted-foreground">{w.text}</span>
             </span>
             <ChevronRight aria-hidden className="w-5 h-5 text-muted-foreground shrink-0" />
           </Link>
