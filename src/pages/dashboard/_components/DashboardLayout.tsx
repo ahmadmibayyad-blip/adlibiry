@@ -245,7 +245,7 @@ export default function DashboardLayout() {
               )}
             >
               <item.icon className="w-5 h-5" />
-              <span className="text-[11px] leading-tight whitespace-nowrap">{item.short ?? item.label}</span>
+              <span className="text-xs leading-tight whitespace-nowrap">{item.short ?? item.label}</span>
             </Link>
           ))}
         </nav>
