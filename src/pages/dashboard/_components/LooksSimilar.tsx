@@ -70,7 +70,7 @@ export default function LooksSimilar({ adId, compact = false }: { adId: Id<"ads"
               ) : (
                 <div className="w-full aspect-square rounded-lg bg-muted" />
               )}
-              <div className="text-[11px] truncate mt-1 text-muted-foreground group-hover:text-foreground">{a.advertiserName}</div>
+              <div className="text-xs truncate mt-1 text-muted-foreground group-hover:text-foreground">{a.advertiserName}</div>
             </Link>
           ))}
         </div>

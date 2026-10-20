@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import { LayoutGrid, Search, Table2, Trophy, X } from "lucide-react";
+import { ChevronDown, LayoutGrid, Search, SlidersHorizontal, Table2, Trophy, X } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { cn } from "@/lib/utils.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
@@ -103,6 +103,7 @@ export default function WinnersPage() {
   const [search, setSearch] = useHistoryState("search", "");
   const [debouncedSearch] = useDebounce(search, 300);
   const [view, setView] = useHistoryState<"grid" | "table">("view", "grid");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const summary = useQuery(api.winners.summary, {});
   const { niches: myNiches } = useMyNiches();
@@ -146,7 +147,7 @@ export default function WinnersPage() {
             </p>
           </div>
           {summary && (
-            <div className="flex gap-2 text-xs">
+            <div className="hidden sm:flex gap-2 text-xs">
               {[
                 { label: "Winners", value: summary.total },
                 { label: "New this round", value: summary.newToday },
@@ -196,7 +197,7 @@ export default function WinnersPage() {
           </div>
 
           {/* Niches, one tap each */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] pb-0.5">
             <Chip on={!f.niche} onClick={() => set("niche", undefined)}>
               All{summary ? ` (${summary.total})` : ""}
             </Chip>
@@ -207,6 +208,20 @@ export default function WinnersPage() {
             ))}
           </div>
 
+  {/* Phones: the filters fold behind one button so the first screen shows results. */}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            aria-expanded={filtersOpen}
+            aria-controls="winner-filters"
+            className="sm:hidden w-full flex items-center justify-center gap-2 h-11 rounded-lg border border-border text-sm font-medium cursor-pointer"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            {filtersOpen ? "Hide filters" : "Filters"}
+            {activeCount > 0 && <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs tabular-nums">{activeCount}</span>}
+            <ChevronDown className={cn("w-4 h-4 transition-transform", filtersOpen && "rotate-180")} />
+          </button>
+          <div id="winner-filters" className={cn("space-y-2.5", !filtersOpen && "hidden sm:block")}>
           {/* Every filter as a dropdown */}
           <div className="flex flex-wrap items-center gap-2">
             <FilterSelect label="Source" value={f.source ?? "any"} onChange={setAny("source")} options={SOURCES} active={!!f.source} />
@@ -252,6 +267,7 @@ export default function WinnersPage() {
                 setSearch(q);
               }}
             />
+          </div>
           </div>
         </div>
 
@@ -345,7 +361,7 @@ export default function WinnersPage() {
             {summary && summary.perNiche.length === 0 && <p className="text-xs text-muted-foreground">No category has a qualifying product yet.</p>}
           </div>
           {summary?.roundDay && (
-            <p className="text-[11px] text-muted-foreground mt-4">
+            <p className="text-xs text-muted-foreground mt-4">
               Mixed {day(summary.roundDay)} · next mix {day(summary.nextRoundDay)}
             </p>
           )}

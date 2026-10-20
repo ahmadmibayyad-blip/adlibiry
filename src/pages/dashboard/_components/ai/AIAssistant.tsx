@@ -167,7 +167,7 @@ export default function AIAssistant() {
                 <Send className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{usage ? `${usage.used} of ${usage.limit} messages used today` : "AI can make mistakes. Check important numbers."}</span>
               {messages.length > 0 && (
                 <button

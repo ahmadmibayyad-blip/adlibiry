@@ -70,7 +70,7 @@ export function ProductHeadline({ product }: { product: Product }) {
         {product.unitsPerMonth ? <StatTile label="Orders / month (est.)" value={compactNumber(product.unitsPerMonth)} hint="From the marketplace's own sales counts" /> : null}
       </div>
       {(product.estRevenue || product.estImpressions) && (
-        <details className="text-[11px] text-muted-foreground">
+        <details className="text-xs text-muted-foreground">
           <summary className="cursor-pointer">How we estimate these numbers</summary>
           <p className="mt-1 leading-relaxed">
             Like other ad-spy tools, we model numbers a store doesn't publish. Ad spend = impressions ÷ 1,000 × a $6–$15 CPM.
@@ -196,7 +196,7 @@ export default function ProductPerformance({ product }: { product: Product }) {
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-3">
+              <p className="text-xs text-muted-foreground mt-3">
                 Each bar ends today. A second ad starting later usually means the seller is scaling.
               </p>
             </div>

@@ -58,7 +58,7 @@ export default function SellingCalendar() {
           value={country}
           onChange={(e) => setPicked(e.target.value)}
           aria-label="Country"
-          className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+          className="h-10 sm:h-8 rounded-md border border-border bg-background px-2 text-sm"
         >
           {COUNTRY_OPTIONS.map(([code, name]) => (
             <option key={code} value={code}>{`${flagOf(code)} ${name}`}</option>

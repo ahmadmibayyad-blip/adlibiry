@@ -174,7 +174,7 @@ export default function AdKit({ l, ready }: { l: Doc<"launches">; ready: boolean
           <AdCard key={i} ad={a} index={i} src={images.find((m) => m.ad === i)?.url} />
         ))}
       </ul>
-      {images.length ? <p className="text-[11px] text-muted-foreground mt-1.5">Portrait 4:5 for Facebook and Instagram feeds. Paste the primary text next to it when you make the ad.</p> : null}
+      {images.length ? <p className="text-xs text-muted-foreground mt-1.5">Portrait 4:5 for Facebook and Instagram feeds. Paste the primary text next to it when you make the ad.</p> : null}
     </div>
   );
 }

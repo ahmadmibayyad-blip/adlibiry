@@ -215,7 +215,7 @@ function StoreCard({
             ) : (
               <div className="w-full aspect-square rounded-md bg-muted" />
             )}
-            <p className="text-[11px] leading-tight line-clamp-2 group-hover:underline">{ad.headline || "Ad"}</p>
+            <p className="text-xs leading-tight line-clamp-2 group-hover:underline">{ad.headline || "Ad"}</p>
           </a>
         ))}
       </div>

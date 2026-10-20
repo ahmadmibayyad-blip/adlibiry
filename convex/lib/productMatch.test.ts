@@ -53,7 +53,19 @@ describe("flags", () => {
     expect(productFlags("Personalized name necklace").isPersonalised).toBe(true);
     expect(productFlags("Custom pet portrait canvas").isPersonalised).toBe(true);
     expect(productFlags("$50 gift card").isService).toBe(true);
-    expect(productFlags("Dog cooling mat")).toEqual({ isBigBrand: false, isPersonalised: false, isService: false });
+    expect(productFlags("Dog cooling mat")).toEqual({ isBigBrand: false, isPersonalised: false, isService: false, isRestricted: false });
+  });
+  it("keeps brands and medicine seen in Winning Products out", () => {
+    const flags = productFlags("MiraLAX Laxative Powder Gentle Constipation Relief for Adults Stool Softener");
+    expect([flags.isBigBrand, flags.isRestricted]).toEqual([true, true]);
+    expect(productFlags("Shark Pet Cordless Stick Vacuum 40-Min Runtime").isBigBrand).toBe(true);
+    expect(productFlags("NeeDoh Teenie Color Change - Multipack").isBigBrand).toBe(true);
+    expect(productFlags("L'OCCITANE Shea Butter Hand Cream").isBigBrand).toBe(true);
+    expect(productFlags("[medicube Officiale] Zero Pore Blackhead Mud Mask").isBigBrand).toBe(true);
+    expect(productFlags("Generic ibuprofen 200mg tablets").isRestricted).toBe(true);
+    // Everyday words stay allowed.
+    expect(productFlags("Shark tooth necklace").isBigBrand).toBe(false);
+    expect(productFlags("Posture corrector for back pain").isRestricted).toBe(false);
   });
   it("names the big brand, and leaves everyday words alone", () => {
     expect(bigBrandIn("Roku Streaming Stick HD with Voice Remote")).toBe("Roku");

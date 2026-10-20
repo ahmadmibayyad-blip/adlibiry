@@ -57,7 +57,7 @@ function TodaysWinners() {
                     product.aiScore >= 85 ? "bg-good text-white dark:text-background" : "bg-foreground text-background",
                   )}
                 >
-                  <span className="text-[10px] opacity-80">Score</span>
+                  <span className="text-xs opacity-80">Score</span>
                   <span className="text-sm font-bold tabular-nums">{product.aiScore}</span>
                 </div>
               </li>

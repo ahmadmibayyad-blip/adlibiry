@@ -96,7 +96,7 @@ export function titleKey(title: string | undefined): string | null {
 // Brands whose products (or products named after them) bring trademark claims and Meta/Shopify bans.
 // Ambiguous words are only matched with the product word next to them ("ring doorbell", not "ring").
 const BIG_BRANDS =
-  /\b(apple (watch|pencil|tv|magsafe|vision|airpods|iphone|ipad|macbook)|iphone|ipad|airpods|airtag|macbook|apple watch|samsung|galaxy s\d+|galaxy buds|sony|playstation|ps5|xbox|nintendo|switch oled|nike|air jordan|jordan \d+|adidas|yeezy|puma|reebok|asics|hoka|new balance|converse|vans|skechers|crocs|birkenstock|ugg|dr\.? ?martens|timberland|dyson|bissell|shark ninja|shark (navigator|rotator|stratos|vacuum|steam|flexstyle|matrix)|ninja foodi|ninja creami|lego|disney|marvel|star wars|harry potter|pok[eé]mon|barbie|hot wheels|mattel|hasbro|squishmallows?|stitch plush|ikea|amazon basics|kindle|echo dot|fire ?tv|fire ?stick|ring (video )?doorbell|roku|chromecast|google pixel|google nest|microsoft|dell|hp laptop|lenovo|bose|beats (by dre|headphones|earbuds|studio|solo|fit|pill)|jbl|sonos|logitech|razer|steelseries|anker|gucci|louis vuitton|chanel|dior|prada|rolex|cartier|tiffany & co|versace|balenciaga|burberry|fendi|herm[eè]s|michael kors|ralph lauren|tommy hilfiger|calvin klein|levi'?s|ray-?ban|oakley|pandora (charm|bracelet|ring|necklace)|swarovski|zara|h&m|uniqlo|shein|temu|walmart|costco|starbucks|red bull|coca-?cola|nutella|l'or[eé]al|loreal|maybelline|nivea|olay|dove (soap|body ?wash|deodorant|shampoo)|colgate|oral-?b|gillette|philips|braun|kitchenaid|nespresso|keurig|de'?longhi|smeg|le creuset|tefal|instant pot|bosch|makita|dewalt|milwaukee (tool|drill|battery)|ryobi|black ?(\+|&|and) ?decker|xiaomi|huawei|garmin|fitbit|whoop (band|strap)|oura ring|gopro|dji|canon|nikon|theragun|therabody|stanley cup|stanley quencher|yeti|owala|hydro ?flask|lululemon|under armour|the north face|patagonia|carhartt|stussy)\b/i;
+  /\b(apple (watch|pencil|tv|magsafe|vision|airpods|iphone|ipad|macbook)|iphone|ipad|airpods|airtag|macbook|apple watch|samsung|galaxy s\d+|galaxy buds|sony|playstation|ps5|xbox|nintendo|switch oled|nike|air jordan|jordan \d+|adidas|yeezy|puma|reebok|asics|hoka|new balance|converse|vans|skechers|crocs|birkenstock|ugg|dr\.? ?martens|timberland|dyson|bissell|shark ninja|shark (navigator|rotator|stratos|vacuum|steam|flexstyle|matrix)|shark [\w -]{0,40}vacuum|nee ?doh|l'occitane|loccitane|medicube|cosrx|cerave|la roche-?posay|neutrogena|the ordinary|clinique|est[eé]e lauder|bayer|miralax|tylenol|advil|motrin|aleve|benadryl|zyrtec|claritin|mucinex|vicks|crest (3d|whitestrips|toothpaste)|listerine|pampers|huggies|ninja foodi|ninja creami|lego|disney|marvel|star wars|harry potter|pok[eé]mon|barbie|hot wheels|mattel|hasbro|squishmallows?|stitch plush|ikea|amazon basics|kindle|echo dot|fire ?tv|fire ?stick|ring (video )?doorbell|roku|chromecast|google pixel|google nest|microsoft|dell|hp laptop|lenovo|bose|beats (by dre|headphones|earbuds|studio|solo|fit|pill)|jbl|sonos|logitech|razer|steelseries|anker|gucci|louis vuitton|chanel|dior|prada|rolex|cartier|tiffany & co|versace|balenciaga|burberry|fendi|herm[eè]s|michael kors|ralph lauren|tommy hilfiger|calvin klein|levi'?s|ray-?ban|oakley|pandora (charm|bracelet|ring|necklace)|swarovski|zara|h&m|uniqlo|shein|temu|walmart|costco|starbucks|red bull|coca-?cola|nutella|l'or[eé]al|loreal|maybelline|nivea|olay|dove (soap|body ?wash|deodorant|shampoo)|colgate|oral-?b|gillette|philips|braun|kitchenaid|nespresso|keurig|de'?longhi|smeg|le creuset|tefal|instant pot|bosch|makita|dewalt|milwaukee (tool|drill|battery)|ryobi|black ?(\+|&|and) ?decker|xiaomi|huawei|garmin|fitbit|whoop (band|strap)|oura ring|gopro|dji|canon|nikon|theragun|therabody|stanley cup|stanley quencher|yeti|owala|hydro ?flask|lululemon|under armour|the north face|patagonia|carhartt|stussy)\b/i;
 
 /** The big brand named in the text ("Roku"), or null. */
 export function bigBrandIn(text: string): string | null {
@@ -104,19 +104,25 @@ export function bigBrandIn(text: string): string | null {
   return m ? m[0] : null;
 }
 
+// Medicine and other regulated goods: ad platforms and Shopify restrict them and they need licences,
+// so they never make Winning Products even when they sell well on Amazon.
+const RESTRICTED =
+  /\b(laxatives?|stool softeners?|constipation relief|antacids?|ibuprofen|acetaminophen|paracetamol|aspirin|naproxen|antihistamines?|allergy (relief )?(tablets|pills|medicine)|cold (and|&) flu (tablets|medicine)|cough syrup|sleep aid tablets|prescription|rx only|antibiotics?|hydrocortisone|nicotine|vapes?|e-?cigarettes?|cbd|thc|delta-?8|kratom|viagra|sildenafil|contact lenses|hearing aids?|pregnancy tests?|ovulation tests?|condoms?|firearms?|ammunition)\b/i;
+
 const PERSONALISED =
   /\b(personali[sz]ed|personali[sz]able|custom(i[sz]ed|i[sz]able)?|engraved|monogram(med)?|your (name|photo|text)|name (necklace|bracelet|mug|shirt)|print[- ]on[- ]demand|made to order|photo (blanket|pillow|mug)|custom (photo|name|text|portrait)|pet portrait|family portrait)\b/i;
 
 const SERVICE =
   /\b(gift ?cards?|e-?gift|vouchers?|subscriptions?|membership|course|masterclass|coaching|webinar|consultation|ebook|e-book|pdf guide|template|app download|insurance|loan|mortgage|credit card|casino|betting|dating|real estate|dentist|clinic|salon|repair service|cleaning service|plumber|lawyer|attorney|software|saas|free trial|sign ?up|download (the|our) app)\b/i;
 
-export type ProductFlags = { isBigBrand: boolean; isPersonalised: boolean; isService: boolean };
+export type ProductFlags = { isBigBrand: boolean; isPersonalised: boolean; isService: boolean; isRestricted: boolean };
 
 export function productFlags(text: string): ProductFlags {
   return {
     isBigBrand: BIG_BRANDS.test(text),
     isPersonalised: PERSONALISED.test(text),
     isService: SERVICE.test(text),
+    isRestricted: RESTRICTED.test(text),
   };
 }
 

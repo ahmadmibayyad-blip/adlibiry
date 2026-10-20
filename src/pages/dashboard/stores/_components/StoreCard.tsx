@@ -66,7 +66,7 @@ export default function StoreCard({
         />
         <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-background/90 backdrop-blur-sm rounded-lg px-2 py-1 border border-border">
           <Store className="w-3 h-3 text-primary" />
-          <span className="text-[11px] font-medium">{store.platform}</span>
+          <span className="text-xs font-medium">{store.platform}</span>
         </div>
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
           {onToggleCompare && (
@@ -83,7 +83,7 @@ export default function StoreCard({
           </Authenticated>
         </div>
         {store.isHighTraffic && (
-          <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-green-400/90 text-black text-[11px] font-semibold px-2 py-0.5 rounded-md">
+          <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-green-400/90 text-black text-xs font-semibold px-2 py-0.5 rounded-md">
             <TrendingUp className="w-3 h-3" />
             High Traffic
           </div>
@@ -98,12 +98,12 @@ export default function StoreCard({
           {storeRevenueLabel(store) && (
             <div>
               <div className="font-semibold">{storeRevenueLabel(store)}</div>
-              <div className="text-[11px] text-muted-foreground">Est. revenue{store.revenueConfidence ? ` · ${store.revenueConfidence}` : ""}</div>
+              <div className="text-xs text-muted-foreground">Est. revenue{store.revenueConfidence ? ` · ${store.revenueConfidence}` : ""}</div>
             </div>
           )}
           <div>
             <div className="font-semibold">{store.trafficRange}</div>
-            <div className="text-[11px] text-muted-foreground">Traffic</div>
+            <div className="text-xs text-muted-foreground">Traffic</div>
           </div>
         </div>
 

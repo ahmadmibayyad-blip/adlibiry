@@ -53,7 +53,7 @@ export default function VerdictPanel({ product }: { product: Doc<"products"> }) 
         ))}
       </ul>
       {mine && !mine.targetCountry && (
-        <p className="text-[11px] text-muted-foreground mt-3">
+        <p className="text-xs text-muted-foreground mt-3">
           <Link to="/dashboard/settings" className="underline">Set the country you sell to</Link> to check competition in your market.
         </p>
       )}

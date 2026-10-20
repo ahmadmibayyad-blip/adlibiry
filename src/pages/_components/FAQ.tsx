@@ -74,10 +74,6 @@ export default function FAQ() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
           className="mb-12"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
@@ -86,10 +82,6 @@ export default function FAQ() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
           className="space-y-3 max-w-3xl"
         >
           {faqs.map((faq) => (

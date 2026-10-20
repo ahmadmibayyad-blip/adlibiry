@@ -60,7 +60,7 @@ function NotificationRow({ notification, onOpen }: { notification: Notification;
           {!notification.isRead && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notification.body}</p>
-        <p className="text-[11px] text-muted-foreground mt-1.5">{timeAgo(notification.createdAt)}</p>
+        <p className="text-xs text-muted-foreground mt-1.5">{timeAgo(notification.createdAt)}</p>
       </div>
     </button>
   );

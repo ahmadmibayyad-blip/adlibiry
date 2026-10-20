@@ -483,7 +483,7 @@ export default function StoreTrackerPage() {
           </>
         )}
 
-        <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 mt-6">
+        <p className="text-xs text-muted-foreground flex items-start gap-1.5 mt-6">
           <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           Revenue and traffic figures shown are honest ranged estimates from public storefront signals — never fabricated precise numbers.
         </p>

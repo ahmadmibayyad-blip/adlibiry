@@ -487,7 +487,7 @@ function ProductsTab() {
             {lastDiscovery.sample && (
               <details className="w-full text-muted-foreground">
                 <summary className="cursor-pointer">What Nexscope sent for one Shopify product</summary>
-                <div className="mt-1 break-all font-mono text-[11px]">{lastDiscovery.sample}</div>
+                <div className="mt-1 break-all font-mono text-xs">{lastDiscovery.sample}</div>
               </details>
             )}
             {lastDiscovery.stores !== undefined && (
@@ -605,7 +605,7 @@ function ProductsTab() {
                         <>
                           ${product.price.toFixed(2)}
                           {product.priceSource === "estimated_market" && (
-                            <span className="text-[10px] text-muted-foreground ml-1">(est.)</span>
+                            <span className="text-xs text-muted-foreground ml-1">(est.)</span>
                           )}
                         </>
                       ) : (

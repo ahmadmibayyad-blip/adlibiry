@@ -146,7 +146,7 @@ function Result({ shown, tracked, analysis, onClose }: { shown: Shown; tracked: 
           ) : (
             <p className="text-sm text-muted-foreground">No apps found on the pages we read.</p>
           )}
-          <p className="text-[11px] text-muted-foreground mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             Read from the store's home page and one product page. Apps that only run in the checkout or the admin don't show here.
           </p>
         </section>
@@ -246,7 +246,7 @@ export default function StoreInspector() {
               <X className="w-4 h-4" />
             </Button>
           </div>
-          {quotaHint ? <p className="basis-full text-[11px] text-muted-foreground">{quotaHint}</p> : null}
+          {quotaHint ? <p className="basis-full text-xs text-muted-foreground">{quotaHint}</p> : null}
         </div>
       ) : null}
       <form
@@ -262,7 +262,7 @@ export default function StoreInspector() {
           {busy ? "Inspecting…" : "Inspect"}
         </Button>
       </form>
-      {!linked && quotaHint ? <p className="text-[11px] text-muted-foreground -mt-1">{quotaHint}</p> : null}
+      {!linked && quotaHint ? <p className="text-xs text-muted-foreground -mt-1">{quotaHint}</p> : null}
       {recent && recent.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted-foreground mr-0.5">Recent:</span>

@@ -135,7 +135,7 @@ export default function KnowledgeHub() {
                   <span className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                     <Icon className="w-5 h-5" />
                   </span>
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{t.stage}</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t.stage}</span>
                 </div>
                 <h2 className="font-semibold group-hover:text-primary transition-colors">{t.name}</h2>
                 <p className="text-sm text-muted-foreground mt-1 flex-1">{t.blurb}</p>

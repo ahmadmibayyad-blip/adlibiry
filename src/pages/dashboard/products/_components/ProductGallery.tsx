@@ -39,7 +39,7 @@ export default function ProductGallery({ product }: { product: Doc<"products"> }
       <div className="relative rounded-xl overflow-hidden border border-border bg-muted group">
         <img src={current.src} alt={product.title} onError={() => drop(current.src)} className="w-full aspect-[4/3] object-contain bg-white" />
         {current.label && (
-          <span className="absolute top-2 left-2 text-[11px] font-medium bg-black/65 text-white rounded-md px-2 py-0.5">{current.label}</span>
+          <span className="absolute top-2 left-2 text-xs font-medium bg-black/65 text-white rounded-md px-2 py-0.5">{current.label}</span>
         )}
         {photos.length > 1 && (
           <>
@@ -59,7 +59,7 @@ export default function ProductGallery({ product }: { product: Doc<"products"> }
             >
               <ChevronRight className="w-5 h-5" />
             </button>
-            <span className="absolute bottom-2 right-2 text-[11px] bg-black/65 text-white rounded-md px-2 py-0.5 tabular-nums">
+            <span className="absolute bottom-2 right-2 text-xs bg-black/65 text-white rounded-md px-2 py-0.5 tabular-nums">
               {Math.min(index, photos.length - 1) + 1} / {photos.length}
             </span>
           </>

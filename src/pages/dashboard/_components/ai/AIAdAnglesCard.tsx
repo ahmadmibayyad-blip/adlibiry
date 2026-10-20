@@ -77,7 +77,7 @@ export default function AIAdAnglesCard({
             {angles.map((a, i) => (
               <div key={i} className="bg-muted rounded-lg p-3">
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <span className="text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
                     {a.angle}
                   </span>
                   <CopyButton text={a.hook} />

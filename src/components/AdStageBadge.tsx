@@ -18,7 +18,7 @@ export default function AdStageBadge({ ad, className }: { ad: Parameters<typeof 
   const { icon: Icon, className: tone } = STYLE[stage];
   return (
     <span
-      className={cn("flex items-center gap-1 text-[11px] font-semibold rounded-md px-1.5 py-0.5", tone, className)}
+      className={cn("flex items-center gap-1 text-xs font-semibold rounded-md px-1.5 py-0.5", tone, className)}
       title={STAGE_INFO[stage].hint}
     >
       <Icon className="w-3 h-3" />

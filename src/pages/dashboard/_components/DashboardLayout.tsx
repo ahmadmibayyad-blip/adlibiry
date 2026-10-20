@@ -143,9 +143,9 @@ export default function DashboardLayout() {
       >
         <item.icon className="w-4 h-4 shrink-0" />
         <span className="flex-1">{item.label}</span>
-        {item.badge && <span className="text-[11px] leading-none font-bold tracking-wide bg-brand text-neutral-950 px-1.5 py-1 rounded-full">{item.badge}</span>}
+        {item.badge && <span className="text-xs leading-none font-bold tracking-wide bg-brand text-neutral-950 px-1.5 py-1 rounded-full">{item.badge}</span>}
         {item.href === "/dashboard/alerts" && unreadLabel && (
-          <span className="text-[11px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium min-w-[18px] text-center">
+          <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium min-w-[18px] text-center">
             {unreadLabel}
           </span>
         )}
@@ -164,16 +164,16 @@ export default function DashboardLayout() {
       >
         <item.icon className="w-4 h-4 shrink-0" />
         <span className="flex-1 min-w-0 truncate">{item.label}</span>
-        {item.badge && <span className="text-[11px] leading-none font-bold tracking-wide bg-brand text-neutral-950 px-1.5 py-1 rounded-full shrink-0">{item.badge}</span>}
+        {item.badge && <span className="text-xs leading-none font-bold tracking-wide bg-brand text-neutral-950 px-1.5 py-1 rounded-full shrink-0">{item.badge}</span>}
         {item.href === "/dashboard/alerts" && unreadLabel && (
-          <span className="text-[11px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">{unreadLabel}</span>
+          <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-medium">{unreadLabel}</span>
         )}
       </Link>
     </li>
   );
   // Small muted heading above each group; not a link.
   const groupLabel = (label: string) => (
-    <div className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 select-none">{label}</div>
+    <div className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none">{label}</div>
   );
 
   return (
@@ -218,7 +218,7 @@ export default function DashboardLayout() {
               <div className="text-xs font-medium truncate">{user?.profile?.name ?? "User"}</div>
               <Badge
                 variant="outline"
-                className={cn("text-[11px] px-1.5 py-0 capitalize mt-0.5", planColors[plan])}
+                className={cn("text-xs px-1.5 py-0 capitalize mt-0.5", planColors[plan])}
               >
                 {plan === "none" ? "Free" : plan}
               </Badge>
@@ -297,7 +297,7 @@ export default function DashboardLayout() {
                 )}
               >
                 <item.icon className="w-5 h-5" />
-                <span className="text-[11px] leading-tight text-center whitespace-nowrap">{item.short ?? item.label}</span>
+                <span className="text-xs leading-tight text-center whitespace-nowrap">{item.short ?? item.label}</span>
               </Link>
             );
           })}
@@ -311,7 +311,7 @@ export default function DashboardLayout() {
             )}
           >
             <Menu className="w-5 h-5" />
-            <span className="text-[11px] leading-tight text-center whitespace-nowrap">More</span>
+            <span className="text-xs leading-tight text-center whitespace-nowrap">More</span>
             {!!unreadCount && unreadCount > 0 && <span className="absolute top-2 right-[calc(50%-14px)] w-2 h-2 rounded-full bg-primary" aria-hidden />}
           </button>
         </nav>

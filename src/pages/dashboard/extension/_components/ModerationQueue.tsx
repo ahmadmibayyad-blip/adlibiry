@@ -177,7 +177,7 @@ export default function ModerationQueue() {
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{s.advertiserName}</div>
               <div className="text-xs text-muted-foreground truncate">{s.headline}</div>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground mt-0.5">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                 <span>{s.platform}</span>
                 {s.mediaType && <span className="capitalize">{s.mediaType}</span>}
                 {s.startedAt && <span>{daysSince(s.startedAt)}d running</span>}

@@ -65,19 +65,19 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
           <div className="bg-muted rounded-lg p-3 flex flex-col items-center text-center gap-1">
             <DollarSign className="w-4 h-4 text-muted-foreground" />
             <div className="text-sm font-bold">{storeRevenueLabel(store) ?? "Tracking"}</div>
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               Est. revenue{store.revenueConfidence ? ` · ${store.revenueConfidence} confidence` : ""}
             </div>
           </div>
           <div className="bg-muted rounded-lg p-3 flex flex-col items-center text-center gap-1">
             <Users className="w-4 h-4 text-muted-foreground" />
             <div className="text-sm font-bold">{store.trafficRange}</div>
-            <div className="text-[11px] text-muted-foreground">Traffic</div>
+            <div className="text-xs text-muted-foreground">Traffic</div>
           </div>
           <div className="bg-muted rounded-lg p-3 flex flex-col items-center text-center gap-1">
             <Megaphone className="w-4 h-4 text-muted-foreground" />
             <div className="text-sm font-bold">{store.activeAdsCount}</div>
-            <div className="text-[11px] text-muted-foreground">Active ads</div>
+            <div className="text-xs text-muted-foreground">Active ads</div>
           </div>
         </div>
 
@@ -100,7 +100,7 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
           </div>
         </div>
 
-        <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 mb-4">
+        <p className="text-xs text-muted-foreground flex items-start gap-1.5 mb-4">
           <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           Revenue, traffic, and sales figures are honest ranged estimates based on public storefront signals — never precise numbers we can't back up.
         </p>

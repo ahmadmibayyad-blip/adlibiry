@@ -21,6 +21,13 @@ describe("Should I test this?", () => {
     expect(v.line).toBe("Strong test candidate — medium saturation in DE, ~55% margin, rising demand.");
   });
 
+  it("writes big demand in millions", () => {
+    const demand = (low: number, high: number) => verdict({ ...strong, estRevenue: { low, high } }).checks[0].detail;
+    expect(demand(1_300_000, 1_410_000)).toMatch(/^~\$1\.4M\/mo/);
+    expect(demand(999_000, 1_000_400)).toMatch(/^~\$1\.0M\/mo/);
+    expect(demand(20_000, 40_000)).toMatch(/^~\$\d+K\/mo/);
+  });
+
   it("says skip when the user's market is crowded or demand falls", () => {
     const crowded = verdict({ ...strong, saturationByCountry: [{ country: "DE", advertisers: 9, level: "High" }] });
     expect(crowded.call).toBe("skip");

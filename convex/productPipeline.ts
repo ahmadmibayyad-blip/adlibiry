@@ -994,8 +994,8 @@ function buckets(h: number[]): number[] {
 
 // ── Winning Products ────────────────────────────────────────────────────────
 // Every WINNERS_ROUND_DAYS a new mix is drawn from the products we have.
-// Per niche, products with score 65+ (no big brands, print-on-demand or
-// services) that pass the winner gates (lib/winnerGates.ts) come first: the
+// Per niche, products with score 65+ (no big brands, print-on-demand,
+// services or medicine) that pass the winner gates (lib/winnerGates.ts) come first: the
 // best 25 always stay, the other places rotate, products not shown last
 // round first (lib/winnerMix.ts). Free places go to products that fail a gate
 // only because we don't have the data yet; never to ones that fail on real
@@ -1016,7 +1016,8 @@ async function writeWinnersRound(ctx: MutationCtx, day: string) {
   else await ctx.db.insert("siteStats", { key: "winnersRound", data, updatedAt });
 }
 
-const listable = (p: Doc<"products">) => p.aiScore >= WINNER_MIN_SCORE && !p.isBigBrand && !p.isPersonalised && !p.isService && !!p.imageUrl;
+const listable = (p: Doc<"products">) =>
+  p.aiScore >= WINNER_MIN_SCORE && !p.isBigBrand && !p.isPersonalised && !p.isService && !p.isRestricted && !!p.imageUrl;
 const gateInput = (p: Doc<"products">) => ({
   revenuePerMonth: pointEstimate(p.estRevenue),
   activeAds: p.activeAds ?? p.adsCount,

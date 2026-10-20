@@ -46,10 +46,6 @@ export default function HowItWorks() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
           className="max-w-2xl mb-12"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
@@ -72,10 +68,6 @@ export default function HowItWorks() {
               return (
                 <motion.div
                   key={step.number}
-                  initial={{ opacity: 0, y: 40 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: i * 0.15 }}
                   className="flex flex-col items-center text-center"
                 >
                   {/* Icon bubble */}

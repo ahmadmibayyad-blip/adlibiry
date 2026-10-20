@@ -9,7 +9,7 @@ import { initialStats } from "@/lib/landingHtml.ts";
 function Metric({ icon: Icon, label, value }: { icon: typeof Eye; label: string; value: string }) {
   return (
     <div className="rounded-lg bg-muted/60 px-2.5 py-2">
-      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
         <Icon className="w-3 h-3" aria-hidden="true" />
         {label}
       </div>
@@ -59,7 +59,7 @@ export default function AdSpy() {
                           ad.aiScore >= 85 ? "bg-good text-white dark:text-background" : "bg-foreground text-background",
                         )}
                       >
-                        <span className="text-[10px] opacity-80">Ad score</span>
+                        <span className="text-xs opacity-80">Ad score</span>
                         <span className="text-sm font-bold tabular-nums">{ad.aiScore}</span>
                       </div>
                     </div>

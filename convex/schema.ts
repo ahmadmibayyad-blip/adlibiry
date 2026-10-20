@@ -96,6 +96,7 @@ export default defineSchema({
     isBigBrand: v.optional(v.boolean()),
     isPersonalised: v.optional(v.boolean()),
     isService: v.optional(v.boolean()),
+    isRestricted: v.optional(v.boolean()), // medicine and other regulated goods (lib/productMatch.ts RESTRICTED)
     // Winning Products (rebuilt daily): rank inside its niche, absent if not in the list.
     winnerRank: v.optional(v.number()),
     // More photos from the product's store page (convex/productImages.ts).

@@ -264,7 +264,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-xs font-medium">{r.headline}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {r.advertiserName} · {r.platform} · {r.country} · {r.niche}
                         {r.likes ? ` · ${r.likes.toLocaleString()} likes` : ""}
                         {r.daysRunning ? ` · ${r.daysRunning}d running` : ""}

@@ -98,7 +98,7 @@ function Checks({ items }: { items?: string[] }) {
       <ul className="space-y-1 text-xs list-disc pl-4">
         {items.map((c) => <li key={c}>{c}</li>)}
       </ul>
-      <p className="text-[11px] text-muted-foreground mt-1.5">The page only says what we could verify. Add these details in Shopify once you've confirmed them with your supplier.</p>
+      <p className="text-xs text-muted-foreground mt-1.5">The page only says what we could verify. Add these details in Shopify once you've confirmed them with your supplier.</p>
     </div>
   );
 }
@@ -177,7 +177,7 @@ function MirrorResult({ mirror }: { mirror: PageMirror }) {
           {mirror.skipped.map((x) => <li key={x}>{x}</li>)}
         </ul>
       ) : null}
-      <p className="text-[11px] text-muted-foreground">Only the structure is copied. The text and photos are your own, written and made for your product.</p>
+      <p className="text-xs text-muted-foreground">Only the structure is copied. The text and photos are your own, written and made for your product.</p>
     </div>
   );
 }
@@ -362,7 +362,7 @@ function StepIndicator({ step, onBack }: { step: number; onBack: (s: number) => 
           <>
             <span
               className={cn(
-                "inline-flex w-5 h-5 items-center justify-center rounded-full border text-[11px] tabular-nums",
+                "inline-flex w-5 h-5 items-center justify-center rounded-full border text-xs tabular-nums",
                 n < step ? "border-primary bg-primary text-primary-foreground" : n === step ? "border-primary text-primary" : "border-border text-muted-foreground",
               )}
             >
@@ -843,7 +843,7 @@ function LaunchButton({
                   </p>
                 ) : null}
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 The AI only uses real facts: no invented reviews, sales numbers or health claims. Check the{mode === "store" ? " store" : " page"} before you run ads.
               </p>
             </form>

@@ -271,7 +271,7 @@ function SourcingTab({ initialNiche }: { initialNiche?: string }) {
                 >
                   <span className="min-w-0">
                     <span className="block text-sm font-medium">{site.name}</span>
-                    <span className="block text-[11px] text-muted-foreground truncate">{site.note}</span>
+                    <span className="block text-xs text-muted-foreground truncate">{site.note}</span>
                   </span>
                   <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 </a>

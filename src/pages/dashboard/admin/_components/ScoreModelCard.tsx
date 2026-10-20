@@ -19,7 +19,7 @@ function Distribution({ title, side, highlight }: { title: string; side: Side; h
           <div key={i} className="flex-1 rounded-t bg-primary/70" style={{ height: `${Math.max(2, (n / max) * 100)}%` }} title={`${i * 10}–${i * 10 + 9}: ${n}`} />
         ))}
       </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+      <div className="flex justify-between text-xs text-muted-foreground mt-1">
         <span>0</span>
         <span>50</span>
         <span>100</span>

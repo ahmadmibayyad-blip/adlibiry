@@ -263,6 +263,7 @@ export default function AdSpyPage() {
     ([k, v]) => !["sort", "platform", "country", "niche", "runTime", "spend", "scaling", "stage"].includes(k) && v !== undefined && v !== false,
   ).length;
   const [showAdvanced, setShowAdvanced] = useHistoryState("advanced", advancedCount > 0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const preset = PRESETS.find((p) => sameFilters(f, p.filters));
   const clearAll = () => {
     setF((prev) => ({ sort: prev.sort }));
@@ -295,7 +296,7 @@ export default function AdSpyPage() {
           <p className="text-sm text-muted-foreground">Find winning ads on Facebook, Instagram and TikTok.</p>
         </div>
         {facets && (
-          <div className="flex gap-2 text-xs">
+          <div className="hidden sm:flex gap-2 text-xs">
             {[
               { label: "Ads", value: facets.total },
               { label: "Active", value: facets.activeCount },
@@ -315,7 +316,7 @@ export default function AdSpyPage() {
       <div className="bg-card border border-border rounded-xl p-3 mb-5 space-y-3">
         {/* Platform + search */}
         <div className="flex flex-col lg:flex-row gap-2">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
             <Chip on={!f.platform} onClick={() => set("platform", undefined)}>All</Chip>
             {PLATFORMS.map((p) => (
               <Chip key={p} on={f.platform === p} onClick={() => set("platform", f.platform === p ? undefined : p)}>
@@ -337,6 +338,20 @@ export default function AdSpyPage() {
           <ImageSearchDialog trigger="icon" />
         </div>
 
+        {/* Phones: the filters fold behind one button so the first screen shows results. */}
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(!filtersOpen)}
+          aria-expanded={filtersOpen}
+          aria-controls="adspy-filters"
+          className="sm:hidden w-full flex items-center justify-center gap-2 h-11 rounded-lg border border-border text-sm font-medium cursor-pointer"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          {filtersOpen ? "Hide filters" : "Filters"}
+          {activeCount > 0 && <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs tabular-nums">{activeCount}</span>}
+          <ChevronDown className={cn("w-4 h-4 transition-transform", filtersOpen && "rotate-180")} />
+        </button>
+        <div id="adspy-filters" className={cn("space-y-3", !filtersOpen && "hidden sm:block")}>
         {/* The four most-used filters stay visible; the rest fold away. Quick view sets a ready-made filter set. */}
         <div className="flex flex-wrap items-center gap-2">
           <FilterSelect
@@ -376,7 +391,7 @@ export default function AdSpyPage() {
             <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAdvanced && "rotate-180")} />
           </button>
         </div>
-        {preset && <p className="text-[11px] text-muted-foreground -mt-1">{preset.label}: {preset.hint}.</p>}
+        {preset && <p className="text-xs text-muted-foreground -mt-1">{preset.label}: {preset.hint}.</p>}
 
         {showAdvanced && (
         <>
@@ -441,6 +456,7 @@ export default function AdSpyPage() {
               setSearch(q);
             }}
           />
+        </div>
         </div>
       </div>
 

@@ -76,7 +76,7 @@ export default function AdStore({ adId, compact = false }: { adId: Id<"ads">; co
 
       {!compact && inspection && inspection.apps.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[11px] text-muted-foreground">Apps</div>
+          <div className="text-xs text-muted-foreground">Apps</div>
           <div className="flex flex-wrap gap-1.5">
             {inspection.apps.map((a) => (
               <span key={a.name} title={a.category} className="text-xs px-2 py-0.5 rounded-md bg-muted">
@@ -92,7 +92,7 @@ export default function AdStore({ adId, compact = false }: { adId: Id<"ads">; co
 
       {!compact && store && store.bestSellers.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[11px] text-muted-foreground">Best sellers</div>
+          <div className="text-xs text-muted-foreground">Best sellers</div>
           <ul className="divide-y divide-border">
             {store.bestSellers.map((b) => (
               <li key={b.title} className="flex items-center gap-3 py-1.5 text-xs">
@@ -120,7 +120,7 @@ export default function AdStore({ adId, compact = false }: { adId: Id<"ads">; co
             {inspection ? "Inspect again" : "Inspect store"}
           </Link>
         </Button>
-        {inspection && <span className="text-[11px] text-muted-foreground">Inspected {shortDate(inspection.inspectedAt)}</span>}
+        {inspection && <span className="text-xs text-muted-foreground">Inspected {shortDate(inspection.inspectedAt)}</span>}
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ function scoreColor(score: number) {
 function Stat({ icon: Icon, label, value }: { icon: typeof Eye; label: string; value: string }) {
   return (
     <div className="bg-muted rounded-lg p-2.5">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
         <Icon className="w-3.5 h-3.5" />
         {label}
       </div>
@@ -135,7 +135,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
               )}
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">{ad.advertiserName}</div>
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span className={cn("px-1.5 rounded border", platformColors[ad.platform])}>{ad.platform}</span>
                   {ad.isActive !== undefined && (
                     <span className="flex items-center gap-1">
@@ -192,7 +192,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
               {(ad.relatedAdsCount ?? 0) > 1 && (
                 <div className="text-right">
                   <div className="text-lg font-black text-primary">×{ad.relatedAdsCount}</div>
-                  <div className="text-[11px] text-muted-foreground">ad copies</div>
+                  <div className="text-xs text-muted-foreground">ad copies</div>
                 </div>
               )}
             </div>
@@ -302,12 +302,12 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
               {ad.targeting.interests.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {ad.targeting.interests.map((i) => (
-                    <span key={i} className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{i}</span>
+                    <span key={i} className="bg-muted px-1.5 py-0.5 rounded text-xs">{i}</span>
                   ))}
                 </div>
               )}
               {!aud && (
-                <p className="text-[11px] text-muted-foreground">Detailed audience data is still being fetched for this ad.</p>
+                <p className="text-xs text-muted-foreground">Detailed audience data is still being fetched for this ad.</p>
               )}
             </div>
 
