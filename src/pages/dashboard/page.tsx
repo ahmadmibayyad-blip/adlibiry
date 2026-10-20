@@ -278,7 +278,7 @@ function TopNiches({ niches }: { niches: { niche: string; thisWeek: number; last
 
 // A swipeable row on phones, a grid from sm up.
 const ROW =
-  "flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-5 px-5 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 sm:overflow-visible";
+  "flex gap-3 overflow-x-auto [scrollbar-width:none] snap-x snap-mandatory -mx-5 px-5 pb-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 sm:overflow-visible";
 
 // The newest ads and products in AdSpy Pro, so an import shows up here first.
 function JustAdded() {
@@ -375,7 +375,7 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
       </div>
 
       {tabs.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-4" role="tablist" aria-label="Category">
+        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] pb-1 mb-4" role="tablist" aria-label="Category">
           {[{ niche: undefined as string | undefined, filled: summary?.total ?? 0 }, ...tabs].map((t) => (
             <button
               key={t.niche ?? "all"}
@@ -516,7 +516,8 @@ export default function DashboardHome() {
             </Button>
           )}
           <ImageSearchDialog />
-          <Button size="sm" variant="outline" onClick={openAssistant} className="h-10 sm:h-8 rounded-full">
+          {/* Phones and tablets have Ask AI in the top bar already. */}
+          <Button size="sm" variant="outline" onClick={openAssistant} className="hidden lg:inline-flex h-8 rounded-full">
             <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />
             Ask AI
           </Button>

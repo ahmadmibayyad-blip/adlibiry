@@ -20,7 +20,13 @@ export type VerdictInput = {
   targetCountry?: string;
 };
 
-const money = (n: number) => (n >= 1000 ? `$${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}K` : `$${Math.round(n)}`);
+// $850, $4.2K, $85K, $1.4M ($1355K read oddly; 999,600 rounds up to $1.0M, not $1000K).
+const money = (n: number) =>
+  n >= 999_500
+    ? `$${(n / 1_000_000).toFixed(n >= 9_950_000 ? 0 : 1)}M`
+    : n >= 1000
+      ? `$${(n / 1000).toFixed(n >= 9_950 ? 0 : 1)}K`
+      : `$${Math.round(n)}`;
 
 export function verdict(p: VerdictInput): Verdict {
   // Demand: ~$10K+/month and views not falling.

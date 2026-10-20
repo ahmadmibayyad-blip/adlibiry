@@ -173,7 +173,8 @@ export default function ProductDetail() {
         {hasHistory ? "Back" : "Back to all products"}
       </Link>
 
-      {/* Phones stack summary → images and calculator → details; on desktop the
+      {/* Phones stack photos → summary → calculator → details (the left column is
+          `contents` there, so its two parts take their own places); on desktop the
           images take the left column and summary + details the right one. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-[auto_1fr] gap-x-8 gap-y-5">
         {/* Summary: title, AdSpy score, verdict, actions */}
@@ -222,7 +223,10 @@ export default function ProductDetail() {
               )}
             </div>
             <div className="flex items-start gap-4 mb-2">
-              <h1 className="flex-1 min-w-0 text-2xl font-bold leading-tight">{product.title}</h1>
+              {/* Marketplace titles can run 8 lines on a phone: 3 there, all of it from sm up. */}
+              <h1 className="flex-1 min-w-0 text-2xl font-bold leading-tight line-clamp-3 sm:line-clamp-none" title={product.title}>
+                {product.title}
+              </h1>
               {/* Main action; phones have it in the bottom bar */}
               <div className="hidden sm:block shrink-0">
                 <LaunchDialog product={product} />
@@ -267,9 +271,12 @@ export default function ProductDetail() {
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
-          className="lg:col-start-1 lg:row-start-1 lg:row-span-2"
+          className="contents lg:block lg:col-start-1 lg:row-start-1 lg:row-span-2"
         >
-          <ProductGallery product={product} />
+          <div className="order-first lg:order-none">
+            <ProductGallery product={product} />
+          </div>
+          <div>
           {/* Profit calculator, under the images */}
           <div id="profit-calculator" className="scroll-mt-20 mb-6">
             <ProfitCalculator basePrice={product.price ?? 0} baseCost={product.cost ?? 0} />
@@ -295,6 +302,7 @@ export default function ProductDetail() {
               </div>
             </div>
           )}
+          </div>
         </motion.div>
 
         {/* Right: details */}
