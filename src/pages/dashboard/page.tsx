@@ -25,6 +25,9 @@ import ProductImage from "@/components/ProductImage.tsx";
 import { moneyCompact, price } from "@/lib/money.ts";
 import LaunchDialog from "./products/_components/LaunchDialog.tsx";
 import SellingCalendar from "./_components/SellingCalendar.tsx";
+import SimpleHome from "./_components/SimpleHome.tsx";
+import ViewSwitch from "./_components/ViewSwitch.tsx";
+import { useSimpleView } from "@/hooks/use-simple-view.ts";
 
 // Home dashboard: today's top winner and its next step first, then the
 // winners, then the rest. The charts come from api.dashboard.overview, saved
@@ -428,6 +431,11 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
 }
 
 export default function DashboardHome() {
+  const [simple] = useSimpleView();
+  return simple ? <SimpleHome /> : <FullHome />;
+}
+
+function FullHome() {
   const { user } = useAuth();
   const stats = useQuery(api.products.getDashboardStats, {});
   const overview = useQuery(api.dashboard.overview, {});
@@ -508,7 +516,8 @@ export default function DashboardHome() {
           </h1>
           <p className="text-muted-foreground text-sm">Here's what's winning today, refreshed daily from live ad and marketplace data.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <ViewSwitch className="w-40 lg:hidden" />
           {/* Dev seed button: admins only, only while there are no products */}
           {isAdmin && top !== undefined && top.length === 0 && (
             <Button size="sm" variant="outline" onClick={handleSeed} className="h-10 sm:h-8 text-xs">

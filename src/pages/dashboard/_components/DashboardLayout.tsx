@@ -32,6 +32,8 @@ import { setDisplayCurrency } from "@/lib/money.ts";
 import Logo from "@/components/Logo.tsx";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet.tsx";
 import OnboardingDialog from "./OnboardingDialog.tsx";
+import ViewSwitch from "./ViewSwitch.tsx";
+import { useSimpleView } from "@/hooks/use-simple-view.ts";
 
 type NavItem = { icon: typeof Search; label: string; href: string; short?: string; badge?: string };
 
@@ -83,11 +85,17 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ],
   },
 ];
+// Simple view (use-simple-view.ts): the few pages a beginner needs, in one unlabelled group.
+const simpleHrefs = ["/dashboard/winners", "/dashboard/ad-spy", "/dashboard/saved", "/dashboard/profit", "/dashboard/settings"];
 const adminItem: NavItem = { icon: ShieldCheck, label: "Admin", href: "/dashboard/admin" };
 
 // The bottom bar on phones and tablets: these 4 and "More" (5 at 360px wide), which opens every page.
 const allItems = [homeItem, ...navGroups.flatMap((g) => g.items)];
 const bottomItems = ["/dashboard", "/dashboard/winners", "/dashboard/ad-spy", "/dashboard/launch"].map(
+  (href) => allItems.find((i) => i.href === href)!,
+);
+
+const simpleBottomItems = ["/dashboard", "/dashboard/winners", "/dashboard/ad-spy", "/dashboard/saved"].map(
   (href) => allItems.find((i) => i.href === href)!,
 );
 
@@ -125,9 +133,13 @@ export default function DashboardLayout() {
 
   const [moreOpen, setMoreOpen] = useState(false);
   const isActive = (href: string) => (href === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(href));
-  const groups = isAdmin
+  const [simple] = useSimpleView();
+  const fullGroups = isAdmin
     ? navGroups.map((g) => (g.label === "Account" ? { ...g, items: [...g.items, adminItem] } : g))
     : navGroups;
+  const groups = simple
+    ? [{ label: "", items: simpleHrefs.map((href) => allItems.find((i) => i.href === href)!) }]
+    : fullGroups;
   const unreadLabel = !!unreadCount && unreadCount > 0 ? (unreadCount > 9 ? "9+" : String(unreadCount)) : null;
 
   const sidebarLink = (item: NavItem) => (
@@ -172,7 +184,7 @@ export default function DashboardLayout() {
     </li>
   );
   // Small muted heading above each group; not a link.
-  const groupLabel = (label: string) => (
+  const groupLabel = (label: string) => label && (
     <div className="px-3 pt-1 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none">{label}</div>
   );
 
@@ -193,6 +205,7 @@ export default function DashboardLayout() {
             <Sparkles className="w-4 h-4" />
             Ask AI
           </button>
+          <ViewSwitch className="mt-2" />
         </div>
 
         {/* Nav: Dashboard, then the labelled groups */}
@@ -285,7 +298,7 @@ export default function DashboardLayout() {
 
         {/* Bottom nav — mobile */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 flex border-t border-border bg-sidebar z-50 pb-[env(safe-area-inset-bottom)]">
-          {bottomItems.map((item) => {
+          {(simple ? simpleBottomItems : bottomItems).map((item) => {
             const active = isActive(item.href);
             return (
               <Link
@@ -307,7 +320,7 @@ export default function DashboardLayout() {
             aria-label="All pages"
             className={cn(
               "relative flex-1 min-w-0 flex flex-col items-center gap-1 py-2.5 px-0.5 text-xs font-medium transition-colors cursor-pointer",
-              !bottomItems.some((i) => isActive(i.href)) ?"text-primary" : "text-muted-foreground",
+              !(simple ? simpleBottomItems : bottomItems).some((i) => isActive(i.href)) ?"text-primary" : "text-muted-foreground",
             )}
           >
             <Menu className="w-5 h-5" />
@@ -321,6 +334,7 @@ export default function DashboardLayout() {
               <SheetTitle>All pages</SheetTitle>
             </SheetHeader>
             <div className="px-4 space-y-3">
+              <ViewSwitch />
               <ul className="grid grid-cols-2 sm:grid-cols-3 gap-1">{sheetLink(homeItem)}</ul>
               {groups.map((g) => (
                 <div key={g.label}>
