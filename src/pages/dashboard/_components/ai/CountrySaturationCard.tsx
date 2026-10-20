@@ -112,7 +112,7 @@ function ScoreDial({ label, score, invert, sub }: { label: string; score: number
             <TooltipContent className="max-w-56 text-center">{SCORE_EXPLANATIONS[label]}</TooltipContent>
           </Tooltip>
         </div>
-        <div className="text-[11px] text-muted-foreground">{sub}</div>
+        <div className="text-xs text-muted-foreground">{sub}</div>
       </div>
     </div>
   );
@@ -242,9 +242,9 @@ export default function CountrySaturationCard({
         </p>
 
         <Tabs defaultValue="check">
-          <TabsList className="mb-3 w-full sm:w-auto">
-            <TabsTrigger value="check" className="flex-1 sm:flex-none">Check a country</TabsTrigger>
-            <TabsTrigger value="compare" className="flex-1 sm:flex-none">Compare countries</TabsTrigger>
+          <TabsList className="mb-3 w-full sm:w-auto h-11 sm:h-9">
+            <TabsTrigger value="check" className="flex-1 sm:flex-none min-h-10 sm:min-h-0">Check a country</TabsTrigger>
+            <TabsTrigger value="compare" className="flex-1 sm:flex-none min-h-10 sm:min-h-0">Compare countries</TabsTrigger>
           </TabsList>
 
           {/* ── Single-country check ─────────────────────────────────────── */}
@@ -304,13 +304,13 @@ export default function CountrySaturationCard({
                     <Progress value={result.confidenceScore} className="h-1.5" />
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                       {result.signals.sourcesAnalyzed.map((s) => (
-                        <span key={s} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <span key={s} className="flex items-center gap-1 text-xs text-muted-foreground">
                           <CheckCircle2 className="w-3 h-3 text-green-400" />
                           {s}
                         </span>
                       ))}
                       {result.signals.sourcesUnavailable.map((s) => (
-                        <span key={s} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <span key={s} className="flex items-center gap-1 text-xs text-muted-foreground">
                           <XCircle className="w-3 h-3 text-red-400" />
                           {s}
                         </span>
@@ -328,38 +328,38 @@ export default function CountrySaturationCard({
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       <div className="bg-muted rounded-lg p-2.5">
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                           <Megaphone className="w-3 h-3" /> Local advertisers
                         </div>
                         <div className="text-sm font-bold">{result.signals.localAdvertiserCount}</div>
                       </div>
                       <div className="bg-muted rounded-lg p-2.5">
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                           <Megaphone className="w-3 h-3" /> Active local ads
                         </div>
                         <div className="text-sm font-bold">{result.signals.localActiveAds}</div>
                       </div>
                       <div className="bg-muted rounded-lg p-2.5">
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                           <TrendingUp className="w-3 h-3" /> Advertisers, last 30d
                         </div>
                         <div className="text-sm font-bold">{result.signals.recentLocalAdvertisers30d}</div>
                       </div>
                       <div className="bg-muted rounded-lg p-2.5">
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                           <StoreIcon className="w-3 h-3" /> Local Shopify stores
                         </div>
                         <div className="text-sm font-bold">{result.signals.localStoreCount}</div>
                       </div>
                       <div className="bg-muted rounded-lg p-2.5">
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                           <StoreIcon className="w-3 h-3" /> Store active ads
                         </div>
                         <div className="text-sm font-bold">{result.signals.localStoreActiveAds}</div>
                       </div>
                       {result.signals.supplierSellerCount !== undefined && (
                         <div className="bg-muted rounded-lg p-2.5">
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
                             <PackageSearch className="w-3 h-3" /> Avg. supplier sellers
                           </div>
                           <div className="text-sm font-bold">{result.signals.supplierSellerCount}</div>
@@ -367,7 +367,7 @@ export default function CountrySaturationCard({
                       )}
                     </div>
                     {result.signals.globalAdvertiserCount > result.signals.localAdvertiserCount && (
-                      <p className="text-[11px] text-muted-foreground mt-2">
+                      <p className="text-xs text-muted-foreground mt-2">
                         {result.signals.globalAdvertiserCount} advertisers tracked globally in this niche, but only{" "}
                         {result.signals.localAdvertiserCount} target {country} specifically — global presence carries less weight.
                       </p>
@@ -426,13 +426,13 @@ export default function CountrySaturationCard({
                       </ChartContainer>
                       <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-1">
                         {Object.entries(trendChartConfig).map(([key, cfg]) => (
-                          <span key={key} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
                             {cfg.label}
                           </span>
                         ))}
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Based on {trendChartData.length} real checks run for this niche + country over time.
                       </p>
                     </div>
@@ -504,7 +504,7 @@ export default function CountrySaturationCard({
                   </ChartContainer>
                   <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                     {Object.entries(compareChartConfig).map(([key, cfg]) => (
-                      <span key={key} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
                         {cfg.label}
                       </span>
@@ -520,7 +520,7 @@ export default function CountrySaturationCard({
                           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs bg-muted rounded-lg px-3 py-2"
                         >
                           <span className="font-medium">{countryName(row.country)}</span>
-                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span>{row.localAdvertiserCount} advertisers</span>
                             <span>{row.localStoreCount} stores</span>
                             <span className="font-semibold text-foreground">Opp {row.opportunityScore}</span>

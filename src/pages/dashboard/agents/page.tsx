@@ -141,7 +141,7 @@ function AgentCard({ agent }: { agent: Doc<"agents"> & { latest: Doc<"agentBrief
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 text-primary" />
             <h3 className="font-semibold">{agent.name}</h3>
-            <span className={cn("text-[11px] px-2 py-0.5 rounded-full", agent.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+            <span className={cn("text-xs px-2 py-0.5 rounded-full", agent.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
               {agent.enabled ? "Runs every morning" : "Paused"}
             </span>
           </div>

@@ -8,5 +8,5 @@ const STYLE: Record<Level, string> = {
 };
 
 export default function LevelTag({ level, className }: { level: Level; className?: string }) {
-  return <span className={cn("text-[11px] font-semibold px-2 py-0.5 rounded-full", STYLE[level], className)}>{level}</span>;
+  return <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", STYLE[level], className)}>{level}</span>;
 }

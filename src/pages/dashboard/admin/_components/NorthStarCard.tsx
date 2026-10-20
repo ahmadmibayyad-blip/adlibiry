@@ -26,15 +26,15 @@ export default function NorthStarCard() {
       </p>
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="bg-muted/60 rounded-lg px-3 py-2">
-          <div className="text-[11px] text-muted-foreground">Per active user</div>
+          <div className="text-xs text-muted-foreground">Per active user</div>
           <div className="text-lg font-semibold tabular-nums">{data.perActiveUser}</div>
         </div>
         <div className="bg-muted/60 rounded-lg px-3 py-2">
-          <div className="text-[11px] text-muted-foreground">Validated tests</div>
+          <div className="text-xs text-muted-foreground">Validated tests</div>
           <div className="text-lg font-semibold tabular-nums">{data.validatedTests}</div>
         </div>
         <div className="bg-muted/60 rounded-lg px-3 py-2">
-          <div className="text-[11px] text-muted-foreground">Active users</div>
+          <div className="text-xs text-muted-foreground">Active users</div>
           <div className="text-lg font-semibold tabular-nums">{data.activeUsers}</div>
         </div>
       </div>

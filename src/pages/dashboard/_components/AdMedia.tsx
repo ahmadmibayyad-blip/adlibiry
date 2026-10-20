@@ -25,7 +25,7 @@ export default function AdMedia({ ad, maxHeight = "70vh" }: { ad: Doc<"ads">; ma
           style={{ maxHeight }}
         />
         {ad.adLibraryUrl && (
-          <a href={ad.adLibraryUrl} target="_blank" rel="noopener noreferrer" className="block text-center text-[11px] text-white/70 hover:text-white py-1.5">
+          <a href={ad.adLibraryUrl} target="_blank" rel="noopener noreferrer" className="block text-center text-xs text-white/70 hover:text-white py-1.5">
             Not playing? Watch on TikTok
           </a>
         )}

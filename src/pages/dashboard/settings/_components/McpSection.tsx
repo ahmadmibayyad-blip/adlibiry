@@ -25,7 +25,7 @@ function copy(text: string, label: string) {
 function CopyRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[11px] text-muted-foreground mb-1">{label}</div>
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
       <div className="flex gap-2">
         <code className="flex-1 min-w-0 truncate rounded-md border border-border bg-muted px-2 py-1.5 text-xs">{value}</code>
         <Button type="button" size="sm" variant="secondary" onClick={() => copy(value, label)}>
@@ -74,7 +74,7 @@ export default function McpSection() {
           <p className="text-xs font-medium">Your new key. Copy it now; it won't be shown again.</p>
           <CopyRow label="Connector URL (includes your key)" value={`${SERVER_URL}?key=${newKey}`} />
           <CopyRow label="Key only (for apps that ask for a Bearer token)" value={newKey} />
-          <div className="text-[11px] text-muted-foreground space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <p>
               <strong className="text-foreground">Claude (web or desktop):</strong> Settings → Connectors → Add custom connector,
               and paste the connector URL.
@@ -115,7 +115,7 @@ export default function McpSection() {
         </form>
       )}
 
-      <details className="mb-4 text-[11px] text-muted-foreground">
+      <details className="mb-4 text-xs text-muted-foreground">
         <summary className="cursor-pointer text-foreground font-medium">REST API reference</summary>
         <div className="mt-2 space-y-1.5">
           <p>

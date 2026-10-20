@@ -39,11 +39,11 @@ export default function SupplierCard({ supplier, onSelect }: { supplier: Supplie
           </div>
         </div>
         <div className="flex items-center justify-between mb-3">
-          <span className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1", saturation.color)}>
+          <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1", saturation.color)}>
             <Users className="w-3 h-3" />
             {saturation.label} saturation
           </span>
-          <span className="text-[11px] text-muted-foreground">{supplier.sellerCount} sellers</span>
+          <span className="text-xs text-muted-foreground">{supplier.sellerCount} sellers</span>
         </div>
         <button
           onClick={onSelect}

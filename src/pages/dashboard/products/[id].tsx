@@ -319,7 +319,7 @@ export default function ProductDetail() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl bg-foreground flex flex-col items-center justify-center shrink-0">
                 <span className="font-display text-2xl font-bold leading-none text-background">{product.aiScore}</span>
-                <span className="text-[11px] text-background/70 mt-0.5">of 100</span>
+                <span className="text-xs text-background/70 mt-0.5">of 100</span>
               </div>
               <div>
                 <div className="text-sm font-semibold mb-0.5">AdSpy score</div>

@@ -236,7 +236,7 @@ export default function CsvImportDialog({ open, onOpenChange }: { open: boolean;
                     <img src={r.imageUrl} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" loading="lazy" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-xs font-medium">{r.title}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {r.category}
                         {r.priceUsd !== undefined ? ` · $${r.priceUsd.toFixed(2)}` : ""}
                         {r.ads !== undefined ? ` · ${r.ads} ads` : ""}

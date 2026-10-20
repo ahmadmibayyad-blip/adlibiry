@@ -23,10 +23,10 @@ export default function StoreCatalog({ storeId }: { storeId: Id<"stores"> }) {
               <Link key={a._id} to={`/dashboard/ads/${a._id}`} className="group">
                 <div className="relative aspect-square rounded-md overflow-hidden bg-muted">
                   <ProductImage src={a.creativeUrl} alt="" className="w-full h-full object-cover" />
-                  <span className="absolute bottom-1 left-1 bg-black/65 text-white text-[11px] rounded px-1">{a.daysRunning}d</span>
+                  <span className="absolute bottom-1 left-1 bg-black/65 text-white text-xs rounded px-1">{a.daysRunning}d</span>
                   {a.platform === "TikTok" && <Play className="absolute top-1 right-1 w-3.5 h-3.5 text-white drop-shadow" />}
                 </div>
-                <div className="text-[11px] mt-1 line-clamp-1 group-hover:underline">{a.headline}</div>
+                <div className="text-xs mt-1 line-clamp-1 group-hover:underline">{a.headline}</div>
               </Link>
             ))}
           </div>
@@ -56,7 +56,7 @@ export default function StoreCatalog({ storeId }: { storeId: Id<"stores"> }) {
               </li>
             ))}
           </ul>
-          <p className="text-[11px] text-muted-foreground mt-2">Orders are estimated from how often each product changed in our daily checks.</p>
+          <p className="text-xs text-muted-foreground mt-2">Orders are estimated from how often each product changed in our daily checks.</p>
         </div>
       )}
     </div>

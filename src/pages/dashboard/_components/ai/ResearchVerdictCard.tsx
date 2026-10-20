@@ -120,7 +120,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
             <div className={cn("rounded-lg border p-3", CALL[report.call].style)}>
               <div className="font-semibold text-sm">{CALL[report.call].title}</div>
               <p className="text-sm text-foreground mt-1">{report.bottomLine}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">{CALL[report.call].note}</p>
+              <p className="text-xs text-muted-foreground mt-1">{CALL[report.call].note}</p>
             </div>
 
             {saved?.rulesVersion && rules ? (
@@ -130,7 +130,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                 {report.call === "skip" && (rules.cappedBy ?? rules.blockers[0]) && <p className="text-xs text-muted-foreground mt-1">Skipped: {rules.cappedBy ?? rules.blockers[0]}</p>}
               </Section>
             ) : (
-              <button type="button" onClick={run} disabled={busy} className="text-[11px] text-muted-foreground underline">
+              <button type="button" onClick={run} disabled={busy} className="text-xs text-muted-foreground underline">
                 Made with older rules · Refresh
               </button>
             )}
@@ -140,7 +140,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                 <ul className="space-y-1.5">
                   {report.reasons.map((r, i) => (
                     <li key={i} className="text-xs flex gap-2 items-start">
-                      <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium", LABEL[r.label].style)}>{LABEL[r.label].text}</span>
+                      <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-xs font-medium", LABEL[r.label].style)}>{LABEL[r.label].text}</span>
                       <span>{r.text}</span>
                     </li>
                   ))}
@@ -206,7 +206,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                 <ul className="space-y-1">
                   {report.risks.map((r, i) => (
                     <li key={i} className="text-xs flex gap-2 items-start">
-                      {r.blocker && <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium bg-bad/15 text-bad">blocker</span>}
+                      {r.blocker && <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium bg-bad/15 text-bad">blocker</span>}
                       <span>{r.text}</span>
                     </li>
                   ))}
@@ -246,7 +246,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
             </div>
 
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-[11px] text-muted-foreground">{saved?.createdAt ? `Researched ${new Date(saved.createdAt).toLocaleDateString()}. Prices, ads and reviews change: research again before you spend.` : ""}</span>
+              <span className="text-xs text-muted-foreground">{saved?.createdAt ? `Researched ${new Date(saved.createdAt).toLocaleDateString()}. Prices, ads and reviews change: research again before you spend.` : ""}</span>
               <Button size="sm" variant="secondary" onClick={run} disabled={busy}>
                 {busy ? <Spinner className="mr-1.5" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
                 {busy ? "Researching…" : "Research again"}

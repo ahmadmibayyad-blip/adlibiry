@@ -131,15 +131,12 @@ export default function Pricing() {
   const period: BillingPeriod = yearly ? "yearly" : "monthly";
   return (
     <section id="pricing" className="py-24">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Wide screens: the intro on the left, the two plans beside it, instead of two cards and an empty third. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,46rem)] lg:gap-12 lg:items-start">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="max-w-2xl mb-12"
+          className="max-w-2xl mb-12 lg:mb-0"
         >
-          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">Simple pricing</h2>
+          <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">Simple pricing</h2>
           <p className="text-muted-foreground text-lg">
             Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
             month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly. Try Pro's research tools free for 7 days, no card needed.
@@ -169,10 +166,6 @@ export default function Pricing() {
           {plans.map((plan, i) => (
             <motion.div
               key={plan.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
               className={cn(
                 "relative rounded-2xl border p-7 flex flex-col",
                 plan.popular ? "border-primary bg-gradient-to-b from-primary/10 to-card shadow-xl shadow-primary/10" : "border-border bg-card",
@@ -239,10 +232,7 @@ export default function Pricing() {
         </div>
 
         <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="text-center text-sm text-muted-foreground mt-8"
+          className="text-center text-sm text-muted-foreground mt-8 lg:col-span-2"
         >
           Pro renews automatically each month or year until you turn it off in Settings. Payments by Stripe.{" "}
           <Link to="/methodology" className="text-primary hover:underline">

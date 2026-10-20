@@ -129,7 +129,7 @@ export default function StoreSales({ storeId }: { storeId: Id<"stores"> }) {
             </div>
           )}
 
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             How we estimate: Shopify updates a product when its stock changes, so each product that changed since the last check counts as
             1–3 orders at its price. Edits by the store owner also count, so treat these as ranges.
           </p>

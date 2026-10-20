@@ -91,18 +91,15 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           alt={product.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
+        {/* Only the score and Save sit on the photo; the other tags go under the title. */}
+        <div className="absolute top-2 left-2">
           <div
             className={cn("flex items-baseline gap-1.5 rounded-lg px-2 py-1 shadow-sm", scoreTone(product.aiScore))}
             title="AdSpy score out of 100. The product page shows what it's based on."
           >
-            <span className="text-[11px] font-medium opacity-80">Score</span>
+            <span className="text-xs font-medium opacity-80">Score</span>
             <span className="text-sm font-bold leading-none tabular-nums">{product.aiScore}</span>
           </div>
-          {isNewToday && <div className="rounded-full px-2 py-0.5 text-[11px] font-semibold bg-brand text-[#15171c]">New</div>}
-          <Authenticated>
-            <ResearchCallBadge productId={product._id} className="px-2 py-0.5 text-[11px] bg-background/90 shadow-sm" />
-          </Authenticated>
         </div>
         <div className="absolute top-2 right-2">
           <Authenticated>
@@ -112,7 +109,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
         {product.trend !== "Unknown" && (
           <div className="absolute bottom-2 left-2 hidden sm:flex items-center gap-1 bg-background/90 backdrop-blur-sm rounded-full px-2 py-0.5">
             <TrendingUp className={cn("w-3 h-3", trendColors[product.trend])} />
-            <span className={cn("text-[11px] font-medium", trendColors[product.trend])}>{product.trend}</span>
+            <span className={cn("text-xs font-medium", trendColors[product.trend])}>{product.trend}</span>
           </div>
         )}
       </div>
@@ -123,14 +120,14 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           <h3 className="font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
             {product.title}
           </h3>
-          <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate">{product.category}</div>
+          <div className="text-xs sm:text-xs text-muted-foreground mt-0.5 truncate">{product.category}</div>
         </div>
 
-        {(product.winnerRank !== undefined || ads > 0) && (
-          <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 empty:hidden">
+            {isNewToday && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand text-[#15171c]">New</span>}
             {product.verifiedWinner && (
               <span
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-good/15 text-good"
+                className="text-xs font-semibold px-2 py-0.5 rounded-full bg-good/15 text-good"
                 title="Verified winner: the ad registry, ad engagement and marketplace sales all point the same way, with a known margin and low competition."
               >
                 ⭐ Verified
@@ -138,22 +135,24 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
             )}
             {product.winnerRank !== undefined && (
               <span
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary"
+                className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary"
                 title={`Winning product: #${product.winnerRank} in ${product.category}`}
               >
                 #{product.winnerRank} in {product.category}
               </span>
             )}
             {ads > 0 && (
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-brand/15 text-brand-ink">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brand/15 text-brand-ink">
                 {ads} ad{ads === 1 ? "" : "s"}
               </span>
             )}
-          </div>
-        )}
+            <Authenticated>
+              <ResearchCallBadge productId={product._id} className="px-2 py-0.5 text-xs" />
+            </Authenticated>
+        </div>
 
         {revenue && (
-          <div className="text-[11px] text-muted-foreground" title="Estimated revenue per month (see the product page for how)">
+          <div className="text-xs text-muted-foreground" title="Estimated revenue per month (see the product page for how)">
             <span className="font-semibold text-foreground">{revenue.label}</span>/mo est. revenue
             {revenue.confidence && <span> · {revenue.confidence} confidence</span>}
           </div>
@@ -164,11 +163,11 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
               <div className="flex items-baseline gap-1">
                 <span className="text-base font-bold tabular-nums">{price(product.price!)}</span>
                 {product.priceSource === "estimated_market" && (
-                  <span className="text-[11px] text-muted-foreground">est.</span>
+                  <span className="text-xs text-muted-foreground">est.</span>
                 )}
               </div>
               {product.priceSource === "landing_page" && product.originalPrice && !product.originalPrice.startsWith("USD") && (
-                <div className="text-[11px] text-muted-foreground truncate">{product.originalPrice} in store</div>
+                <div className="text-xs text-muted-foreground truncate">{product.originalPrice} in store</div>
               )}
             </div>
           ) : product.originalPrice ? (
@@ -179,11 +178,11 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
           {margin !== null && (
             <div className="text-right shrink-0">
               <div className="text-sm font-bold text-good tabular-nums">{margin}%</div>
-              <div className="text-[11px] text-muted-foreground">margin</div>
+              <div className="text-xs text-muted-foreground">margin</div>
             </div>
           )}
           {margin === null && product.saturation !== "Unknown" && (
-            <span className={cn("hidden sm:inline text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0", saturationColors[product.saturation] ?? "text-muted-foreground bg-muted")}>
+            <span className={cn("hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full shrink-0", saturationColors[product.saturation] ?? "text-muted-foreground bg-muted")}>
               {product.saturation} saturation
             </span>
           )}

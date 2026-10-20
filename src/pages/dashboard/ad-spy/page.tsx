@@ -391,7 +391,7 @@ export default function AdSpyPage() {
             <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAdvanced && "rotate-180")} />
           </button>
         </div>
-        {preset && <p className="text-[11px] text-muted-foreground -mt-1">{preset.label}: {preset.hint}.</p>}
+        {preset && <p className="text-xs text-muted-foreground -mt-1">{preset.label}: {preset.hint}.</p>}
 
         {showAdvanced && (
         <>

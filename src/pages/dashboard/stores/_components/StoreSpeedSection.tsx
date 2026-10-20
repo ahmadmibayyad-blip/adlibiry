@@ -92,7 +92,7 @@ export default function StoreSpeedSection({ host }: { host: string }) {
           ) : null}
         </div>
       ) : null}
-      {theirs ? <p className="text-[11px] text-muted-foreground">Score 90+ is good, 50–89 needs work, under 50 is slow. "Real visitors" is what Chrome users actually got, when Google has enough of them.</p> : null}
+      {theirs ? <p className="text-xs text-muted-foreground">Score 90+ is good, 50–89 needs work, under 50 is slow. "Real visitors" is what Chrome users actually got, when Google has enough of them.</p> : null}
     </section>
   );
 }

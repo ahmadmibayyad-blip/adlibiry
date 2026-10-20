@@ -114,7 +114,7 @@ function AddButton({ product, dialogOnly, open: openProp, onOpenChange }: Props)
               <FileDown className="w-4 h-4 mr-2" />
               Download Shopify CSV instead
             </Button>
-            <p className="text-[11px] text-muted-foreground mt-1.5">Shopify admin → Products → Import → choose this file.</p>
+            <p className="text-xs text-muted-foreground mt-1.5">Shopify admin → Products → Import → choose this file.</p>
           </div>
         </DialogContent>
       </Dialog>

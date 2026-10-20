@@ -62,7 +62,7 @@ function TierRow({ tier, currency }: { tier: BundleTier; currency?: string }) {
         <div className="font-medium flex flex-wrap items-center gap-1.5">
           {tier.title}
           {tier.badge ? <Badge variant="secondary">{tier.badge}</Badge> : null}
-          {tier.preselected ? <span className="text-[11px] text-muted-foreground">(selected by default)</span> : null}
+          {tier.preselected ? <span className="text-xs text-muted-foreground">(selected by default)</span> : null}
         </div>
         {tier.subtitle || tier.label ? <div className="text-xs text-muted-foreground">{[tier.subtitle, tier.label].filter(Boolean).join(" · ")}</div> : null}
       </TableCell>
@@ -70,7 +70,7 @@ function TierRow({ tier, currency }: { tier: BundleTier; currency?: string }) {
       <TableCell className="align-top whitespace-normal">
         {dealText(tier.deal, currency)}
         {tier.percentOff !== undefined && tier.deal.kind !== "percent" ? (
-          <div className="text-[11px] text-muted-foreground" title="Our arithmetic: the tier's price vs. that many units at the single price">
+          <div className="text-xs text-muted-foreground" title="Our arithmetic: the tier's price vs. that many units at the single price">
             ≈ {Math.round(tier.percentOff)}% off by our math
           </div>
         ) : null}
@@ -208,7 +208,7 @@ export default function StoreTeardown({ teardown: t, host }: { teardown: Teardow
                   <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     {f.label}
-                    {f.evidence ? <div className="text-[11px] text-muted-foreground line-clamp-1 break-all">“{f.evidence}”</div> : null}
+                    {f.evidence ? <div className="text-xs text-muted-foreground line-clamp-1 break-all">“{f.evidence}”</div> : null}
                   </div>
                 </li>
               ))}
@@ -231,10 +231,10 @@ export default function StoreTeardown({ teardown: t, host }: { teardown: Teardow
           ) : (
             <p className="text-sm text-muted-foreground">The page's sections couldn't be read (page builders often hide them).</p>
           )}
-          <p className="text-[11px] text-muted-foreground mt-2">From the theme's section names; header and footer left out.</p>
+          <p className="text-xs text-muted-foreground mt-2">From the theme's section names; header and footer left out.</p>
         </div>
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Everything here is what the page shows from its HTML and product data, without a browser. Ratings, counts and urgency are the store's claims, not checked by us.
       </p>
     </section>

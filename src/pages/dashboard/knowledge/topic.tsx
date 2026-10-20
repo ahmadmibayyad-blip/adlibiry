@@ -52,7 +52,7 @@ export default function KnowledgeTopic() {
               <Icon className="w-4 h-4" />
             </span>
             <div className="min-w-0">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{topic.stage}</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">{topic.stage}</div>
               <div className="font-semibold leading-tight">{topic.name}</div>
             </div>
           </div>

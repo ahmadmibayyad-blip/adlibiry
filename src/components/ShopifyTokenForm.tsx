@@ -62,7 +62,7 @@ export default function ShopifyTokenForm({ shopDomain, onDone, submitLabel = "Co
         {busy && <Spinner />}
         {submitLabel}
       </Button>
-      <p className="text-[11px] text-muted-foreground">The token is stored on our server and only used to create products, pages and themes in your store. Disconnect any time.</p>
+      <p className="text-xs text-muted-foreground">The token is stored on our server and only used to create products, pages and themes in your store. Disconnect any time.</p>
     </div>
   );
 }

@@ -69,7 +69,7 @@ export default function SameCreative({ adId, compact = false }: { adId: Id<"ads"
         </ul>
       )}
       {compact && result.ads.length > 5 && (
-        <p className="text-[11px] text-muted-foreground">Open the ad page to see all {result.total}.</p>
+        <p className="text-xs text-muted-foreground">Open the ad page to see all {result.total}.</p>
       )}
     </div>
   );

@@ -361,7 +361,7 @@ export default function WinnersPage() {
             {summary && summary.perNiche.length === 0 && <p className="text-xs text-muted-foreground">No category has a qualifying product yet.</p>}
           </div>
           {summary?.roundDay && (
-            <p className="text-[11px] text-muted-foreground mt-4">
+            <p className="text-xs text-muted-foreground mt-4">
               Mixed {day(summary.roundDay)} · next mix {day(summary.nextRoundDay)}
             </p>
           )}

@@ -87,10 +87,6 @@ export default function Features() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
           className="max-w-2xl mb-12"
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">
@@ -108,10 +104,6 @@ export default function Features() {
             return (
               <motion.div
                 key={feat.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: (i % 4) * 0.07 }}
                 className={`${!showAll && i >= FIRST_ON_PHONES ? "hidden sm:block " : ""}relative group rounded-2xl border border-border bg-gradient-to-br ${feat.gradient} p-6 hover:border-primary/30 transition-all duration-300 cursor-default`}
               >
                 <div

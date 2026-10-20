@@ -24,7 +24,7 @@ export default function ScoreBreakdown({ product }: { product: Doc<"products"> }
           </div>
         </div>
       ))}
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         The parts are combined, then ranked against every product: a score of 70 beats about 80% of the catalog, 85 the top 5%.
       </p>
     </div>

@@ -10,10 +10,6 @@ export default function FinalCTA() {
     <section className="py-24 relative overflow-hidden">
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7 }}
           className="bg-card border border-border rounded-3xl p-12 md:p-16"
         >
           <LogoMark size={36} className="mx-auto mb-6" />

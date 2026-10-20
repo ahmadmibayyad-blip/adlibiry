@@ -285,7 +285,7 @@ export default function AdDetailPage() {
               <ComparisonRow label="Views" {...comparison.views} format={compactNumber} />
               <ComparisonRow label="Engagement rate" {...comparison.engagement} format={pct} />
               <ComparisonRow label="Days running" {...comparison.daysRunning} format={(n) => `${Math.round(n)} d`} />
-              <p className={cn("text-[11px] text-muted-foreground")}>Bar = this ad. Tick = category median.</p>
+              <p className={cn("text-xs text-muted-foreground")}>Bar = this ad. Tick = category median.</p>
             </div>
           )}
         </div>

@@ -88,7 +88,7 @@ export default function ProCheckoutDialog({
             >
               <div className="text-xs text-muted-foreground capitalize">{p}</div>
               <div className="font-bold">{price}</div>
-              <div className="text-[11px] text-muted-foreground">{note}</div>
+              <div className="text-xs text-muted-foreground">{note}</div>
             </button>
           ))}
         </div>
@@ -163,7 +163,7 @@ function PayForm({ period, autoRenew, onDone }: { period: BillingPeriod; autoRen
         Pay €{proCharge(period)}
         {period === "yearly" ? " for a year" : " for a month"}
       </Button>
-      <p className="text-[11px] text-muted-foreground text-center">Payments are processed securely by Stripe.</p>
+      <p className="text-xs text-muted-foreground text-center">Payments are processed securely by Stripe.</p>
     </form>
   );
 }

@@ -86,7 +86,7 @@ const when = (iso: string) =>
 function StatusBadge({ l }: { l: LaunchRow }) {
   if (l.status === "published" && l.mode === "store" && l.themeLive) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-good/10 text-good px-2 py-0.5 text-[11px] font-semibold">
+      <span className="inline-flex items-center gap-1 rounded-full bg-good/10 text-good px-2 py-0.5 text-xs font-semibold">
         <CircleCheck className="w-3 h-3" /> Live store
       </span>
     );
@@ -100,7 +100,7 @@ function StatusBadge({ l }: { l: LaunchRow }) {
           : "Live product"
       : STATUS[l.status] ?? l.status;
   const tone = l.status === "failed" ? "bg-bad/10 text-bad" : l.status === "published" ? "bg-muted text-foreground" : "bg-primary/10 text-primary";
-  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", tone)}>{label}</span>;
+  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", tone)}>{label}</span>;
 }
 
 function Row({

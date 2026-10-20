@@ -54,21 +54,21 @@ export default function StoreCompareModal({
                       <DollarSign className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div>
                         <div className="font-semibold">{storeRevenueLabel(store) ?? "Tracking"}</div>
-                        <div className="text-[11px] text-muted-foreground">Est. revenue</div>
+                        <div className="text-xs text-muted-foreground">Est. revenue</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div>
                         <div className="font-semibold">{store.trafficRange}</div>
-                        <div className="text-[11px] text-muted-foreground">Traffic</div>
+                        <div className="text-xs text-muted-foreground">Traffic</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Megaphone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <div>
                         <div className="font-semibold">{store.activeAdsCount}</div>
-                        <div className="text-[11px] text-muted-foreground">Active ads</div>
+                        <div className="text-xs text-muted-foreground">Active ads</div>
                       </div>
                     </div>
                     {store.isHighTraffic && (
@@ -80,7 +80,7 @@ export default function StoreCompareModal({
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-border">
-                    <div className="text-[11px] font-medium text-muted-foreground mb-1.5">Top seller</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1.5">Top seller</div>
                     <div className="text-xs font-medium line-clamp-2">{store.bestSellers[0]?.title ?? "—"}</div>
                   </div>
                 </div>

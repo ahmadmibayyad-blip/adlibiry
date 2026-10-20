@@ -39,7 +39,7 @@ function HookCard({ h, rank }: { h: Hook; rank: number }) {
       </div>
       {h.type && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{h.type}</span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{h.type}</span>
           {h.why && <span className="text-xs text-muted-foreground">{h.why}</span>}
         </div>
       )}
@@ -68,7 +68,7 @@ function HookCard({ h, rank }: { h: Hook; rank: number }) {
           )}
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold truncate">{h.ad.advertiserName}</div>
-            <div className="text-[11px] text-muted-foreground">{h.ad.platform}</div>
+            <div className="text-xs text-muted-foreground">{h.ad.platform}</div>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums shrink-0">
             {views > 0 && (

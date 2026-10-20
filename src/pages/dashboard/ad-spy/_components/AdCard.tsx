@@ -127,7 +127,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
         )}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-semibold truncate">{ad.advertiserName}</div>
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className={cn("px-1.5 rounded", platformStyle[ad.platform] ?? "bg-muted")}>{ad.platform}</span>
             {ad.isActive !== undefined && (
               <span className="flex items-center gap-1">
@@ -217,28 +217,28 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
           </div>
         )}
         <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-          <span className="flex items-center gap-1 bg-black/65 text-white text-[11px] font-medium rounded-md px-1.5 py-0.5">
+          <span className="flex items-center gap-1 bg-black/65 text-white text-xs font-medium rounded-md px-1.5 py-0.5">
             <Calendar className="w-3 h-3" />
             {ad.daysRunning > 0 ? `${ad.daysRunning}d` : "New"}
           </span>
           <AdStageBadge ad={ad} />
           {(ad.relatedAdsCount ?? 0) > 1 && (
-            <span className="flex items-center gap-1 bg-primary/90 text-primary-foreground text-[11px] font-semibold rounded-md px-1.5 py-0.5" title="Ad copies running with this creative — a scaling signal">
+            <span className="flex items-center gap-1 bg-primary/90 text-primary-foreground text-xs font-semibold rounded-md px-1.5 py-0.5" title="Ad copies running with this creative — a scaling signal">
               <Copy className="w-3 h-3" />×{ad.relatedAdsCount}
             </span>
           )}
           {ad.mediaType === "carousel" && (
-            <span className="flex items-center gap-1 bg-black/65 text-white text-[11px] rounded-md px-1.5 py-0.5">
+            <span className="flex items-center gap-1 bg-black/65 text-white text-xs rounded-md px-1.5 py-0.5">
               <Layers className="w-3 h-3" />
             </span>
           )}
         </div>
         <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/65 rounded-md px-1.5 py-0.5" title="Ad score">
           <Zap className="w-3 h-3 text-primary" />
-          <span className={cn("text-[11px] font-bold", scoreColor(ad.aiScore))}>{ad.aiScore}</span>
+          <span className={cn("text-xs font-bold", scoreColor(ad.aiScore))}>{ad.aiScore}</span>
         </div>
         {spend && (
-          <div className="absolute bottom-2 left-2 bg-black/65 text-white text-[11px] font-semibold rounded-md px-1.5 py-0.5" title={spendInfo?.note ? `Estimated ad spend: ${spendInfo.note}` : "Estimated ad spend"}>
+          <div className="absolute bottom-2 left-2 bg-black/65 text-white text-xs font-semibold rounded-md px-1.5 py-0.5" title={spendInfo?.note ? `Estimated ad spend: ${spendInfo.note}` : "Estimated ad spend"}>
             {spend}
           </div>
         )}
@@ -253,7 +253,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
               <span
                 key={o.label}
                 title={`The ad says: “${o.match}”`}
-                className="inline-flex items-center gap-1 max-w-full truncate rounded-md border border-primary/30 bg-primary/10 text-primary text-[11px] font-medium px-1.5 py-0.5"
+                className="inline-flex items-center gap-1 max-w-full truncate rounded-md border border-primary/30 bg-primary/10 text-primary text-xs font-medium px-1.5 py-0.5"
               >
                 <Tag className="w-2.5 h-2.5 shrink-0" />
                 {o.label}
@@ -272,7 +272,7 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2.5 mt-auto text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5 mt-auto text-xs text-muted-foreground">
         <div className="flex items-center gap-1 min-w-0">
           <span title="First seen">{shortDate(ad.firstSeenAt)}</span>
           {countries.length > 0 && (

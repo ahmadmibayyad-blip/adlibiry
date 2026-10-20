@@ -109,7 +109,7 @@ function Result({ label, value, hint, tone }: { label: string; value: string; hi
       <div className={cn("text-2xl font-bold tabular-nums mt-0.5", tone === "good" && "text-good", tone === "bad" && "text-bad", tone === "primary" && "text-primary")}>
         {value}
       </div>
-      {hint && <div className="text-[11px] text-muted-foreground mt-0.5">{hint}</div>}
+      {hint && <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   );
 }

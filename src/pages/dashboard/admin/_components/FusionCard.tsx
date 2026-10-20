@@ -38,17 +38,17 @@ export default function FusionCard() {
       </p>
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="bg-muted/60 rounded-lg px-3 py-2">
-          <div className="text-[11px] text-muted-foreground">Triggered spend today</div>
+          <div className="text-xs text-muted-foreground">Triggered spend today</div>
           <div className="text-lg font-semibold tabular-nums">${data.spentToday.toFixed(2)}</div>
         </div>
         <div className="bg-muted/60 rounded-lg px-3 py-2">
-          <div className="text-[11px] text-muted-foreground">Verified winners</div>
+          <div className="text-xs text-muted-foreground">Verified winners</div>
           <div className="text-lg font-semibold tabular-nums">
             {data.verified} <span className="text-xs text-muted-foreground font-normal">of {data.winners}</span>
           </div>
         </div>
         <div className="bg-muted/60 rounded-lg px-3 py-2">
-          <div className="text-[11px] text-muted-foreground">Winners with 2+ sources</div>
+          <div className="text-xs text-muted-foreground">Winners with 2+ sources</div>
           <div className="text-lg font-semibold tabular-nums">{data.multiSource}</div>
         </div>
       </div>
