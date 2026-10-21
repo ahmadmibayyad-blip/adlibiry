@@ -85,3 +85,19 @@ export async function chargeSavedCard(
     c.idempotencyKey,
   );
 }
+
+// A one-off payment the customer completes in the browser (Stripe Elements), e.g. extra AI-video seconds.
+// No redirect methods: there is no return page, so card and wallets only.
+export async function createPaymentIntent(
+  key: string,
+  p: { amount: number; currency: string; meta: Params; idempotencyKey: string },
+): Promise<{ id: string; client_secret: string }> {
+  const metadata: Params = {};
+  for (const [k, v] of Object.entries(p.meta)) metadata[`metadata[${k}]`] = v;
+  return await post<{ id: string; client_secret: string }>(
+    key,
+    "payment_intents",
+    { amount: p.amount, currency: p.currency, "automatic_payment_methods[enabled]": true, "automatic_payment_methods[allow_redirects]": "never", ...metadata },
+    p.idempotencyKey,
+  );
+}
