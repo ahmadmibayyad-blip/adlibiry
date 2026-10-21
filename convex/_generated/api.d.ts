@@ -133,6 +133,7 @@ import type * as profit from "../profit.js";
 import type * as publicApi from "../publicApi.js";
 import type * as pushIdentities from "../pushIdentities.js";
 import type * as pushNotifications from "../pushNotifications.js";
+import type * as remake from "../remake.js";
 import type * as research from "../research.js";
 import type * as researchReports from "../researchReports.js";
 import type * as revenueTruth from "../revenueTruth.js";
@@ -302,6 +303,7 @@ declare const fullApi: ApiFromModules<{
   publicApi: typeof publicApi;
   pushIdentities: typeof pushIdentities;
   pushNotifications: typeof pushNotifications;
+  remake: typeof remake;
   research: typeof research;
   researchReports: typeof researchReports;
   revenueTruth: typeof revenueTruth;

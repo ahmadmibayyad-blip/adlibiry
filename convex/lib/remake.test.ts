@@ -5,6 +5,7 @@ import {
   estimateSeconds,
   monthStart,
   mp3Seconds,
+  photoProblem,
   planShots,
   productPrompt,
   remakePack,
@@ -91,6 +92,15 @@ describe("remake rules", () => {
     expect(remakePack({})).toEqual({ seconds: 30, cents: 900 });
     expect(remakePack({ REMAKE_PACK_SECONDS: "60", REMAKE_PACK_CENTS: "1500" })).toEqual({ seconds: 60, cents: 1500 });
     expect(remakePack({ REMAKE_PACK_CENTS: "-1" })).toEqual({ seconds: 30, cents: 900 });
+  });
+
+  it("takes only small photos", () => {
+    const bad = "Upload a JPG, PNG or WebP photo under 8 MB.";
+    expect(photoProblem({ size: 1000, contentType: "image/webp" })).toBeNull();
+    expect(photoProblem({ size: 1000 })).toBeNull();
+    expect(photoProblem({ size: 1000, contentType: "application/pdf" })).toBe(bad);
+    expect(photoProblem({ size: 9 * 1024 * 1024, contentType: "image/png" })).toBe(bad);
+    expect(photoProblem(null)).toBe(bad);
   });
 
   it("lays segments end to end", () => {

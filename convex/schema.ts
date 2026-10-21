@@ -763,6 +763,39 @@ export default defineSchema({
     finishedAt: v.optional(v.number()),
   }).index("by_ad", ["adId"]),
   analyzeRuns: defineTable({ userId: v.id("users"), at: v.number() }).index("by_user", ["userId", "at"]).index("by_at", ["at"]),
+  // Remake this winner (remake.ts): one AI video per row, voicing → rendering → composing → done | failed. Charged its estimated
+  // seconds at start (this month's first, then bought); failed rows don't count. Bought extra seconds: remakeTopUps (remakeTopUp.ts).
+  remakes: defineTable({
+    userId: v.id("users"),
+    adId: v.id("ads"),
+    status: v.string(),
+    actorId: v.string(),
+    voiceId: v.string(),
+    product: v.string(),
+    productImageId: v.id("_storage"),
+    segments: v.any(), // lib/remake.ts Segment[]
+    seconds: v.number(), // estimated, then the real length once voiced
+    monthlySeconds: v.number(),
+    extraSeconds: v.number(),
+    composeJob: v.optional(v.any()),
+    videoId: v.optional(v.id("_storage")),
+    error: v.optional(v.string()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId", "startedAt"])
+    .index("by_user_ad", ["userId", "adId", "startedAt"])
+    .index("by_started", ["startedAt"]),
+  remakeTopUps: defineTable({
+    paymentIntentId: v.string(),
+    userId: v.id("users"),
+    seconds: v.number(),
+    amount: v.number(),
+    currency: v.string(),
+    at: v.number(),
+  })
+    .index("by_payment_intent", ["paymentIntentId"])
+    .index("by_user", ["userId"]),
   // PageSpeed results per store (storeSpeed.ts), and YouTube searches per day (youtube.ts).
   storeSpeeds: defineTable({ host: v.string(), result: v.any(), at: v.number() }).index("by_host", ["host"]),
   youtubeUsage: defineTable({ day: v.string(), count: v.number() }).index("by_day", ["day"]),

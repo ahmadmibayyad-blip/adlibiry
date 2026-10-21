@@ -21,6 +21,8 @@ export const REMAKE_ACTORS: { id: string; name: string; gender: "female" | "male
 ];
 
 export const MAX_LINES = 12;
+export const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export const MAX_SECONDS = 45;
 export const MAX_PRODUCT_SHOTS = 2;
 export const STALE_MS = 20 * 60_000;
@@ -139,4 +141,12 @@ export function composeTracks(segments: Segment[], keepVideoAudio: boolean): Tra
     at += duration;
   }
   return [video, voice];
+}
+
+/** Why an uploaded product photo can't be used (its _storage record), or null. A file without a recorded type is let through. */
+export function photoProblem(meta: { size: number; contentType?: string } | null): string | null {
+  if (!meta || meta.size > MAX_PHOTO_BYTES || (meta.contentType !== undefined && !PHOTO_TYPES.has(meta.contentType))) {
+    return "Upload a JPG, PNG or WebP photo under 8 MB.";
+  }
+  return null;
 }
