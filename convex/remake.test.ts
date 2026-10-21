@@ -189,7 +189,7 @@ describe("remake.latestForAd", () => {
 });
 
 // Fake ElevenLabs + fal + fal's file host. Each fal job gets its own links; compose answers video_url.
-function stubServices(opts: { submitStatus?: number; audioBytes?: number; flakyStatus?: number; failSecondSubmit?: number } = {}) {
+function stubServices(opts: { submitStatus?: number; audioBytes?: number; flakyStatus?: number; failSecondSubmit?: number; clipSeconds?: number } = {}) {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }); // only the test drives advance
   vi.stubEnv("ELEVENLABS_API_KEY", "el-test");
   const posts: { model: string; body: unknown }[] = [];
@@ -225,7 +225,7 @@ function stubServices(opts: { submitStatus?: number; audioBytes?: number; flakyS
         }
         return json({ status: "COMPLETED" });
       }
-      if (url.includes("/jobs/")) return json(url.includes("compose") ? { video_url: "https://fal.media/final.mp4" } : { video: { url: `https://fal.media/${url.split("/").pop()}.mp4` } });
+      if (url.includes("/jobs/")) return json(url.includes("compose") ? { video_url: "https://fal.media/final.mp4" } : { video: { url: `https://fal.media/${url.split("/").pop()}.mp4` }, ...(opts.clipSeconds ? { duration: opts.clipSeconds } : {}) });
       return json({}, 404);
     }),
   );
@@ -268,7 +268,7 @@ describe("remake.advance", () => {
 
   it("voices, renders and composes the video", async () => {
     const { t, me, adId, args } = await setup();
-    const posts = stubServices();
+    const posts = stubServices({ clipSeconds: 2.6 });
     const remakeId = await me.mutation(api.remake.start, args);
     await drive(t, remakeId, 1);
     expect(posts.calls.eleven).toBe(1); // one line per step, so a step can't outlast Convex's time limit
@@ -282,13 +282,15 @@ describe("remake.advance", () => {
       "fal-ai/bytedance/omnihuman/v1.5",
       "fal-ai/ffmpeg-api/compose",
     ]);
-    expect(posts[1].body).toMatchObject({ resolution: "720p" });
+    expect(posts[1].body).toMatchObject({ resolution: "1080p", prompt: expect.stringMatching(/talking straight to the phone camera/) });
     expect((posts[1].body as { image_url: string }).image_url).toMatch(/\/actors\/maya\.jpg$/);
-    expect(posts[0].body).toMatchObject({ duration: "3", resolution: "720p", aspect_ratio: "9:16" });
+    expect(posts[0].body).toMatchObject({ duration: "3", resolution: "1080p", aspect_ratio: "9:16" });
     const tracks = (posts[2].body as { tracks: { type: string; keyframes: { timestamp: number; duration: number }[] }[] }).tracks;
-    expect(tracks[0].keyframes.map((k) => [k.timestamp, k.duration])).toEqual([[0, 2500], [2500, 2500]]);
+    // The actor clip is cut to fal's real length (2.6 s), not the MP3's estimated 2.5 s; its voice too.
+    expect(tracks[0].keyframes.map((k) => [k.timestamp, k.duration])).toEqual([[0, 2600], [2600, 2500]]);
+    expect(tracks[1].keyframes.map((k) => [k.timestamp, k.duration])).toEqual([[0, 2600], [2600, 2500]]);
     const latest = await me.query(api.remake.latestForAd, { adId });
-    expect(latest).toMatchObject({ status: "done", error: null });
+    expect(latest).toMatchObject({ status: "done", error: null, redoId: remakeId });
     expect(latest?.videoUrl).toBeTruthy();
   });
 
@@ -323,5 +325,59 @@ describe("remake.advance", () => {
     const remakeId = (await t.run((ctx) => ctx.db.query("remakes").first()))!._id;
     await t.action(internal.remake.advance, { remakeId });
     expect(posts).toHaveLength(0);
+  });
+});
+
+describe("remake.redo", () => {
+  async function made() {
+    const ctx = await setup();
+    const posts = stubServices();
+    const remakeId = await ctx.me.mutation(api.remake.start, ctx.args);
+    await drive(ctx.t, remakeId, 4);
+    posts.length = 0;
+    posts.calls.eleven = 0;
+    return { ...ctx, posts, remakeId };
+  }
+
+  it("makes a finished video again once, free, with the recorded voice", async () => {
+    const { t, me, adId, posts, remakeId } = await made();
+    const again = await me.mutation(api.remake.redo, { remakeId, actorId: "liam" });
+    expect(await t.run((ctx) => ctx.db.get("remakes", again))).toMatchObject({
+      status: "voicing", actorId: "liam", redoOf: remakeId, monthlySeconds: 0, extraSeconds: 0, freeSeconds: 5,
+    });
+    expect(await me.query(api.remake.allowance, {})).toMatchObject({ used: 5 }); // only the first video's seconds
+    await drive(t, again, 4);
+    expect(await t.run((ctx) => ctx.db.get("remakes", again))).toMatchObject({ status: "done" });
+    expect(posts.calls.eleven).toBe(0);
+    expect((posts[1].body as { image_url: string }).image_url).toMatch(/\/actors\/liam\.jpg$/);
+    expect(await me.query(api.remake.latestForAd, { adId })).toMatchObject({ redoId: null });
+    expect(await errorOf(me.mutation(api.remake.redo, { remakeId }))).toMatchObject({ code: "LIMIT" });
+    expect(await errorOf(me.mutation(api.remake.redo, { remakeId: again }))).toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("records the lines again for another voice", async () => {
+    const { t, me, posts, remakeId } = await made();
+    const again = await me.mutation(api.remake.redo, { remakeId, voiceId: "TxGEqnHWrfWFTfGW9XjX" });
+    await drive(t, again, 2);
+    expect(posts.calls.eleven).toBe(2);
+  });
+
+  it("can be tried again when the free redo fails", async () => {
+    const { t, me, adId, remakeId } = await made();
+    const again = await me.mutation(api.remake.redo, { remakeId });
+    await t.run((ctx) => ctx.db.patch("remakes", again, { status: "failed", error: "x" }));
+    expect(await me.query(api.remake.latestForAd, { adId })).toMatchObject({ status: "failed", redoId: remakeId });
+    await expect(me.mutation(api.remake.redo, { remakeId })).resolves.toBeTruthy();
+  });
+
+  it("is only for the owner's finished videos", async () => {
+    const { t, me, adId, photoId, args } = await setup();
+    stubServices();
+    const running = await me.mutation(api.remake.start, args);
+    expect(await errorOf(me.mutation(api.remake.redo, { remakeId: running }))).toMatchObject({ code: "BAD_REQUEST" });
+    const other = await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u2", role: "user", ...PRO }));
+    await pastRemake(t, other, adId, photoId, {});
+    const theirs = (await t.run((ctx) => ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", other)).first()))!._id;
+    expect(await errorOf(me.mutation(api.remake.redo, { remakeId: theirs }))).toMatchObject({ code: "NOT_FOUND" });
   });
 });

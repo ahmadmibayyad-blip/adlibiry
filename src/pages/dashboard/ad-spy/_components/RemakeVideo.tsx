@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Clapperboard, Download, ImagePlus, Loader2, Sparkles } from "lucide-react";
+import { Clapperboard, Download, ImagePlus, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
@@ -28,6 +28,7 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
   const allowance = useQuery(api.remake.allowance, {});
   const latest = useQuery(api.remake.latestForAd, { adId });
   const start = useMutation(api.remake.start);
+  const redo = useMutation(api.remake.redo);
   const uploadUrl = useMutation(api.remake.uploadUrl);
   const loadVoices = useAction(api.voiceover.voices);
   const [actorId, setActorId] = useState("");
@@ -87,6 +88,26 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
     }
   };
 
+  // Free "Make it again": the actor and voice picked below if any, else the video's own.
+  const makeAgain = async () => {
+    if (!latest?.redoId || busy) return;
+    setBusy(true);
+    try {
+      await redo({ remakeId: latest.redoId, actorId: actorId || undefined, voiceId: voiceId || undefined });
+      setDismissed(null);
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't start the video."));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const againButton = latest?.redoId && (
+    <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={makeAgain} disabled={busy}>
+      {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
+      Make it again free
+    </Button>
+  );
+
   const active = latest && PROGRESS[latest.status];
   const left = allowance.limit === null ? null : Math.max(0, allowance.limit - allowance.used);
 
@@ -129,7 +150,11 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
                     Download MP4
                   </a>
                 </Button>
+                {againButton}
               </div>
+              {latest.redoId && (
+                <p className="text-xs text-muted-foreground mt-1.5">Not happy with it? Make it again once for free, with the same script. Pick another actor or voice below first if you like.</p>
+              )}
               <p className="text-xs text-muted-foreground mt-1.5">Made with AI. Mark it as AI-generated when you run it as an ad.</p>
             </div>
           )}
@@ -137,9 +162,11 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
           {latest?.status === "failed" && latest._id !== dismissed && (
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <p className="text-sm text-destructive">{latest.error}</p>
-              <Button variant="outline" size="sm" className="h-8" onClick={() => setDismissed(latest._id)}>
-                Try again
-              </Button>
+              {againButton || (
+                <Button variant="outline" size="sm" className="h-8" onClick={() => setDismissed(latest._id)}>
+                  Try again
+                </Button>
+              )}
             </div>
           )}
 

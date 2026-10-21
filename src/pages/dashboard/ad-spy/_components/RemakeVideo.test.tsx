@@ -6,15 +6,16 @@ import type { Variant } from "@/convex/lib/videoAnalysis.ts";
 import RemakeVideo from "./RemakeVideo.tsx";
 
 type Allowance = { limit: number | null; used: number; extra: number; canBuy: boolean; pack: { seconds: number; cents: number } } | null;
-type Latest = { _id: string; status: string; error: string | null; videoUrl: string | null; seconds: number } | null;
+type Latest = { _id: string; status: string; error: string | null; videoUrl: string | null; seconds: number; redoId?: string | null } | null;
 
 const state: { allowance: Allowance; latest: Latest } = { allowance: null, latest: null };
 const start = vi.fn(async (_: unknown) => "r1");
 const uploadUrl = vi.fn(async () => "https://upload.example/u");
+const redo = vi.fn(async (_: unknown) => "r2");
 
 vi.mock("convex/react", () => ({
   useQuery: (ref: unknown) => (getFunctionName(ref as never) === "remake:allowance" ? state.allowance : state.latest),
-  useMutation: (ref: unknown) => (getFunctionName(ref as never) === "remake:start" ? start : uploadUrl),
+  useMutation: (ref: unknown) => ({ "remake:start": start, "remake:redo": redo })[getFunctionName(ref as never)] ?? uploadUrl,
   useAction: () => async () => [{ id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" }],
 }));
 vi.mock("@/components/billing/RemakeTopUpDialog.tsx", () => ({
@@ -32,6 +33,7 @@ beforeEach(() => {
   state.allowance = { limit: 60, used: 20, extra: 30, canBuy: true, pack: PACK };
   state.latest = null;
   start.mockClear();
+  redo.mockClear();
 });
 
 const show = () => render(<RemakeVideo adId={adId} variant={variant} product="Cooling mat" />);
@@ -94,5 +96,21 @@ describe("RemakeVideo", () => {
     expect(screen.getByText("The AI video failed. Try again.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(screen.getByRole("button", { name: /make the video/i })).toBeInTheDocument();
+  });
+
+  it("makes a finished video again for free, with the actor picked below", async () => {
+    state.latest = { _id: "r1", status: "done", error: null, videoUrl: "https://v.example/x.mp4", seconds: 5, redoId: "r1" };
+    show();
+    fireEvent.click(screen.getByRole("button", { name: "Liam" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /make it again free/i })).toBeEnabled());
+    await waitFor(() => screen.getByText(/Sarah/));
+    fireEvent.click(screen.getByRole("button", { name: /make it again free/i }));
+    await waitFor(() => expect(redo).toHaveBeenCalledWith({ remakeId: "r1", actorId: "liam", voiceId: "EXAVITQu4vr4xnSDxMaL" }));
+  });
+
+  it("has no free redo once it's used", () => {
+    state.latest = { _id: "r2", status: "done", error: null, videoUrl: "https://v.example/x.mp4", seconds: 5, redoId: null };
+    show();
+    expect(screen.queryByRole("button", { name: /make it again free/i })).toBeNull();
   });
 });

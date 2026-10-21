@@ -80,6 +80,12 @@ export function isTransient(error: unknown): boolean {
 }
 
 /** The video link in a fal result: `video.url` (models) or `video_url` (compose). */
+/** The finished video's length in seconds when fal says it (OmniHuman's `duration`), else null. */
+export function videoSecondsOf(body: unknown): number | null {
+  const d = (body ?? {}) as { duration?: unknown };
+  return typeof d.duration === "number" && Number.isFinite(d.duration) && d.duration > 0 ? d.duration : null;
+}
+
 export function videoUrlOf(body: unknown): string | null {
   const b = (body ?? {}) as { video?: { url?: unknown }; video_url?: unknown };
   if (typeof b.video?.url === "string") return b.video.url;

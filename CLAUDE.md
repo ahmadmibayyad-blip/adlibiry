@@ -109,7 +109,11 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
 - Remake this winner ("Make the video" under that script, `RemakeVideo.tsx`; `remake.ts`, pure rules in `lib/remake.ts`, fal client `lib/fal.ts`):
   the user picks one of 8 synthetic AI actors (`public/actors/<id>.jpg`, AI-generated, never real faces), a voice and a product photo
   (uploaded to storage). Scripts of up to 40 lines (`MAX_LINES`); voiced lines become segments, talking lines in a row joined into one: the first and talking lines are the actor (fal `fal-ai/bytedance/omnihuman/v1.5`,
-  portrait + that line's ElevenLabs MP3, lip-synced, $0.16/s), up to 2 product-scene lines are product shots (fal Seedance image-to-video).
+  portrait + that line's ElevenLabs MP3, lip-synced, $0.16/s, 1080p under 30 s of audio else 720p, with a selfie-UGC `ACTOR_PROMPT`), up to 2
+  product-scene lines are product shots (fal Seedance image-to-video, 1080p). Compose cuts each actor clip and its voice to fal's real clip length
+  (`videoSeconds`, OmniHuman's `duration`), not the MP3 estimate. "Make it again free" (`remake.redo`): one free redo per finished video
+  (`redoOf`, charged 0 s, `freeSeconds` = the original's charge for the voice-length check), same script/photo, optionally another actor or
+  voice (same voice = recorded lines reused); a failed free redo can be tried again (`latestForAd.redoId`).
   `remakes` rows go voicing → rendering → composing → done | failed; `advance` does one step and reschedules itself every 10 s; fal's
   `ffmpeg-api/compose` joins the clips and the MP4 is copied into storage (fal links expire). Older than 20 min = failed. Needs `FAL_KEY`
   (and `ELEVENLABS_API_KEY`); `FAL_ACTOR_MODEL` / `FAL_PRODUCT_MODEL` override the models. Allowance: AI-video seconds a month per tier

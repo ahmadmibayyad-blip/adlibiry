@@ -50,6 +50,8 @@ export type Segment = {
   statusUrl?: string;
   responseUrl?: string;
   videoUrl?: string;
+  // The clip's real length from fal (OmniHuman answers with it); compose cuts the clip and its voice to this.
+  videoSeconds?: number;
 };
 
 const PRODUCT_SCENE = /product|close-?up|unbox|demo|hands?|b-?roll|packag|show(s|ing)? (it|the)/i;
@@ -102,6 +104,24 @@ export function seedanceDuration(seconds: number): string {
   return String(Math.min(12, Math.max(2, Math.ceil(seconds))));
 }
 
+// OmniHuman makes 1080p from audio under 30 s, 720p up to 60 s.
+const ACTOR_1080P_MAX_SECONDS = 29.5;
+
+/** The sharpest resolution OmniHuman takes for an actor clip of this many seconds. */
+export function actorResolution(audioSeconds: number): "1080p" | "720p" {
+  return audioSeconds <= ACTOR_1080P_MAX_SECONDS ? "1080p" : "720p";
+}
+
+// Without a prompt OmniHuman's actor barely moves; this asks for a selfie-style UGC delivery.
+export const ACTOR_PROMPT =
+  "A person filming a casual selfie video for social media, talking straight to the phone camera. Natural, friendly expressions, " +
+  "clear mouth movements that follow the speech, small head movements and relaxed hand gestures. Realistic, steady framing.";
+
+/** The clip's length for compose: fal's real one for actor clips, the voice's for product shots (Seedance makes whole seconds, cut down). */
+export function clipSeconds(s: Segment): number {
+  return s.kind === "actor" && s.videoSeconds && s.videoSeconds > 0 ? s.videoSeconds : (s.audioSeconds ?? 0);
+}
+
 export function productPrompt(scene: string, product: string): string {
   return `${scene.trim()}. The product: ${product.trim()}. Vertical phone video, natural light, realistic, no text on screen.`.slice(0, 600);
 }
@@ -149,7 +169,7 @@ export function composeTracks(segments: Segment[], keepVideoAudio: boolean): Tra
   const voice: Track = { id: "voice", type: "audio", keyframes: [] };
   let at = 0;
   for (const s of segments) {
-    const duration = Math.round((s.audioSeconds ?? 0) * 1000);
+    const duration = Math.round(clipSeconds(s) * 1000);
     video.keyframes.push({ url: s.videoUrl ?? "", timestamp: at, duration });
     if (!(keepVideoAudio && s.kind === "actor")) voice.keyframes.push({ url: s.audioUrl ?? "", timestamp: at, duration });
     at += duration;

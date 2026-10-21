@@ -2,6 +2,8 @@ import { existsSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   REMAKE_ACTORS,
+  actorResolution,
+  clipSeconds,
   composeTracks,
   estimateSeconds,
   monthStart,
@@ -135,5 +137,17 @@ describe("remake rules", () => {
     expect(audio).toMatchObject({ id: "voice", type: "audio" });
     expect(audio.keyframes).toEqual([{ url: "a2", timestamp: 2000, duration: 3500 }]); // actor audio rides in its own clip
     expect(composeTracks(segs, false)[1].keyframes).toHaveLength(2);
+  });
+
+  it("asks for 1080p actor clips when OmniHuman allows it (audio under 30 s)", () => {
+    expect(actorResolution(12)).toBe("1080p");
+    expect(actorResolution(29.5)).toBe("1080p");
+    expect(actorResolution(31)).toBe("720p");
+  });
+
+  it("cuts actor clips to fal's real length and product shots to their voice", () => {
+    expect(clipSeconds({ kind: "actor", text: "", scene: "", audioSeconds: 2.5, videoSeconds: 2.62 })).toBe(2.62);
+    expect(clipSeconds({ kind: "actor", text: "", scene: "", audioSeconds: 2.5 })).toBe(2.5);
+    expect(clipSeconds({ kind: "product", text: "", scene: "", audioSeconds: 3, videoSeconds: 5 })).toBe(3);
   });
 });
