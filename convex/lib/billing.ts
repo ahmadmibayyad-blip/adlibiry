@@ -33,7 +33,7 @@ export function planForPrice(priceId: string | undefined, env: Env): Plan {
 // the card; canceled, unpaid, incomplete and paused don't.
 const ACCESS_STATUSES = new Set(["active", "trialing", "past_due"]);
 
-type PlanUser = { role?: string; plan?: string; subscriptionStatus?: string; proTrialEndsAt?: number };
+export type PlanUser = { role?: string; plan?: string; subscriptionStatus?: string; proTrialEndsAt?: number };
 
 // Pro free trial: 7 days of full Pro, no card, once per account (users.proTrialEndsAt).
 export const PRO_TRIAL_DAYS = 7;
