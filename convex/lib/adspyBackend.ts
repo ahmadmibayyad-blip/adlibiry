@@ -194,6 +194,7 @@ export type StripePaymentIntent = {
   customer?: string | null;
   payment_method?: string | null;
   setup_future_usage?: string | null;
+  metadata?: Record<string, string>;
 };
 
 // When a paid period ends: one calendar month or year later.

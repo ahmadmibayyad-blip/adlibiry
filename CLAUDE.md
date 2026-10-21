@@ -106,6 +106,18 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   shot list, pacing (`lib/videoAnalysis.ts` readAnalysis). Kept per ad for everyone (`videoAnalyses`); per-user daily `ANALYZE_RUNS`
   (`analyzeRuns`), all users `VIDEO_ANALYSES_PER_DAY` (default 100); needs `APIFY_TOKEN`. "Write my version" (`videoAnalysisAi.writeVariant`):
   Claude writes a script + shot timeline for the user's product on that structure (not saved, AI daily limit).
+- Remake this winner ("Make the video" under that script, `RemakeVideo.tsx`; `remake.ts`, pure rules in `lib/remake.ts`, fal client `lib/fal.ts`):
+  the user picks one of 8 synthetic AI actors (`public/actors/<id>.jpg`, AI-generated, never real faces), a voice and a product photo
+  (uploaded to storage). Each voiced script line is a segment: the first and talking lines are the actor (fal `fal-ai/bytedance/omnihuman/v1.5`,
+  portrait + that line's ElevenLabs MP3, lip-synced, $0.16/s), up to 2 product-scene lines are product shots (fal Seedance image-to-video).
+  `remakes` rows go voicing → rendering → composing → done | failed; `advance` does one step and reschedules itself every 10 s; fal's
+  `ffmpeg-api/compose` joins the clips and the MP4 is copied into storage (fal links expire). Older than 20 min = failed. Needs `FAL_KEY`
+  (and `ELEVENLABS_API_KEY`); `FAL_ACTOR_MODEL` / `FAL_PRODUCT_MODEL` override the models. Allowance: AI-video seconds a month per tier
+  (`REMAKE_SECONDS`: trial 15, paid 60, free 0, admin unlimited; env `REMAKE_SECONDS_PAID/_TRIAL/_FREE`), then bought seconds: Pro buys
+  packs (`remakeTopUp.ts`, `RemakeTopUpDialog.tsx`, €9 for 30 s, env `REMAKE_PACK_SECONDS/_CENTS`; PaymentIntent made here with no redirect
+  methods, checked with Stripe, one `remakeTopUps` row per payment; bought seconds don't expire). A remake is charged its estimated seconds
+  at start (`monthlySeconds` + `extraSeconds`); failed and lost ones don't count. All users `REMAKES_PER_DAY` (default 30); one running per user.
+  The finished video says to mark it as AI-generated when run as an ad.
 - Saved searches (Ad Spy, Products, Winners: `SavedSearches` in `src/components/filters.tsx`) are on the account (`savedSearches.ts`, table
   `savedSearches`, `page` = the page's storage key, 20 per page). A browser's older localStorage ones are copied once (`importLocal`, flag
   `<key>.onAccount`); names already on the account win.

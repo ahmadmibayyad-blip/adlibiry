@@ -85,3 +85,30 @@ export async function chargeSavedCard(
     c.idempotencyKey,
   );
 }
+
+// Stripe's search over PaymentIntents (eventually consistent: a payment can take about a minute to show up).
+export async function searchPaymentIntents(key: string, query: string): Promise<StripePaymentIntent[]> {
+  const res = await fetch(`https://api.stripe.com/v1/payment_intents/search?${new URLSearchParams({ query, limit: "20" })}`, {
+    headers: { Authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(20_000),
+  });
+  const json = (await res.json().catch(() => ({}))) as { data?: StripePaymentIntent[]; error?: { message?: string; code?: string } };
+  if (!res.ok) throw new StripeApiError(json.error?.message ?? `Stripe ${res.status}`, json.error?.code, undefined);
+  return json.data ?? [];
+}
+
+// A one-off payment the customer completes in the browser (Stripe Elements), e.g. extra AI-video seconds.
+// No redirect methods: there is no return page, so card and wallets only.
+export async function createPaymentIntent(
+  key: string,
+  p: { amount: number; currency: string; meta: Params; idempotencyKey: string },
+): Promise<{ id: string; client_secret: string }> {
+  const metadata: Params = {};
+  for (const [k, v] of Object.entries(p.meta)) metadata[`metadata[${k}]`] = v;
+  return await post<{ id: string; client_secret: string }>(
+    key,
+    "payment_intents",
+    { amount: p.amount, currency: p.currency, "automatic_payment_methods[enabled]": true, "automatic_payment_methods[allow_redirects]": "never", ...metadata },
+    p.idempotencyKey,
+  );
+}
