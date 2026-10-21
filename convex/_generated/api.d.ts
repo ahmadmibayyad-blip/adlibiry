@@ -159,6 +159,7 @@ import type * as storeSpeed from "../storeSpeed.js";
 import type * as storeTech from "../storeTech.js";
 import type * as storeThemeHttp from "../storeThemeHttp.js";
 import type * as stores from "../stores.js";
+import type * as studio from "../studio.js";
 import type * as submittedAds from "../submittedAds.js";
 import type * as transcripts from "../transcripts.js";
 import type * as transcriptsAi from "../transcriptsAi.js";
@@ -330,6 +331,7 @@ declare const fullApi: ApiFromModules<{
   storeTech: typeof storeTech;
   storeThemeHttp: typeof storeThemeHttp;
   stores: typeof stores;
+  studio: typeof studio;
   submittedAds: typeof submittedAds;
   transcripts: typeof transcripts;
   transcriptsAi: typeof transcriptsAi;
