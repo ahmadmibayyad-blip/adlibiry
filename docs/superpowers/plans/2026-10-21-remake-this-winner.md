@@ -48,7 +48,7 @@
 
 ### Task 1: fal spike: confirm the API shapes and how compose treats a video's own audio
 
-No repo code. This decides one constant, `COMPOSE_KEEPS_VIDEO_AUDIO`, used in Task 2. The user must first create a fal.ai account, add about $5 of credit, and hand over a key.
+No repo code. This decides one constant, `COMPOSE_KEEPS_VIDEO_AUDIO`, used in Task 2. The user must first create a fal.ai account, add about $5 of credit, and save the key in a local file (Step 1). Tasks 2–8 don't need the key: until Task 1 runs, `COMPOSE_KEEPS_VIDEO_AUDIO = false` (every line's audio goes on the audio track), and Task 1 may flip it.
 
 **Files:**
 - Create (scratchpad, not repo): `fal-spike.mjs`
@@ -165,7 +165,7 @@ it("lays segments end to end", () => {
 - Test: `convex/remake.test.ts`
 
 **Interfaces:**
-- Consumes: Task 2 (`planShots`, `estimateSeconds`, `remakeSecondsLimit`, `monthStart`, `REMAKE_ACTORS`, `MAX_LINES`, `MAX_SECONDS`, `STALE_MS`), `stableToken` (`lib/authIdentity`), `Variant` (`lib/videoAnalysis`).
+- Consumes: Task 2 (`planShots`, `estimateSeconds`, `remakeSecondsLimit`, `monthStart`, `splitCharge`, `remakePack`, `REMAKE_ACTORS`, `MAX_LINES`, `MAX_SECONDS`, `STALE_MS`), `stableToken` (`lib/authIdentity`), `Variant` (`lib/videoAnalysis`).
 - Produces:
   - table `remakes`: `{ userId: v.id("users"), adId: v.id("ads"), status: v.string() /* voicing|rendering|composing|done|failed */, actorId: v.string(), voiceId: v.string(), product: v.string(), productImageId: v.id("_storage"), segments: v.any() /* Segment[] */, seconds: v.number() /* estimate, then real */, monthlySeconds: v.number(), extraSeconds: v.number() /* the charge, fixed at start */, composeJob: v.optional(v.any()), videoId: v.optional(v.id("_storage")), error: v.optional(v.string()), startedAt: v.number(), finishedAt: v.optional(v.number()) }`, indexes `by_user` `["userId", "startedAt"]`, `by_user_ad` `["userId", "adId", "startedAt"]`, `by_started` `["startedAt"]`
   - `remake.uploadUrl` mutation `() => string` (signed-in only)
