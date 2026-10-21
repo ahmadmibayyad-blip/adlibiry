@@ -42,10 +42,12 @@ export async function balance(ctx: QueryCtx, user: Doc<"users">, now: number) {
   let extra = 0;
   for (const t of await ctx.db.query("remakeTopUps").withIndex("by_user", (q) => q.eq("userId", user._id)).collect()) extra += t.seconds;
   for (const table of ["remakes", "studioClips"] as const) {
-    for (const r of await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id)).collect()) {
-      if (!counts(r, now)) continue;
-      if (r.startedAt >= monthStart(now)) used += r.monthlySeconds;
-      extra -= r.extraSeconds;
+    for (const r of await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id).gte("startedAt", monthStart(now))).collect()) {
+      if (counts(r, now)) used += r.monthlySeconds;
+    }
+    // Bought seconds don't expire: only rows that used some are read.
+    for (const r of await ctx.db.query(table).withIndex("by_user_extra", (q) => q.eq("userId", user._id).gt("extraSeconds", 0)).collect()) {
+      if (counts(r, now)) extra -= r.extraSeconds;
     }
   }
   const tier = tierOf(user, now);
@@ -57,6 +59,25 @@ export const allowance = query({
   handler: async (ctx) => {
     const user = await currentUser(ctx);
     return user ? await balance(ctx, user, Date.now()) : null;
+  },
+});
+
+/** Whether this user uploaded the photo (claimUpload); someone else's storage id isn't usable. */
+export async function ownsUpload(ctx: QueryCtx, userId: Id<"users">, storageId: Id<"_storage">): Promise<boolean> {
+  const row = await ctx.db.query("uploads").withIndex("by_storage", (q) => q.eq("storageId", storageId)).first();
+  return row?.userId === userId;
+}
+
+// After uploading a product photo to uploadUrl, the page records it as the user's.
+export const claimUpload = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+    if (!user) throw fail("UNAUTHENTICATED", "Please sign in first.");
+    if (!(await ctx.db.system.get(args.storageId))) throw fail("BAD_PHOTO", "Upload the photo again.");
+    const row = await ctx.db.query("uploads").withIndex("by_storage", (q) => q.eq("storageId", args.storageId)).first();
+    if (row && row.userId !== user._id) throw fail("BAD_PHOTO", "Upload the photo again.");
+    if (!row) await ctx.db.insert("uploads", { userId: user._id, storageId: args.storageId, at: Date.now() });
   },
 });
 
@@ -126,6 +147,7 @@ export const start = mutation({
     if (product.length < 3 || product.length > 200) throw fail("BAD_REQUEST", "Name your product in a few words.");
     const photoError = photoProblem(await ctx.db.system.get(args.productImageId));
     if (photoError) throw fail("BAD_PHOTO", photoError);
+    if (!(await ownsUpload(ctx, user._id, args.productImageId))) throw fail("BAD_PHOTO", "Upload the photo again.");
     const lines = readLines(args.variant);
     const segments = planShots(lines);
     if (!segments.length) throw fail("BAD_REQUEST", "This script has no voice-over to say.");
@@ -392,11 +414,13 @@ export const advance = internalAction({
         }
       } else if (row.status === "composing") {
         const job = row.composeJob as FalJob;
+        // A video that only finishes after the 20-minute mark stays failed and free, as the page already says.
         const url = (await pollDone(key, job)) ? (await resultVideo(key, job))?.url : null;
         if (url) {
           const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
           if (!res.ok) throw new FalError(res.status, null);
           const videoId: Id<"_storage"> = await ctx.storage.store(new Blob([await res.arrayBuffer()], { type: "video/mp4" }));
+          if (isStale(row, Date.now())) return await failWith(STALE_MESSAGE);
           return await save({ status: "done", videoId, finishedAt: Date.now() });
         }
       }

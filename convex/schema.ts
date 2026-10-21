@@ -787,6 +787,7 @@ export default defineSchema({
   })
     .index("by_user", ["userId", "startedAt"])
     .index("by_user_ad", ["userId", "adId", "startedAt"])
+    .index("by_user_extra", ["userId", "extraSeconds"])
     .index("by_started", ["startedAt"])
     .index("by_redo", ["redoOf"]),
   // AI Studio → Playground clips (studio.ts, lib/studio.ts); seconds charged like remakes.
@@ -809,7 +810,14 @@ export default defineSchema({
     finishedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId", "startedAt"])
+    .index("by_user_extra", ["userId", "extraSeconds"])
     .index("by_started", ["startedAt"]),
+  // Who uploaded each product photo (remake.claimUpload), so a video or clip only starts from the user's own photo.
+  uploads: defineTable({
+    userId: v.id("users"),
+    storageId: v.id("_storage"),
+    at: v.number(),
+  }).index("by_storage", ["storageId"]),
   remakeTopUps: defineTable({
     paymentIntentId: v.string(),
     userId: v.id("users"),

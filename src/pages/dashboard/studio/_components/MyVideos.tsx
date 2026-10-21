@@ -20,7 +20,7 @@ export default function MyVideos() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {videos.map((v) => (
           <div key={v.id}>
-            <video controls preload="metadata" src={v.videoUrl} className="w-full rounded-lg bg-black aspect-[9/16] object-contain" />
+            <video controls preload="metadata" src={v.videoUrl} className="w-full max-h-80 rounded-lg bg-black object-contain" />
             <p className="text-sm mt-1.5 line-clamp-2">{v.title}</p>
             <p className="text-xs text-muted-foreground">
               {v.kind === "ugc" ? "UGC video" : "Clip"} · {new Date(v.at).toLocaleDateString()}

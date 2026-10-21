@@ -23,6 +23,7 @@ async function setup(who: Who = PRO) {
   const { userId, photoId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user", ...who });
     const photoId = await ctx.storage.store(new Blob([new Uint8Array(1000)], { type: "image/jpeg" }));
+    await ctx.db.insert("uploads", { userId, storageId: photoId, at: Date.now() });
     return { userId, photoId };
   });
   return { t, me: t.withIdentity({ subject: "u1|s" }), userId, photoId };
@@ -183,6 +184,30 @@ describe("studio.advance", () => {
     expect(posts[1].body.seed).not.toBe(1);
   });
 
+  it("keeps a clip that finishes after the 20-minute mark failed and free", async () => {
+    const { t, me } = await setup();
+    stubFal();
+    const id = await me.mutation(api.studio.start, clip);
+    await drive(t, id, 1); // submitted
+    await t.run((ctx) => ctx.db.patch("studioClips", id, { startedAt: Date.now() - 19 * 60_000 - 59_000 }));
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const res = await realFetch(input, init);
+      if (String(input instanceof Request ? input.url : input).startsWith("https://fal.media/")) vi.setSystemTime(Date.now() + 120_000);
+      return res;
+    });
+    await drive(t, id, 1);
+    expect(await t.run((ctx) => ctx.db.get("studioClips", id))).toMatchObject({ status: "failed" });
+    expect(await me.query(api.remake.allowance, {})).toMatchObject({ used: 0 });
+  });
+
+  it("only takes the user's own photo", async () => {
+    const { t, me } = await setup();
+    const theirs = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(1000)], { type: "image/jpeg" })));
+    expect(await errorOf(me.mutation(api.studio.start, { ...clip, imageId: theirs }))).toEqual({ code: "BAD_PHOTO", message: "Upload the photo again." });
+  });
+
   it("gives up after 20 minutes", async () => {
     const { t, me } = await setup();
     stubFal();
@@ -230,6 +255,19 @@ describe("studio.mine", () => {
     });
     expect(await me.query(api.studio.mine, {})).toHaveLength(30);
     expect(await me.query(api.studio.mine, { limit: 90 })).toHaveLength(70);
+  });
+
+  it("finds the ad in a studio link, and none for a broken one", async () => {
+    const { t, me } = await setup();
+    const adId = await t.run((ctx) =>
+      ctx.db.insert("ads", {
+        advertiserName: "a", platform: "Facebook", country: "US", niche: "n", headline: "Cooling mat", bodyText: "", creativeUrl: "", landingPageUrl: "",
+        spendEstimate: "", likes: 0, views: "0", daysRunning: 1, aiScore: 50, targeting: { ageRange: "", gender: "All", interests: [] },
+        firstSeenAt: "2026-10-01T00:00:00.000Z", source: "curated",
+      }),
+    );
+    expect(await me.query(api.studio.ad, { id: adId })).toMatchObject({ headline: "Cooling mat" });
+    expect(await me.query(api.studio.ad, { id: "not-an-id" })).toBeNull();
   });
 
   it("lists the models with what they need", async () => {

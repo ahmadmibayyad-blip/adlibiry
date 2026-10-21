@@ -8,6 +8,7 @@ import { REMAKE_ACTORS } from "@/convex/lib/remake.ts";
 import type { Variant } from "@/convex/lib/videoAnalysis.ts";
 import type { VoiceOption } from "@/convex/lib/voiceover.ts";
 import { Button } from "@/components/ui/button.tsx";
+import StepNumber from "@/components/StepNumber.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import RemakeTopUpDialog from "@/components/billing/RemakeTopUpDialog.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
@@ -30,6 +31,7 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
   const start = useMutation(api.remake.start);
   const redo = useMutation(api.remake.redo);
   const uploadUrl = useMutation(api.remake.uploadUrl);
+  const claimUpload = useMutation(api.remake.claimUpload);
   const loadVoices = useAction(api.voiceover.voices);
   const [actorId, setActorId] = useState("");
   const [voices, setVoices] = useState<VoiceOption[]>([]);
@@ -67,11 +69,13 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
       const res = await fetch(await uploadUrl({}), { method: "POST", headers: { "Content-Type": file.type }, body: file });
       if (!res.ok) throw new Error(`upload ${res.status}`);
       const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+      await claimUpload({ storageId });
       setPhoto({ storageId, name: file.name });
     } catch (err) {
       toast.error(errorMessage(err, "Couldn't upload the photo."));
     } finally {
       setUploading(false);
+      e.target.value = ""; // so the same file can be picked again
     }
   };
 
@@ -115,7 +119,10 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
     <div className="mt-4 pt-4 border-t border-border">
       <div className="flex items-center gap-2 mb-1">
         <Clapperboard className="w-4 h-4 text-primary" />
-        <h3 className="font-semibold text-sm">Make the video</h3>
+        <h3 className="font-semibold text-sm">
+          <StepNumber n={3} />
+          Make the video
+        </h3>
       </div>
       <p className="text-xs text-muted-foreground mb-3">An AI actor says this script, with AI shots of your product cut in. Vertical 9:16 video.</p>
 
