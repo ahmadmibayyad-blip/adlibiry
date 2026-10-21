@@ -3,9 +3,12 @@ import { internalAction, internalMutation, internalQuery, mutation, query, type 
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
-import { tierOf } from "./lib/billing";
+import { appUrl, tierOf } from "./lib/billing";
+import { FalError, describeFalError, falModels, falResult, falStatus, falSubmit, videoUrlOf, type FalJob } from "./lib/fal";
+import { ELEVEN_FORMAT, ELEVEN_MODEL, ELEVEN_URL, describeElevenError } from "./lib/voiceover";
 import {
-  MAX_LINES, MAX_SECONDS, REMAKE_ACTORS, STALE_MS, estimateSeconds, monthStart, photoProblem, planShots, remakePack, remakeSecondsLimit, splitCharge,
+  COMPOSE_KEEPS_VIDEO_AUDIO, MAX_LINES, MAX_SECONDS, POLL_MS, REMAKE_ACTORS, STALE_MS, composeTracks, mp3Seconds, productPrompt, seedanceDuration,
+  type Segment, estimateSeconds, monthStart, photoProblem, planShots, remakePack, remakeSecondsLimit, splitCharge,
 } from "./lib/remake";
 
 // ── Remake this winner ──────────────────────────────────────────────────────
@@ -157,7 +160,12 @@ export const latestForAd = query({
 
 export const load = internalQuery({
   args: { remakeId: v.id("remakes") },
-  handler: async (ctx, args) => await ctx.db.get("remakes", args.remakeId),
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get("remakes", args.remakeId);
+    if (!row) return null;
+    const owner = await ctx.db.get("users", row.userId);
+    return { row, admin: owner?.role === "admin" };
+  },
 });
 
 export const patch = internalMutation({
@@ -167,8 +175,105 @@ export const patch = internalMutation({
   },
 });
 
-// The pipeline (voice → render → compose); filled in by the next step of the plan.
+// ── The pipeline ────────────────────────────────────────────────────────────
+// One step per call, then it schedules itself again (POLL_MS) until done or failed:
+// voicing: ElevenLabs reads each line → storage; submit each segment to fal.
+// rendering: poll the segments; once all have a video, submit fal's compose.
+// composing: poll it; copy the MP4 into storage (fal's links expire).
+
+class StepError extends Error {}
+
+async function voiceLine(text: string, voiceId: string, admin: boolean): Promise<Blob> {
+  const key = process.env.ELEVENLABS_API_KEY?.trim();
+  if (!key) throw new StepError("The voice service isn't set up yet (ELEVENLABS_API_KEY).");
+  const res = await fetch(`${ELEVEN_URL}/text-to-speech/${voiceId}?output_format=${ELEVEN_FORMAT}`, {
+    method: "POST",
+    headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
+    body: JSON.stringify({ text, model_id: ELEVEN_MODEL }),
+    signal: AbortSignal.timeout(90_000),
+  });
+  if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("audio/")) {
+    throw new StepError(describeElevenError(res.status, await res.json().catch(() => null), admin));
+  }
+  return new Blob([await res.arrayBuffer()], { type: "audio/mpeg" });
+}
+
 export const advance = internalAction({
   args: { remakeId: v.id("remakes") },
-  handler: async () => {},
+  handler: async (ctx, args) => {
+    const loaded = await ctx.runQuery(internal.remake.load, { remakeId: args.remakeId });
+    if (!loaded || !ACTIVE.has(loaded.row.status)) return;
+    const { row, admin } = loaded;
+    const save = (fields: Partial<Doc<"remakes">>) => ctx.runMutation(internal.remake.patch, { remakeId: row._id, fields });
+    const failWith = (error: string) => save({ status: "failed", error, finishedAt: Date.now() });
+    if (isStale(row, Date.now())) return await failWith(STALE_MESSAGE);
+    const key = process.env.FAL_KEY?.trim();
+    if (!key) return await failWith("AI video isn't switched on yet (FAL_KEY).");
+    const models = falModels(process.env);
+    const segments = row.segments as Segment[];
+
+    try {
+      if (row.status === "voicing") {
+        const photoUrl = await ctx.storage.getUrl(row.productImageId);
+        if (!photoUrl) return await failWith("The product photo is gone. Upload it again.");
+        for (const seg of segments) {
+          const blob = await voiceLine(seg.text, row.voiceId, admin);
+          const audioId: Id<"_storage"> = await ctx.storage.store(blob);
+          seg.audioId = audioId;
+          seg.audioUrl = (await ctx.storage.getUrl(audioId)) ?? undefined;
+          seg.audioSeconds = mp3Seconds(blob.size);
+        }
+        for (const seg of segments) {
+          const job =
+            seg.kind === "actor"
+              ? await falSubmit(key, models.actor, { image_url: `${appUrl()}/actors/${row.actorId}.jpg`, audio_url: seg.audioUrl, resolution: "720p" })
+              : await falSubmit(key, models.product, {
+                  prompt: productPrompt(seg.scene, row.product),
+                  image_url: photoUrl,
+                  duration: seedanceDuration(seg.audioSeconds ?? 0),
+                  resolution: "720p",
+                  aspect_ratio: "9:16",
+                  camera_fixed: false,
+                });
+          seg.statusUrl = job.statusUrl;
+          seg.responseUrl = job.responseUrl;
+        }
+        const seconds = Math.round(segments.reduce((sum, seg) => sum + (seg.audioSeconds ?? 0), 0) * 100) / 100;
+        await save({ status: "rendering", segments, seconds });
+      } else if (row.status === "rendering") {
+        for (const seg of segments) {
+          if (seg.videoUrl || !seg.statusUrl || !seg.responseUrl) continue;
+          const job = { statusUrl: seg.statusUrl, responseUrl: seg.responseUrl };
+          if ((await falStatus(key, job)) !== "done") continue;
+          const result = await falResult(key, job);
+          const url = videoUrlOf(result);
+          if (!url) throw new FalError(502, result);
+          seg.videoUrl = url;
+        }
+        if (segments.every((seg) => seg.videoUrl)) {
+          const composeJob = await falSubmit(key, models.compose, { tracks: composeTracks(segments, COMPOSE_KEEPS_VIDEO_AUDIO) });
+          await save({ status: "composing", segments, composeJob });
+        } else {
+          await save({ segments });
+        }
+      } else if (row.status === "composing") {
+        const job = row.composeJob as FalJob;
+        if ((await falStatus(key, job)) === "done") {
+          const result = await falResult(key, job);
+          const url = videoUrlOf(result);
+          if (!url) throw new FalError(502, result);
+          const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+          if (!res.ok) throw new FalError(res.status, null);
+          const videoId: Id<"_storage"> = await ctx.storage.store(new Blob([await res.arrayBuffer()], { type: "video/mp4" }));
+          return await save({ status: "done", videoId, finishedAt: Date.now() });
+        }
+      }
+    } catch (error) {
+      if (error instanceof FalError) return await failWith(describeFalError(error.status, error.body, admin));
+      if (error instanceof StepError) return await failWith(error.message);
+      console.warn("Remake failed", error instanceof Error ? error.message : error);
+      return await failWith("The AI video failed. Try again.");
+    }
+    await ctx.scheduler.runAfter(POLL_MS, internal.remake.advance, { remakeId: row._id });
+  },
 });
