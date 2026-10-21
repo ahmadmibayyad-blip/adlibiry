@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { OPEN_ASSISTANT_EVENT } from "@/lib/assistant.ts";
-import { linkify } from "@/lib/linkify.tsx";
+import { chatText } from "@/lib/chatText.tsx";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet.tsx";
@@ -128,7 +128,7 @@ export default function AIAssistant() {
                       : "max-w-[90%] rounded-2xl rounded-bl-sm bg-muted px-3 py-2 whitespace-pre-wrap break-words"
                   }
                 >
-                  {m.role === "assistant" ? linkify(m.content) : m.content}
+                  {m.role === "assistant" ? chatText(m.content) : m.content}
                 </div>
               </div>
             ))}
