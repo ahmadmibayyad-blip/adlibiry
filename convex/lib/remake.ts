@@ -29,8 +29,9 @@ export const MAX_PRODUCT_SHOTS = 2;
 export const ATTEMPTS_PER_DAY = 5;
 export const STALE_MS = 20 * 60_000;
 export const POLL_MS = 10_000;
-// Whether fal's compose keeps a video clip's own sound. Until checked on fal
-// (plan Task 1), every line's audio goes on the voice track.
+// Whether to leave actor lines' sound in their own clips. Checked on fal 2026-10-21: compose keeps a clip's
+// sound only when there's no audio track; with one, it plays the audio track alone. So every line's voice
+// goes on the voice track (false), or actor lines would be silent once a product shot adds its voice.
 export const COMPOSE_KEEPS_VIDEO_AUDIO = false;
 
 // AI-video seconds a month per tier (Pro is the paid plan); null = unlimited.
