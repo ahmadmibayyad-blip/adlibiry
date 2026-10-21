@@ -15,12 +15,13 @@
 - Entry point: the existing `WriteVariant` box in `src/pages/dashboard/ad-spy/_components/AdVideoAnalysis.tsx`. "Make the video" appears under the script, after `<Voiceover>`. The script itself is not saved today; the client sends the `Variant` it holds.
 - One segment per script line that has voice-over text. Line 0 is always `actor`. A later line is `product` when its `scene` matches `/product|close-?up|unbox|demo|hands?|b-?roll|packag|show(s|ing)? (it|the)/i`, up to `MAX_PRODUCT_SHOTS = 2`. Every other line is `actor`.
 - Actors: 8 synthetic, AI-generated portraits shipped as static files `public/actors/<id>.jpg`. Never a real person's face. fal reads them from `${appUrl()}/actors/<id>.jpg`.
-- Allowance: AI-video seconds per calendar month (UTC), summed from the user's remakes that didn't fail. A failed remake costs nothing. Per `byTier` tier (`lib/billing.ts`; Pro at €35/month is the only paid plan): `REMAKE_SECONDS = { admin: null /* unlimited */, paid: 60, trial: 15, free: 0 }`, each overridable by Convex env `REMAKE_SECONDS_PAID` / `_TRIAL` / `_FREE`. 60 s of OmniHuman costs about $10, under a third of a Pro payment. **Business defaults: confirm them with the user before merging.**
+- Allowance: AI-video seconds per calendar month (UTC), summed from the user's remakes that didn't fail. A failed remake costs nothing. Per `byTier` tier (`lib/billing.ts`; Pro at €35/month is the only paid plan): `REMAKE_SECONDS = { admin: null /* unlimited */, paid: 60, trial: 15, free: 0 }`, each overridable by Convex env `REMAKE_SECONDS_PAID` / `_TRIAL` / `_FREE`. 60 s of OmniHuman costs about $10, under a third of a Pro payment. Confirmed by the user 2026-10-21.
+- Extra seconds: Pro users (and admins) can buy a pack of `REMAKE_PACK = { seconds: 30, cents: 900 }` (€9; env `REMAKE_PACK_SECONDS` / `REMAKE_PACK_CENTS`), paid with Stripe Elements like Pro. Fal costs about €4.40 for those 30 s. Bought seconds never expire. A remake uses this month's seconds first, then bought ones. A remake is charged its **estimated** seconds (shown before Make) at start, split into `monthlySeconds` + `extraSeconds` on the row; a failed remake gives both back by not counting. **Pack price is my default: confirm it with the user before merging.**
 - All users together: at most `REMAKES_PER_DAY` (default `30`) remakes per day; admins are exempt. One remake running per user at a time.
 - Limits per remake: at most `MAX_LINES = 12` lines and `MAX_SECONDS = 45` estimated seconds. Product photo ≤ 8 MB, `image/jpeg|png|webp`.
 - Output: 9:16, 720p (OmniHuman `resolution: "720p"`, Seedance `resolution: "720p", aspect_ratio: "9:16"`).
 - The UI states under the finished video: "Made with AI. Mark it as AI-generated when you run it as an ad."
-- Not in v1: captions, credit top-ups, saved scripts, more than 8 actors, custom actors, translation.
+- Not in v1: captions, saved scripts, more than 8 actors, custom actors, translation.
 
 ## Global Constraints
 
@@ -78,6 +79,8 @@ No repo code. This decides one constant, `COMPOSE_KEEPS_VIDEO_AUDIO`, used in Ta
   - `REMAKE_SECONDS: Record<Tier, number | null> = { admin: null, paid: 60, trial: 15, free: 0 }`
   - `remakeSecondsLimit(user: PlanUser | null, env: Record<string, string | undefined>): number | null` (null = unlimited): `byTier(user, REMAKE_SECONDS)`, then the env override `REMAKE_SECONDS_<TIER uppercased>` when it's a non-negative number (admin is never overridden)
   - `monthStart(now: number): number` (UTC first-of-month, ms)
+  - `REMAKE_PACK = { seconds: 30, cents: 900 }`, `remakePack(env): { seconds: number; cents: number }` (env overrides when they're positive integers)
+  - `splitCharge(need: number, monthlyLeft: number | null, extraLeft: number): { monthly: number; extra: number } | null`: monthly first (`null` = unlimited → all monthly), then extra; `null` when both together are short
   - `composeTracks(segments: Segment[], keepVideoAudio: boolean): { id: string; type: "video" | "audio"; keyframes: { url: string; timestamp: number; duration: number }[] }[]`
 
 - [ ] **Step 1: Write the failing tests**
@@ -105,6 +108,17 @@ it("gives each tier its monthly seconds", () => {
   expect(remakeSecondsLimit({ plan: "pro", subscriptionStatus: "active" }, { REMAKE_SECONDS_PAID: "lots" })).toBe(60);
   expect(remakeSecondsLimit({ proTrialEndsAt: Date.now() + 60_000 }, {})).toBe(15);
   expect(remakeSecondsLimit({}, {})).toBe(0);
+});
+it("uses this month's seconds before bought ones", () => {
+  expect(splitCharge(10, 4, 30)).toEqual({ monthly: 4, extra: 6 });
+  expect(splitCharge(10, 20, 0)).toEqual({ monthly: 10, extra: 0 });
+  expect(splitCharge(10, null, 0)).toEqual({ monthly: 10, extra: 0 });
+  expect(splitCharge(10, 3, 5)).toBeNull();
+});
+it("reads the pack from env", () => {
+  expect(remakePack({})).toEqual({ seconds: 30, cents: 900 });
+  expect(remakePack({ REMAKE_PACK_SECONDS: "60", REMAKE_PACK_CENTS: "1500" })).toEqual({ seconds: 60, cents: 1500 });
+  expect(remakePack({ REMAKE_PACK_CENTS: "-1" })).toEqual({ seconds: 30, cents: 900 });
 });
 it("lays segments end to end", () => {
   const segs = [{ kind: "actor", text: "", scene: "", audioUrl: "a1", audioSeconds: 2, videoUrl: "v1" }, { kind: "product", text: "", scene: "", audioUrl: "a2", audioSeconds: 3.5, videoUrl: "v2" }] as Segment[];
@@ -153,26 +167,27 @@ it("lays segments end to end", () => {
 **Interfaces:**
 - Consumes: Task 2 (`planShots`, `estimateSeconds`, `remakeSecondsLimit`, `monthStart`, `REMAKE_ACTORS`, `MAX_LINES`, `MAX_SECONDS`, `STALE_MS`), `stableToken` (`lib/authIdentity`), `Variant` (`lib/videoAnalysis`).
 - Produces:
-  - table `remakes`: `{ userId: v.id("users"), adId: v.id("ads"), status: v.string() /* voicing|rendering|composing|done|failed */, actorId: v.string(), voiceId: v.string(), product: v.string(), productImageId: v.id("_storage"), segments: v.any() /* Segment[] */, seconds: v.number() /* estimate, then real */, composeJob: v.optional(v.any()), videoId: v.optional(v.id("_storage")), error: v.optional(v.string()), startedAt: v.number(), finishedAt: v.optional(v.number()) }`, indexes `by_user` `["userId", "startedAt"]`, `by_user_ad` `["userId", "adId", "startedAt"]`, `by_started` `["startedAt"]`
+  - table `remakes`: `{ userId: v.id("users"), adId: v.id("ads"), status: v.string() /* voicing|rendering|composing|done|failed */, actorId: v.string(), voiceId: v.string(), product: v.string(), productImageId: v.id("_storage"), segments: v.any() /* Segment[] */, seconds: v.number() /* estimate, then real */, monthlySeconds: v.number(), extraSeconds: v.number() /* the charge, fixed at start */, composeJob: v.optional(v.any()), videoId: v.optional(v.id("_storage")), error: v.optional(v.string()), startedAt: v.number(), finishedAt: v.optional(v.number()) }`, indexes `by_user` `["userId", "startedAt"]`, `by_user_ad` `["userId", "adId", "startedAt"]`, `by_started` `["startedAt"]`
   - `remake.uploadUrl` mutation `() => string` (signed-in only)
   - `remake.start` mutation `{ adId, variant: v.any(), actorId, voiceId, product, productImageId } => Id<"remakes">`
-  - `remake.allowance` query `() => { limit: number | null; used: number }`
+  - `remake.allowance` query `() => { limit: number | null; used: number; extra: number; canBuy: boolean; pack: { seconds: number; cents: number } }`. `used` = this month's `monthlySeconds`; `extra` = bought (`remakeTopUps`, Task 7) minus every counted row's `extraSeconds`; `canBuy` = tier is paid or admin.
   - `remake.latestForAd` query `{ adId } => { _id; status; error: string | null; videoUrl: string | null; seconds: number } | null`. A stale `voicing|rendering|composing` row (older than `STALE_MS`) reads as `failed`.
   - internal `remake.load` query, `remake.patch` mutation `{ remakeId, fields: v.any() }`
-  - `usedSeconds(rows)` counts every row this month except `failed` and stale ones.
+  - "Counted" rows = every row except `failed` and stale ones. Add the `remakeTopUps` table here too (Task 7 fills it): `{ paymentIntentId: v.string(), userId: v.id("users"), seconds: v.number(), amount: v.number(), currency: v.string(), at: v.number() }`, indexes `by_payment_intent`, `by_user`.
 
 - [ ] **Step 1: Write the failing tests** (convex-test, same setup as `voiceover.test.ts`, with `FAL_KEY` stubbed):
   - pro user, valid input → returns an id, the row is `voicing`, and `ctx.scheduler` has `remake.advance` queued
   - no `FAL_KEY` → `NOT_CONFIGURED`
   - free user → `LIMIT` "AI videos come with Pro."
-  - pro user with 58 s used this month and a 5 s script → `LIMIT` "You have 2 seconds of AI video left this month."
+  - pro user with 58 s used this month, no bought seconds, and a 5 s script → `LIMIT` "You have 2 seconds of AI video left. Buy 30 more seconds for €9."
+  - same user with a 30 s `remakeTopUps` row → the start succeeds with `monthlySeconds: 2, extraSeconds: 3`, and `allowance().extra` is 27
   - row already `rendering` for this user → `BUSY` "Your last video is still being made." (Review Focus 3)
   - script estimated at 60 s → `TOO_LONG` "Shorten the script to about 45 seconds." (Review Focus 5)
   - stored file is `application/pdf` or 9 MB → `BAD_PHOTO` "Upload a JPG, PNG or WebP photo under 8 MB." (Review Focus 1; use `ctx.storage.store` with a Blob of that type and size)
   - unknown `actorId` → `BAD_REQUEST` "Pick an actor from the list."
   - a `failed` row from earlier this month doesn't count in `allowance().used`
 - [ ] **Step 2: Run** `npx vitest run convex/remake.test.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement.** In `start`, validate `variant.lines` (array, ≤ `MAX_LINES`, strings trimmed ≤ 400), product (3–200 chars) and `voiceId` (`/^[A-Za-z0-9]{8,40}$/`). Check the photo with `ctx.db.system.get("_storage", id)` (`contentType`, `size`). Then check allowance, the daily ceiling (`by_started`, admins exempt) and busy. Insert with `segments = planShots(lines)` and `seconds = estimateSeconds(lines)`, then `ctx.scheduler.runAfter(0, internal.remake.advance, { remakeId })`.
+- [ ] **Step 3: Implement.** In `start`, validate `variant.lines` (array, ≤ `MAX_LINES`, strings trimmed ≤ 400), product (3–200 chars) and `voiceId` (`/^[A-Za-z0-9]{8,40}$/`). Check the photo with `ctx.db.system.get("_storage", id)` (`contentType`, `size`). Then charge with `splitCharge(estimate, limit === null ? null : limit - used, extra)`, check the daily ceiling (`by_started`, admins exempt) and busy. Insert with `segments = planShots(lines)` and `seconds = estimateSeconds(lines)`, then `ctx.scheduler.runAfter(0, internal.remake.advance, { remakeId })`.
 - [ ] **Step 4: Run.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(remake): remakes table, start with monthly AI-video allowance`.
 
@@ -212,7 +227,38 @@ it("lays segments end to end", () => {
 - [ ] **Step 4: Run.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(remake): eight synthetic AI actor portraits`.
 
-### Task 7: "Make the video" UI
+### Task 7: Buy extra seconds (Stripe)
+
+Same Stripe account and checks as Pro (`convex/proPlan.ts`), but AdSpy creates the PaymentIntent itself; the backend isn't involved, because this isn't a subscription.
+
+**Files:**
+- Modify: `convex/lib/stripeApi.ts` (add `createPaymentIntent`)
+- Create: `convex/remakeTopUp.ts`
+- Create: `src/components/billing/RemakeTopUpDialog.tsx`
+- Test: `convex/remakeTopUp.test.ts`
+
+**Interfaces:**
+- Consumes: `remakePack` (Task 2), table `remakeTopUps` (Task 4), `fetchPaymentIntent` (`lib/adspyBackend`), `tierOf` (`lib/billing`), `getStripe` (`src/lib/stripe.ts`).
+- Produces:
+  - `createPaymentIntent(key: string, p: { amount: number; currency: string; meta: Params; idempotencyKey: string }): Promise<{ id: string; client_secret: string }>` in `lib/stripeApi.ts` (with `automatic_payment_methods[enabled]=true`)
+  - `remakeTopUp.create` action `() => { clientSecret: string; seconds: number; cents: number }`: paid/admin only, else `LIMIT` "Extra seconds come with Pro."; no `STRIPE_SECRET_KEY` → `NOT_CONFIGURED`. Metadata `kind=remake_seconds`, `userId`, `seconds`. Idempotency key `remake-topup-<userId>-<minute>`.
+  - `remakeTopUp.confirm` action `{ paymentIntentId } => { seconds: number }`. Accepts only when `status === "succeeded"`, `amount_received === pack.cents`, `currency === "eur"`, `metadata.kind === "remake_seconds"` and `metadata.userId === user._id`. Inserts one `remakeTopUps` row per PaymentIntent (internal `claim` mutation; reused by another user → "This payment was already used."; same user again → returns without adding).
+  - `export default function RemakeTopUpDialog(props: { open: boolean; onOpenChange: (o: boolean) => void })`: Stripe Elements like `ProCheckoutDialog`, title "Buy 30 more seconds", button "Pay €9", success toast "30 seconds added".
+
+- [ ] **Step 1: Write the failing tests** (convex-test, `fetch` stubbed for `api.stripe.com`):
+  - a free user's `create` → `LIMIT` "Extra seconds come with Pro."
+  - a Pro user's `create` POSTs `payment_intents` with `amount=900`, `currency=eur`, `metadata[kind]=remake_seconds`, `metadata[userId]=<id>`, and returns the client secret
+  - `confirm` with a succeeded PI → `{ seconds: 30 }` and `remake.allowance().extra === 30`
+  - `confirm` twice with the same PI → still 30 (no double credit)
+  - a PI whose `metadata.userId` is another user → `BAD_REQUEST` "Unknown payment."
+  - `status: "processing"` → `NOT_PAID` "Your payment is still processing. The seconds are added as soon as it clears."
+  - `amount_received: 100` → `NOT_PAID` "This payment didn't go through."
+- [ ] **Step 2: Run** `npx vitest run convex/remakeTopUp.test.ts`. Expected: FAIL.
+- [ ] **Step 3: Implement** `createPaymentIntent`, `remakeTopUp.ts` and the dialog. Copy `ProCheckoutDialog`'s Elements setup, without the period switch.
+- [ ] **Step 4: Run** the test plus `npx tsc -p convex --noEmit`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(remake): buy extra AI-video seconds`.
+
+### Task 8: "Make the video" UI
 
 **Files:**
 - Create: `src/pages/dashboard/ad-spy/_components/RemakeVideo.tsx`
@@ -224,7 +270,8 @@ it("lays segments end to end", () => {
 - Produces: `export default function RemakeVideo(props: { adId: Id<"ads">; variant: Variant; product: string })`
 
 - [ ] **Step 1: Write the failing tests** (Testing Library, `convex/react` hooks mocked as in existing component tests):
-  - with `allowance = { limit: 60, used: 20 }` it shows "40 s of AI video left this month"
+  - with `allowance = { limit: 60, used: 20, extra: 30, canBuy: true, pack: { seconds: 30, cents: 900 } }` it shows "40 s of AI video left this month + 30 s bought" and a "Buy 30 s for €9" button that opens `RemakeTopUpDialog`
+  - with `canBuy: false` there's no Buy button
   - with `limit: 0` it shows "AI videos come with Pro." and an upgrade link to `/pricing`, with no Make button
   - "Make the video" is disabled until an actor and a photo are chosen
   - `latestForAd` `status: "rendering"` shows "Making the actor and product shots… (2–5 min)"
@@ -235,10 +282,10 @@ it("lays segments end to end", () => {
 - [ ] **Step 4: Run** the test, then `npx tsc --noEmit` and `npx eslint src/pages/dashboard/ad-spy/_components`. Expected: PASS, clean.
 - [ ] **Step 5: Commit** `feat(remake): Make the video on the ad page`.
 
-### Task 8: Full check and PR
+### Task 9: Full check and PR
 
-- [ ] **Step 0: Document the feature** in `CLAUDE.md` under *Data*, after the Video analysis bullet, in the same style: entry point, `remakes` states, fal models, `FAL_KEY`, `REMAKE_SECONDS` per tier + env overrides, `REMAKES_PER_DAY`, failed = free, actors in `public/actors`. Commit `docs: Remake this winner in CLAUDE.md`.
+- [ ] **Step 0: Document the feature** in `CLAUDE.md` under *Data*, after the Video analysis bullet, in the same style: entry point, `remakes` states, fal models, `FAL_KEY`, `REMAKE_SECONDS` per tier + env overrides, extra-second packs (`remakeTopUp.ts`, `REMAKE_PACK_*`, monthly first then bought), `REMAKES_PER_DAY`, failed = free, actors in `public/actors`. Commit `docs: Remake this winner in CLAUDE.md`.
 - [ ] **Step 1: Run** `npx vitest run --maxWorkers=4`. Expected: all green (apart from the known local-only `src/lib/renderApi.test.ts` in junction worktrees).
 - [ ] **Step 2: Merge-check**: `git fetch` then `git merge-tree --write-tree origin/main claude/remake-winner`. Expected: no conflicts.
 - [ ] **Step 3: Push** `git push -u origin claude/remake-winner`. Give the user the compare link `https://github.com/ahmadmibayyad-blip/adlibiry/compare/main...claude/remake-winner`. Once the PR is open, check CI via `/commits/<sha>/check-runs`.
-- [ ] **Step 4: Tell the user what to set before merging:** `FAL_KEY` in Convex Production, and confirm the monthly second defaults (trial 15, Pro 60). After merge, make one real 2–3-line remake on adspypro.net and watch the Convex dashboard Logs while it runs.
+- [ ] **Step 4: Tell the user what to set before merging:** `FAL_KEY` in Convex Production, and confirm the €9-for-30-seconds pack price. After merge, buy one pack with a real card on adspypro.net and check that the seconds appear. After merge, make one real 2–3-line remake on adspypro.net and watch the Convex dashboard Logs while it runs.
