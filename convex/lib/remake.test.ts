@@ -1,3 +1,4 @@
+import { existsSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   REMAKE_ACTORS,
@@ -19,6 +20,14 @@ describe("remake rules", () => {
   it("has eight actors, four of each gender", () => {
     expect(REMAKE_ACTORS.map((a) => a.id)).toEqual(["maya", "sofia", "emma", "aisha", "liam", "noah", "omar", "lucas"]);
     expect(REMAKE_ACTORS.filter((a) => a.gender === "female")).toHaveLength(4);
+  });
+
+  it("ships a small portrait for every actor", () => {
+    for (const a of REMAKE_ACTORS) {
+      const file = `public/actors/${a.id}.jpg`;
+      expect(existsSync(file), file).toBe(true);
+      expect(statSync(file).size).toBeLessThan(400_000);
+    }
   });
 
   it("drops blank lines and starts with the actor", () => {
