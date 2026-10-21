@@ -777,6 +777,8 @@ export default defineSchema({
     seconds: v.number(), // estimated, then the real length once voiced
     monthlySeconds: v.number(),
     extraSeconds: v.number(),
+    redoOf: v.optional(v.id("remakes")), // the free "Make it again" of that video
+    freeSeconds: v.optional(v.number()), // seconds a free redo may voice without being charged
     composeJob: v.optional(v.any()),
     videoId: v.optional(v.id("_storage")),
     error: v.optional(v.string()),
@@ -785,7 +787,8 @@ export default defineSchema({
   })
     .index("by_user", ["userId", "startedAt"])
     .index("by_user_ad", ["userId", "adId", "startedAt"])
-    .index("by_started", ["startedAt"]),
+    .index("by_started", ["startedAt"])
+    .index("by_redo", ["redoOf"]),
   remakeTopUps: defineTable({
     paymentIntentId: v.string(),
     userId: v.id("users"),

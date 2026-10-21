@@ -4,10 +4,10 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { appUrl, tierOf } from "./lib/billing";
-import { FalError, describeFalError, falCancel, falModels, falResult, falStatus, falSubmit, isTransient, videoUrlOf, type FalJob } from "./lib/fal";
+import { FalError, describeFalError, falCancel, falModels, falResult, falStatus, falSubmit, isTransient, videoSecondsOf, videoUrlOf, type FalJob } from "./lib/fal";
 import { ELEVEN_FORMAT, ELEVEN_MODEL, ELEVEN_URL, describeElevenError } from "./lib/voiceover";
 import {
-  ATTEMPTS_PER_DAY, COMPOSE_KEEPS_VIDEO_AUDIO, MAX_LINES, MAX_SECONDS, POLL_MS, REMAKE_ACTORS, STALE_MS, composeTracks, maxVoicedSeconds, mp3Seconds, productPrompt, seedanceDuration,
+  ACTOR_PROMPT, ATTEMPTS_PER_DAY, COMPOSE_KEEPS_VIDEO_AUDIO, actorResolution, MAX_LINES, MAX_SECONDS, POLL_MS, REMAKE_ACTORS, STALE_MS, composeTracks, maxVoicedSeconds, mp3Seconds, productPrompt, seedanceDuration,
   type Segment, estimateSeconds, monthStart, photoProblem, planShots, remakePack, remakeSecondsLimit, splitCharge,
 } from "./lib/remake";
 
@@ -77,6 +77,17 @@ function readLines(variant: unknown): Line[] {
   });
 }
 
+/** One video at a time per user, ATTEMPTS_PER_DAY a day, REMAKES_PER_DAY for everyone (admins skip the daily caps). */
+async function checkCanStart(ctx: QueryCtx, user: Doc<"users">, now: number): Promise<void> {
+  const latest = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").first();
+  if (latest && ACTIVE.has(latest.status) && !isStale(latest, now)) throw fail("BUSY", "Your last video is still being made.");
+  const mine = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id).gt("startedAt", now - DAY_MS)).take(ATTEMPTS_PER_DAY);
+  if (user.role !== "admin" && mine.length >= ATTEMPTS_PER_DAY) throw fail("LIMIT", `You've started ${ATTEMPTS_PER_DAY} videos today. Try again tomorrow.`);
+  const daily = Math.max(0, Number(process.env.REMAKES_PER_DAY ?? DEFAULT_REMAKES_PER_DAY) || 0);
+  const today = (await ctx.db.query("remakes").withIndex("by_started", (q) => q.gt("startedAt", now - DAY_MS)).take(daily)).length;
+  if (user.role !== "admin" && today >= daily) throw fail("LIMIT", "AI video is busy today. Try again tomorrow.");
+}
+
 export const start = mutation({
   args: {
     adId: v.id("ads"),
@@ -112,13 +123,7 @@ export const start = mutation({
       const buy = b.canBuy ? ` Buy ${b.pack.seconds} more seconds for €${b.pack.cents / 100}.` : "";
       throw fail("LIMIT", `You have ${left} second${left === 1 ? "" : "s"} of AI video left.${buy}`);
     }
-    const latest = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").first();
-    if (latest && ACTIVE.has(latest.status) && !isStale(latest, now)) throw fail("BUSY", "Your last video is still being made.");
-    const mine = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id).gt("startedAt", now - DAY_MS)).take(ATTEMPTS_PER_DAY);
-    if (user.role !== "admin" && mine.length >= ATTEMPTS_PER_DAY) throw fail("LIMIT", `You've started ${ATTEMPTS_PER_DAY} videos today. Try again tomorrow.`);
-    const daily = Math.max(0, Number(process.env.REMAKES_PER_DAY ?? DEFAULT_REMAKES_PER_DAY) || 0);
-    const today = (await ctx.db.query("remakes").withIndex("by_started", (q) => q.gt("startedAt", now - DAY_MS)).take(daily)).length;
-    if (user.role !== "admin" && today >= daily) throw fail("LIMIT", "AI video is busy today. Try again tomorrow.");
+    await checkCanStart(ctx, user, now);
 
     const remakeId = await ctx.db.insert("remakes", {
       userId: user._id,
@@ -157,7 +162,59 @@ export const latestForAd = query({
       error: stale ? STALE_MESSAGE : (r.error ?? null),
       videoUrl: r.status === "done" && r.videoId ? await ctx.storage.getUrl(r.videoId) : null,
       seconds: r.seconds,
+      // The video "Make it again" redoes for free: this one when done, or the one a failed free redo was for.
+      redoId: r.status === "done" && !r.redoOf ? r._id : (r.status === "failed" || stale) && r.redoOf ? r.redoOf : null,
     };
+  },
+});
+
+// "Make it again": one free redo of each finished video, same script, photo and product, optionally another
+// actor or voice. Same voice = the recorded lines are used again; a free redo that fails can be tried again.
+export const redo = mutation({
+  args: { remakeId: v.id("remakes"), actorId: v.optional(v.string()), voiceId: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<Id<"remakes">> => {
+    const user = await currentUser(ctx);
+    if (!user) throw fail("UNAUTHENTICATED", "Please sign in first.");
+    if (!process.env.FAL_KEY) throw fail("NOT_CONFIGURED", "AI video isn't switched on yet (FAL_KEY).");
+    const original = await ctx.db.get("remakes", args.remakeId);
+    if (!original || original.userId !== user._id) throw fail("NOT_FOUND", "This video isn't there anymore.");
+    if (original.status !== "done" || original.redoOf) throw fail("BAD_REQUEST", "Only a finished video can be made again for free.");
+    const now = Date.now();
+    for (const r of await ctx.db.query("remakes").withIndex("by_redo", (q) => q.eq("redoOf", original._id)).collect()) {
+      if (counts(r, now)) throw fail("LIMIT", "You've already made this video again for free. Make a new one instead.");
+    }
+    const actorId = args.actorId ?? original.actorId;
+    const voiceId = args.voiceId ?? original.voiceId;
+    if (!REMAKE_ACTORS.some((a) => a.id === actorId)) throw fail("BAD_REQUEST", "Pick an actor from the list.");
+    if (!/^[A-Za-z0-9]{8,40}$/.test(voiceId)) throw fail("BAD_REQUEST", "Pick a voice from the list.");
+    if (!(await ctx.db.system.get(original.productImageId))) throw fail("BAD_PHOTO", "The product photo is gone. Make a new video instead.");
+    await checkCanStart(ctx, user, now);
+
+    const sameVoice = voiceId === original.voiceId;
+    const segments: Segment[] = (original.segments as Segment[]).map((s) => ({
+      kind: s.kind,
+      text: s.text,
+      scene: s.scene,
+      ...(sameVoice && s.audioId ? { audioId: s.audioId, audioUrl: s.audioUrl, audioSeconds: s.audioSeconds } : {}),
+    }));
+    const remakeId = await ctx.db.insert("remakes", {
+      userId: user._id,
+      adId: original.adId,
+      status: "voicing",
+      actorId,
+      voiceId,
+      product: original.product,
+      productImageId: original.productImageId,
+      segments,
+      seconds: original.seconds,
+      monthlySeconds: 0,
+      extraSeconds: 0,
+      redoOf: original._id,
+      freeSeconds: original.monthlySeconds + original.extraSeconds,
+      startedAt: now,
+    });
+    await ctx.scheduler.runAfter(0, internal.remake.advance, { remakeId });
+    return remakeId;
   },
 });
 
@@ -218,8 +275,8 @@ async function pollDone(key: string, job: FalJob): Promise<boolean> {
   }
 }
 
-/** The finished job's video link, or null to try again on the next poll after a brief fal error. */
-async function resultVideo(key: string, job: FalJob): Promise<string | null> {
+/** The finished job's video link (and length, when fal says it), or null to try again on the next poll after a brief fal error. */
+async function resultVideo(key: string, job: FalJob): Promise<{ url: string; seconds: number | null } | null> {
   let result: unknown;
   try {
     result = await falResult(key, job);
@@ -229,7 +286,7 @@ async function resultVideo(key: string, job: FalJob): Promise<string | null> {
   }
   const url = videoUrlOf(result);
   if (!url) throw new FalError(502, result);
-  return url;
+  return { url, seconds: videoSecondsOf(result) };
 }
 
 export const advance = internalAction({
@@ -274,7 +331,7 @@ export const advance = internalAction({
           }
         }
         const seconds = Math.round(segments.reduce((sum, s) => sum + (s.audioSeconds ?? 0), 0) * 100) / 100;
-        if (seconds > maxVoicedSeconds(row.monthlySeconds + row.extraSeconds)) {
+        if (seconds > maxVoicedSeconds(row.monthlySeconds + row.extraSeconds + (row.freeSeconds ?? 0))) {
           return await failWith("The voice-over came out longer than the script. Shorten the lines and try again.");
         }
         const photoUrl = await ctx.storage.getUrl(row.productImageId);
@@ -282,12 +339,17 @@ export const advance = internalAction({
         for (const s of [...segments.filter((x) => x.kind === "product"), ...segments.filter((x) => x.kind === "actor")]) {
           const job =
             s.kind === "actor"
-              ? await falSubmit(key, models.actor, { image_url: `${appUrl()}/actors/${row.actorId}.jpg`, audio_url: s.audioUrl, resolution: "720p" })
+              ? await falSubmit(key, models.actor, {
+                  image_url: `${appUrl()}/actors/${row.actorId}.jpg`,
+                  audio_url: s.audioUrl,
+                  prompt: ACTOR_PROMPT,
+                  resolution: actorResolution(s.audioSeconds ?? 0),
+                })
               : await falSubmit(key, models.product, {
                   prompt: productPrompt(s.scene, row.product),
                   image_url: photoUrl,
                   duration: seedanceDuration(s.audioSeconds ?? 0),
-                  resolution: "720p",
+                  resolution: "1080p",
                   aspect_ratio: "9:16",
                   camera_fixed: false,
                 });
@@ -299,7 +361,10 @@ export const advance = internalAction({
         for (const seg of segments) {
           const job = jobOf(seg);
           if (seg.videoUrl || !job || !(await pollDone(key, job))) continue;
-          seg.videoUrl = (await resultVideo(key, job)) ?? undefined;
+          const video = await resultVideo(key, job);
+          if (!video) continue;
+          seg.videoUrl = video.url;
+          if (video.seconds) seg.videoSeconds = video.seconds;
         }
         if (segments.every((seg) => seg.videoUrl)) {
           const composeJob = await falSubmit(key, models.compose, { tracks: composeTracks(segments, COMPOSE_KEEPS_VIDEO_AUDIO) });
@@ -309,7 +374,7 @@ export const advance = internalAction({
         }
       } else if (row.status === "composing") {
         const job = row.composeJob as FalJob;
-        const url = (await pollDone(key, job)) ? await resultVideo(key, job) : null;
+        const url = (await pollDone(key, job)) ? (await resultVideo(key, job))?.url : null;
         if (url) {
           const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
           if (!res.ok) throw new FalError(res.status, null);
