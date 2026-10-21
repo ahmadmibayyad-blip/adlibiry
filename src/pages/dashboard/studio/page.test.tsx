@@ -5,16 +5,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import StudioPage from "./page.tsx";
 import OpenInStudio from "../_components/OpenInStudio.tsx";
 
-const state: { ad: unknown; adError: boolean; mine: unknown[] } = { ad: undefined, adError: false, mine: [] };
+const state: { ad: unknown; adError: boolean; mine: unknown[]; mineArgs: unknown[] } = { ad: undefined, adError: false, mine: [], mineArgs: [] };
 
 vi.mock("convex/react", () => ({
-  useQuery: (ref: unknown) => {
+  useQuery: (ref: unknown, args?: unknown) => {
     const name = getFunctionName(ref as never);
     if (name === "ads:getById") {
       if (state.adError) throw new Error("ArgumentValidationError");
       return state.ad;
     }
-    if (name === "studio:mine") return state.mine;
+    if (name === "studio:mine") {
+      state.mineArgs.push(args);
+      return state.mine;
+    }
     return undefined;
   },
 }));
@@ -41,6 +44,7 @@ beforeEach(() => {
   state.ad = AD;
   state.adError = false;
   state.mine = [];
+  state.mineArgs = [];
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -97,6 +101,19 @@ describe("AI Studio", () => {
     show("/dashboard/studio?tab=videos");
     expect(screen.getAllByRole("link", { name: /Download MP4/ })).toHaveLength(2);
     expect(screen.getByText("A dog on a mat")).toBeInTheDocument();
+  });
+
+  it("loads 30 more videos when there may be more", () => {
+    state.mine = Array.from({ length: 30 }, (_, i) => ({ kind: "clip", id: `c${i}`, title: `Clip ${i}`, videoUrl: `https://v/${i}.mp4`, at: 100 - i }));
+    show("/dashboard/studio?tab=videos");
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(state.mineArgs[state.mineArgs.length - 1]).toEqual({ limit: 60 });
+  });
+
+  it("has no Show more when everything is shown", () => {
+    state.mine = [{ kind: "clip", id: "c1", title: "A dog", videoUrl: "https://v/1.mp4", at: 1 }];
+    show("/dashboard/studio?tab=videos");
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
   });
 
   it("tells you when there are no videos yet", () => {

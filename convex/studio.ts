@@ -107,15 +107,18 @@ export const latest = query({
   },
 });
 
+// Bounded by ATTEMPTS_PER_DAY (5 a day), so this covers well over a year of videos.
+const MAX_MY_VIDEOS = 600;
+
 type MyVideo = { kind: "ugc" | "clip"; id: string; title: string; videoUrl: string; at: number; adId?: Id<"ads"> };
 
-/** My videos: finished UGC videos and Playground clips, newest first. */
+/** My videos: finished UGC videos and Playground clips, newest first; the page asks for 30 more at a time ("Show more"). */
 export const mine = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args): Promise<MyVideo[]> => {
     const user = await currentUser(ctx);
     if (!user) return [];
-    const limit = Math.min(60, Math.max(1, Math.floor(args.limit ?? 30)));
+    const limit = Math.min(MAX_MY_VIDEOS, Math.max(1, Math.floor(args.limit ?? 30)));
     const out: MyVideo[] = [];
     // Recent rows include failed ones, so read a few more than shown.
     for (const r of await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").take(limit * 3)) {

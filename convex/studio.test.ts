@@ -184,6 +184,19 @@ describe("studio.mine", () => {
     expect(list.every((v) => v.videoUrl)).toBe(true);
   });
 
+  it("shows more than 60 videos when asked", async () => {
+    const { t, me, userId } = await setup();
+    await t.run(async (ctx) => {
+      const videoId = await ctx.storage.store(new Blob([new Uint8Array(10)], { type: "video/mp4" }));
+      for (let i = 0; i < 70; i++) {
+        await ctx.db.insert("studioClips", { userId, model: "kling-3", prompt: `Clip ${i}`, aspect: "9:16", length: 5, status: "done", videoId,
+          seconds: 5, monthlySeconds: 0, extraSeconds: 0, startedAt: Date.now() - i * 1000 });
+      }
+    });
+    expect(await me.query(api.studio.mine, {})).toHaveLength(30);
+    expect(await me.query(api.studio.mine, { limit: 90 })).toHaveLength(70);
+  });
+
   it("lists the models with what they need", async () => {
     const { me } = await setup();
     const models = await me.query(api.studio.models, {});
