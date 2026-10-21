@@ -15,7 +15,7 @@ describe("showcaseTitleRank", () => {
   });
 
   it("ranks long and brand-tagged titles below short product names", () => {
-    expect(showcaseTitleRank("[medicube Ufficiale] Zero Pore Blackhead Mud Mask")).toBe(1);
+    expect(showcaseTitleRank("[Glowlab Ufficiale] Zero Pore Blackhead Mud Mask")).toBe(1);
     expect(
       showcaseTitleRank("Apple EarPods Headphones with USB-C Plug Wired Ear Buds with Built-in Remote to Control Music Phone Calls"),
     ).toBe(1);
@@ -27,6 +27,7 @@ describe("showcaseTitleRank", () => {
     expect(showcaseTitleRank("Starter Kit")).toBe(1);
     expect(showcaseTitleRank("Shark Navigator Lift-Away Vacuum")).toBe(0);
     expect(showcaseTitleRank("Dyson cordless stick vacuum")).toBe(0);
+    expect(showcaseTitleRank("[medicube Ufficiale] Zero Pore Blackhead Mud Mask")).toBe(0); // a big brand since 303e7ef
     expect(showcaseTitleRank("Cordless handheld car vacuum")).toBe(2);
   });
 
