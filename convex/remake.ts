@@ -200,12 +200,15 @@ async function voiceLine(text: string, voiceId: string, admin: boolean): Promise
 
 export const advance = internalAction({
   args: { remakeId: v.id("remakes") },
-  handler: async (ctx, args) => {
-    const loaded = await ctx.runQuery(internal.remake.load, { remakeId: args.remakeId });
+  // Typed by hand: advance schedules itself, which would otherwise make the generated api types circular.
+  handler: async (ctx, args): Promise<void> => {
+    const loaded: { row: Doc<"remakes">; admin: boolean } | null = await ctx.runQuery(internal.remake.load, { remakeId: args.remakeId });
     if (!loaded || !ACTIVE.has(loaded.row.status)) return;
     const { row, admin } = loaded;
-    const save = (fields: Partial<Doc<"remakes">>) => ctx.runMutation(internal.remake.patch, { remakeId: row._id, fields });
-    const failWith = (error: string) => save({ status: "failed", error, finishedAt: Date.now() });
+    const save = async (fields: Partial<Doc<"remakes">>): Promise<void> => {
+      await ctx.runMutation(internal.remake.patch, { remakeId: row._id, fields });
+    };
+    const failWith = (error: string): Promise<void> => save({ status: "failed", error, finishedAt: Date.now() });
     if (isStale(row, Date.now())) return await failWith(STALE_MESSAGE);
     const key = process.env.FAL_KEY?.trim();
     if (!key) return await failWith("AI video isn't switched on yet (FAL_KEY).");
