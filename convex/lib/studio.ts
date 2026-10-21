@@ -21,6 +21,10 @@ export type StudioModel = {
 };
 
 export const MAX_PROMPT = 1500;
+// Clips a day: per user (re-rolls are part of the work, so more than UGC videos' 5) and for everyone (a ceiling on the fal bill);
+// failed ones count. Env STUDIO_CLIPS_PER_DAY / STUDIO_CLIPS_ALL_PER_DAY override.
+export const CLIPS_PER_DAY = 20;
+export const ALL_CLIPS_PER_DAY = 300;
 const ALL: Aspect[] = ["9:16", "1:1", "16:9"];
 
 export const STUDIO_MODELS: StudioModel[] = [

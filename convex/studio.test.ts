@@ -73,6 +73,41 @@ describe("studio.start", () => {
     expect(await me.query(api.remake.allowance, {})).toMatchObject({ used: 3 });
   });
 
+  it("has its own daily limit of 20 clips, failed ones included", async () => {
+    const { t, me, userId } = await setup();
+    const fill = (n: number, status: string) =>
+      t.run(async (ctx) => {
+        for (let i = 0; i < n; i++) {
+          await ctx.db.insert("studioClips", { userId, model: "kling-3", prompt: "p", aspect: "9:16", length: 5, status,
+            seconds: 5, monthlySeconds: 0, extraSeconds: 0, startedAt: Date.now() - (i + 1) * 60_000 });
+        }
+      });
+    await fill(10, "done");
+    await fill(9, "failed");
+    await expect(me.mutation(api.studio.start, clip)).resolves.toBeTruthy();
+    await t.run(async (ctx) => {
+      const last = await ctx.db.query("studioClips").withIndex("by_user", (q) => q.eq("userId", userId)).order("desc").first();
+      await ctx.db.patch("studioClips", last!._id, { status: "failed" });
+    });
+    expect(await errorOf(me.mutation(api.studio.start, clip))).toEqual({ code: "LIMIT", message: "You've made 20 clips today. Try again tomorrow." });
+  });
+
+  it("isn't blocked by a day of UGC videos", async () => {
+    const { t, me, userId, photoId } = await setup();
+    await t.run(async (ctx) => {
+      const adId = await ctx.db.insert("ads", {
+        advertiserName: "a", platform: "Facebook", country: "US", niche: "n", headline: "h", bodyText: "", creativeUrl: "", landingPageUrl: "",
+        spendEstimate: "", likes: 0, views: "0", daysRunning: 1, aiScore: 50, targeting: { ageRange: "", gender: "All", interests: [] },
+        firstSeenAt: "2026-10-01T00:00:00.000Z", source: "curated",
+      });
+      for (let i = 0; i < 5; i++) {
+        await ctx.db.insert("remakes", { userId, adId, status: "failed", actorId: "maya", voiceId: "v", product: "p", productImageId: photoId,
+          segments: [], seconds: 5, monthlySeconds: 0, extraSeconds: 0, startedAt: Date.now() - (i + 1) * 60_000 });
+      }
+    });
+    await expect(me.mutation(api.studio.start, clip)).resolves.toBeTruthy();
+  });
+
   it("is a Pro feature", async () => {
     const { me } = await setup({ plan: "free" });
     expect(await errorOf(me.mutation(api.studio.start, clip))).toEqual({ code: "LIMIT", message: "AI videos come with Pro." });

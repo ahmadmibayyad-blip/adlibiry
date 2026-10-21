@@ -67,6 +67,17 @@ describe("remake.start", () => {
     expect(await me.query(api.remake.allowance, {})).toMatchObject({ used: 10 });
   });
 
+  it("isn't blocked by a day of playground clips", async () => {
+    const { t, me, userId, args } = await setup();
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 10; i++) {
+        await ctx.db.insert("studioClips", { userId, model: "kling-3", prompt: "p", aspect: "9:16", length: 5, status: "failed",
+          seconds: 5, monthlySeconds: 0, extraSeconds: 0, startedAt: Date.now() - (i + 1) * 60_000 });
+      }
+    });
+    await expect(me.mutation(api.remake.start, args)).resolves.toBeTruthy();
+  });
+
   it("won't start while a playground clip is being made", async () => {
     const { t, me, userId, args } = await setup();
     await t.run((ctx) => ctx.db.insert("studioClips", { userId, model: "kling-3", prompt: "p", aspect: "9:16", length: 5, status: "rendering",
