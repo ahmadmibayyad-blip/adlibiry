@@ -6,6 +6,7 @@ import { stableToken } from "./lib/authIdentity";
 import { appUrl, tierOf } from "./lib/billing";
 import { FalError, describeFalError, falCancel, falModels, falResult, falStatus, falSubmit, isTransient, videoSecondsOf, videoUrlOf, type FalJob } from "./lib/fal";
 import { ELEVEN_FORMAT, ELEVEN_MODEL, ELEVEN_URL, describeElevenError } from "./lib/voiceover";
+import { ALL_CLIPS_PER_DAY, CLIPS_PER_DAY } from "./lib/studio";
 import {
   ACTOR_PROMPT, ATTEMPTS_PER_DAY, COMPOSE_KEEPS_VIDEO_AUDIO, actorResolution, MAX_LINES, MAX_SECONDS, POLL_MS, REMAKE_ACTORS, STALE_MS, composeTracks, maxVoicedSeconds, mp3Seconds, productPrompt, seedanceDuration,
   type Segment, estimateSeconds, monthStart, photoProblem, planShots, remakePack, remakeSecondsLimit, splitCharge,
@@ -80,21 +81,29 @@ function readLines(variant: unknown): Line[] {
   });
 }
 
-/** One video at a time per user, ATTEMPTS_PER_DAY a day, REMAKES_PER_DAY for everyone (admins skip the daily caps). */
-/** One video or clip at a time per user, ATTEMPTS_PER_DAY a day, REMAKES_PER_DAY for everyone (admins skip the daily caps);
- * remakes and AI Studio clips count together. */
-export async function checkCanStart(ctx: QueryCtx, user: Doc<"users">, now: number): Promise<void> {
-  let mine = 0;
-  let today = 0;
-  const daily = Math.max(0, Number(process.env.REMAKES_PER_DAY ?? DEFAULT_REMAKES_PER_DAY) || 0);
+const envCount = (value: string | undefined, fallback: number) => Math.max(0, Number(value ?? fallback) || 0);
+
+/** One UGC video or clip running at a time per user (both tables). Daily caps are per kind, failed ones included, admins
+ * exempt: UGC videos ATTEMPTS_PER_DAY a user and REMAKES_PER_DAY for everyone; AI Studio clips STUDIO_CLIPS_PER_DAY a user
+ * and STUDIO_CLIPS_ALL_PER_DAY for everyone. */
+export async function checkCanStart(ctx: QueryCtx, user: Doc<"users">, now: number, kind: "remake" | "clip"): Promise<void> {
   for (const table of ["remakes", "studioClips"] as const) {
     const latest = await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").first();
     if (latest && ACTIVE.has(latest.status) && !isStale(latest, now)) throw fail("BUSY", "Your last video is still being made.");
-    mine += (await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id).gt("startedAt", now - DAY_MS)).take(ATTEMPTS_PER_DAY)).length;
-    today += (await ctx.db.query(table).withIndex("by_started", (q) => q.gt("startedAt", now - DAY_MS)).take(daily)).length;
   }
-  if (user.role !== "admin" && mine >= ATTEMPTS_PER_DAY) throw fail("LIMIT", `You've started ${ATTEMPTS_PER_DAY} videos today. Try again tomorrow.`);
-  if (user.role !== "admin" && today >= daily) throw fail("LIMIT", "AI video is busy today. Try again tomorrow.");
+  if (user.role === "admin") return;
+  const table = kind === "remake" ? "remakes" : "studioClips";
+  const perUser = kind === "remake" ? ATTEMPTS_PER_DAY : envCount(process.env.STUDIO_CLIPS_PER_DAY, CLIPS_PER_DAY);
+  const forAll =
+    kind === "remake"
+      ? envCount(process.env.REMAKES_PER_DAY, DEFAULT_REMAKES_PER_DAY)
+      : envCount(process.env.STUDIO_CLIPS_ALL_PER_DAY, ALL_CLIPS_PER_DAY);
+  const mine = (await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id).gt("startedAt", now - DAY_MS)).take(perUser)).length;
+  if (mine >= perUser) {
+    throw fail("LIMIT", kind === "remake" ? `You've started ${perUser} videos today. Try again tomorrow.` : `You've made ${perUser} clips today. Try again tomorrow.`);
+  }
+  const today = (await ctx.db.query(table).withIndex("by_started", (q) => q.gt("startedAt", now - DAY_MS)).take(forAll)).length;
+  if (today >= forAll) throw fail("LIMIT", "AI video is busy today. Try again tomorrow.");
 }
 
 export const start = mutation({
@@ -132,7 +141,7 @@ export const start = mutation({
       const buy = b.canBuy ? ` Buy ${b.pack.seconds} more seconds for €${b.pack.cents / 100}.` : "";
       throw fail("LIMIT", `You have ${left} second${left === 1 ? "" : "s"} of AI video left.${buy}`);
     }
-    await checkCanStart(ctx, user, now);
+    await checkCanStart(ctx, user, now, "remake");
 
     const remakeId = await ctx.db.insert("remakes", {
       userId: user._id,
@@ -197,7 +206,7 @@ export const redo = mutation({
     if (!REMAKE_ACTORS.some((a) => a.id === actorId)) throw fail("BAD_REQUEST", "Pick an actor from the list.");
     if (!/^[A-Za-z0-9]{8,40}$/.test(voiceId)) throw fail("BAD_REQUEST", "Pick a voice from the list.");
     if (!(await ctx.db.system.get(original.productImageId))) throw fail("BAD_PHOTO", "The product photo is gone. Make a new video instead.");
-    await checkCanStart(ctx, user, now);
+    await checkCanStart(ctx, user, now, "remake");
 
     const sameVoice = voiceId === original.voiceId;
     const segments: Segment[] = (original.segments as Segment[]).map((s) => ({

@@ -62,7 +62,7 @@ export const start = mutation({
       const buy = b.canBuy ? ` Buy ${b.pack.seconds} more seconds for €${b.pack.cents / 100}.` : "";
       throw fail("LIMIT", `You have ${left} second${left === 1 ? "" : "s"} of AI video left.${buy}`);
     }
-    await checkCanStart(ctx, user, now);
+    await checkCanStart(ctx, user, now, "clip");
     const clipId = await ctx.db.insert("studioClips", {
       userId: user._id,
       model: checked.model.key,
