@@ -12,7 +12,7 @@ import { compactNumber, flag, spendLabel } from "@/lib/adFormat.ts";
 import { useCpm } from "@/hooks/use-cpm.ts";
 import AdvertiserSpend from "../ad-spy/_components/AdvertiserSpend.tsx";
 import AdTranscript from "../ad-spy/_components/AdTranscript.tsx";
-import AdVideoAnalysis from "../ad-spy/_components/AdVideoAnalysis.tsx";
+import OpenInStudio from "../_components/OpenInStudio.tsx";
 import { adSpend } from "@/lib/euSpend.ts";
 import { gmvFromText, parseCompact } from "@/convex/lib/productMatch.ts";
 import { rankTrend } from "@/convex/lib/adRank.ts";
@@ -216,7 +216,7 @@ export default function AdDetailPage() {
           </div>
 
           <AdTranscript ad={ad} />
-          <AdVideoAnalysis ad={ad} />
+          {(ad.videoUrl || ad.hostedVideoUrl) && <OpenInStudio adId={ad._id} />}
           {ad.productId && <ProductInAd productId={ad.productId} />}
           <AdStore adId={ad._id} />
 

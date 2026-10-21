@@ -122,6 +122,13 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   methods, checked with Stripe, one `remakeTopUps` row per payment; bought seconds don't expire). A remake is charged its estimated seconds
   at start (`monthlySeconds` + `extraSeconds`); failed and lost ones don't count. All users `REMAKES_PER_DAY` (default 30); one running per user.
   The finished video says to mark it as AI-generated when run as an ad.
+- AI Studio (`/dashboard/studio`, `src/pages/dashboard/studio/`; tab in `?tab=remake|playground|videos`, ad in `?ad=`): the ad page's
+  AI tools moved here ("Remake an ad" renders `AdVideoAnalysis` for the ad; the ad page only links to it, `OpenInStudio`, video ads only).
+  Playground (`studio.ts`, rules in `lib/studio.ts`): a prompt + optional product photo (first frame) → a clip from a fal model
+  (`STUDIO_MODELS`: Kling 2.5 Turbo ×0.5, Kling 3 Pro ×1, Seedance Pro ×1, MiniMax H3 Turbo ×0.5; ×N = allowance seconds per clip second,
+  fal price against OmniHuman's $0.16/s). `studioClips` rows go rendering → done | failed; `advance` submits, polls every 10 s, copies the MP4.
+  Clips share the remake allowance and caps (`balance`/`checkCanStart` in `remake.ts` read both tables). Re-roll = start again with a new
+  seed (Kling has none). My videos = `studio.mine` (done remakes + clips). Veo is left out: fal retires Veo 3.1 on 2026-11-17.
 - Saved searches (Ad Spy, Products, Winners: `SavedSearches` in `src/components/filters.tsx`) are on the account (`savedSearches.ts`, table
   `savedSearches`, `page` = the page's storage key, 20 per page). A browser's older localStorage ones are copied once (`importLocal`, flag
   `<key>.onAccount`); names already on the account win.

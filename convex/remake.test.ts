@@ -60,6 +60,20 @@ const errorOf = async (p: Promise<unknown>) => {
 };
 
 describe("remake.start", () => {
+  it("counts playground clips in the seconds used", async () => {
+    const { t, me, userId } = await setup();
+    await t.run((ctx) => ctx.db.insert("studioClips", { userId, model: "kling-3", prompt: "p", aspect: "9:16", length: 10, status: "done",
+      seconds: 10, monthlySeconds: 10, extraSeconds: 0, startedAt: Date.now() - 60_000 }));
+    expect(await me.query(api.remake.allowance, {})).toMatchObject({ used: 10 });
+  });
+
+  it("won't start while a playground clip is being made", async () => {
+    const { t, me, userId, args } = await setup();
+    await t.run((ctx) => ctx.db.insert("studioClips", { userId, model: "kling-3", prompt: "p", aspect: "9:16", length: 5, status: "rendering",
+      seconds: 5, monthlySeconds: 5, extraSeconds: 0, startedAt: Date.now() }));
+    expect(await errorOf(me.mutation(api.remake.start, args))).toMatchObject({ code: "BUSY" });
+  });
+
   it("starts a remake and schedules the pipeline", async () => {
     const { t, me, args } = await setup();
     const id = await me.mutation(api.remake.start, args);
