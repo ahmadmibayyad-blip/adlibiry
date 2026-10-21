@@ -38,6 +38,7 @@ async function setup(who: Who = PRO, photo = { type: "image/jpeg", bytes: 1000 }
     const userId = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user", ...who });
     const adId = await ctx.db.insert("ads", { ...adBase, videoUrl: "https://video.example/ad.mp4" });
     const photoId = await ctx.storage.store(new Blob([new Uint8Array(photo.bytes)], { type: photo.type }));
+    await ctx.db.insert("uploads", { userId, storageId: photoId, at: Date.now() });
     return { userId, adId, photoId };
   });
   const me = t.withIdentity({ subject: "u1|s" });
@@ -261,7 +262,46 @@ const drive = async (t: ReturnType<typeof convexTest>, remakeId: Id<"remakes">, 
   for (let i = 0; i < steps; i++) await t.action(internal.remake.advance, { remakeId });
 };
 
+describe("remake uploads", () => {
+  it("only takes the user's own photo", async () => {
+    const { t, me, args } = await setup();
+    const theirs = await t.run(async (ctx) => {
+      const other = await ctx.db.insert("users", { tokenIdentifier: "u2", role: "user" });
+      const storageId = await ctx.storage.store(new Blob([new Uint8Array(1000)], { type: "image/jpeg" }));
+      await ctx.db.insert("uploads", { userId: other, storageId, at: Date.now() });
+      return storageId;
+    });
+    expect(await errorOf(me.mutation(api.remake.start, { ...args, productImageId: theirs }))).toEqual({ code: "BAD_PHOTO", message: "Upload the photo again." });
+  });
+
+  it("records the uploader of a new photo", async () => {
+    const { t, me, args } = await setup();
+    const fresh = await t.run((ctx) => ctx.storage.store(new Blob([new Uint8Array(1000)], { type: "image/jpeg" })));
+    expect(await errorOf(me.mutation(api.remake.start, { ...args, productImageId: fresh }))).toMatchObject({ code: "BAD_PHOTO" });
+    await me.mutation(api.remake.claimUpload, { storageId: fresh });
+    await expect(me.mutation(api.remake.start, { ...args, productImageId: fresh })).resolves.toBeTruthy();
+  });
+});
+
 describe("remake.advance", () => {
+  it("keeps a video that finishes after the 20-minute mark failed and free", async () => {
+    const { t, me, args } = await setup();
+    stubServices();
+    const remakeId = await me.mutation(api.remake.start, args);
+    await drive(t, remakeId, 3); // voiced, rendered, composing
+    await t.run((ctx) => ctx.db.patch("remakes", remakeId, { startedAt: Date.now() - 19 * 60_000 - 59_000 }));
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const res = await realFetch(input, init);
+      if (String(input instanceof Request ? input.url : input).startsWith("https://fal.media/")) vi.setSystemTime(Date.now() + 120_000);
+      return res;
+    });
+    await drive(t, remakeId, 1);
+    expect(await t.run((ctx) => ctx.db.get("remakes", remakeId))).toMatchObject({ status: "failed" });
+    expect(await me.query(api.remake.allowance, {})).toMatchObject({ used: 0 });
+  });
+
   it("refuses a voice-over longer than it was charged for, before fal", async () => {
     const { t, me, args } = await setup();
     const posts = stubServices({ audioBytes: 160_000 }); // 10 s a line, 20 s for a 5 s charge

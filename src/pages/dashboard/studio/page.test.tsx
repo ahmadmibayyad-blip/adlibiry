@@ -10,10 +10,7 @@ const state: { ad: unknown; adError: boolean; mine: unknown[]; mineArgs: unknown
 vi.mock("convex/react", () => ({
   useQuery: (ref: unknown, args?: unknown) => {
     const name = getFunctionName(ref as never);
-    if (name === "ads:getById") {
-      if (state.adError) throw new Error("ArgumentValidationError");
-      return state.ad;
-    }
+    if (name === "studio:ad") return state.ad;
     if (name === "studio:mine") {
       state.mineArgs.push(args);
       return state.mine;
@@ -26,7 +23,7 @@ vi.mock("../ad-spy/_components/AdVideoAnalysis.tsx", () => ({
 }));
 vi.mock("./_components/Playground.tsx", () => ({ default: () => <div>playground</div> }));
 
-const AD = { _id: "a1", headline: "Cooling mat for dogs", advertiserName: "PawCo", videoUrl: "https://v/ad.mp4" };
+const AD = { _id: "a1", headline: "Cooling mat for dogs", advertiserName: "PawCo", videoUrl: "https://v/ad.mp4", creativeUrl: "https://img/ad.jpg" };
 
 function Where() {
   return <div data-testid="where">{useLocation().search}</div>;
@@ -54,6 +51,7 @@ describe("AI Studio", () => {
     expect(screen.getByRole("tab", { name: "Remake an ad" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { name: "Cooling mat for dogs" })).toBeInTheDocument();
     expect(screen.getByText("analysis for Cooling mat for dogs")).toBeInTheDocument();
+    expect(document.querySelector('img[src="https://img/ad.jpg"]')).toBeTruthy();
   });
 
   it("opens the playground without an ad", () => {
@@ -76,12 +74,6 @@ describe("AI Studio", () => {
   it("says when the ad isn't there", () => {
     state.ad = null;
     show("/dashboard/studio?ad=a1");
-    expect(screen.getByText("Ad not found")).toBeInTheDocument();
-  });
-
-  it("says the ad isn't there for a broken link instead of crashing", () => {
-    state.adError = true;
-    show("/dashboard/studio?ad=not-an-id");
     expect(screen.getByText("Ad not found")).toBeInTheDocument();
   });
 

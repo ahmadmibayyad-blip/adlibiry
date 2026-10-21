@@ -13,16 +13,18 @@ const MODELS: Model[] = [
   { key: "kling-2.5", name: "Kling 2.5 Turbo", blurb: "Fast", lengths: [5, 10], aspects: ["9:16", "1:1", "16:9"], photoAspect: false, multiplier: 0.5, needsPhoto: false },
   { key: "kling-3", name: "Kling 3 Pro", blurb: "Best", lengths: [5, 10], aspects: ["9:16", "1:1", "16:9"], photoAspect: false, multiplier: 1, needsPhoto: false },
   { key: "photo-only", name: "Photo Only", blurb: "Needs a photo", lengths: [6], aspects: ["9:16"], photoAspect: false, multiplier: 1, needsPhoto: true },
+  { key: "h3-turbo", name: "MiniMax H3 Turbo", blurb: "Cheap", lengths: [5, 10], aspects: ["16:9"], photoAspect: false, multiplier: 0.5, needsPhoto: false },
 ];
 const PACK = { seconds: 30, cents: 900 };
 const state: { allowance: unknown; latest: Latest } = { allowance: null, latest: null };
 const start = vi.fn(async (_: unknown) => "c1");
 const uploadUrl = vi.fn(async () => "https://upload.example/u");
+const claimUpload = vi.fn(async (_: unknown) => null);
 
 vi.mock("convex/react", () => ({
   useQuery: (ref: unknown) =>
     ({ "studio:models": MODELS, "studio:latest": state.latest, "remake:allowance": state.allowance })[getFunctionName(ref as never)],
-  useMutation: (ref: unknown) => (getFunctionName(ref as never) === "studio:start" ? start : uploadUrl),
+  useMutation: (ref: unknown) => ({ "studio:start": start, "remake:claimUpload": claimUpload })[getFunctionName(ref as never)] ?? uploadUrl,
 }));
 vi.mock("@/components/billing/RemakeTopUpDialog.tsx", () => ({ default: () => null }));
 
@@ -51,12 +53,36 @@ describe("Playground", () => {
     await waitFor(() => expect(start).toHaveBeenCalledWith({ model: "kling-2.5", prompt: "A dog on a cooling mat", aspect: "9:16", length: 5 }));
   });
 
-  it("needs a photo for photo-only models", () => {
+  it("shows photo-only models once a photo is added, and records the upload", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ storageId: "s1" }))));
     render(<Playground />);
-    describeIt("A dog");
-    fireEvent.click(screen.getByRole("radio", { name: /Photo Only/ }));
-    expect(screen.getByText("Add a product photo for this model.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate" })).toBeDisabled();
+    expect(screen.queryByRole("radio", { name: /Photo Only/ })).toBeNull();
+    const input = screen.getByLabelText("Product photo") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([new Uint8Array(10)], "mat.jpg", { type: "image/jpeg" })] } });
+    await waitFor(() => expect(screen.getByRole("radio", { name: /Photo Only/ })).toBeInTheDocument());
+    expect(claimUpload).toHaveBeenCalledWith({ storageId: "s1" });
+    expect(input.value).toBe("");
+    vi.unstubAllGlobals();
+  });
+
+  it("lists each model's lengths", () => {
+    render(<Playground />);
+    expect(screen.getByRole("radio", { name: /Kling 3 Pro/ })).toHaveTextContent("5 or 10 s");
+  });
+
+  it("says a one-format model's format", () => {
+    render(<Playground />);
+    fireEvent.click(screen.getByRole("radio", { name: /H3 Turbo/ }));
+    expect(screen.getByText("Format: 16:9")).toBeInTheDocument();
+  });
+
+  it("labels a take that followed the photo", () => {
+    state.latest = {
+      _id: "c1", status: "done", error: null, videoUrl: "https://v.example/c.mp4", model: "kling-3", prompt: "A dog", aspect: "9:16", length: 5,
+      seed: null, imageId: "s1", seconds: 5,
+    };
+    render(<Playground />);
+    expect(screen.getByText(/Kling 3 Pro · follows the photo · 5 s/)).toBeInTheDocument();
   });
 
   it("re-rolls and switches model from a finished take", async () => {

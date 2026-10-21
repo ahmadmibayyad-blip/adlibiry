@@ -12,10 +12,11 @@ const state: { allowance: Allowance; latest: Latest } = { allowance: null, lates
 const start = vi.fn(async (_: unknown) => "r1");
 const uploadUrl = vi.fn(async () => "https://upload.example/u");
 const redo = vi.fn(async (_: unknown) => "r2");
+const claimUpload = vi.fn(async (_: unknown) => null);
 
 vi.mock("convex/react", () => ({
   useQuery: (ref: unknown) => (getFunctionName(ref as never) === "remake:allowance" ? state.allowance : state.latest),
-  useMutation: (ref: unknown) => ({ "remake:start": start, "remake:redo": redo })[getFunctionName(ref as never)] ?? uploadUrl,
+  useMutation: (ref: unknown) => ({ "remake:start": start, "remake:redo": redo, "remake:claimUpload": claimUpload })[getFunctionName(ref as never)] ?? uploadUrl,
   useAction: () => async () => [{ id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female" }],
 }));
 vi.mock("@/components/billing/RemakeTopUpDialog.tsx", () => ({
@@ -73,7 +74,14 @@ describe("RemakeVideo", () => {
     fireEvent.click(make);
     await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
     expect(start.mock.calls[0][0]).toMatchObject({ adId, actorId: "maya", product: "Cooling mat", productImageId: "s1", variant });
+    expect(claimUpload).toHaveBeenCalledWith({ storageId: "s1" });
+    expect((screen.getByLabelText(/product photo/i) as HTMLInputElement).value).toBe("");
     vi.unstubAllGlobals();
+  });
+
+  it("is step 3 in AI Studio", () => {
+    show();
+    expect(screen.getByRole("heading", { name: /make the video/i })).toHaveTextContent(/^3/);
   });
 
   it("shows progress while the video is made", () => {

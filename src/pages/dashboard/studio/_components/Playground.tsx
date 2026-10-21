@@ -22,7 +22,17 @@ const TIPS = [
 const euros = (cents: number) => (cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2));
 const secondsFor = (multiplier: number, length: number) => Math.max(1, Math.ceil(length * multiplier));
 
+/** "5 or 10 s", "3, 5, 8, 10 or 12 s". */
+const lengthsText = (lengths: number[]) =>
+  lengths.length > 1 ? `${lengths.slice(0, -1).join(", ")} or ${lengths[lengths.length - 1]} s` : `${lengths[0]} s`;
+
 type Take = { id: string; videoUrl: string; model: string; prompt: string; aspect: string; length: number; imageId: string | null };
+
+/** "Kling 3 Pro · 9:16 · 5 s"; a clip made from a photo by a model that follows it says so instead of a format. */
+function takeLabel(t: Take, m: { name: string; photoAspect: boolean } | undefined): string {
+  const format = t.imageId && m && !m.photoAspect ? "follows the photo" : t.aspect;
+  return `${m?.name ?? t.model} · ${format} · ${t.length} s`;
+}
 
 function Choice({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
   return (
@@ -50,6 +60,7 @@ export default function Playground() {
   const allowance = useQuery(api.remake.allowance, {});
   const start = useMutation(api.studio.start);
   const uploadUrl = useMutation(api.remake.uploadUrl);
+  const claimUpload = useMutation(api.remake.claimUpload);
   const [prompt, setPrompt] = useState("");
   const [modelKey, setModelKey] = useState("");
   const [aspect, setAspect] = useState("9:16");
@@ -61,7 +72,9 @@ export default function Playground() {
   const [takes, setTakes] = useState<Take[]>([]);
   const pickerRef = useRef<HTMLDivElement>(null);
 
-  const model = models?.find((m) => m.key === modelKey) ?? models?.[0];
+  // Models that need a photo show up once one is added.
+  const shown = models?.filter((m) => !m.needsPhoto || photo);
+  const model = shown?.find((m) => m.key === modelKey) ?? shown?.[0];
   const followsPhoto = !!photo && !!model && !model.photoAspect;
   const lengths = model?.lengths ?? [];
   const len = lengths.includes(length) ? length : (lengths[0] ?? 0);
@@ -101,11 +114,13 @@ export default function Playground() {
       const res = await fetch(await uploadUrl({}), { method: "POST", headers: { "Content-Type": file.type }, body: file });
       if (!res.ok) throw new Error(`upload ${res.status}`);
       const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+      await claimUpload({ storageId });
       setPhoto({ storageId, name: file.name });
     } catch (err) {
       toast.error(errorMessage(err, "Couldn't upload the photo."));
     } finally {
       setUploading(false);
+      e.target.value = ""; // so the same file can be picked again
     }
   };
 
@@ -174,7 +189,7 @@ export default function Playground() {
       <section>
         <h3 className="font-semibold text-sm mb-1.5">Model</h3>
         <div ref={pickerRef} tabIndex={-1} role="radiogroup" aria-label="Model" className="grid grid-cols-1 sm:grid-cols-2 gap-2 outline-none">
-          {models.map((m) => (
+          {(shown ?? []).map((m) => (
             <button
               key={m.key}
               type="button"
@@ -189,7 +204,7 @@ export default function Playground() {
               <span className="block font-medium text-sm">{m.name}</span>
               <span className="block text-xs text-muted-foreground">{m.blurb}</span>
               <span className="block text-xs mt-1">
-                Uses {secondsFor(m.multiplier, m.lengths.includes(len) ? len : m.lengths[0])} s{m.needsPhoto ? " · needs a photo" : ""}
+                {lengthsText(m.lengths)} · Uses {secondsFor(m.multiplier, m.lengths.includes(len) ? len : m.lengths[0])} s
               </span>
             </button>
           ))}
@@ -200,7 +215,12 @@ export default function Playground() {
         {followsPhoto ? (
           <p className="text-xs text-muted-foreground">Format: follows the photo.</p>
         ) : (
-          model && model.aspects.length > 1 && <Choice label="Format" options={model.aspects} value={asp} onChange={setAspect} />
+          model &&
+          (model.aspects.length > 1 ? (
+            <Choice label="Format" options={model.aspects} value={asp} onChange={setAspect} />
+          ) : (
+            <p className="text-xs text-muted-foreground">Format: {model.aspects[0]}</p>
+          ))
         )}
         <Choice label="Length" options={lengths.map((l) => `${l} s`)} value={`${len} s`} onChange={(v) => setLength(Number.parseInt(v, 10))} />
       </section>
@@ -239,7 +259,7 @@ export default function Playground() {
               <div key={t.id} className="shrink-0 w-[220px]">
                 <video controls src={t.videoUrl} className="w-full rounded-lg bg-black max-h-[360px]" />
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                  {models.find((m) => m.key === t.model)?.name ?? t.model} · {t.aspect} · {t.length} s
+                  {takeLabel(t, models.find((m) => m.key === t.model))}
                 </p>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   <Button variant="outline" size="sm" className="h-8" onClick={() => reroll(t)} disabled={busy || running}>

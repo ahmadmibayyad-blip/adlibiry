@@ -130,6 +130,9 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   Clips share the remake seconds (`balance` reads both tables) and the one-running-at-a-time lock; daily caps are per kind
   (`checkCanStart(..., kind)`): clips 20 a user (`STUDIO_CLIPS_PER_DAY`) and 300 for everyone (`STUDIO_CLIPS_ALL_PER_DAY`), failed ones included. Re-roll = start again with a new
   seed (Kling has none). My videos = `studio.mine` (done remakes + clips). Veo is left out: fal retires Veo 3.1 on 2026-11-17.
+  Product photos: after uploading to `remake.uploadUrl` the page calls `remake.claimUpload` (table `uploads`); `remake.start` and `studio.start`
+  only take the user's own photo. A video or clip that finishes after the 20-minute mark stays failed and free. `studio.ad` reads the
+  Remake tab's raw `?ad=` text (`normalizeId`), so a broken link shows "Ad not found".
 - Saved searches (Ad Spy, Products, Winners: `SavedSearches` in `src/components/filters.tsx`) are on the account (`savedSearches.ts`, table
   `savedSearches`, `page` = the page's storage key, 20 per page). A browser's older localStorage ones are copied once (`importLocal`, flag
   `<key>.onAccount`); names already on the account win.

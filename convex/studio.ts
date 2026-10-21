@@ -4,8 +4,8 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { FalError, describeFalError, falCancel, falResult, falStatus, falSubmit, isTransient, videoUrlOf, type FalJob } from "./lib/fal";
 import { POLL_MS, photoProblem, splitCharge } from "./lib/remake";
-import { STUDIO_MODELS, chargeFor, falInput, validateRequest } from "./lib/studio";
-import { STALE_MESSAGE, balance, checkCanStart, currentUser, fail, isStale } from "./remake";
+import { STUDIO_MODELS, chargeFor, falInput, validateRequest, type Aspect } from "./lib/studio";
+import { STALE_MESSAGE, balance, checkCanStart, currentUser, fail, isStale, ownsUpload } from "./remake";
 
 // ── AI Studio → Playground ──────────────────────────────────────────────────
 // A prompt (and optional product photo) becomes a clip from one fal model (lib/studio.ts). `start` checks the
@@ -27,6 +27,16 @@ export const models = query({
       multiplier: m.multiplier,
       needsPhoto: !m.textEndpoint,
     })),
+});
+
+/** The ad in a studio link (?ad=), or null when the link isn't an ad id or the ad is gone. */
+export const ad = query({
+  args: { id: v.string() },
+  handler: async (ctx, args) => {
+    if (!(await currentUser(ctx))) return null;
+    const id = ctx.db.normalizeId("ads", args.id);
+    return id ? await ctx.db.get("ads", id) : null;
+  },
 });
 
 export const start = mutation({
@@ -51,6 +61,7 @@ export const start = mutation({
     if (args.imageId) {
       const photoError = photoProblem(await ctx.db.system.get(args.imageId));
       if (photoError) throw fail("BAD_PHOTO", photoError);
+      if (!(await ownsUpload(ctx, user._id, args.imageId))) throw fail("BAD_PHOTO", "Upload the photo again.");
     }
     const seconds = chargeFor(checked.model, checked.length);
     const now = Date.now();
@@ -187,7 +198,7 @@ export const advance = internalAction({
         const model = STUDIO_MODELS.find((m) => m.key === row.model);
         if (!model) return await failWith("This model isn't available anymore. Pick another one.");
         if (row.imageId && !imageUrl) return await failWith("The product photo is gone. Upload it again.");
-        const { endpoint, body } = falInput(model, { prompt: row.prompt, aspect: row.aspect as never, length: row.length }, imageUrl, row.seed ?? null);
+        const { endpoint, body } = falInput(model, { prompt: row.prompt, aspect: row.aspect as Aspect, length: row.length }, imageUrl, row.seed ?? null);
         await save({ job: await falSubmit(key, endpoint, body) });
       } else {
         const url = await finishedVideo(key, job);
@@ -195,6 +206,8 @@ export const advance = internalAction({
           const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
           if (!res.ok) throw new FalError(res.status, null);
           const videoId: Id<"_storage"> = await ctx.storage.store(new Blob([await res.arrayBuffer()], { type: "video/mp4" }));
+          // A clip that only finishes after the 20-minute mark stays failed and free, as the page already says.
+          if (isStale(row, Date.now())) return await failWith(STALE_MESSAGE);
           await save({ status: "done", videoId, finishedAt: Date.now() });
           return;
         }

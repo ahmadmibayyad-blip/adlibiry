@@ -8,6 +8,7 @@ import { TRANSCRIPT_LANGUAGES } from "@/convex/lib/transcriptLanguages.ts";
 import { variantText, type Analysis, type Variant } from "@/convex/lib/videoAnalysis.ts";
 import { voiceText, type VoiceOption } from "@/convex/lib/voiceover.ts";
 import { Button } from "@/components/ui/button.tsx";
+import StepNumber from "@/components/StepNumber.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
@@ -47,7 +48,10 @@ export default function AdVideoAnalysis({ ad }: { ad: Doc<"ads"> }) {
     <div className={cn(BOX, "flex flex-wrap items-center gap-3")}>
       <Clapperboard className="w-4 h-4 text-primary shrink-0" />
       <div className="flex-1 min-w-0">
-        <h2 className="font-semibold text-sm">Why this video works</h2>
+        <h2 className="font-semibold text-sm">
+          <StepNumber n={1} />
+          Why this video works
+        </h2>
         <p className="text-xs text-muted-foreground">
           {running
             ? "Watching the video… this takes about a minute. You can leave the page; it keeps going."
@@ -99,7 +103,10 @@ function AnalysisView({ adId, a }: { adId: Doc<"ads">["_id"]; a: Analysis }) {
     <div className={cn(BOX, "space-y-5")}>
       <div className="flex items-center gap-2">
         <Clapperboard className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold text-sm flex-1">Why this video works</h2>
+        <h2 className="font-semibold text-sm flex-1">
+          <StepNumber n={1} />
+          Why this video works
+        </h2>
         {a.durationSeconds !== null && (
           <span className="text-xs text-muted-foreground">
             {a.durationSeconds} s{a.pacing ? `, ${a.pacing.cuts} cuts${a.pacing.avgShotSeconds ? ` (a cut every ${a.pacing.avgShotSeconds} s)` : ""}` : ""}
@@ -237,7 +244,10 @@ function WriteVariant({ adId }: { adId: Doc<"ads">["_id"] }) {
     <div className="border-t border-border pt-5">
       <div className="flex items-center gap-2 mb-1">
         <Wand2 className="w-4 h-4 text-primary" />
-        <h3 className="font-semibold text-sm">Write my version</h3>
+        <h3 className="font-semibold text-sm">
+          <StepNumber n={2} />
+          Write my version
+        </h3>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
         A new script and shot timeline for your product, built on this ad's structure. New words, not a copy.
