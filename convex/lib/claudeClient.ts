@@ -30,10 +30,12 @@ export function claudeClient(): Anthropic {
         if (!shouldUseKimi(error, params as { tools?: unknown[]; stream?: boolean })) throw error;
         console.warn("Claude failed, answering with Kimi:", (error as Error).message?.slice(0, 200));
         // Twice: Kimi's own rate limits and an answer that's cut off or doesn't fit the schema are often one-offs.
+        // A caller that set a time limit (a long job that must end inside Convex's 10 minutes) gets one try within it.
+        const timeoutMs = (options as { timeout?: number } | undefined)?.timeout;
         let last: unknown;
-        for (let attempt = 0; attempt < 2; attempt++) {
+        for (let attempt = 0; attempt < (timeoutMs ? 1 : 2); attempt++) {
           try {
-            return await askKimi(params as Parameters<typeof askKimi>[0], kimi);
+            return await askKimi(params as Parameters<typeof askKimi>[0], { ...kimi, ...(timeoutMs ? { timeoutMs } : {}) });
           } catch (kimiError) {
             last = kimiError;
             console.error(`Kimi fallback failed (try ${attempt + 1}):`, (kimiError as Error).message?.slice(0, 300));

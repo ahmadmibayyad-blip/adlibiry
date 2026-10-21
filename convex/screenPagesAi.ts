@@ -110,14 +110,18 @@ export const run = internalAction({
       }
       const note = partsNote(images.length);
       const prompt = page.pending && page.html ? editPrompt(page.html, page.pending, note) : createPrompt(note, page.notes, products);
-      // About 450 s at most for 16k tokens: inside the SDK's and Convex's 10-minute limits.
-      const message = await claudeClient().messages.create({
-        model: "claude-opus-5-5",
-        max_tokens: 16000,
-        system: SCREEN_PAGE_SYSTEM,
-        messages: [{ role: "user", content: [...images, { type: "text", text: prompt }] }],
-        output_config: { effort: "low" },
-      });
+      // About 450 s for 16k tokens. Capped at 7 minutes with no retries, so with the photo searches (2 min at most) it
+      // ends inside Convex's 10-minute action limit and a slow answer is saved as a failure instead of stopping mid-way.
+      const message = await claudeClient().messages.create(
+        {
+          model: "claude-opus-5-5",
+          max_tokens: 16000,
+          system: SCREEN_PAGE_SYSTEM,
+          messages: [{ role: "user", content: [...images, { type: "text", text: prompt }] }],
+          output_config: { effort: "low" },
+        },
+        { timeout: 7 * 60_000, maxRetries: 0 },
+      );
       const answer = message.content.map((b) => (b.type === "text" ? b.text : "")).join("");
       const html = message.stop_reason === "refusal" ? null : extractHtml(answer);
       if (!html) {
