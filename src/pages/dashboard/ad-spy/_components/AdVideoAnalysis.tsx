@@ -13,10 +13,11 @@ import { Textarea } from "@/components/ui/textarea.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import RemakeVideo from "./RemakeVideo.tsx";
 
 // Ad page → "Why this video works": the AI breakdown of a video ad (convex/videoAnalysis.ts,
 // Apify) and "Write my version", a new script with a shot timeline for the user's product
-// (videoAnalysisAi.writeVariant).
+// (videoAnalysisAi.writeVariant), then "Make the video" (RemakeVideo.tsx, AI actor + product shots).
 
 const secs = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 const BOX = "bg-card border border-border rounded-xl p-5";
@@ -296,6 +297,7 @@ function WriteVariant({ adId }: { adId: Doc<"ads">["_id"] }) {
           {variant.cta && <p className="text-sm mt-3"><span className="font-medium">Call to action:</span> {variant.cta}</p>}
           {variant.notes && <p className="text-xs text-muted-foreground mt-1">{variant.notes}</p>}
           <Voiceover text={voiceText(variant.lines)} />
+          <RemakeVideo adId={adId} variant={variant} product={product} />
         </div>
       )}
     </div>
