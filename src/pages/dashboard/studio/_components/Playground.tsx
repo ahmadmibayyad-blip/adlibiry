@@ -65,7 +65,7 @@ export default function Playground() {
   const followsPhoto = !!photo && !!model && !model.photoAspect;
   const lengths = model?.lengths ?? [];
   const len = lengths.includes(length) ? length : (lengths[0] ?? 0);
-  const asp = model && !followsPhoto && !model.aspects.includes(aspect) ? model.aspects[0] : aspect;
+  const asp = model && !followsPhoto && !(model.aspects as string[]).includes(aspect) ? model.aspects[0] : aspect;
 
   // Keep each finished clip as a take, once (state adjusted while rendering, not in an effect).
   const [seen, setSeen] = useState<string | null>(null);

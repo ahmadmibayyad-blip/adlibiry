@@ -19,6 +19,7 @@ const ProductsFeed = lazy(() => import("./pages/dashboard/products/page.tsx"));
 const ProductDetail = lazy(() => import("./pages/dashboard/products/[id].tsx"));
 const SavedProducts = lazy(() => import("./pages/dashboard/saved/page.tsx"));
 const AdSpyPage = lazy(() => import("./pages/dashboard/ad-spy/page.tsx"));
+const StudioPage = lazy(() => import("./pages/dashboard/studio/page.tsx"));
 const OfferSearchPage = lazy(() => import("./pages/dashboard/offer-search/page.tsx"));
 const PageBuilderPage = lazy(() => import("./pages/dashboard/page-builder/page.tsx"));
 const ProfitPage = lazy(() => import("./pages/dashboard/profit/page.tsx"));
@@ -118,6 +119,7 @@ export default function App() {
             <Route path="launch/shopify-callback" element={<LaunchesPage />} />
             <Route path="launches" element={<LaunchesPage />} />
             <Route path="page-builder" element={<PageBuilderPage />} />
+            <Route path="studio" element={<StudioPage />} />
             <Route path="profit" element={<ProfitPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="ad-queue" element={<AdQueuePage />} />
