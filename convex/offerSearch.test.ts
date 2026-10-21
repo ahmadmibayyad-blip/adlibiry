@@ -24,6 +24,7 @@ const items = [
 ];
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
@@ -179,6 +180,7 @@ describe("Offer research (Admin)", () => {
 
 describe("Offer Search store actions", () => {
   it("adds a found store to AdSpy once, to track it or put it in a collection", async () => {
+    vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
     const { t, user } = await setup();
     expect(await user.query(api.offerSearch.storeStates, { hosts: ["pawtech.dk"] })).toEqual([]);
@@ -188,6 +190,10 @@ describe("Offer Search store actions", () => {
     await user.mutation(api.stores.toggleTrackStore, { storeId: id });
     expect(await user.query(api.offerSearch.storeStates, { hosts: ["pawtech.dk", "helysta.dk"] })).toEqual([{ host: "pawtech.dk", storeId: id, tracked: true }]);
     await expect(user.mutation(api.offerSearch.ensureStore, { host: "not a store" })).rejects.toThrow(/store address/);
+    // Tracking schedules a sales check (storeSales.checkOne); it must finish here, or its fetches land in the next test's stub.
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const left = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(left.filter((j) => j.state.kind === "pending" || j.state.kind === "inProgress").map((j) => j.name)).toEqual([]);
   });
 
   it("finds the product on AliExpress by its photo", async () => {
