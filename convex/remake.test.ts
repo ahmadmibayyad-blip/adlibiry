@@ -137,6 +137,15 @@ describe("remake.start", () => {
     });
   });
 
+  it("caps one user's attempts a day, failed ones too", async () => {
+    const { t, me, userId, adId, photoId, args } = await setup();
+    for (let i = 0; i < 5; i++) await pastRemake(t, userId, adId, photoId, { status: "failed" });
+    expect(await errorOf(me.mutation(api.remake.start, args))).toEqual({
+      code: "LIMIT",
+      message: "You've started 5 videos today. Try again tomorrow.",
+    });
+  });
+
   it("caps all users together per day", async () => {
     const { t, me, userId, adId, photoId, args } = await setup();
     vi.stubEnv("REMAKES_PER_DAY", "1");
@@ -164,52 +173,104 @@ describe("remake.latestForAd", () => {
 });
 
 // Fake ElevenLabs + fal + fal's file host. Each fal job gets its own links; compose answers video_url.
-function stubServices(opts: { submitStatus?: number } = {}) {
+function stubServices(opts: { submitStatus?: number; audioBytes?: number; flakyStatus?: number; failSecondSubmit?: number } = {}) {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }); // only the test drives advance
   vi.stubEnv("ELEVENLABS_API_KEY", "el-test");
   const posts: { model: string; body: unknown }[] = [];
+  const calls = { eleven: 0, cancels: [] as string[] };
   let n = 0;
+  let flaky = opts.flakyStatus ? 1 : 0;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input instanceof Request ? input.url : input);
       const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
-      if (url.includes("api.elevenlabs.io")) return new Response(new Uint8Array(80_000), { headers: { "content-type": "audio/mpeg" } });
+      if (url.includes("api.elevenlabs.io")) {
+        calls.eleven++;
+        return new Response(new Uint8Array(opts.audioBytes ?? 40_000), { headers: { "content-type": "audio/mpeg" } });
+      }
+      if (url.endsWith("/cancel") && init?.method === "PUT") {
+        calls.cancels.push(url);
+        return json({ status: "CANCELLATION_REQUESTED" });
+      }
       if (url.startsWith("https://fal.media/")) return new Response(new Uint8Array(100), { headers: { "content-type": "video/mp4" } });
       const m = url.match(/^https:\/\/queue\.fal\.run\/(.+)$/);
       if (m && init?.method === "POST") {
         if (opts.submitStatus) return json({ detail: "refused" }, opts.submitStatus);
+        if (opts.failSecondSubmit && posts.length === 1) return json({ detail: "refused" }, opts.failSecondSubmit);
         posts.push({ model: m[1], body: JSON.parse(String(init.body)) });
         const id = `${++n}-${m[1].includes("compose") ? "compose" : "clip"}`;
         return json({ request_id: id, status_url: `https://queue.fal.run/jobs/${id}/status`, response_url: `https://queue.fal.run/jobs/${id}` });
       }
-      if (url.endsWith("/status")) return json({ status: "COMPLETED" });
+      if (url.endsWith("/status")) {
+        if (flaky > 0) {
+          flaky--;
+          return json({ detail: "busy" }, opts.flakyStatus);
+        }
+        return json({ status: "COMPLETED" });
+      }
       if (url.includes("/jobs/")) return json(url.includes("compose") ? { video_url: "https://fal.media/final.mp4" } : { video: { url: `https://fal.media/${url.split("/").pop()}.mp4` } });
       return json({}, 404);
     }),
   );
-  return posts;
+  return Object.assign(posts, { calls });
 }
 
+const drive = async (t: ReturnType<typeof convexTest>, remakeId: Id<"remakes">, steps: number) => {
+  for (let i = 0; i < steps; i++) await t.action(internal.remake.advance, { remakeId });
+};
+
 describe("remake.advance", () => {
+  it("refuses a voice-over longer than it was charged for, before fal", async () => {
+    const { t, me, args } = await setup();
+    const posts = stubServices({ audioBytes: 160_000 }); // 10 s a line, 20 s for a 5 s charge
+    const remakeId = await me.mutation(api.remake.start, args);
+    await drive(t, remakeId, 2);
+    expect(await t.run((ctx) => ctx.db.get("remakes", remakeId))).toMatchObject({
+      status: "failed",
+      error: "The voice-over came out longer than the script. Shorten the lines and try again.",
+    });
+    expect(posts).toHaveLength(0);
+  });
+
+  it("cancels the jobs already sent when a later one is refused", async () => {
+    const { t, me, args } = await setup();
+    const posts = stubServices({ failSecondSubmit: 422 });
+    const remakeId = await me.mutation(api.remake.start, args);
+    await drive(t, remakeId, 2);
+    expect(await t.run((ctx) => ctx.db.get("remakes", remakeId))).toMatchObject({ status: "failed" });
+    expect(posts.calls.cancels).toEqual(["https://queue.fal.run/jobs/1-clip/cancel"]);
+  });
+
+  it("keeps waiting through a brief fal error", async () => {
+    const { t, me, args } = await setup();
+    stubServices({ flakyStatus: 503 });
+    const remakeId = await me.mutation(api.remake.start, args);
+    await drive(t, remakeId, 5);
+    expect(await t.run((ctx) => ctx.db.get("remakes", remakeId))).toMatchObject({ status: "done" });
+  });
+
   it("voices, renders and composes the video", async () => {
     const { t, me, adId, args } = await setup();
     const posts = stubServices();
     const remakeId = await me.mutation(api.remake.start, args);
-    for (let i = 0; i < 3; i++) await t.action(internal.remake.advance, { remakeId });
+    await drive(t, remakeId, 1);
+    expect(posts.calls.eleven).toBe(1); // one line per step, so a step can't outlast Convex's time limit
+    expect(posts).toHaveLength(0);
+    await drive(t, remakeId, 3);
     const row = await t.run((ctx) => ctx.db.get("remakes", remakeId));
-    expect(row).toMatchObject({ status: "done", seconds: 10 });
+    expect(row).toMatchObject({ status: "done", seconds: 5 });
     expect(row?.videoId).toBeTruthy();
     expect(posts.map((p) => p.model)).toEqual([
+      "fal-ai/bytedance/seedance/v1/pro/image-to-video", // product shots first: they're the ones fal may refuse
       "fal-ai/bytedance/omnihuman/v1.5",
-      "fal-ai/bytedance/seedance/v1/pro/image-to-video",
       "fal-ai/ffmpeg-api/compose",
     ]);
-    expect(posts[0].body).toMatchObject({ resolution: "720p" });
-    expect((posts[0].body as { image_url: string }).image_url).toMatch(/\/actors\/maya\.jpg$/);
-    expect(posts[1].body).toMatchObject({ duration: "5", resolution: "720p", aspect_ratio: "9:16" });
+    expect(posts[1].body).toMatchObject({ resolution: "720p" });
+    expect((posts[1].body as { image_url: string }).image_url).toMatch(/\/actors\/maya\.jpg$/);
+    expect(posts[0].body).toMatchObject({ duration: "3", resolution: "720p", aspect_ratio: "9:16" });
     const tracks = (posts[2].body as { tracks: { type: string; keyframes: { timestamp: number; duration: number }[] }[] }).tracks;
-    expect(tracks[0].keyframes.map((k) => [k.timestamp, k.duration])).toEqual([[0, 5000], [5000, 5000]]);
+    expect(tracks[0].keyframes.map((k) => [k.timestamp, k.duration])).toEqual([[0, 2500], [2500, 2500]]);
     const latest = await me.query(api.remake.latestForAd, { adId });
     expect(latest).toMatchObject({ status: "done", error: null });
     expect(latest?.videoUrl).toBeTruthy();
@@ -219,7 +280,7 @@ describe("remake.advance", () => {
     const { t, me, args } = await setup();
     stubServices({ submitStatus: 422 });
     const remakeId = await me.mutation(api.remake.start, args);
-    await t.action(internal.remake.advance, { remakeId });
+    await drive(t, remakeId, 2);
     expect(await t.run((ctx) => ctx.db.get("remakes", remakeId))).toMatchObject({
       status: "failed",
       error: "The AI video service refused this photo. Try a plain product photo.",

@@ -25,6 +25,8 @@ export const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export const MAX_SECONDS = 45;
 export const MAX_PRODUCT_SHOTS = 2;
+// Videos one user may start a day, failed ones included (they cost us the voice and fal calls made before failing).
+export const ATTEMPTS_PER_DAY = 5;
 export const STALE_MS = 20 * 60_000;
 export const POLL_MS = 10_000;
 // Whether fal's compose keeps a video clip's own sound. Until checked on fal
@@ -50,6 +52,8 @@ export type Segment = {
 
 const PRODUCT_SCENE = /product|close-?up|unbox|demo|hands?|b-?roll|packag|show(s|ing)? (it|the)/i;
 const WORDS_PER_SECOND = 2.5;
+// Text without spaces (Chinese, Thai, run-together words) is counted by characters instead.
+const CHARS_PER_SECOND = 15;
 
 /** The script's voiced lines as segments: the first on the actor, product scenes (at most 2) as product shots. */
 export function planShots(lines: { scene: string; voiceover: string }[]): Segment[] {
@@ -73,9 +77,14 @@ export function estimateSeconds(lines: { voiceover: string }[]): number {
   let total = 0;
   for (const l of lines) {
     const words = wordCount(l.voiceover);
-    if (words) total += Math.max(1, words / WORDS_PER_SECOND);
+    if (words) total += Math.max(1, words / WORDS_PER_SECOND, l.voiceover.trim().length / CHARS_PER_SECOND);
   }
   return Math.ceil(total);
+}
+
+/** The longest real voice-over a remake charged `charged` seconds may have before it's refused (before any fal call). */
+export function maxVoicedSeconds(charged: number): number {
+  return Math.min(MAX_SECONDS, charged * 1.15 + 1);
 }
 
 /** Length of an ElevenLabs mp3_44100_128 file (constant bit rate). */

@@ -55,6 +55,8 @@ describe("remake rules", () => {
   it("estimates 2.5 words a second, at least 1 s a line", () => {
     expect(estimateSeconds([{ voiceover: "one two three four five" }, { voiceover: "hi" }])).toBe(3);
     expect(estimateSeconds([{ voiceover: "   " }])).toBe(0);
+    // Text without spaces (or Chinese, Thai...) is counted by characters: about 15 a second.
+    expect(estimateSeconds([{ voiceover: "x".repeat(400) }])).toBe(27);
   });
 
   it("reads CBR mp3 length", () => {

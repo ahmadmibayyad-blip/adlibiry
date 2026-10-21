@@ -4,10 +4,10 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
 import { appUrl, tierOf } from "./lib/billing";
-import { FalError, describeFalError, falModels, falResult, falStatus, falSubmit, videoUrlOf, type FalJob } from "./lib/fal";
+import { FalError, describeFalError, falCancel, falModels, falResult, falStatus, falSubmit, isTransient, videoUrlOf, type FalJob } from "./lib/fal";
 import { ELEVEN_FORMAT, ELEVEN_MODEL, ELEVEN_URL, describeElevenError } from "./lib/voiceover";
 import {
-  COMPOSE_KEEPS_VIDEO_AUDIO, MAX_LINES, MAX_SECONDS, POLL_MS, REMAKE_ACTORS, STALE_MS, composeTracks, mp3Seconds, productPrompt, seedanceDuration,
+  ATTEMPTS_PER_DAY, COMPOSE_KEEPS_VIDEO_AUDIO, MAX_LINES, MAX_SECONDS, POLL_MS, REMAKE_ACTORS, STALE_MS, composeTracks, maxVoicedSeconds, mp3Seconds, productPrompt, seedanceDuration,
   type Segment, estimateSeconds, monthStart, photoProblem, planShots, remakePack, remakeSecondsLimit, splitCharge,
 } from "./lib/remake";
 
@@ -113,6 +113,8 @@ export const start = mutation({
     }
     const latest = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").first();
     if (latest && ACTIVE.has(latest.status) && !isStale(latest, now)) throw fail("BUSY", "Your last video is still being made.");
+    const mine = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id).gt("startedAt", now - DAY_MS)).take(ATTEMPTS_PER_DAY);
+    if (user.role !== "admin" && mine.length >= ATTEMPTS_PER_DAY) throw fail("LIMIT", `You've started ${ATTEMPTS_PER_DAY} videos today. Try again tomorrow.`);
     const daily = Math.max(0, Number(process.env.REMAKES_PER_DAY ?? DEFAULT_REMAKES_PER_DAY) || 0);
     const today = (await ctx.db.query("remakes").withIndex("by_started", (q) => q.gt("startedAt", now - DAY_MS)).take(daily)).length;
     if (user.role !== "admin" && today >= daily) throw fail("LIMIT", "AI video is busy today. Try again tomorrow.");
@@ -176,10 +178,15 @@ export const patch = internalMutation({
 });
 
 // ── The pipeline ────────────────────────────────────────────────────────────
-// One step per call, then it schedules itself again (POLL_MS) until done or failed:
-// voicing: ElevenLabs reads each line → storage; submit each segment to fal.
+// One step per call, then it schedules itself again until done or failed:
+// voicing: ElevenLabs reads one line per call (so no call outlasts Convex's
+//   action limit); once all are read, a voice-over longer than was charged is
+//   refused, else every segment goes to fal, product shots first (fal may refuse
+//   the user's photo, and then nothing else has been paid for).
 // rendering: poll the segments; once all have a video, submit fal's compose.
 // composing: poll it; copy the MP4 into storage (fal's links expire).
+// A brief fal error while polling just waits for the next poll; a failure
+// cancels the fal jobs still running.
 
 class StepError extends Error {}
 
@@ -198,6 +205,32 @@ async function voiceLine(text: string, voiceId: string, admin: boolean): Promise
   return new Blob([await res.arrayBuffer()], { type: "audio/mpeg" });
 }
 
+const jobOf = (seg: Segment): FalJob | null => (seg.statusUrl && seg.responseUrl ? { statusUrl: seg.statusUrl, responseUrl: seg.responseUrl } : null);
+
+/** The job's status, with a brief fal error read as "not done yet". */
+async function pollDone(key: string, job: FalJob): Promise<boolean> {
+  try {
+    return (await falStatus(key, job)) === "done";
+  } catch (error) {
+    if (isTransient(error)) return false;
+    throw error;
+  }
+}
+
+/** The finished job's video link, or null to try again on the next poll after a brief fal error. */
+async function resultVideo(key: string, job: FalJob): Promise<string | null> {
+  let result: unknown;
+  try {
+    result = await falResult(key, job);
+  } catch (error) {
+    if (isTransient(error)) return null;
+    throw error;
+  }
+  const url = videoUrlOf(result);
+  if (!url) throw new FalError(502, result);
+  return url;
+}
+
 export const advance = internalAction({
   args: { remakeId: v.id("remakes") },
   // Typed by hand: advance schedules itself, which would otherwise make the generated api types circular.
@@ -205,53 +238,67 @@ export const advance = internalAction({
     const loaded: { row: Doc<"remakes">; admin: boolean } | null = await ctx.runQuery(internal.remake.load, { remakeId: args.remakeId });
     if (!loaded || !ACTIVE.has(loaded.row.status)) return;
     const { row, admin } = loaded;
+    const segments = row.segments as Segment[];
+    const key = process.env.FAL_KEY?.trim();
     const save = async (fields: Partial<Doc<"remakes">>): Promise<void> => {
       await ctx.runMutation(internal.remake.patch, { remakeId: row._id, fields });
     };
-    const failWith = (error: string): Promise<void> => save({ status: "failed", error, finishedAt: Date.now() });
+    const failWith = async (error: string): Promise<void> => {
+      // Stop what fal is still rendering for this video, so a failure doesn't keep billing.
+      if (key) {
+        const running = segments.filter((seg) => !seg.videoUrl).map(jobOf);
+        if (row.status === "composing") running.push(row.composeJob as FalJob);
+        await Promise.all(running.filter((j): j is FalJob => !!j).map((j) => falCancel(key, j)));
+      }
+      await save({ status: "failed", error, finishedAt: Date.now() });
+    };
+    const next = (ms: number) => ctx.scheduler.runAfter(ms, internal.remake.advance, { remakeId: row._id });
     if (isStale(row, Date.now())) return await failWith(STALE_MESSAGE);
-    const key = process.env.FAL_KEY?.trim();
     if (!key) return await failWith("AI video isn't switched on yet (FAL_KEY).");
     const models = falModels(process.env);
-    const segments = row.segments as Segment[];
 
     try {
       if (row.status === "voicing") {
-        const photoUrl = await ctx.storage.getUrl(row.productImageId);
-        if (!photoUrl) return await failWith("The product photo is gone. Upload it again.");
-        for (const seg of segments) {
+        const seg = segments.find((s) => !s.audioId);
+        if (seg) {
           const blob = await voiceLine(seg.text, row.voiceId, admin);
           const audioId: Id<"_storage"> = await ctx.storage.store(blob);
           seg.audioId = audioId;
           seg.audioUrl = (await ctx.storage.getUrl(audioId)) ?? undefined;
           seg.audioSeconds = mp3Seconds(blob.size);
+          if (segments.some((s) => !s.audioId)) {
+            await save({ segments });
+            await next(0);
+            return;
+          }
         }
-        for (const seg of segments) {
+        const seconds = Math.round(segments.reduce((sum, s) => sum + (s.audioSeconds ?? 0), 0) * 100) / 100;
+        if (seconds > maxVoicedSeconds(row.monthlySeconds + row.extraSeconds)) {
+          return await failWith("The voice-over came out longer than the script. Shorten the lines and try again.");
+        }
+        const photoUrl = await ctx.storage.getUrl(row.productImageId);
+        if (!photoUrl) return await failWith("The product photo is gone. Upload it again.");
+        for (const s of [...segments.filter((x) => x.kind === "product"), ...segments.filter((x) => x.kind === "actor")]) {
           const job =
-            seg.kind === "actor"
-              ? await falSubmit(key, models.actor, { image_url: `${appUrl()}/actors/${row.actorId}.jpg`, audio_url: seg.audioUrl, resolution: "720p" })
+            s.kind === "actor"
+              ? await falSubmit(key, models.actor, { image_url: `${appUrl()}/actors/${row.actorId}.jpg`, audio_url: s.audioUrl, resolution: "720p" })
               : await falSubmit(key, models.product, {
-                  prompt: productPrompt(seg.scene, row.product),
+                  prompt: productPrompt(s.scene, row.product),
                   image_url: photoUrl,
-                  duration: seedanceDuration(seg.audioSeconds ?? 0),
+                  duration: seedanceDuration(s.audioSeconds ?? 0),
                   resolution: "720p",
                   aspect_ratio: "9:16",
                   camera_fixed: false,
                 });
-          seg.statusUrl = job.statusUrl;
-          seg.responseUrl = job.responseUrl;
+          s.statusUrl = job.statusUrl;
+          s.responseUrl = job.responseUrl;
         }
-        const seconds = Math.round(segments.reduce((sum, seg) => sum + (seg.audioSeconds ?? 0), 0) * 100) / 100;
         await save({ status: "rendering", segments, seconds });
       } else if (row.status === "rendering") {
         for (const seg of segments) {
-          if (seg.videoUrl || !seg.statusUrl || !seg.responseUrl) continue;
-          const job = { statusUrl: seg.statusUrl, responseUrl: seg.responseUrl };
-          if ((await falStatus(key, job)) !== "done") continue;
-          const result = await falResult(key, job);
-          const url = videoUrlOf(result);
-          if (!url) throw new FalError(502, result);
-          seg.videoUrl = url;
+          const job = jobOf(seg);
+          if (seg.videoUrl || !job || !(await pollDone(key, job))) continue;
+          seg.videoUrl = (await resultVideo(key, job)) ?? undefined;
         }
         if (segments.every((seg) => seg.videoUrl)) {
           const composeJob = await falSubmit(key, models.compose, { tracks: composeTracks(segments, COMPOSE_KEEPS_VIDEO_AUDIO) });
@@ -261,10 +308,8 @@ export const advance = internalAction({
         }
       } else if (row.status === "composing") {
         const job = row.composeJob as FalJob;
-        if ((await falStatus(key, job)) === "done") {
-          const result = await falResult(key, job);
-          const url = videoUrlOf(result);
-          if (!url) throw new FalError(502, result);
+        const url = (await pollDone(key, job)) ? await resultVideo(key, job) : null;
+        if (url) {
           const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
           if (!res.ok) throw new FalError(res.status, null);
           const videoId: Id<"_storage"> = await ctx.storage.store(new Blob([await res.arrayBuffer()], { type: "video/mp4" }));
@@ -277,6 +322,6 @@ export const advance = internalAction({
       console.warn("Remake failed", error instanceof Error ? error.message : error);
       return await failWith("The AI video failed. Try again.");
     }
-    await ctx.scheduler.runAfter(POLL_MS, internal.remake.advance, { remakeId: row._id });
+    await next(POLL_MS);
   },
 });

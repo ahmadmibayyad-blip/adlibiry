@@ -59,6 +59,26 @@ export async function falResult(key: string, job: FalJob): Promise<unknown> {
   return await call(key, job.responseUrl);
 }
 
+/** Ask fal to stop a job (best effort: a job that already finished or can't be stopped is left alone). */
+export async function falCancel(key: string, job: FalJob): Promise<void> {
+  try {
+    await fetch(job.statusUrl.replace(/\/status$/, "/cancel"), {
+      method: "PUT",
+      headers: { Authorization: `Key ${key}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    /* nothing more to do */
+  }
+}
+
+/** A brief failure worth polling again (rate limit, fal outage, timeout, network), not a refusal. */
+export function isTransient(error: unknown): boolean {
+  if (error instanceof FalError) return error.status === 429 || error.status >= 500;
+  if (error instanceof DOMException) return error.name === "TimeoutError" || error.name === "AbortError";
+  return error instanceof TypeError;
+}
+
 /** The video link in a fal result: `video.url` (models) or `video_url` (compose). */
 export function videoUrlOf(body: unknown): string | null {
   const b = (body ?? {}) as { video?: { url?: unknown }; video_url?: unknown };

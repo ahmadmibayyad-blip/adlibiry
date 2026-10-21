@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FAL_MODELS, FalError, describeFalError, falModels, falResult, falStatus, falSubmit, videoUrlOf } from "./fal";
+import { FAL_MODELS, FalError, describeFalError, falCancel, falModels, falResult, falStatus, falSubmit, isTransient, videoUrlOf } from "./fal";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -35,6 +35,24 @@ describe("fal queue client", () => {
   it("reads the result", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ video: { url: "u" } })));
     expect(videoUrlOf(await falResult("k", job))).toBe("u");
+  });
+
+  it("cancels a job at its own cancel link and ignores failures", async () => {
+    const fetchMock = vi.fn(async () => json({}, 500));
+    vi.stubGlobal("fetch", fetchMock);
+    await falCancel("k", job);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://queue.fal.run/fal-ai/x/requests/1/cancel");
+    expect(init.method).toBe("PUT");
+  });
+
+  it("tells brief errors from real refusals", () => {
+    expect(isTransient(new FalError(429, null))).toBe(true);
+    expect(isTransient(new FalError(503, null))).toBe(true);
+    expect(isTransient(new DOMException("timed out", "TimeoutError"))).toBe(true);
+    expect(isTransient(new TypeError("fetch failed"))).toBe(true);
+    expect(isTransient(new FalError(422, null))).toBe(false);
+    expect(isTransient(new FalError(401, null))).toBe(false);
   });
 
   it("finds the video link in both result shapes", () => {

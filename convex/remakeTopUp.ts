@@ -1,15 +1,19 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalMutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { action, internalMutation, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { BackendError, fetchPaymentIntent } from "./lib/adspyBackend";
+import { BackendError, fetchPaymentIntent, type StripePaymentIntent } from "./lib/adspyBackend";
 import { tierOf } from "./lib/billing";
 import { remakePack } from "./lib/remake";
-import { StripeApiError, createPaymentIntent } from "./lib/stripeApi";
+import { StripeApiError, createPaymentIntent, searchPaymentIntents } from "./lib/stripeApi";
 
 // Extra AI-video seconds for Remake this winner: Pro users buy REMAKE_PACK
 // (€9 for 30 s) with Stripe Elements. `create` makes the PaymentIntent here
 // (the amount is set on the server); `confirm` checks it with Stripe and adds
 // one remakeTopUps row per payment. Same Stripe account as Pro (STRIPE_SECRET_KEY).
+// A paid pack whose confirm never ran (tab closed, timeout, a slow bank payment)
+// is added the next time the user opens Buy: `create` first asks Stripe for the
+// user's succeeded packs and claims any not claimed yet.
 
 const fail = (code: string, message: string) => new ConvexError({ code, message });
 const PAYMENT_INTENT_ID = /^pi_[A-Za-z0-9]{8,64}$/;
@@ -21,6 +25,30 @@ function stripeKey(): string {
   return key;
 }
 
+const isPack = (pi: StripePaymentIntent, userId: string, cents: number) =>
+  pi.metadata?.kind === KIND && pi.metadata.userId === userId && (pi.amount_received ?? pi.amount) === cents && pi.currency === "eur";
+
+/** Claims the user's succeeded, unclaimed packs; Stripe trouble here never blocks a new payment. */
+async function recoverPaid(ctx: ActionCtx, key: string, userId: string, pack: { seconds: number; cents: number }): Promise<void> {
+  let found: StripePaymentIntent[];
+  try {
+    found = await searchPaymentIntents(key, `metadata['userId']:'${userId}' AND metadata['kind']:'${KIND}' AND status:'succeeded'`);
+  } catch (e) {
+    console.warn("Remake top-up recovery: search failed", e instanceof Error ? e.message : e);
+    return;
+  }
+  for (const pi of found) {
+    if (pi.status !== "succeeded" || !isPack(pi, userId, pack.cents)) continue;
+    await ctx.runMutation(internal.remakeTopUp.claim, {
+      paymentIntentId: pi.id,
+      userId: userId as Id<"users">,
+      seconds: pack.seconds,
+      amount: pi.amount_received ?? pi.amount,
+      currency: pi.currency,
+    });
+  }
+}
+
 export const create = action({
   args: {},
   handler: async (ctx): Promise<{ clientSecret: string; seconds: number; cents: number }> => {
@@ -30,6 +58,7 @@ export const create = action({
     if (tier !== "paid" && tier !== "admin") throw fail("LIMIT", "Extra seconds come with Pro.");
     const key = stripeKey();
     const pack = remakePack(process.env);
+    await recoverPaid(ctx, key, user._id, pack);
     try {
       const pi = await createPaymentIntent(key, {
         amount: pack.cents,
@@ -72,11 +101,11 @@ export const confirm = action({
     }
     if (!pi || pi.metadata?.kind !== KIND || pi.metadata.userId !== user._id) throw fail("BAD_REQUEST", "Unknown payment.");
     const pack = remakePack(process.env);
-    const paid = pi.status === "succeeded" && (pi.amount_received ?? pi.amount) === pack.cents && pi.currency === "eur";
+    const paid = pi.status === "succeeded" && isPack(pi, user._id, pack.cents);
     if (!paid) {
       throw fail(
         "NOT_PAID",
-        pi.status === "processing" ? "Your payment is still processing. The seconds are added as soon as it clears." : "This payment didn't go through.",
+        pi.status === "processing" ? "Your payment is still processing. Once it clears, open Buy again and the seconds are added." : "This payment didn't go through.",
       );
     }
     const claimed = await ctx.runMutation(internal.remakeTopUp.claim, {

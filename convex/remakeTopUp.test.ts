@@ -41,10 +41,12 @@ describe("remakeTopUp.create", () => {
 
   it("creates a €9 payment for 30 seconds", async () => {
     const { me, userId } = await setup();
-    const fetchMock = vi.fn(async () => json({ id: "pi_12345678", client_secret: "pi_12345678_secret_abc" }));
+    const fetchMock = vi.fn(async (input: string | URL | Request) =>
+      String(input).includes("/search") ? json({ data: [], has_more: false }) : json({ id: "pi_12345678", client_secret: "pi_12345678_secret_abc" }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     expect(await me.action(api.remakeTopUp.create, {})).toEqual({ clientSecret: "pi_12345678_secret_abc", seconds: 30, cents: 900 });
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.stripe.com/v1/payment_intents");
     const body = new URLSearchParams(String(init.body));
     expect(body.get("amount")).toBe("900");
@@ -59,6 +61,23 @@ describe("remakeTopUp.create", () => {
     const { me } = await setup();
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     expect(await errorOf(me.action(api.remakeTopUp.create, {}))).toMatchObject({ code: "NOT_CONFIGURED" });
+  });
+});
+
+describe("remakeTopUp recovery", () => {
+  it("adds a paid pack that was never confirmed before starting a new payment", async () => {
+    const { me, userId } = await setup();
+    const paid = { id: "pi_paidEarlier1", status: "succeeded", amount: 900, amount_received: 900, currency: "eur", metadata: { kind: "remake_seconds", userId, seconds: "30" } };
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/payment_intents/search")) return json({ data: [paid], has_more: false });
+      return json({ id: "pi_12345678", client_secret: "pi_12345678_secret_abc" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await me.action(api.remakeTopUp.create, {});
+    const searchUrl = String((fetchMock.mock.calls[0] as unknown as [string])[0]);
+    expect(new URL(searchUrl).searchParams.get("query")).toBe(`metadata['userId']:'${userId}' AND metadata['kind']:'remake_seconds' AND status:'succeeded'`);
+    expect(await me.query(api.remake.allowance, {})).toMatchObject({ extra: 30 });
   });
 });
 
@@ -83,7 +102,7 @@ describe("remakeTopUp.confirm", () => {
     stubIntent(userId, { status: "processing" });
     expect(await errorOf(me.action(api.remakeTopUp.confirm, { paymentIntentId: "pi_12345678" }))).toEqual({
       code: "NOT_PAID",
-      message: "Your payment is still processing. The seconds are added as soon as it clears.",
+      message: "Your payment is still processing. Once it clears, open Buy again and the seconds are added.",
     });
   });
 
