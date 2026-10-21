@@ -128,4 +128,21 @@ describe("Kimi fallback", () => {
     expect(claudeErrorMessage(failed.e, true)).toContain("(Kimi: Kimi 429: Too many requests)");
     vi.useRealTimers();
   });
+
+  it("gives Kimi one try within the caller's time limit", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
+    vi.stubEnv("KIMI_API_KEY", "kimi-key");
+    const kimiSignals: (AbortSignal | null | undefined)[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      if (String(u instanceof Request ? u.url : u).includes("anthropic.com")) {
+        return new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." } }), { status: 400, headers: { "content-type": "application/json" } });
+      }
+      kimiSignals.push(init?.signal);
+      return new Response(JSON.stringify({ error: { message: "Too many requests" } }), { status: 429 });
+    }));
+    const params = { model: "claude-opus-5-5", max_tokens: 100, messages: [{ role: "user" as const, content: "x" }] };
+    await expect(claudeClient().messages.create(params, { timeout: 60_000, maxRetries: 0 })).rejects.toThrow(/credit balance/);
+    expect(kimiSignals).toHaveLength(1);
+    expect(kimiSignals[0]).toBeInstanceOf(AbortSignal);
+  });
 });

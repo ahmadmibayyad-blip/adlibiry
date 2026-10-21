@@ -116,13 +116,13 @@ export function toClaudeMessage(res: KimiResponse, params: ClaudeParams) {
 }
 
 /** One request to Kimi. Throws with Kimi's status and message when it fails. */
-export async function askKimi(params: ClaudeParams, env: { apiKey: string; model?: string; baseUrl?: string }) {
+export async function askKimi(params: ClaudeParams, env: { apiKey: string; model?: string; baseUrl?: string; timeoutMs?: number }) {
   const body = toKimiRequest(params, env.model || KIMI_DEFAULT_MODEL);
   const res = await fetch(`${env.baseUrl || KIMI_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${env.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(300_000),
+    signal: AbortSignal.timeout(env.timeoutMs ?? 300_000),
   });
   const json = (await res.json().catch(() => ({}))) as KimiResponse & { error?: { message?: string } };
   if (!res.ok) throw new Error(`Kimi ${res.status}: ${json.error?.message ?? "request failed"}`);
