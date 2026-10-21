@@ -19,30 +19,33 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_REMAKES_PER_DAY = 30;
-const ACTIVE = new Set(["voicing", "rendering", "composing"]);
+export const ACTIVE = new Set(["voicing", "rendering", "composing"]);
 export const STALE_MESSAGE = "The video took too long. Try again; it didn't use your seconds.";
 
-const fail = (code: string, message: string) => new ConvexError({ code, message });
-const isStale = (r: Doc<"remakes">, now: number) => ACTIVE.has(r.status) && now - r.startedAt > STALE_MS;
+type Run = { status: string; startedAt: number };
+export const fail = (code: string, message: string) => new ConvexError({ code, message });
+export const isStale = (r: Run, now: number) => ACTIVE.has(r.status) && now - r.startedAt > STALE_MS;
 // Rows that use seconds: everything but failed and lost ones.
-const counts = (r: Doc<"remakes">, now: number) => r.status !== "failed" && !isStale(r, now);
+export const counts = (r: Run, now: number) => r.status !== "failed" && !isStale(r, now);
 
-async function currentUser(ctx: QueryCtx) {
+export async function currentUser(ctx: QueryCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
   return await ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity))).unique();
 }
 
-async function balance(ctx: QueryCtx, user: Doc<"users">, now: number) {
+/** The user's AI-video seconds: remakes and AI Studio clips draw on the same monthly seconds and bought packs. */
+export async function balance(ctx: QueryCtx, user: Doc<"users">, now: number) {
   const limit = remakeSecondsLimit(user, process.env);
   let used = 0;
-  for (const r of await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id).gte("startedAt", monthStart(now))).collect()) {
-    if (counts(r, now)) used += r.monthlySeconds;
-  }
   let extra = 0;
   for (const t of await ctx.db.query("remakeTopUps").withIndex("by_user", (q) => q.eq("userId", user._id)).collect()) extra += t.seconds;
-  for (const r of await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id)).collect()) {
-    if (counts(r, now)) extra -= r.extraSeconds;
+  for (const table of ["remakes", "studioClips"] as const) {
+    for (const r of await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id)).collect()) {
+      if (!counts(r, now)) continue;
+      if (r.startedAt >= monthStart(now)) used += r.monthlySeconds;
+      extra -= r.extraSeconds;
+    }
   }
   const tier = tierOf(user, now);
   return { limit, used, extra: Math.max(0, extra), canBuy: tier === "paid" || tier === "admin", pack: remakePack(process.env) };
@@ -78,13 +81,19 @@ function readLines(variant: unknown): Line[] {
 }
 
 /** One video at a time per user, ATTEMPTS_PER_DAY a day, REMAKES_PER_DAY for everyone (admins skip the daily caps). */
-async function checkCanStart(ctx: QueryCtx, user: Doc<"users">, now: number): Promise<void> {
-  const latest = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").first();
-  if (latest && ACTIVE.has(latest.status) && !isStale(latest, now)) throw fail("BUSY", "Your last video is still being made.");
-  const mine = await ctx.db.query("remakes").withIndex("by_user", (q) => q.eq("userId", user._id).gt("startedAt", now - DAY_MS)).take(ATTEMPTS_PER_DAY);
-  if (user.role !== "admin" && mine.length >= ATTEMPTS_PER_DAY) throw fail("LIMIT", `You've started ${ATTEMPTS_PER_DAY} videos today. Try again tomorrow.`);
+/** One video or clip at a time per user, ATTEMPTS_PER_DAY a day, REMAKES_PER_DAY for everyone (admins skip the daily caps);
+ * remakes and AI Studio clips count together. */
+export async function checkCanStart(ctx: QueryCtx, user: Doc<"users">, now: number): Promise<void> {
+  let mine = 0;
+  let today = 0;
   const daily = Math.max(0, Number(process.env.REMAKES_PER_DAY ?? DEFAULT_REMAKES_PER_DAY) || 0);
-  const today = (await ctx.db.query("remakes").withIndex("by_started", (q) => q.gt("startedAt", now - DAY_MS)).take(daily)).length;
+  for (const table of ["remakes", "studioClips"] as const) {
+    const latest = await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").first();
+    if (latest && ACTIVE.has(latest.status) && !isStale(latest, now)) throw fail("BUSY", "Your last video is still being made.");
+    mine += (await ctx.db.query(table).withIndex("by_user", (q) => q.eq("userId", user._id).gt("startedAt", now - DAY_MS)).take(ATTEMPTS_PER_DAY)).length;
+    today += (await ctx.db.query(table).withIndex("by_started", (q) => q.gt("startedAt", now - DAY_MS)).take(daily)).length;
+  }
+  if (user.role !== "admin" && mine >= ATTEMPTS_PER_DAY) throw fail("LIMIT", `You've started ${ATTEMPTS_PER_DAY} videos today. Try again tomorrow.`);
   if (user.role !== "admin" && today >= daily) throw fail("LIMIT", "AI video is busy today. Try again tomorrow.");
 }
 

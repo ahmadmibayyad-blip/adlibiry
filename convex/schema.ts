@@ -789,6 +789,27 @@ export default defineSchema({
     .index("by_user_ad", ["userId", "adId", "startedAt"])
     .index("by_started", ["startedAt"])
     .index("by_redo", ["redoOf"]),
+  // AI Studio → Playground clips (studio.ts, lib/studio.ts); seconds charged like remakes.
+  studioClips: defineTable({
+    userId: v.id("users"),
+    model: v.string(),
+    prompt: v.string(),
+    imageId: v.optional(v.id("_storage")),
+    aspect: v.string(),
+    length: v.number(),
+    seed: v.optional(v.number()),
+    status: v.string(), // rendering | done | failed
+    job: v.optional(v.any()),
+    videoId: v.optional(v.id("_storage")),
+    error: v.optional(v.string()),
+    seconds: v.number(),
+    monthlySeconds: v.number(),
+    extraSeconds: v.number(),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId", "startedAt"])
+    .index("by_started", ["startedAt"]),
   remakeTopUps: defineTable({
     paymentIntentId: v.string(),
     userId: v.id("users"),
