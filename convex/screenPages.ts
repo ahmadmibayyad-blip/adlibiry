@@ -26,6 +26,14 @@ async function usage(ctx: { db: QueryCtx["db"] }, user: Doc<"users">) {
   return { used: runs.length, limit };
 }
 
+// A build that runs past Convex's 10-minute action limit is stopped before it can save its failure, and the page would
+// say "Building…" for good. After this long it's shown as failed (a change: as it was), and it can be changed again.
+const STUCK_MS = 15 * 60_000;
+const STUCK_ERROR = "This took too long and stopped. Try again.";
+const isStuck = (p: Doc<"screenPages">, now: number) => p.status === "making" && now - p.updatedAt > STUCK_MS;
+const shown = (p: Doc<"screenPages">, now: number) =>
+  isStuck(p, now) ? { status: p.html ? ("ready" as const) : ("failed" as const), error: STUCK_ERROR, pending: undefined } : {};
+
 const limitMessage = (limit: number) =>
   limit <= SCREEN_PAGE_RUNS.trial ? `You've made ${limit} pages today. Upgrade to Pro for ${SCREEN_PAGE_RUNS.paid} a day.` : `You've made or changed ${limit} pages today. Try again tomorrow.`;
 
@@ -38,7 +46,7 @@ export const mine = query({
     const rows = await ctx.db.query("screenPages").withIndex("by_user", (q) => q.eq("userId", user._id)).order("desc").take(30);
     return {
       ...(await usage(ctx, user)),
-      pages: rows.map((p) => ({ _id: p._id, title: p.title, status: p.status, updatedAt: p.updatedAt })),
+      pages: rows.map((p) => ({ _id: p._id, title: p.title, status: shown(p, Date.now()).status ?? p.status, updatedAt: p.updatedAt })),
     };
   },
 });
@@ -53,7 +61,7 @@ export const get = query({
     const products = (await Promise.all((p.productIds ?? []).map((id) => ctx.db.get("importedProducts", id))))
       .filter((r) => !!r)
       .map((r) => ({ title: r.title, imageUrl: r.imageUrl, url: r.url }));
-    return { ...p, imageUrls, products, canUndo: !!p.previousHtml };
+    return { ...p, ...shown(p, Date.now()), imageUrls, products, canUndo: !!p.previousHtml };
   },
 });
 
@@ -140,10 +148,10 @@ export const startEdit = internalMutation({
   handler: async (ctx, args): Promise<string | null> => {
     const p = await ctx.db.get("screenPages", args.id);
     if (!p || p.userId !== args.userId) return "Page not found.";
-    if (p.status === "making") return "This page is still being made. Wait a moment.";
+    if (p.status === "making" && !isStuck(p, Date.now())) return "This page is still being made. Wait a moment.";
     if (!p.html) return "This page has no HTML to change. Make it again from the screenshot.";
     await ctx.db.insert("screenPageRuns", { userId: args.userId, at: Date.now() });
-    await ctx.db.patch("screenPages", p._id, { status: "making", pending: args.change, error: undefined });
+    await ctx.db.patch("screenPages", p._id, { status: "making", pending: args.change, error: undefined, updatedAt: Date.now() });
     return null;
   },
 });

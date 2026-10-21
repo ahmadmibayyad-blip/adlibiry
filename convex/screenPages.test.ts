@@ -105,6 +105,27 @@ describe("screenshot to page", () => {
     expect(kept?.html).toBe(page("Second try"));
   });
 
+  it("shows a build that never finished as failed, and lets a stuck change be tried again", async () => {
+    const { t, me } = await setup();
+    const old = Date.now() - 16 * 60_000;
+    const [fresh, changed] = await t.run(async (ctx) => {
+      const userId = (await ctx.db.query("users").first())!._id;
+      const imageIds = [await ctx.storage.store(new Blob(["fake jpeg"], { type: "image/jpeg" }))];
+      const base = { userId, imageIds, title: "New page", status: "making" as const, createdAt: old, updatedAt: old };
+      return [await ctx.db.insert("screenPages", base), await ctx.db.insert("screenPages", { ...base, html: page("Kept"), pending: "Bigger heading" })];
+    });
+    expect(await me.query(api.screenPages.get, { id: fresh })).toMatchObject({ status: "failed", error: expect.stringContaining("took too long") });
+    const kept = await me.query(api.screenPages.get, { id: changed });
+    expect(kept).toMatchObject({ status: "ready", html: page("Kept") });
+    expect(kept?.pending).toBeUndefined();
+    expect((await me.query(api.screenPages.mine, {}))?.pages.map((p) => p.status)).toEqual(["ready", "failed"]);
+
+    stubClaude([page("Changed")]);
+    await me.action(api.screenPagesAi.edit, { id: changed, change: "Bigger heading" });
+    await settle(t);
+    expect(await me.query(api.screenPages.get, { id: changed })).toMatchObject({ status: "ready", html: page("Changed") });
+  });
+
   it("limits free accounts to two pages a day and checks the screenshot", async () => {
     const { t, me } = await setup();
     stubClaude([page("One"), page("Two")]);
