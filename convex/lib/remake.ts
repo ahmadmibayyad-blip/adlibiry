@@ -20,7 +20,8 @@ export const REMAKE_ACTORS: { id: string; name: string; gender: "female" | "male
   { id: "lucas", name: "Lucas", gender: "male" },
 ];
 
-export const MAX_LINES = 12;
+// "Write my version" follows the ad's shot list, so scripts often have 15–30 short lines.
+export const MAX_LINES = 40;
 export const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export const MAX_SECONDS = 45;
@@ -56,7 +57,8 @@ const WORDS_PER_SECOND = 2.5;
 // Text without spaces (Chinese, Thai, run-together words) is counted by characters instead.
 const CHARS_PER_SECOND = 15;
 
-/** The script's voiced lines as segments: the first on the actor, product scenes (at most 2) as product shots. */
+/** The script's voiced lines as segments: the first on the actor, product scenes (at most 2) as product shots,
+ * and talking lines in a row joined into one actor clip (one fal job, the same seconds). */
 export function planShots(lines: { scene: string; voiceover: string }[]): Segment[] {
   const out: Segment[] = [];
   let products = 0;
@@ -66,7 +68,9 @@ export function planShots(lines: { scene: string; voiceover: string }[]): Segmen
     const scene = l.scene.trim();
     const product = out.length > 0 && products < MAX_PRODUCT_SHOTS && PRODUCT_SCENE.test(scene);
     if (product) products++;
-    out.push({ kind: product ? "product" : "actor", text, scene });
+    const last = out[out.length - 1];
+    if (!product && last?.kind === "actor") last.text = `${last.text} ${text}`;
+    else out.push({ kind: product ? "product" : "actor", text, scene });
   }
   return out;
 }
