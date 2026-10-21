@@ -68,7 +68,8 @@ type Line = { scene: string; onScreenText: string; voiceover: string };
 
 function readLines(variant: unknown): Line[] {
   const lines = (variant as { lines?: unknown } | null)?.lines;
-  if (!Array.isArray(lines) || !lines.length || lines.length > MAX_LINES) throw fail("BAD_REQUEST", "Write the script first.");
+  if (!Array.isArray(lines) || !lines.length) throw fail("BAD_REQUEST", "Write the script first.");
+  if (lines.length > MAX_LINES) throw fail("TOO_LONG", `This script has ${lines.length} lines. Keep it to ${MAX_LINES} or fewer.`);
   const str = (x: unknown) => (typeof x === "string" ? x.trim().slice(0, 400) : "");
   return lines.map((l) => {
     const o = (l ?? {}) as Record<string, unknown>;

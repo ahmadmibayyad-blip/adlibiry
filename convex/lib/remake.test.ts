@@ -45,10 +45,17 @@ describe("remake rules", () => {
     expect(planShots(lines).filter((x) => x.kind === "product")).toHaveLength(2);
   });
 
-  it("keeps talking-head lines on the actor", () => {
-    expect(planShots([{ scene: "a", voiceover: "hi" }, { scene: "Woman talks to camera in kitchen", voiceover: "so" }]).map((x) => x.kind)).toEqual([
-      "actor",
-      "actor",
+  it("joins talking lines in a row into one actor clip", () => {
+    const s = planShots([
+      { scene: "a", voiceover: "My dog was hot." },
+      { scene: "Woman talks to camera in kitchen", voiceover: "Every summer." },
+      { scene: "Close-up of the mat", voiceover: "Then I found this." },
+      { scene: "Talks to camera", voiceover: "Now he sleeps all night." },
+    ]);
+    expect(s.map((x) => [x.kind, x.text])).toEqual([
+      ["actor", "My dog was hot. Every summer."],
+      ["product", "Then I found this."],
+      ["actor", "Now he sleeps all night."],
     ]);
   });
 

@@ -113,6 +113,22 @@ describe("remake.start", () => {
     expect(await errorOf(me.mutation(api.remake.start, args))).toEqual({ code: "BUSY", message: "Your last video is still being made." });
   });
 
+  it("takes a long shot-by-shot script", async () => {
+    const { t, me, args } = await setup();
+    const lines = Array.from({ length: 20 }, (_, i) => ({ start: i, end: i + 1, scene: "Talks to camera", onScreenText: "", voiceover: "So cool." }));
+    const id = await me.mutation(api.remake.start, { ...args, variant: { ...variant, lines } });
+    expect((await t.run((ctx) => ctx.db.get("remakes", id)))?.segments).toHaveLength(1);
+  });
+
+  it("says when a script has too many lines", async () => {
+    const { me, args } = await setup();
+    const lines = Array.from({ length: 41 }, (_, i) => ({ start: i, end: i + 1, scene: "x", onScreenText: "", voiceover: "Hi." }));
+    expect(await errorOf(me.mutation(api.remake.start, { ...args, variant: { ...variant, lines } }))).toEqual({
+      code: "TOO_LONG",
+      message: "This script has 41 lines. Keep it to 40 or fewer.",
+    });
+  });
+
   it("refuses a script that's too long", async () => {
     const { me, args } = await setup();
     const sixty = Array.from({ length: 60 }, () => "word").join(" "); // 24 s a line
