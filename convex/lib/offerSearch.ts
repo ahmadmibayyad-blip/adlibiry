@@ -10,7 +10,8 @@ export type OfferId = "bxgy" | "percent" | "free_shipping" | "free_gift" | "mult
 export type Lang = "en" | "da" | "sv" | "no" | "de" | "nl" | "fr" | "es";
 
 /** The offers to pick from, and the words people use for them in each language (most common first). */
-export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, string[]> }> = {
+/** Each offer's words per language: `phrases` for the search (most common first), `more` for "Find more" (other ones). */
+export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, string[]>; more: Record<Lang, string[]> }> = {
   bxgy: {
     label: "Buy 2 get 1",
     phrases: {
@@ -22,6 +23,16 @@ export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, stri
       nl: ["2+1 gratis", "1+1 gratis", "3 halen 2 betalen"],
       fr: ["1 acheté 1 offert", "2 achetés 1 offert", "1+1 offert"],
       es: ["2x1", "3x2", "compra 2 llévate 3"],
+    },
+    more: {
+      en: ["2+1 free", "1+1 free", "bogo"],
+      da: ["køb 1 få 1 gratis", "3 for 2", "kun i dag 1+1"],
+      sv: ["köp 2 få 1 gratis", "köp 1 få 1 gratis", "endast idag 1+1"],
+      no: ["kjøp 2 få 1 gratis", "kjøp 1 få 1 gratis", "kun i dag 1+1"],
+      de: ["kaufe 2 erhalte 1 gratis", "nur heute 1+1", "3 zum Preis von 2"],
+      nl: ["tijdelijk 1+1", "3 voor 2", "alleen vandaag 1+1"],
+      fr: ["2+1 offert", "3 pour 2", "aujourd'hui seulement 1+1"],
+      es: ["compra 1 llévate 2", "3 por 2", "solo hoy 2x1"],
     },
   },
   percent: {
@@ -36,6 +47,16 @@ export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, stri
       fr: ["-50%", "50% de réduction", "-40%"],
       es: ["50% de descuento", "40% de descuento", "60% de descuento"],
     },
+    more: {
+      en: ["70% off", "up to 50% off", "today only 50% off"],
+      da: ["70% rabat", "op til 50% rabat", "kun i dag 50%"],
+      sv: ["70% rabatt", "upp till 50% rabatt", "endast idag 50%"],
+      no: ["70% rabatt", "opptil 50% rabatt", "kun i dag 50%"],
+      de: ["70% Rabatt", "bis zu 50% Rabatt", "nur heute 50%"],
+      nl: ["70% korting", "tot 50% korting", "alleen vandaag 50%"],
+      fr: ["-70%", "jusqu'à -50%", "-60%"],
+      es: ["70% de descuento", "hasta 50% de descuento", "solo hoy 50%"],
+    },
   },
   free_shipping: {
     label: "Free shipping",
@@ -48,6 +69,16 @@ export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, stri
       nl: ["gratis verzending", "gratis bezorging"],
       fr: ["livraison gratuite", "livraison offerte"],
       es: ["envío gratis", "envío gratuito"],
+    },
+    more: {
+      en: ["free shipping today", "free shipping worldwide"],
+      da: ["gratis fragt i dag", "fri levering"],
+      sv: ["fri frakt idag", "fri leverans"],
+      no: ["gratis frakt i dag", "fri levering"],
+      de: ["gratis Lieferung", "kostenlose Lieferung"],
+      nl: ["gratis verzending vandaag", "gratis levering"],
+      fr: ["livraison gratuite aujourd'hui", "livraison offerte aujourd'hui"],
+      es: ["envío gratis hoy", "envío gratuito hoy"],
     },
   },
   free_gift: {
@@ -62,6 +93,16 @@ export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, stri
       fr: ["cadeau offert"],
       es: ["regalo gratis"],
     },
+    more: {
+      en: ["free gift with every order", "gift included"],
+      da: ["gratis gave med", "gave med i købet"],
+      sv: ["gratis present med", "gåva på köpet"],
+      no: ["gratis gave med", "gave på kjøpet"],
+      de: ["Geschenk gratis", "gratis Geschenk dazu"],
+      nl: ["gratis cadeau bij", "cadeau bij je bestelling"],
+      fr: ["cadeau gratuit", "un cadeau offert"],
+      es: ["regalo con tu pedido", "con regalo"],
+    },
   },
   multibuy: {
     label: "Buy more, save more",
@@ -75,9 +116,25 @@ export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, stri
       fr: ["achetez plus économisez plus"],
       es: ["compra más ahorra más"],
     },
+    more: {
+      en: ["the more you buy the more you save", "bundle deal"],
+      da: ["jo flere jo billigere", "pakketilbud"],
+      sv: ["ju fler desto billigare", "paketpris"],
+      no: ["jo flere jo billigere", "pakketilbud"],
+      de: ["je mehr desto günstiger", "Bundle Angebot"],
+      nl: ["hoe meer hoe voordeliger", "bundel korting"],
+      fr: ["plus vous achetez plus vous économisez", "offre groupée"],
+      es: ["cuantos más más ahorras", "pack ahorro"],
+    },
   },
 };
 export const OFFER_IDS = Object.keys(OFFERS) as OfferId[];
+
+/** "Find more": the offer's other phrases in the country's language. */
+export function morePhrases(offer: OfferId, country: string): string[] {
+  const lang = OFFER_COUNTRIES[country.toUpperCase()]?.lang ?? "en";
+  return OFFERS[offer].more[lang].slice(0, 3);
+}
 
 /** Countries Offer Search covers, with the language their ads are written in. */
 export const OFFER_COUNTRIES: Record<string, { name: string; lang: Lang }> = {
@@ -251,6 +308,8 @@ export type FoundProduct = {
   price?: number;
   compareAt?: number;
   image?: string;
+  /** The cheapest AliExpress picture match: its price in USD and how many times the store's price it is. */
+  sourcing?: { price: number; url: string; title: string; markup: number };
 };
 
 export type FoundStore = {
@@ -277,13 +336,24 @@ export type FoundStore = {
   products?: FoundProduct[];
   /** Set where several countries' results are shown together (Admin → Offer research). */
   country?: string;
-  /** Products in the store's catalogue (Shopify /products.json, counted up to 250). */
+  /** Products in the store's catalogue (Shopify /products.json, counted up to 250); searches before store types. */
   productCount?: number;
+  /** The store's published products (/meta.json), its product types, the share on sale and with ™ in the title. */
+  catalogue?: number;
+  productTypes?: number;
+  onSaleShare?: number;
+  tmShare?: number;
+  /** A vendor left at Shopify's default name ("Mijn winkel", "My Store"): a store set up in a hurry. */
+  defaultVendor?: boolean;
+  /** Dropshipping apps seen on its home page (reviews imported from AliExpress, parcel tracking, sourcing apps). */
+  apps?: string[];
   /** How likely the store is a dropshipper (dropshipScore). */
   dropship?: Dropship;
 };
 
-export type Dropship = { score: number; likely: boolean; reasons: string[] };
+export type StoreType = "hero" | "niche" | "general" | "brand";
+/** `type` is missing on searches from before store types. */
+export type Dropship = { score: number; likely: boolean; type?: StoreType; reasons: string[] };
 
 // The offer kinds (lib/offerTags.ts) that count as each searched offer; "3 for 2" is the same deal as "2+1".
 const OFFER_KINDS: Record<OfferId, OfferKind[]> = {
@@ -309,37 +379,122 @@ ${ad.body}`;
 }
 
 const URGENCY = new Set(["Ends today", "Ends soon", "Limited time"]);
-// Catalogue sizes: a dropshipper sells a handful of products.
-const FEW_PRODUCTS = 30;
-const SOME_PRODUCTS = 60;
 const BIG_DISCOUNT = 0.3;
+const ON_SALE = 0.6;
+const TM_TITLES = 0.15;
+// Catalogue limits: a hero store sells a handful of products, a niche store a few dozen of a few kinds.
+const HERO = { products: 15, types: 3 };
+const NICHE = { products: 80, types: 8 };
+
+/** Apps (lib/storeInspect.ts names) that dropshippers use: reviews imported from AliExpress, tracking for slow parcels. */
+export const DROPSHIP_APPS = new Set(["Loox", "Ali Reviews", "Parcel Panel", "Track123", "Trackpanda"]);
+const SOURCING: [RegExp, string][] = [
+  [/dsers/i, "DSers"],
+  [/autods/i, "AutoDS"],
+  [/cjdropshipping|cj-dropshipping/i, "CJ Dropshipping"],
+  [/zendrop/i, "Zendrop"],
+  [/sellthetrend|sell-the-trend/i, "Sell The Trend"],
+  [/spocket/i, "Spocket"],
+];
+/** Apps that order from suppliers for the store. */
+export const SOURCING_APPS = new Set(SOURCING.map(([, name]) => name));
+
+/** The supplier-ordering apps a store's page code mentions. */
+export function sourcingAppsIn(html: string): string[] {
+  return SOURCING.filter(([re]) => re.test(html)).map(([, name]) => name);
+}
+
+const DEFAULT_VENDORS = new Set(["mijn winkel", "my store", "mein shop", "ma boutique", "mi tienda", "min butik", "min butikk"]);
+export const isDefaultVendor = (vendor: string) => DEFAULT_VENDORS.has(vendor.trim().toLowerCase());
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**
- * How likely a store is a dropshipper: Shopify, a small catalogue, a big crossed-out discount, urgency in its ads.
- * Big brands score 0. Likely = Shopify and a score of 4 or more (of 6).
+ * What kind of store this is, from what could be read: a hero store (a handful of products), a niche dropship store
+ * (a few dozen of a few kinds), a general store, or a brand/retailer. Big brands and non-Shopify stores are brands.
+ * Evidence points: most products on sale, dropship apps (sourcing apps count double), ™ titles, a default vendor,
+ * urgency in its ads, a big discount on its main product, an AliExpress match.
  */
-export function dropshipScore(s: FoundStore): Dropship {
-  if (bigBrandIn(`${s.host} ${s.advertisers.join(" ")}`)) return { score: 0, likely: false, reasons: ["Big brand"] };
+export function storeType(s: FoundStore): Dropship {
+  if (bigBrandIn(`${s.host} ${s.advertisers.join(" ")}`)) return { score: 0, likely: false, type: "brand", reasons: ["Big brand"] };
+  if (!s.shopify) return { score: 0, likely: false, type: "brand", reasons: [] };
   let score = 0;
   const reasons: string[] = [];
-  if (s.shopify) {
-    score += 2;
-    reasons.push("Shopify");
+  const size = s.catalogue ?? s.productCount;
+  if (size !== undefined && size > 0) reasons.push(plural(size, "product"));
+  if (s.productTypes) reasons.push(plural(s.productTypes, "type"));
+  if ((s.onSaleShare ?? 0) >= ON_SALE) {
+    score += 1;
+    reasons.push(`${Math.round((s.onSaleShare ?? 0) * 100)}% on sale`);
   }
-  if (s.productCount !== undefined && s.productCount > 0 && s.productCount <= SOME_PRODUCTS) {
-    score += s.productCount <= FEW_PRODUCTS ? 2 : 1;
-    reasons.push(`${s.productCount} product${s.productCount === 1 ? "" : "s"}`);
+  const apps = (s.apps ?? []).filter((a) => DROPSHIP_APPS.has(a) || SOURCING_APPS.has(a));
+  if (apps.some((a) => DROPSHIP_APPS.has(a))) score += 1;
+  if (apps.some((a) => SOURCING_APPS.has(a))) score += 2;
+  if (apps.length) reasons.push(apps.join(", "));
+  if ((s.tmShare ?? 0) >= TM_TITLES) {
+    score += 1;
+    reasons.push("™ titles");
+  }
+  if (s.defaultVendor) {
+    score += 1;
+    reasons.push("default vendor");
+  }
+  if (s.offers.some((o) => URGENCY.has(o.label))) {
+    score += 1;
+    reasons.push("Urgency ads");
   }
   const off = Math.max(0, ...(s.products ?? []).map((p) => (p.compareAt && p.price !== undefined && p.compareAt > p.price ? (p.compareAt - p.price) / p.compareAt : 0)));
   if (off >= BIG_DISCOUNT) {
     score += 1;
     reasons.push(`−${Math.round(off * 100)}%`);
   }
-  if (s.offers.some((o) => URGENCY.has(o.label))) {
+  const match = (s.products ?? []).find((p) => p.sourcing)?.sourcing;
+  if (match) {
     score += 1;
-    reasons.push("Urgency ads");
+    reasons.push(`On AliExpress ×${match.markup}`);
   }
-  return { score, likely: !!s.shopify && score >= 4, reasons };
+  const types = s.productTypes ?? 0;
+  const type: StoreType =
+    size !== undefined && size <= HERO.products && types <= HERO.types && score >= 1
+      ? "hero"
+      : size !== undefined && size <= NICHE.products && types <= NICHE.types && score >= 2
+        ? "niche"
+        : score >= 3
+          ? "general"
+          : "brand";
+  return { score, likely: type !== "brand", type, reasons };
+}
+
+/** A product title as words to search Meta for: before "|", " - ", " – ", ":" or "(", without ™/® and the store's brand. */
+export function shortProductName(title: string, brand?: string): string {
+  let t = title.replace(/[™®]/g, " ").split(/\s[|\-–:]\s|\(|\|/)[0];
+  if (brand) t = t.replace(new RegExp(`\\b${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), " ");
+  return t.replace(/[,.!]+/g, " ").split(/\s+/).filter(Boolean).slice(0, 4).join(" ");
+}
+
+/** A "Find more" run's stores added to the first run's: counts added up for stores found twice, new ones after. */
+export function mergeStores(first: FoundStore[], more: FoundStore[], max = 80): FoundStore[] {
+  const out = first.map((s) => ({ ...s, offers: [...s.offers.map((o) => ({ ...o }))] }));
+  const byHost = new Map(out.map((s) => [s.host, s]));
+  for (const m of more) {
+    const s = byHost.get(m.host);
+    if (!s) {
+      out.push(m);
+      byHost.set(m.host, m);
+      continue;
+    }
+    s.ads += m.ads;
+    s.copies += m.copies;
+    s.oldestDays = Math.max(s.oldestDays, m.oldestDays);
+    if (m.reach) s.reach = (s.reach ?? 0) + m.reach;
+    for (const o of m.offers) {
+      const have = s.offers.find((x) => x.label === o.label);
+      if (have) have.count += o.count;
+      else s.offers.push({ ...o });
+    }
+    s.offers.sort((a, b) => b.count - a.count);
+  }
+  return out.slice(0, max);
 }
 
 /** "/collections/x/products/seat-cover/" → "seat-cover"; null for links that aren't to a product. */
@@ -378,14 +533,18 @@ export function readShopifyProduct(json: unknown, host: string, handle: string):
 }
 
 export type StoreSort = "ads" | "days" | "reach" | "dropship";
-export type StoreFilter = { shopifyOnly?: boolean; likelyOnly?: boolean; minAds?: number; minDays?: number; country?: string; sort?: StoreSort };
+export type StoreFilter = { shopifyOnly?: boolean; likelyOnly?: boolean; type?: StoreType; minAds?: number; minDays?: number; country?: string; sort?: StoreSort };
+
+// Likely dropshippers first: hero, niche, general (and likely ones from before store types), then the rest.
+const TYPE_ORDER: Record<StoreType, number> = { hero: 0, niche: 1, general: 2, brand: 4 };
+const typeRank = (s: FoundStore) => (s.dropship?.type ? TYPE_ORDER[s.dropship.type] : s.dropship?.likely ? 3 : 4);
 
 /** The page's filters and sorting over a search's stores (Offer Search and Admin → Offer research). */
 export function filterStores(stores: FoundStore[], f: StoreFilter): FoundStore[] {
   const out = stores.filter(
-    (s) => (!f.shopifyOnly || s.shopify) && (!f.likelyOnly || s.dropship?.likely) && s.ads >= (f.minAds ?? 0) && s.oldestDays >= (f.minDays ?? 0) && (!f.country || s.country === f.country),
+    (s) => (!f.shopifyOnly || s.shopify) && (!f.likelyOnly || s.dropship?.likely) && (!f.type || s.dropship?.type === f.type) && s.ads >= (f.minAds ?? 0) && s.oldestDays >= (f.minDays ?? 0) && (!f.country || s.country === f.country),
   );
-  if (f.sort === "dropship") return out.sort((a, b) => (b.dropship?.score ?? 0) - (a.dropship?.score ?? 0) || b.ads - a.ads);
+  if (f.sort === "dropship") return out.sort((a, b) => typeRank(a) - typeRank(b) || (b.reach ?? 0) - (a.reach ?? 0) || b.ads - a.ads);
   if (f.sort === "days") return out.sort((a, b) => b.oldestDays - a.oldestDays || b.ads - a.ads);
   if (f.sort === "reach") return out.sort((a, b) => (b.reach ?? 0) - (a.reach ?? 0) || b.ads - a.ads);
   return out.sort((a, b) => b.ads - a.ads || b.copies - a.copies || b.oldestDays - a.oldestDays);

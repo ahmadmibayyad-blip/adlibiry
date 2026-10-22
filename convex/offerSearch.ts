@@ -12,7 +12,7 @@ import {
   adLibrarySearchUrl,
   adShowsOffer,
   dailyOfferPhrases,
-  dropshipScore,
+  storeType,
   groupByStore,
   OFFER_COUNTRIES,
   OFFER_IDS,
@@ -294,7 +294,7 @@ export const finish = internalAction({
         const merged: FoundStore = d
           ? { ...st, shopify: d.shopify, currency: d.currency, storeCountry: d.storeCountry, products: d.products, productCount: d.productCount }
           : st;
-        return { ...dropUndefined(merged), dropship: dropshipScore(merged) };
+        return { ...dropUndefined(merged), dropship: storeType(merged) };
       });
       await ctx.runMutation(internal.offerSearch.finishedSearch, { id: x.id, stores, adsFound: x.adsFound });
     }

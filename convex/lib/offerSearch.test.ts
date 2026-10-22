@@ -4,7 +4,12 @@ import {
   adLibrarySearchUrl,
   adShowsOffer,
   dailyOfferPhrases,
-  dropshipScore,
+  isDefaultVendor,
+  mergeStores,
+  morePhrases,
+  shortProductName,
+  sourcingAppsIn,
+  storeType,
   filterStores,
   groupByStore,
   OFFER_COUNTRIES,
@@ -21,6 +26,7 @@ import {
   storeHost,
   toSearchAd,
   type FoundStore,
+  type StoreType,
 } from "./offerSearch";
 
 const DAY = 86_400_000;
@@ -193,34 +199,91 @@ describe("shortError", () => {
     expect(adShowsOffer(ad("Something else"), null, ["wasstrips"])).toBe(false);
   });
 
-  it("scores how likely a store is a dropshipper, with its reasons", () => {
-    const store = (extra: Partial<FoundStore>): FoundStore => ({
-      host: "middo.nl", advertisers: ["Middo"], ads: 4, copies: 4, oldestDays: 160, offers: [], productPaths: [], sample: [], ...extra,
+  const base = { advertisers: ["X"], ads: 3, copies: 3, oldestDays: 100, offers: [], productPaths: [], sample: [] };
+
+  it("types a hero store", () => {
+    expect(storeType({ ...base, host: "moobalm.store", shopify: true, catalogue: 6, productTypes: 0, onSaleShare: 0.83, apps: ["Judge.me"] })).toEqual({
+      score: 1, likely: true, type: "hero", reasons: ["6 products", "83% on sale"],
     });
-    const middo = dropshipScore(
-      store({
-        shopify: true,
-        productCount: 7,
-        offers: [{ label: "Buy 2 get 1", count: 4 }, { label: "Limited time", count: 4 }],
-        products: [{ handle: "v", url: "u", title: "VitaBoost", price: 24.95, compareAt: 50 }],
-      }),
-    );
-    expect(middo).toEqual({ score: 6, likely: true, reasons: ["Shopify", "7 products", "−50%", "Urgency ads"] });
-    // A big catalogue on Shopify without discounts: not likely.
-    expect(dropshipScore(store({ shopify: true, productCount: 250 }))).toMatchObject({ score: 2, likely: false, reasons: ["Shopify"] });
-    expect(dropshipScore(store({ shopify: true, productCount: 45 })).reasons).toEqual(["Shopify", "45 products"]);
-    // Not Shopify (Etos, Hunkemöller): never likely.
-    expect(dropshipScore(store({ host: "etos.nl", offers: [{ label: "Ends soon", count: 2 }] }))).toMatchObject({ likely: false });
-    // A big brand is never a dropshipper, whatever else it shows.
-    expect(dropshipScore(store({ host: "nike.com", advertisers: ["Nike"], shopify: true, productCount: 5 }))).toEqual({ score: 0, likely: false, reasons: ["Big brand"] });
   });
 
-  it("shows likely dropshippers first when asked", () => {
-    const store = (host: string, ads: number, dropship: FoundStore["dropship"]): FoundStore => ({
-      host, advertisers: [], ads, copies: ads, oldestDays: 1, offers: [], productPaths: [], sample: [], ...(dropship ? { dropship } : {}),
+  it("types a niche dropship store", () => {
+    expect(
+      storeType({ ...base, host: "relivex.nl", shopify: true, catalogue: 47, productTypes: 4, onSaleShare: 0.74, tmShare: 0.62, apps: ["Loox", "Ali Reviews", "Parcel Panel"] }),
+    ).toEqual({ score: 3, likely: true, type: "niche", reasons: ["47 products", "4 types", "74% on sale", "Loox, Ali Reviews, Parcel Panel", "™ titles"] });
+  });
+
+  it("types a general store", () => {
+    const vahlery = storeType({
+      ...base, host: "vahlery.de", shopify: true, catalogue: 224, productTypes: 10, onSaleShare: 0.81,
+      offers: [{ label: "Limited time", count: 2 }], products: [{ handle: "h", url: "u", title: "t", price: 24, compareAt: 48 }],
     });
-    const stores = [store("etos.nl", 9, { score: 1, likely: false, reasons: [] }), store("middo.nl", 4, { score: 6, likely: true, reasons: [] }), store("relivex.nl", 3, { score: 4, likely: true, reasons: [] })];
-    expect(filterStores(stores, { sort: "dropship" }).map((s) => s.host)).toEqual(["middo.nl", "relivex.nl", "etos.nl"]);
-    expect(filterStores(stores, { likelyOnly: true }).map((s) => s.host)).toEqual(["middo.nl", "relivex.nl"]);
+    expect(vahlery).toMatchObject({ type: "general", likely: true, score: 3 });
+    expect(vahlery.reasons).toEqual(["224 products", "10 types", "81% on sale", "Urgency ads", "−50%"]);
+  });
+
+  it("keeps brands and retailers out", () => {
+    expect(storeType({ ...base, host: "gymshark.com", shopify: true, catalogue: 1018, productTypes: 53, onSaleShare: 0.33 })).toMatchObject({ type: "brand", likely: false });
+    expect(storeType({ ...base, host: "etos.nl" })).toEqual({ score: 0, likely: false, type: "brand", reasons: [] });
+    expect(storeType({ ...base, host: "nike.com", shopify: true, catalogue: 5 })).toEqual({ score: 0, likely: false, type: "brand", reasons: ["Big brand"] });
+  });
+
+  it("types a store from what could be read", () => {
+    // Middo: its products.json was empty, only the store's count and its apps were read.
+    expect(storeType({ ...base, host: "middo.nl", shopify: true, catalogue: 595, apps: ["Parcel Panel", "DSers"], offers: [{ label: "Limited time", count: 4 }] })).toMatchObject({
+      type: "general", likely: true, score: 4,
+    });
+  });
+
+  it("counts a sourcing app double, a default vendor and an AliExpress match", () => {
+    const raw = storeType({ ...base, host: "rawresolve.com", shopify: true, catalogue: 9, productTypes: 0, onSaleShare: 0.2, defaultVendor: true, apps: ["DSers"] });
+    expect(raw).toMatchObject({ type: "hero", score: 3 });
+    expect(raw.reasons).toEqual(["9 products", "DSers", "default vendor"]);
+    const matched = storeType({
+      ...base, host: "petcura.nl", shopify: true, catalogue: 7, productTypes: 2,
+      products: [{ handle: "h", url: "u", title: "t", price: 44.9, sourcing: { price: 6.4, url: "https://a/1", title: "x", markup: 7.6 } }],
+    });
+    expect(matched.reasons).toContain("On AliExpress ×7.6");
+    expect(matched.score).toBe(1);
+  });
+
+  it("finds sourcing apps in a page's code", () => {
+    expect(sourcingAppsIn('<script src="https://cdn.dsers.com/x.js"></script><div class="sell-the-trend"></div>')).toEqual(["DSers", "Sell The Trend"]);
+    expect(sourcingAppsIn("<html>nothing</html>")).toEqual([]);
+    expect(isDefaultVendor(" Mijn winkel ")).toBe(true);
+    expect(isDefaultVendor("RawResolve")).toBe(false);
+  });
+
+  it("has a second set of phrases for every offer and language", () => {
+    for (const id of OFFER_IDS) for (const c of Object.values(OFFER_COUNTRIES)) expect(OFFERS[id].more[c.lang].length, `${id} ${c.lang}`).toBeGreaterThan(0);
+    expect(morePhrases("bxgy", "NL")).toEqual(["tijdelijk 1+1", "3 voor 2", "alleen vandaag 1+1"]);
+    // None repeats the first search's phrases.
+    for (const id of OFFER_IDS) for (const c of Object.values(OFFER_COUNTRIES)) for (const p of OFFERS[id].more[c.lang]) expect(OFFERS[id].phrases[c.lang]).not.toContain(p);
+  });
+
+  it("shortens a product title to something to search for", () => {
+    expect(shortProductName("ReliveX™ Magnetische Inlegzolen | Verlies Gewicht bij ELKE STAP", "ReliveX")).toBe("Magnetische Inlegzolen");
+    expect(shortProductName("Wijnkoeler – Geen Lauwe Wijn Meer")).toBe("Wijnkoeler");
+    expect(shortProductName("Happy Brain - Premium nootropic supplement (1+1 gratis)", "HappySupps")).toBe("Happy Brain");
+    expect(shortProductName("VitaBoost PowerVest™ Behaal Direct resultaat, Boost je Energie")).toBe("VitaBoost PowerVest Behaal Direct");
+  });
+
+  it("merges a second run's stores into the first", () => {
+    const st = (host: string, ads: number, offers: FoundStore["offers"] = []): FoundStore => ({ ...base, host, ads, copies: ads, offers });
+    const merged = mergeStores([st("a.nl", 2, [{ label: "Buy 2 get 1", count: 2 }])], [st("a.nl", 3, [{ label: "Buy 2 get 1", count: 1 }, { label: "Limited time", count: 1 }]), st("b.nl", 1)]);
+    expect(merged.map((s) => [s.host, s.ads, s.copies])).toEqual([["a.nl", 5, 5], ["b.nl", 1, 1]]);
+    expect(merged[0].offers).toEqual([{ label: "Buy 2 get 1", count: 3 }, { label: "Limited time", count: 1 }]);
+    expect(mergeStores([st("a.nl", 2)], [st("b.nl", 1)], 1).map((s) => s.host)).toEqual(["a.nl"]);
+  });
+
+  it("puts likely dropshippers first by type, then by reach", () => {
+    const st = (host: string, ads: number, reach: number, type: StoreType): FoundStore => ({
+      ...base, host, ads, copies: ads, reach, dropship: { score: 2, likely: type !== "brand", type, reasons: [] },
+    });
+    const stores = [st("etos.nl", 50, 1_000_000, "brand"), st("glowora.nl", 5, 99, "niche"), st("moobalm.store", 7, 10, "hero"), st("relivex.nl", 5, 500, "niche")];
+    expect(filterStores(stores, { sort: "dropship" }).map((s) => s.host)).toEqual(["moobalm.store", "relivex.nl", "glowora.nl", "etos.nl"]);
+    // Brands and retailers are left out; most ads first.
+    expect(filterStores(stores, { likelyOnly: true }).map((s) => s.host)).toEqual(["moobalm.store", "glowora.nl", "relivex.nl"]);
+    expect(filterStores(stores, { type: "niche" }).map((s) => s.host)).toEqual(["glowora.nl", "relivex.nl"]);
   });
 });

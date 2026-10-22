@@ -72,8 +72,8 @@ describe("Offer Search", () => {
     expect(done!.stores[0].offers.map((o) => o.label)).toEqual(["Buy 2 get 1"]);
     // Each store is scored: Shopify, 7 products in its catalogue, a big crossed-out discount.
     expect(done!.stores[0]).toMatchObject({ productCount: 7 });
-    expect(done!.stores[0].dropship).toEqual({ score: 5, likely: true, reasons: ["Shopify", "7 products", "−40%"] });
-    expect(done!.stores[1].dropship).toEqual({ score: 0, likely: false, reasons: [] });
+    expect(done!.stores[0].dropship).toEqual({ score: 1, likely: true, type: "hero", reasons: ["7 products", "−40%"] });
+    expect(done!.stores[1].dropship).toEqual({ score: 0, likely: false, type: "brand", reasons: [] });
     // The Shopify store's currency and the product its ads link to, read from the store itself.
     expect(done!.stores[0]).toMatchObject({
       currency: "DKK",
