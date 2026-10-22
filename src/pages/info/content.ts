@@ -5,7 +5,7 @@ export type Section = { heading?: string; paragraphs?: string[]; bullets?: strin
 // unlisted: the page still opens, but isn't linked or in the sitemap (nothing real to show yet).
 export type InfoPage = { slug: string; group: "Company" | "Support" | "Legal"; title: string; intro: string; sections: Section[]; unlisted?: boolean };
 
-export const UPDATED = "2 October 2026";
+export const UPDATED = "22 October 2026";
 
 export const INFO_PAGES: InfoPage[] = [
   // ── Company ────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export const INFO_PAGES: InfoPage[] = [
         heading: "Affiliate program",
         paragraphs: [
           "Earn 30% of every payment from the people you bring to AdSpy Pro, for their first 12 months. That's €10.50 a month for each Pro member, or €108 for a yearly plan.",
-          "Sign in, open Settings → Affiliate program and get your link (adspypro.net/r/yourname). It remembers a visitor for 60 days. Commissions can be paid out 30 days after each payment, monthly, to your PayPal or Wise email.",
+          "Sign in, open Settings → Affiliate program and get your link (adspypro.net/r/yourname). It remembers a visitor for 60 days. Commissions can be paid out 30 days after each payment, monthly, to your PayPal or Wise email. The rules are in the Terms of Service under \"Affiliate program\".",
         ],
       },
       {
@@ -304,6 +304,18 @@ export const INFO_PAGES: InfoPage[] = [
         paragraphs: [
           "AdSpy Pro shows research data and estimates to help you decide. Revenue, spend, sales and scores are estimates and can be wrong. Decisions about what to sell and how much to spend are yours.",
           "Ads, product photos and videos belong to their owners. Use them for research; don't reuse someone else's creative or brand without permission.",
+        ],
+      },
+      {
+        heading: "Affiliate program",
+        bullets: [
+          "Commission: 30% of each payment a person you referred makes in their first 12 months after their first payment. Your link counts for a new account made within 60 days of the click; you can't refer yourself or your own accounts.",
+          "Commissions are payable 30 days after each payment. We pay what's payable once a month to the PayPal or Wise email in your settings. Refunded or charged-back payments don't earn a commission, and one already paid can be taken off your next payout.",
+          "No spam: don't send unsolicited messages or emails, post your link where the rules forbid it, or use fake reviews, cookie stuffing or misleading claims (for example invented earnings or results).",
+          "Don't bid on \"AdSpy Pro\", \"adspypro\" or misspellings of them in search ads, and don't use our name or logo in ad accounts, domains or social profiles in a way that looks like it's us.",
+          "Say clearly that you earn a commission when you share your link, as the law where you and your audience live requires.",
+          "You pay any taxes on what you earn.",
+          "We can change the program, or remove an affiliate who breaks these rules, at any time. A removed affiliate loses commissions that aren't paid out yet if they were earned by breaking the rules.",
         ],
       },
       {
