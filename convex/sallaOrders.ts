@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { decryptToken, encryptToken } from "./lib/shopifyOAuth";
 import {
   AWAITING_STATUS, REFRESH_EARLY_MS, REFRESH_LOCK_MS, SALLA_API, SALLA_TOKEN_URL,
-  findStatusIds, statusBody, type SallaStatus,
+  describeStatuses, findStatusIds, statusBody, type SallaStatus,
 } from "./lib/sallaApi";
 
 // Writes the COD flow back to Salla (see convex/sallaApp.ts for the webhook).
@@ -145,10 +145,11 @@ async function sallaFetch<T>(token: string, path: string, init?: { method: strin
 async function awaitingStatusId(ctx: ActionCtx, merchantId: number, token: string): Promise<number> {
   const s = await ctx.runQuery(internal.sallaOrders.store, { merchantId });
   if (s?.awaitingStatusId) return s.awaitingStatusId;
-  const { underReviewId, awaitingId } = findStatusIds(await sallaFetch<SallaStatus[]>(token, "/orders/statuses"));
+  const statuses = (await sallaFetch<SallaStatus[]>(token, "/orders/statuses")) ?? [];
+  const { underReviewId, awaitingId } = findStatusIds(statuses);
   let id = awaitingId;
   if (!id) {
-    if (!underReviewId) throw new Error("The store has no \"under review\" order status to hang ours under");
+    if (!underReviewId) throw new Error(`No "under review" main status in the store's statuses: ${describeStatuses(statuses)}`);
     id = (await sallaFetch<SallaStatus>(token, "/orders/statuses", {
       method: "POST",
       body: { parent_id: underReviewId, name: AWAITING_STATUS.name, message: AWAITING_STATUS.message, icon: AWAITING_STATUS.icon, is_active: true },
