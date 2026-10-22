@@ -966,6 +966,33 @@ export default defineSchema({
 
   // Shopify app install in progress (convex/shopifyApp.ts): ties the OAuth
   // callback back to the signed-in user who started it. Single use, 15 minutes.
+  // AdSpy COD Confirm, the Salla app (convex/sallaApp.ts). One row per installed
+  // store, keyed by Salla's merchant id; tokens are AES-GCM "enc:v1:" like Shopify's.
+  sallaStores: defineTable({
+    merchantId: v.number(),
+    accessToken: v.string(),
+    refreshToken: v.string(),  // single use: always replace with the newest
+    expiresAt: v.number(),     // ms
+    scope: v.string(),
+    installedAt: v.number(),
+    updatedAt: v.number(),
+    uninstalledAt: v.optional(v.number()),
+  }).index("by_merchant", ["merchantId"]),
+  // COD orders awaiting WhatsApp confirmation. Ids and amount only, no customer PII.
+  sallaCodOrders: defineTable({
+    merchantId: v.number(),
+    orderId: v.string(),
+    referenceId: v.optional(v.string()),
+    total: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    status: v.string(),        // "pending" | later "confirmed" | "cancelled"
+    createdAt: v.number(),
+  }).index("by_merchant_order", ["merchantId", "orderId"]),
+  sallaWebhookEvents: defineTable({
+    key: v.string(),           // merchant:event:hash of the raw body
+    receivedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   shopifyOAuthStates: defineTable({
     state: v.string(),
     userId: v.id("users"),
