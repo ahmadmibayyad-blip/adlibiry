@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
@@ -8,6 +8,7 @@ import { requireAdmin } from "./admin/helpers";
 import { runCostCap } from "./apify";
 import { PICTURE_ACTOR, fromPictureSearch, pictureLimit, type PictureMatch } from "./lib/aliexpress";
 import { budgetLeft } from "./lib/fusion";
+import { toUsd } from "./lib/priceParse";
 import { inspectHtml } from "./lib/storeInspect";
 import {
   adLibrarySearchUrl,
@@ -196,6 +197,56 @@ export const finishedSearch = internalMutation({
   },
 });
 
+type Sourcing = NonNullable<FoundProduct["sourcing"]>;
+const SOURCED_PER_SEARCH = 15;
+
+/** Up to 15 stores' main product photo through AliExpress's picture search (5 at a time, each counted in the day's
+ * picture limit): the cheapest match, with the store's price in USD over it as the markup. Never throws. */
+async function sourceHeroProducts(ctx: ActionCtx, stores: FoundStore[]): Promise<Map<string, Sourcing>> {
+  const out = new Map<string, Sourcing>();
+  const token = process.env.APIFY_TOKEN?.trim();
+  if (!token) return out;
+  const picks = stores.filter((s) => s.products?.[0]?.image && s.products[0].price).slice(0, SOURCED_PER_SEARCH);
+  if (!picks.length) return out;
+  const rates: Record<string, number> = await ctx.runQuery(internal.currency.allRates, {});
+  let open = true;
+  for (let i = 0; i < picks.length && open; i += 5) {
+    await Promise.all(
+      picks.slice(i, i + 5).map(async (s) => {
+        if (!open || !(await ctx.runMutation(internal.aliexpressImage.claimForSearch, { limit: pictureLimit() }))) {
+          open = false;
+          return;
+        }
+        const p = s.products![0];
+        const usd = toUsd({ amount: p.price!, currency: s.currency ?? "USD" }, rates);
+        try {
+          const q = new URLSearchParams({ token, timeout: "60", maxTotalChargeUsd: "0.02" });
+          const res = await fetch(`https://api.apify.com/v2/acts/${PICTURE_ACTOR}/run-sync-get-dataset-items?${q}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: p.image, destination: "aliexpress", language: "en", currency: "USD" }),
+            signal: AbortSignal.timeout(75_000),
+          });
+          if (!res.ok) return;
+          const found = fromPictureSearch(await res.json().catch(() => null), { price: usd, title: p.title });
+          const best = found.reduce<PictureMatch | undefined>((m, x) => (!m || x.price < m.price ? x : m), undefined);
+          if (best && usd) out.set(s.host, { price: best.price, url: best.url, title: best.title, markup: Math.round((usd / best.price) * 10) / 10 });
+        } catch {
+          // No match for this one.
+        }
+      }),
+    );
+  }
+  return out;
+}
+
+/** The store with its main product's AliExpress match, typed again so the match counts. */
+function withSourcing(s: FoundStore, match: Sourcing | undefined): FoundStore {
+  if (!match || !s.products?.length) return s;
+  const next: FoundStore = { ...s, products: [{ ...s.products[0], sourcing: match }, ...s.products.slice(1)] };
+  return { ...next, dropship: storeType(next) };
+}
+
 const dropUndefined = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== undefined)) as T;
 
 export const finished = internalMutation({
@@ -304,7 +355,7 @@ export const finish = internalAction({
       // The daily research searches every offer at once; a user's search one offer, or their own words.
       const offers: (OfferId | null)[] = row.daily ? OFFER_IDS : [(row.offer as OfferId | undefined) ?? null];
       const kept = ads.filter((a) => offers.some((o) => adShowsOffer(a, o, row.phrases)));
-      return { id: row._id, adsFound: kept.length, stores: groupByStore(kept).slice(0, STORES_KEPT) };
+      return { id: row._id, adsFound: kept.length, stores: groupByStore(kept).slice(0, STORES_KEPT), typed: undefined as FoundStore[] | undefined };
     });
     const byHost = new Map<string, FoundStore>();
     for (const x of perSearch) for (const st of x.stores) if (!byHost.has(st.host)) byHost.set(st.host, st);
@@ -330,6 +381,15 @@ export const finish = internalAction({
           : st;
         return { ...dropUndefined(merged), dropship: storeType(merged) };
       });
+      x.typed = stores;
+    }
+    // Users' searches: the hero product of up to 15 likely dropshippers matched on AliExpress (not the daily research).
+    const userSearch = searches.some((r) => !r.daily);
+    const candidates = new Map<string, FoundStore>();
+    for (const x of perSearch) for (const st of x.typed ?? []) if (st.dropship?.likely && !candidates.has(st.host)) candidates.set(st.host, st);
+    const matches = userSearch ? await sourceHeroProducts(ctx, [...candidates.values()].sort((a, b) => b.ads - a.ads)) : new Map<string, Sourcing>();
+    for (const x of perSearch) {
+      const stores = (x.typed ?? []).map((st) => withSourcing(st, matches.get(st.host)));
       await ctx.runMutation(internal.offerSearch.finishedSearch, { id: x.id, stores, adsFound: x.adsFound });
     }
   },

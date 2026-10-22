@@ -99,7 +99,7 @@ describe("Offer Search", () => {
     // The same search again: answered from the last one, no new run, and it doesn't count against the limit.
     const again = await user.action(api.offerSearch.start, { offer: "bxgy", country: "dk" });
     expect(again.cached).toBe(true);
-    expect(runInputs).toHaveLength(1);
+    expect(runInputs.filter((r) => r.urls)).toHaveLength(1); // no new Ad Library run (the picture search is separate)
     expect(await user.query(api.offerSearch.get, { id: again.id })).toMatchObject({ status: "done", adsFound: 2 });
     expect(await user.query(api.offerSearch.recent, {})).toMatchObject({ used: 1 });
   });
@@ -193,6 +193,59 @@ describe("Offer research (Admin)", () => {
     expect(tries).toHaveBeenCalledTimes(1);
     vi.stubEnv("OFFER_RESEARCH_ADS", "off");
     expect(await t.action(internal.offerSearch.dailyResearch, {})).toEqual({ notConfigured: "OFFER_RESEARCH_ADS is off" });
+  });
+});
+
+describe("Offer Search sourcing proof", () => {
+  // One hero store (pawtech.dk) with a product photo; Apify's picture search finds it on AliExpress.
+  async function searchWithPictures(pictureRows: unknown[]) {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    const pictureCalls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("api.apify.com/v2/acts/") && url.includes("reverse-image-search")) {
+        pictureCalls.push(JSON.parse(String(init?.body)).imageUrl);
+        return json(pictureRows);
+      }
+      if (url.includes("api.apify.com/v2/acts/")) return json({ data: { id: "run1", status: "RUNNING" } });
+      if (url.includes("/datasets/ds1/items")) return json(items.slice(0, 1));
+      if (url === "https://pawtech.dk/meta.json") return json({ myshopify_domain: "pawtech.myshopify.com", currency: "DKK", country: "DK", published_products_count: 7 });
+      if (url === "https://pawtech.dk/products.json?limit=250") return json({ products: Array.from({ length: 7 }, (_, i) => ({ id: i, product_type: "Pet", variants: [{ price: "99", compare_at_price: "199" }] })) });
+      if (url === "https://pawtech.dk/products/seat.json") return json({ product: { title: "Hundesæde", variants: [{ price: "299.00", compare_at_price: "499.00" }], image: { src: "https://cdn.shopify.com/seat.jpg" } } });
+      return new Response("", { status: 404 });
+    }));
+    const { t, user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
+    const run = await t.run(async (ctx) => (await ctx.db.query("apifyRuns").collect())[0]);
+    await t.action(internal.apify.handleWebhook, { token: run.token, datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    return { t, user, done: (await user.query(api.offerSearch.get, { id }))!, pictureCalls };
+  }
+
+  it("matches the hero product on AliExpress and shows the markup", async () => {
+    const { done, pictureCalls } = await searchWithPictures([
+      { site: "aliexpress", title: "Dog car seat hammock waterproof", price: 12, currency: "USD", productUrl: "https://www.aliexpress.com/item/2.html" },
+      { site: "aliexpress", title: "Dog car seat hammock", price: 9.5, currency: "USD", productUrl: "https://www.aliexpress.com/item/1.html?spm=x" },
+    ]);
+    expect(pictureCalls).toEqual(["https://cdn.shopify.com/seat.jpg"]);
+    const sourcing = done.stores[0].products![0].sourcing!;
+    expect(sourcing).toMatchObject({ price: 9.5, url: "https://www.aliexpress.com/item/1.html", title: "Dog car seat hammock" });
+    // 299 DKK in USD (about 43-47) ÷ 9.50, never the raw 299 ÷ 9.5.
+    expect(sourcing.markup).toBeGreaterThan(4);
+    expect(sourcing.markup).toBeLessThan(5.2);
+    expect(done.stores[0].dropship!.reasons).toContain(`On AliExpress ×${sourcing.markup}`);
+  });
+
+  it("finishes without sourcing once the day's picture searches are used up", async () => {
+    vi.stubEnv("PICTURE_LOOKUPS_PER_DAY", "0");
+    const { done, pictureCalls } = await searchWithPictures([{ site: "aliexpress", title: "x", price: 1, currency: "USD", productUrl: "https://www.aliexpress.com/item/1.html" }]);
+    expect(pictureCalls).toEqual([]);
+    expect(done).toMatchObject({ status: "done" });
+    expect(done.stores[0].products![0]).not.toHaveProperty("sourcing");
+  });
+
+  it("leaves a product without a match as it is", async () => {
+    const { done } = await searchWithPictures([]);
+    expect(done.stores[0].products![0]).not.toHaveProperty("sourcing");
   });
 });
 
