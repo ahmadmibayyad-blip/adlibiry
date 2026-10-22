@@ -22,13 +22,14 @@ import { useAuth } from "@/hooks/use-auth.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import { useEffect, useRef, useState } from "react";
 import { useScrollMemory } from "@/hooks/use-history-state.ts";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar.tsx";
 import AIAssistant from "./ai/AIAssistant.tsx";
 import { openAssistant } from "@/lib/assistant.ts";
 import { setDisplayCurrency } from "@/lib/money.ts";
+import { clearReferral, pendingReferral } from "@/lib/referral.ts";
 import Logo from "@/components/Logo.tsx";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet.tsx";
 import OnboardingDialog from "./OnboardingDialog.tsx";
@@ -119,6 +120,13 @@ export default function DashboardLayout() {
   useEffect(() => {
     if (user) refreshMyPlan({}).catch(() => {});
   }, [user, location.pathname, refreshMyPlan]);
+
+  // Came through an affiliate link (src/lib/referral.ts): link this account once.
+  const claimReferral = useMutation(api.affiliates.claimReferral);
+  useEffect(() => {
+    const code = user ? pendingReferral() : null;
+    if (code) claimReferral({ code }).then(clearReferral, () => {});
+  }, [user, claimReferral]);
 
   const initials = user?.profile?.name
     ? user.profile.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()

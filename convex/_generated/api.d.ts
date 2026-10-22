@@ -27,6 +27,7 @@ import type * as admin_products from "../admin/products.js";
 import type * as admin_stores from "../admin/stores.js";
 import type * as ads from "../ads.js";
 import type * as adspyAuth from "../adspyAuth.js";
+import type * as affiliates from "../affiliates.js";
 import type * as agentRunner from "../agentRunner.js";
 import type * as agents from "../agents.js";
 import type * as ai from "../ai.js";
@@ -199,6 +200,7 @@ declare const fullApi: ApiFromModules<{
   "admin/stores": typeof admin_stores;
   ads: typeof ads;
   adspyAuth: typeof adspyAuth;
+  affiliates: typeof affiliates;
   agentRunner: typeof agentRunner;
   agents: typeof agents;
   ai: typeof ai;

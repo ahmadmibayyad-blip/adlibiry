@@ -83,6 +83,14 @@ export const INFO_PAGES: InfoPage[] = [
     intro: "Work with us if you teach, coach or serve e-commerce sellers.",
     sections: [
       {
+        heading: "Affiliate program",
+        paragraphs: [
+          "Earn 30% of every payment from the people you bring to AdSpy Pro, for their first 12 months. That's €10.50 a month for each Pro member, or €108 for a yearly plan.",
+          "Sign in, open Settings → Affiliate program and get your link (adspypro.net/r/yourname). It remembers a visitor for 60 days. Commissions can be paid out 30 days after each payment, monthly, to your PayPal or Wise email.",
+        ],
+      },
+      {
+        heading: "Other partnerships",
         bullets: [
           "Educators and communities: give your students a tool to practise product research with real data.",
           "Agencies: research products and creatives for several clients from one account.",

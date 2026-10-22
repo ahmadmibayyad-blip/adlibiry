@@ -44,6 +44,7 @@ import RebuildResearch from "./_components/RebuildResearch.tsx";
 import RemoveLastProductImport from "./_components/RemoveLastProductImport.tsx";
 import KnowledgeEditor from "./_components/KnowledgeEditor.tsx";
 import OfferResearchTab from "./_components/OfferResearchTab.tsx";
+import AffiliatesCard from "./_components/AffiliatesCard.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 
 type Tab = "overview" | "products" | "ads" | "offers" | "users" | "knowledge";
@@ -961,6 +962,7 @@ function UsersTab() {
 
   return (
     <div>
+      <AffiliatesCard />
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
