@@ -149,7 +149,11 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   `stores.techOptions`); stores not read yet don't match them.
 - Offer Search (`convex/offerSearch.ts`, `/dashboard/offer-search`) searches Meta's Ad Library for an offer in the country's
   language through Apify (trigger "offer", counted against `APIFY_DAILY_BUDGET_USD`); its ads also land in Ad Spy.
-  Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts`.
+  Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts` (up to 3 short forms dropshippers
+  write, searched as exact phrases, `keyword_exact_phrase`; 150 ads a search). Only ads showing the searched offer are kept (`adShowsOffer`:
+  its offer tags or the searched words; the daily research keeps any offer). Each store gets `productCount` (Shopify /products.json) and a
+  dropshipper score (`dropshipScore`: Shopify, ≤30/≤60 products, ≥30% crossed-out discount, urgency ads; big brands 0; likely = Shopify and
+  4+ of 6) with its reasons; the results open on "Likely dropshippers" sorted by it, with "Show all N stores".
   Each found store (top 40) gets: EU reach (EU/UK searches, from the scraper's ad details, no extra cost; spend = reach × the user's CPM in
   the app), Shopify + currency + country from `/meta.json`, and up to 2 products its ads link to from `/products/<handle>.json` (name, price,
   compare-at, photo). The results (`offer-search/_components/StoreResults.tsx`, `filterStores`) filter by Shopify / ads / days running and sort

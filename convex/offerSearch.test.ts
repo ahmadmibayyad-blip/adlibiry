@@ -42,18 +42,20 @@ describe("Offer Search", () => {
       if (url.includes("/datasets/ds1/items")) return json(items);
       if (url.includes("/actor-runs/run1")) return json({ data: { status: "SUCCEEDED", defaultDatasetId: "ds1", usageTotalUsd: 0.05 } });
       if (url === "https://pawtech.dk/meta.json") return json({ myshopify_domain: "pawtech.myshopify.com", currency: "DKK", country: "DK" });
+      if (url === "https://pawtech.dk/products.json?limit=250") return json({ products: Array.from({ length: 7 }, (_, i) => ({ id: i })) });
       if (url === "https://pawtech.dk/products/seat.json") return json({ product: { title: "Hundesæde", variants: [{ price: "299.00", compare_at_price: "499.00" }], image: { src: "https://cdn.shopify.com/seat.jpg" } } });
       return new Response("", { status: 404 });
     }));
     const { t, user } = await setup();
     const { id, cached } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
     expect(cached).toBe(false);
-    // Both Danish phrases, in one run.
+    // The three Danish phrases, as exact phrases, in one run.
     expect(runInputs[0].urls.map((x) => decodeURIComponent(x.url))).toEqual([
-      expect.stringContaining("q=køb+2+få+1+gratis"),
-      expect.stringContaining("q=køb+1+få+1+gratis"),
+      expect.stringContaining('q="1+1+gratis"&search_type=keyword_exact_phrase'),
+      expect.stringContaining('q="2+1+gratis"'),
+      expect.stringContaining('q="køb+2+få+1+gratis"'),
     ]);
-    expect(runInputs[0].limitPerSource).toBe(75);
+    expect(runInputs[0].limitPerSource).toBe(50);
     expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ status: "running", country: "DK" });
 
     // Apify calls the webhook when the run is done.
@@ -61,12 +63,17 @@ describe("Offer Search", () => {
     expect(run).toMatchObject({ trigger: "offer", country: "DK" });
     await t.action(internal.apify.handleWebhook, { token: run.token, datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
     const done = await user.query(api.offerSearch.get, { id });
-    expect(done).toMatchObject({ status: "done", adsFound: 3 });
+    // The "Gratis fragt" ad doesn't show the offer searched for, so it's left out.
+    expect(done).toMatchObject({ status: "done", adsFound: 2 });
     expect(done!.stores.map((s) => [s.host, s.ads, s.shopify])).toEqual([
-      ["pawtech.dk", 2, true],
+      ["pawtech.dk", 1, true],
       ["helysta.dk", 1, false],
     ]);
-    expect(done!.stores[0].offers.map((o) => o.label)).toEqual(expect.arrayContaining(["Buy 2 get 1", "Free shipping"]));
+    expect(done!.stores[0].offers.map((o) => o.label)).toEqual(["Buy 2 get 1"]);
+    // Each store is scored: Shopify, 7 products in its catalogue, a big crossed-out discount.
+    expect(done!.stores[0]).toMatchObject({ productCount: 7 });
+    expect(done!.stores[0].dropship).toEqual({ score: 5, likely: true, reasons: ["Shopify", "7 products", "−40%"] });
+    expect(done!.stores[1].dropship).toEqual({ score: 0, likely: false, reasons: [] });
     // The Shopify store's currency and the product its ads link to, read from the store itself.
     expect(done!.stores[0]).toMatchObject({
       currency: "DKK",
@@ -83,7 +90,7 @@ describe("Offer Search", () => {
     const again = await user.action(api.offerSearch.start, { offer: "bxgy", country: "dk" });
     expect(again.cached).toBe(true);
     expect(runInputs).toHaveLength(1);
-    expect(await user.query(api.offerSearch.get, { id: again.id })).toMatchObject({ status: "done", adsFound: 3 });
+    expect(await user.query(api.offerSearch.get, { id: again.id })).toMatchObject({ status: "done", adsFound: 2 });
     expect(await user.query(api.offerSearch.recent, {})).toMatchObject({ used: 1 });
   });
 
@@ -94,7 +101,8 @@ describe("Offer Search", () => {
       const url = String(u instanceof Request ? u.url : u);
       if (url.includes("api.apify.com/v2/acts/")) return json({ data: { id: `run${++runs}`, status: "RUNNING" } });
       if (url.includes("/actor-runs/run1")) return json({ data: { status: "SUCCEEDED", defaultDatasetId: "ds1" } });
-      if (url.includes("/datasets/ds1/items")) return json(items.slice(2));
+      // A free-shipping search keeps the free-shipping ad, not the "buy 1 get 1" one.
+      if (url.includes("/datasets/ds1/items")) return json(items.slice(1));
       return new Response("", { status: 404 });
     }));
     const { t, user } = await setup("free");

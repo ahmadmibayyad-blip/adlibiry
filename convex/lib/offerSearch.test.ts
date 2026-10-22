@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   adLink,
   adLibrarySearchUrl,
+  adShowsOffer,
   dailyOfferPhrases,
+  dropshipScore,
   filterStores,
   groupByStore,
   OFFER_COUNTRIES,
@@ -26,9 +28,11 @@ const NOW = Date.parse("2026-10-12T12:00:00Z");
 
 describe("Offer Search", () => {
   it("searches the offer in the country's language, with the user's extra words", () => {
-    expect(searchPhrases({ offer: "bxgy", country: "dk" })).toEqual(["køb 2 få 1 gratis", "køb 1 få 1 gratis"]);
-    expect(searchPhrases({ offer: "free_shipping", country: "DE", extra: " hund " })).toEqual(["kostenloser Versand hund", "gratis Versand hund"]);
-    expect(searchPhrases({ offer: "percent", country: "US" })).toEqual(["50% off", "40% off"]);
+    // Up to three short forms dropshippers actually write, searched as exact phrases.
+    expect(searchPhrases({ offer: "bxgy", country: "nl" })).toEqual(["2+1 gratis", "1+1 gratis", "3 halen 2 betalen"]);
+    expect(searchPhrases({ offer: "bxgy", country: "dk" })).toEqual(["1+1 gratis", "2+1 gratis", "køb 2 få 1 gratis"]);
+    expect(searchPhrases({ offer: "free_shipping", country: "DE", extra: " hund " })).toEqual(["kostenloser Versand hund", "gratis Versand hund", "versandkostenfrei hund"]);
+    expect(searchPhrases({ offer: "percent", country: "US" })).toEqual(["50% off", "40% off", "60% off"]);
     // A country we don't list falls back to English; the user's own phrase wins.
     expect(searchPhrases({ offer: "free_gift", country: "PL" })).toEqual(["free gift"]);
     expect(searchPhrases({ offer: "bxgy", country: "SE", custom: "  3 för 2  ", extra: "katt" })).toEqual(["3 för 2 katt"]);
@@ -38,7 +42,7 @@ describe("Offer Search", () => {
 
   it("gives the daily import one phrase per offer in the country's language", () => {
     expect(dailyOfferPhrases("se")).toEqual([
-      { offer: "bxgy", phrase: "köp 2 få 1 gratis" },
+      { offer: "bxgy", phrase: "1+1 gratis" },
       { offer: "percent", phrase: "50% rabatt" },
       { offer: "free_shipping", phrase: "fri frakt" },
       { offer: "free_gift", phrase: "gratis present" },
@@ -49,7 +53,9 @@ describe("Offer Search", () => {
   it("caches by country and phrases, whatever their order or case", () => {
     expect(searchKey("dk", ["Køb 2", "gratis fragt"])).toBe(searchKey("DK", ["gratis fragt", "køb 2"]));
     expect(searchKey("DK", ["køb 2"])).not.toBe(searchKey("SE", ["køb 2"]));
-    expect(adLibrarySearchUrl("dk", "køb 2 få 1")).toContain("country=DK&q=k%C3%B8b+2+f%C3%A5+1");
+    // Exact phrase, so "2+1 gratis" doesn't match every ad that just says "gratis".
+    expect(adLibrarySearchUrl("dk", "køb 2 få 1")).toContain("country=DK&q=%22k%C3%B8b+2+f%C3%A5+1%22");
+    expect(adLibrarySearchUrl("dk", "køb 2 få 1")).toContain("search_type=keyword_exact_phrase");
   });
 
   it("reads the Ad Library scraper's rows, and skips error rows", () => {
@@ -158,7 +164,7 @@ describe("Offer Search store details", () => {
     expect(researchAdsPerCountry(1000, 0)).toBe(0);
     const urls = researchUrls("dk");
     expect(urls).toHaveLength(OFFER_IDS.length);
-    expect(decodeURIComponent(urls[2].replace(/\+/g, " "))).toContain("q=gratis fragt");
+    expect(decodeURIComponent(urls[2].replace(/\+/g, " "))).toContain('q="gratis fragt"');
   });
 });
 
@@ -172,5 +178,49 @@ describe("shortError", () => {
     expect(shortError(raw)).toBe('Apify 403: { "error": { "type": "platform-feature-disabled", "message": "Monthly usage hard limit exceeded" } }');
     expect(shortError("[CONVEX A(apify:startTrackedRun)] [Request ID: abc123] Server Error Uncaught Error: boom at async x")).toBe("boom");
     expect(shortError("plain message")).toBe("plain message");
+  });
+
+  it("keeps only ads that show the offer searched for", () => {
+    const ad = (headline: string, body = "") => ({ id: "1", pageName: "P", link: "https://x.nl/", headline, body, copies: 1 });
+    expect(adShowsOffer(ad("Tijdelijk 2+1 GRATIS"), "bxgy", ["2+1 gratis"])).toBe(true);
+    expect(adShowsOffer(ad("3 voor 2!"), "bxgy", ["2+1 gratis"])).toBe(true); // "3 for 2" is the same deal
+    expect(adShowsOffer(ad("3 halen, 2 betalen — alleen vandaag"), "bxgy", ["3 halen 2 betalen"])).toBe(true); // the searched words
+    expect(adShowsOffer(ad("GoudTour komt naar Oostersportpark!", "Gratis entree"), "bxgy", ["2+1 gratis"])).toBe(false);
+    expect(adShowsOffer(ad("Nu 50% korting"), "percent", ["50% korting"])).toBe(true);
+    expect(adShowsOffer(ad("Gratis verzending"), "percent", ["50% korting"])).toBe(false);
+    // The user's own words: the ad has to contain them.
+    expect(adShowsOffer(ad("Wasstrips voor maar €0,21"), null, ["wasstrips"])).toBe(true);
+    expect(adShowsOffer(ad("Something else"), null, ["wasstrips"])).toBe(false);
+  });
+
+  it("scores how likely a store is a dropshipper, with its reasons", () => {
+    const store = (extra: Partial<FoundStore>): FoundStore => ({
+      host: "middo.nl", advertisers: ["Middo"], ads: 4, copies: 4, oldestDays: 160, offers: [], productPaths: [], sample: [], ...extra,
+    });
+    const middo = dropshipScore(
+      store({
+        shopify: true,
+        productCount: 7,
+        offers: [{ label: "Buy 2 get 1", count: 4 }, { label: "Limited time", count: 4 }],
+        products: [{ handle: "v", url: "u", title: "VitaBoost", price: 24.95, compareAt: 50 }],
+      }),
+    );
+    expect(middo).toEqual({ score: 6, likely: true, reasons: ["Shopify", "7 products", "−50%", "Urgency ads"] });
+    // A big catalogue on Shopify without discounts: not likely.
+    expect(dropshipScore(store({ shopify: true, productCount: 250 }))).toMatchObject({ score: 2, likely: false, reasons: ["Shopify"] });
+    expect(dropshipScore(store({ shopify: true, productCount: 45 })).reasons).toEqual(["Shopify", "45 products"]);
+    // Not Shopify (Etos, Hunkemöller): never likely.
+    expect(dropshipScore(store({ host: "etos.nl", offers: [{ label: "Ends soon", count: 2 }] }))).toMatchObject({ likely: false });
+    // A big brand is never a dropshipper, whatever else it shows.
+    expect(dropshipScore(store({ host: "nike.com", advertisers: ["Nike"], shopify: true, productCount: 5 }))).toEqual({ score: 0, likely: false, reasons: ["Big brand"] });
+  });
+
+  it("shows likely dropshippers first when asked", () => {
+    const store = (host: string, ads: number, dropship: FoundStore["dropship"]): FoundStore => ({
+      host, advertisers: [], ads, copies: ads, oldestDays: 1, offers: [], productPaths: [], sample: [], ...(dropship ? { dropship } : {}),
+    });
+    const stores = [store("etos.nl", 9, { score: 1, likely: false, reasons: [] }), store("middo.nl", 4, { score: 6, likely: true, reasons: [] }), store("relivex.nl", 3, { score: 4, likely: true, reasons: [] })];
+    expect(filterStores(stores, { sort: "dropship" }).map((s) => s.host)).toEqual(["middo.nl", "relivex.nl", "etos.nl"]);
+    expect(filterStores(stores, { likelyOnly: true }).map((s) => s.host)).toEqual(["middo.nl", "relivex.nl"]);
   });
 });

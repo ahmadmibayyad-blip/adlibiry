@@ -51,13 +51,13 @@ describe("Meta Ad Library import: offers", () => {
       const url = new URL(String(u instanceof Request ? u.url : u));
       const q = url.searchParams.get("search_terms") ?? "";
       terms.push(q);
-      if (q !== "køb 2 få 1 gratis") return json({ data: [] });
-      return json({ data: [{ id: "77", page_name: "PawTech", ad_creative_bodies: ["Køb 2 få 1 gratis på hundesædet til bilen 🐶"], ad_creative_link_titles: ["Hundesæde til bilen"], ad_creative_link_captions: ["pawtech.dk"], ad_delivery_start_time: "2026-09-01" }] });
+      if (q !== "1+1 gratis") return json({ data: [] });
+      return json({ data: [{ id: "77", page_name: "PawTech", ad_creative_bodies: ["1+1 gratis på hundesædet til bilen 🐶"], ad_creative_link_titles: ["Hundesæde til bilen"], ad_creative_link_captions: ["pawtech.dk"], ad_delivery_start_time: "2026-09-01" }] });
     }));
     const t = convexTest(schema, modules);
     const r = await t.action(internal.metaAdLibrary.dailyImport, {});
     expect(r).toMatchObject({ created: 1 });
-    expect(terms).toEqual(expect.arrayContaining(["køb 2 få 1 gratis", "50% rabat", "gratis fragt", "gratis gave", "køb flere spar mere"]));
+    expect(terms).toEqual(expect.arrayContaining(["1+1 gratis", "50% rabat", "gratis fragt", "gratis gave", "køb flere spar mere"]));
     const [ad] = await t.run((ctx) => ctx.db.query("ads").collect());
     expect(ad).toMatchObject({ advertiserName: "PawTech", landingHost: "pawtech.dk", country: "DK" });
     expect(ad.niche).not.toBe("Other");

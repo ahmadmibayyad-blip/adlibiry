@@ -10,7 +10,9 @@ import { PICTURE_ACTOR, fromPictureSearch, pictureLimit, type PictureMatch } fro
 import { budgetLeft } from "./lib/fusion";
 import {
   adLibrarySearchUrl,
+  adShowsOffer,
   dailyOfferPhrases,
+  dropshipScore,
   groupByStore,
   OFFER_COUNTRIES,
   OFFER_IDS,
@@ -171,6 +173,27 @@ export const start = action({
 });
 
 /** Saves a finished search on every row that waits for it (the user's, and any answered from it while it ran). */
+/** The searches still waiting on an Apify run, with what each searched for. */
+export const runningForToken = internalQuery({
+  args: { runToken: v.string() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("offerSearches").withIndex("by_token", (q) => q.eq("runToken", args.runToken)).take(100);
+    return rows.filter((r) => r.status === "running").map((r) => ({ _id: r._id, offer: r.offer, phrases: r.phrases, daily: !!r.daily }));
+  },
+});
+
+/** One search's stores, once its run is read. */
+export const finishedSearch = internalMutation({
+  args: { id: v.id("offerSearches"), stores: v.any(), adsFound: v.number() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get("offerSearches", args.id);
+    if (row?.status !== "running") return;
+    await ctx.db.patch("offerSearches", args.id, { status: "done", stores: args.stores, adsFound: args.adsFound, finishedAt: new Date().toISOString() });
+  },
+});
+
+const dropUndefined = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== undefined)) as T;
+
 export const finished = internalMutation({
   args: { runToken: v.string(), stores: v.optional(v.any()), adsFound: v.optional(v.number()), error: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -200,15 +223,29 @@ async function getJson(url: string): Promise<unknown> {
   }
 }
 
-/** Shopify stores answer /meta.json (currency, country) and /products/<handle>.json; others are left as they are. */
+/** Products in a Shopify store's catalogue, from /products.json (up to 250), or undefined when it doesn't answer. */
+async function productCount(host: string): Promise<number | undefined> {
+  const body = (await getJson(`https://${host}/products.json?limit=250`)) as { products?: unknown } | null;
+  return Array.isArray(body?.products) ? body.products.length : undefined;
+}
+
+/** Shopify stores answer /meta.json (currency, country), /products.json and /products/<handle>.json; others are left as they are. */
 async function withShopData(s: FoundStore): Promise<FoundStore> {
   const meta = readShopMeta(await getJson(`https://${s.host}/meta.json`));
   if (!meta) return { ...s, shopify: false };
+  const count = await productCount(s.host);
   const handles = s.productPaths.map(productHandle).filter((h): h is string => !!h).slice(0, PRODUCTS_PER_STORE);
   const products = (
     await Promise.all(handles.map(async (h) => readShopifyProduct(await getJson(`https://${s.host}/products/${encodeURIComponent(h)}.json`), s.host, h)))
   ).filter((p): p is FoundProduct => !!p);
-  return { ...s, shopify: true, ...(meta.currency ? { currency: meta.currency } : {}), ...(meta.country ? { storeCountry: meta.country } : {}), ...(products.length ? { products } : {}) };
+  return {
+    ...s,
+    shopify: true,
+    ...(meta.currency ? { currency: meta.currency } : {}),
+    ...(meta.country ? { storeCountry: meta.country } : {}),
+    ...(products.length ? { products } : {}),
+    ...(count !== undefined ? { productCount: count } : {}),
+  };
 }
 
 async function inBatches<T, R>(items: T[], size: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -239,8 +276,28 @@ export const finish = internalAction({
       );
       return;
     }
-    const stores = await inBatches(groupByStore(ads).slice(0, STORES_KEPT), 10, withShopData);
-    await ctx.runMutation(internal.offerSearch.finished, { runToken: args.runToken, stores, adsFound: ads.length });
+    // Each search on this run keeps only the ads showing its offer (a daily research run serves every offer);
+    // a store's shop data is read once however many searches show it.
+    const searches = await ctx.runQuery(internal.offerSearch.runningForToken, { runToken: args.runToken });
+    const perSearch = searches.map((row) => {
+      // The daily research searches every offer at once; a user's search one offer, or their own words.
+      const offers: (OfferId | null)[] = row.daily ? OFFER_IDS : [(row.offer as OfferId | undefined) ?? null];
+      const kept = ads.filter((a) => offers.some((o) => adShowsOffer(a, o, row.phrases)));
+      return { id: row._id, adsFound: kept.length, stores: groupByStore(kept).slice(0, STORES_KEPT) };
+    });
+    const byHost = new Map<string, FoundStore>();
+    for (const x of perSearch) for (const st of x.stores) if (!byHost.has(st.host)) byHost.set(st.host, st);
+    const shop = new Map((await inBatches([...byHost.values()], 10, withShopData)).map((st) => [st.host, st]));
+    for (const x of perSearch) {
+      const stores = x.stores.map((st) => {
+        const d = shop.get(st.host);
+        const merged: FoundStore = d
+          ? { ...st, shopify: d.shopify, currency: d.currency, storeCountry: d.storeCountry, products: d.products, productCount: d.productCount }
+          : st;
+        return { ...dropUndefined(merged), dropship: dropshipScore(merged) };
+      });
+      await ctx.runMutation(internal.offerSearch.finishedSearch, { id: x.id, stores, adsFound: x.adsFound });
+    }
   },
 });
 
