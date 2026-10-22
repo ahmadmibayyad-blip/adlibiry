@@ -23,6 +23,7 @@ import { price } from "@/lib/money.ts";
 
 const PAGE = 40;
 const ANY = "any";
+const LIKELY = "likely";
 
 const libraryUrl = (country: string, s: FoundStore) =>
   s.pageId
@@ -41,10 +42,12 @@ function money(n: number, currency?: string): string {
 }
 
 export function StoreResults({ stores, country, showCountry }: { stores: FoundStore[]; country?: string; showCountry?: boolean }) {
-  const [platform, setPlatform] = useState(ANY);
+  // Searches since the dropshipper score open on likely dropshippers, most likely first; older ones as before.
+  const scored = stores.some((s) => s.dropship);
+  const [platform, setPlatform] = useState(scored ? LIKELY : ANY);
   const [minAds, setMinAds] = useState(ANY);
   const [minDays, setMinDays] = useState(ANY);
-  const [sort, setSort] = useState<StoreSort>("ads");
+  const [sort, setSort] = useState<StoreSort>(scored ? "dropship" : "ads");
   const [where, setWhere] = useState(ANY);
   const [shown, setShown] = useState(PAGE);
   const [cpm] = useCpm();
@@ -54,6 +57,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
     () =>
       filterStores(stores, {
         shopifyOnly: platform === "shopify",
+        likelyOnly: platform === LIKELY,
         minAds: minAds === ANY ? 0 : Number(minAds),
         minDays: minDays === ANY ? 0 : Number(minDays),
         ...(where !== ANY ? { country: where } : {}),
@@ -84,6 +88,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
           onChange={setPlatform}
           options={[
             { value: ANY, label: "Any" },
+            ...(scored ? [{ value: LIKELY, label: "Likely dropshippers" }] : []),
             { value: "shopify", label: "Shopify only" },
           ]}
           active={platform !== ANY}
@@ -107,6 +112,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
           value={sort}
           onChange={(v) => setSort(v as StoreSort)}
           options={[
+            ...(scored ? [{ value: "dropship", label: "Most likely dropshipper" }] : []),
             { value: "ads", label: "Most ads" },
             { value: "days", label: "Longest running" },
             ...(hasReach ? [{ value: "reach", label: "Biggest EU reach" }] : []),
@@ -115,6 +121,11 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
         <span className="text-xs text-muted-foreground">
           {list.length === stores.length ? `${stores.length} stores` : `${list.length} of ${stores.length} stores`}
         </span>
+        {platform === LIKELY && list.length < stores.length ? (
+          <Button variant="link" size="sm" className="h-8 px-1" onClick={() => setPlatform(ANY)}>
+            Show all {stores.length} stores
+          </Button>
+        ) : null}
       </div>
       {list.length === 0 && stores.length > 0 ? <p className="text-sm text-muted-foreground">No store matches these filters.</p> : null}
       <div className="grid gap-3 md:grid-cols-2">
@@ -166,13 +177,18 @@ function StoreCard({
               {s.country}
             </Badge>
           ) : null}
-          {s.shopify ? (
+          {s.dropship?.likely ? (
+            <Badge className="gap-1">
+              <Radar className="w-3 h-3" /> Likely dropshipper
+            </Badge>
+          ) : s.shopify ? (
             <Badge variant="secondary" className="gap-1">
               <ShoppingBag className="w-3 h-3" /> Shopify
             </Badge>
           ) : null}
         </div>
       </div>
+      {s.dropship?.reasons.length ? <p className="text-xs text-muted-foreground">{s.dropship.reasons.join(" · ")}</p> : null}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <Layers className="w-3.5 h-3.5" /> {s.ads} {s.ads === 1 ? "ad" : "ads"}

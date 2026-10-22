@@ -3,7 +3,8 @@
 // (convex/offerSearch.ts runs it through Apify), and the active ads that come back are grouped by the
 // store they link to, with their offer chips (lib/offerTags.ts). Pure and unit tested.
 
-import { offerTags } from "./offerTags";
+import { offerTags, type OfferKind } from "./offerTags";
+import { bigBrandIn } from "./productMatch";
 
 export type OfferId = "bxgy" | "percent" | "free_shipping" | "free_gift" | "multibuy";
 export type Lang = "en" | "da" | "sv" | "no" | "de" | "nl" | "fr" | "es";
@@ -13,40 +14,40 @@ export const OFFERS: Record<OfferId, { label: string; phrases: Record<Lang, stri
   bxgy: {
     label: "Buy 2 get 1",
     phrases: {
-      en: ["buy 2 get 1 free", "buy 1 get 1 free"],
-      da: ["køb 2 få 1 gratis", "køb 1 få 1 gratis"],
-      sv: ["köp 2 få 1 gratis", "köp 1 få 1 gratis"],
-      no: ["kjøp 2 få 1 gratis", "kjøp 1 få 1 gratis"],
-      de: ["kaufe 2 erhalte 1 gratis", "1+1 gratis"],
-      nl: ["2+1 gratis", "1+1 gratis"],
-      fr: ["1 acheté 1 offert", "2 achetés 1 offert"],
-      es: ["compra 2 llévate 3", "2x1"],
+      en: ["buy 1 get 1 free", "buy 2 get 1 free", "3 for 2"],
+      da: ["1+1 gratis", "2+1 gratis", "køb 2 få 1 gratis"],
+      sv: ["1+1 gratis", "2+1 gratis", "3 för 2"],
+      no: ["1+1 gratis", "2+1 gratis", "3 for 2"],
+      de: ["1+1 gratis", "2+1 gratis", "3 für 2"],
+      nl: ["2+1 gratis", "1+1 gratis", "3 halen 2 betalen"],
+      fr: ["1 acheté 1 offert", "2 achetés 1 offert", "1+1 offert"],
+      es: ["2x1", "3x2", "compra 2 llévate 3"],
     },
   },
   percent: {
     label: "% off",
     phrases: {
-      en: ["50% off", "40% off"],
-      da: ["50% rabat", "40% rabat"],
-      sv: ["50% rabatt", "40% rabatt"],
-      no: ["50% rabatt", "40% rabatt"],
-      de: ["50% Rabatt", "40% Rabatt"],
-      nl: ["50% korting", "40% korting"],
-      fr: ["-50%", "50% de réduction"],
-      es: ["50% de descuento", "40% de descuento"],
+      en: ["50% off", "40% off", "60% off"],
+      da: ["50% rabat", "40% rabat", "60% rabat"],
+      sv: ["50% rabatt", "40% rabatt", "60% rabatt"],
+      no: ["50% rabatt", "40% rabatt", "60% rabatt"],
+      de: ["50% Rabatt", "40% Rabatt", "60% Rabatt"],
+      nl: ["50% korting", "40% korting", "60% korting"],
+      fr: ["-50%", "50% de réduction", "-40%"],
+      es: ["50% de descuento", "40% de descuento", "60% de descuento"],
     },
   },
   free_shipping: {
     label: "Free shipping",
     phrases: {
-      en: ["free shipping"],
-      da: ["gratis fragt", "gratis levering"],
-      sv: ["fri frakt"],
-      no: ["gratis frakt"],
-      de: ["kostenloser Versand", "gratis Versand"],
-      nl: ["gratis verzending"],
-      fr: ["livraison gratuite"],
-      es: ["envío gratis"],
+      en: ["free shipping", "free delivery"],
+      da: ["gratis fragt", "gratis levering", "fri fragt"],
+      sv: ["fri frakt", "gratis frakt"],
+      no: ["gratis frakt", "fri frakt"],
+      de: ["kostenloser Versand", "gratis Versand", "versandkostenfrei"],
+      nl: ["gratis verzending", "gratis bezorging"],
+      fr: ["livraison gratuite", "livraison offerte"],
+      es: ["envío gratis", "envío gratuito"],
     },
   },
   free_gift: {
@@ -122,7 +123,7 @@ export function searchPhrases(input: { offer?: OfferId; country: string; extra?:
   if (custom) return [clean(`${custom} ${extra}`)];
   const lang = OFFER_COUNTRIES[input.country.toUpperCase()]?.lang ?? "en";
   const offer = input.offer && OFFERS[input.offer] ? OFFERS[input.offer] : OFFERS.bxgy;
-  return offer.phrases[lang].slice(0, 2).map((p) => clean(`${p} ${extra}`));
+  return offer.phrases[lang].slice(0, 3).map((p) => clean(`${p} ${extra}`));
 }
 
 /** The daily free import (metaAdLibrary.ts): each offer's most common phrase in the country's language. */
@@ -137,7 +138,8 @@ export function searchKey(country: string, phrases: string[]): string {
 }
 
 export function adLibrarySearchUrl(country: string, phrase: string): string {
-  const p = new URLSearchParams({ active_status: "active", ad_type: "all", country: country.toUpperCase(), q: phrase, search_type: "keyword_unordered", media_type: "all" });
+  // Exact phrase: "keyword_unordered" let "2+1 gratis" match every ad that merely says "gratis".
+  const p = new URLSearchParams({ active_status: "active", ad_type: "all", country: country.toUpperCase(), q: `"${phrase}"`, search_type: "keyword_exact_phrase", media_type: "all" });
   return `https://www.facebook.com/ads/library/?${p.toString()}`;
 }
 
@@ -275,7 +277,70 @@ export type FoundStore = {
   products?: FoundProduct[];
   /** Set where several countries' results are shown together (Admin → Offer research). */
   country?: string;
+  /** Products in the store's catalogue (Shopify /products.json, counted up to 250). */
+  productCount?: number;
+  /** How likely the store is a dropshipper (dropshipScore). */
+  dropship?: Dropship;
 };
+
+export type Dropship = { score: number; likely: boolean; reasons: string[] };
+
+// The offer kinds (lib/offerTags.ts) that count as each searched offer; "3 for 2" is the same deal as "2+1".
+const OFFER_KINDS: Record<OfferId, OfferKind[]> = {
+  bxgy: ["bxgy", "xfory"],
+  percent: ["percent"],
+  free_shipping: ["free_shipping"],
+  free_gift: ["free_gift"],
+  multibuy: ["xfory", "bxgy", "percent"],
+};
+const words = (t: string) => ` ${t.toLowerCase().normalize("NFC").replace(/[^\p{L}\p{N}%+]+/gu, " ").trim()} `;
+
+/** Whether an ad shows the offer searched for: its offer tags, or the searched words themselves. */
+export function adShowsOffer(ad: Pick<SearchAd, "headline" | "body">, offer: OfferId | null, phrases: string[]): boolean {
+  const text = `${ad.headline}
+${ad.body}`;
+  const kinds = offer ? OFFER_KINDS[offer] : [];
+  if (kinds.length && offerTags(text).some((t) => kinds.includes(t.kind))) return true;
+  const have = words(text);
+  return phrases.some((p) => {
+    const want = words(p);
+    return want.trim() !== "" && have.includes(want);
+  });
+}
+
+const URGENCY = new Set(["Ends today", "Ends soon", "Limited time"]);
+// Catalogue sizes: a dropshipper sells a handful of products.
+const FEW_PRODUCTS = 30;
+const SOME_PRODUCTS = 60;
+const BIG_DISCOUNT = 0.3;
+
+/**
+ * How likely a store is a dropshipper: Shopify, a small catalogue, a big crossed-out discount, urgency in its ads.
+ * Big brands score 0. Likely = Shopify and a score of 4 or more (of 6).
+ */
+export function dropshipScore(s: FoundStore): Dropship {
+  if (bigBrandIn(`${s.host} ${s.advertisers.join(" ")}`)) return { score: 0, likely: false, reasons: ["Big brand"] };
+  let score = 0;
+  const reasons: string[] = [];
+  if (s.shopify) {
+    score += 2;
+    reasons.push("Shopify");
+  }
+  if (s.productCount !== undefined && s.productCount > 0 && s.productCount <= SOME_PRODUCTS) {
+    score += s.productCount <= FEW_PRODUCTS ? 2 : 1;
+    reasons.push(`${s.productCount} product${s.productCount === 1 ? "" : "s"}`);
+  }
+  const off = Math.max(0, ...(s.products ?? []).map((p) => (p.compareAt && p.price !== undefined && p.compareAt > p.price ? (p.compareAt - p.price) / p.compareAt : 0)));
+  if (off >= BIG_DISCOUNT) {
+    score += 1;
+    reasons.push(`−${Math.round(off * 100)}%`);
+  }
+  if (s.offers.some((o) => URGENCY.has(o.label))) {
+    score += 1;
+    reasons.push("Urgency ads");
+  }
+  return { score, likely: !!s.shopify && score >= 4, reasons };
+}
 
 /** "/collections/x/products/seat-cover/" → "seat-cover"; null for links that aren't to a product. */
 export function productHandle(path: string): string | null {
@@ -312,14 +377,15 @@ export function readShopifyProduct(json: unknown, host: string, handle: string):
   };
 }
 
-export type StoreSort = "ads" | "days" | "reach";
-export type StoreFilter = { shopifyOnly?: boolean; minAds?: number; minDays?: number; country?: string; sort?: StoreSort };
+export type StoreSort = "ads" | "days" | "reach" | "dropship";
+export type StoreFilter = { shopifyOnly?: boolean; likelyOnly?: boolean; minAds?: number; minDays?: number; country?: string; sort?: StoreSort };
 
 /** The page's filters and sorting over a search's stores (Offer Search and Admin → Offer research). */
 export function filterStores(stores: FoundStore[], f: StoreFilter): FoundStore[] {
   const out = stores.filter(
-    (s) => (!f.shopifyOnly || s.shopify) && s.ads >= (f.minAds ?? 0) && s.oldestDays >= (f.minDays ?? 0) && (!f.country || s.country === f.country),
+    (s) => (!f.shopifyOnly || s.shopify) && (!f.likelyOnly || s.dropship?.likely) && s.ads >= (f.minAds ?? 0) && s.oldestDays >= (f.minDays ?? 0) && (!f.country || s.country === f.country),
   );
+  if (f.sort === "dropship") return out.sort((a, b) => (b.dropship?.score ?? 0) - (a.dropship?.score ?? 0) || b.ads - a.ads);
   if (f.sort === "days") return out.sort((a, b) => b.oldestDays - a.oldestDays || b.ads - a.ads);
   if (f.sort === "reach") return out.sort((a, b) => (b.reach ?? 0) - (a.reach ?? 0) || b.ads - a.ads);
   return out.sort((a, b) => b.ads - a.ads || b.copies - a.copies || b.oldestDays - a.oldestDays);

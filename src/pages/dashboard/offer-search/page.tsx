@@ -171,7 +171,7 @@ function Results({ search }: { search: SearchView }) {
       <p className="text-xs text-muted-foreground">
         Ad counts are the ads this search found, not the store's total. EU reach and spend show for EU and UK searches (Meta publishes reach only there).
       </p>
-      <StoreResults stores={search.stores} country={search.country} />
+      <StoreResults key={search._id} stores={search.stores} country={search.country} />
     </div>
   );
 }
