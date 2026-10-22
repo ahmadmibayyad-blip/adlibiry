@@ -12,13 +12,39 @@ export const AWAITING_STATUS = {
   icon: "sicon-whatsapp",
 } as const;
 
-export type SallaStatus = { id: number; name: string; type: string; slug: string; parent?: { id: number } | null };
+export type SallaStatus = {
+  id: number;
+  name: string;
+  type: string;
+  slug: string;
+  parent?: { id: number } | null;
+  children?: SallaStatus[];
+};
 
-/** Reads GET /orders/statuses: the "under review" main status, and our sub-status if the store has it already. */
+/** Statuses and their children (sub-statuses may come nested), in one list. */
+function flatten(statuses: SallaStatus[]): SallaStatus[] {
+  return statuses.flatMap((s) => [s, ...flatten(s.children ?? [])]);
+}
+
+/**
+ * Reads GET /orders/statuses: the "under review" main status, and our sub-status if the store has it already.
+ * A store's main statuses can be its own (type "custom") copies of Salla's, so the main one is the
+ * under_review status without a parent, whatever its type; Salla's own "original" wins when both exist.
+ */
 export function findStatusIds(statuses: SallaStatus[]): { underReviewId?: number; awaitingId?: number } {
-  const underReview = statuses.find((s) => s.type === "original" && s.slug === "under_review");
-  const awaiting = statuses.find((s) => s.type === "custom" && s.name === AWAITING_STATUS.name);
+  const all = flatten(statuses);
+  const mains = all.filter((s) => s.slug === "under_review" && !s.parent);
+  const underReview = mains.find((s) => s.type === "original") ?? mains[0];
+  const awaiting = all.find((s) => s.name === AWAITING_STATUS.name && s.id !== underReview?.id);
   return { underReviewId: underReview?.id, awaitingId: awaiting?.id };
+}
+
+/** A short "slug/type/parent" list of what the store returned, for the error when no main status fits. */
+export function describeStatuses(statuses: SallaStatus[]): string {
+  return flatten(statuses)
+    .map((s) => `${s.slug}/${s.type}${s.parent ? `<${s.parent.id}` : ""}`)
+    .join(", ")
+    .slice(0, 200);
 }
 
 export type Decision = "confirmed" | "cancelled";
