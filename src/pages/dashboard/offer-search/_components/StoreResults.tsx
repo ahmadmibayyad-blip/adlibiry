@@ -5,7 +5,7 @@ import { Bookmark, BookmarkCheck, Clock, ExternalLink, Eye, FolderPlus, Layers, 
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
-import { filterStores, type FoundProduct, type FoundStore, type StoreSort } from "@/convex/lib/offerSearch.ts";
+import { filterStores, shortProductName, type FoundProduct, type FoundStore, type StoreSort, type StoreType } from "@/convex/lib/offerSearch.ts";
 import type { PictureMatch } from "@/convex/lib/aliexpress.ts";
 import AddToCollection from "@/components/AddToCollection.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
@@ -24,6 +24,8 @@ import { price } from "@/lib/money.ts";
 const PAGE = 40;
 const ANY = "any";
 const LIKELY = "likely";
+const TYPE_LABEL: Partial<Record<StoreType, string>> = { hero: "Hero store", niche: "Niche dropship", general: "General store" };
+const TYPES: StoreType[] = ["hero", "niche", "general"];
 
 const libraryUrl = (country: string, s: FoundStore) =>
   s.pageId
@@ -58,6 +60,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
       filterStores(stores, {
         shopifyOnly: platform === "shopify",
         likelyOnly: platform === LIKELY,
+        ...(TYPES.includes(platform as StoreType) ? { type: platform as StoreType } : {}),
         minAds: minAds === ANY ? 0 : Number(minAds),
         minDays: minDays === ANY ? 0 : Number(minDays),
         ...(where !== ANY ? { country: where } : {}),
@@ -88,7 +91,14 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
           onChange={setPlatform}
           options={[
             { value: ANY, label: "Any" },
-            ...(scored ? [{ value: LIKELY, label: "Likely dropshippers" }] : []),
+            ...(scored
+              ? [
+                  { value: LIKELY, label: "Likely dropshippers" },
+                  { value: "hero", label: "Hero stores" },
+                  { value: "niche", label: "Niche dropship" },
+                  { value: "general", label: "General stores" },
+                ]
+              : []),
             { value: "shopify", label: "Shopify only" },
           ]}
           active={platform !== ANY}
@@ -179,7 +189,7 @@ function StoreCard({
           ) : null}
           {s.dropship?.likely ? (
             <Badge className="gap-1">
-              <Radar className="w-3 h-3" /> Likely dropshipper
+              <Radar className="w-3 h-3" /> {(s.dropship.type && TYPE_LABEL[s.dropship.type]) || "Likely dropshipper"}
             </Badge>
           ) : s.shopify ? (
             <Badge variant="secondary" className="gap-1">
@@ -219,7 +229,7 @@ function StoreCard({
       {s.products?.length ? (
         <div className="space-y-2">
           {s.products.map((p) => (
-            <ProductRow key={p.handle} product={p} currency={s.currency} />
+            <ProductRow key={p.handle} product={p} currency={s.currency} country={country} brand={s.advertisers[0]} />
           ))}
         </div>
       ) : null}
@@ -260,7 +270,9 @@ function StoreCard({
   );
 }
 
-function ProductRow({ product: p, currency }: { product: FoundProduct; currency?: string }) {
+function ProductRow({ product: p, currency, country, brand }: { product: FoundProduct; currency?: string; country: string; brand?: string }) {
+  const words = shortProductName(p.title, brand);
+  const whoElse = `/dashboard/offer-search?${new URLSearchParams({ country, words }).toString()}`;
   const find = useAction(api.offerSearch.aliexpressFor);
   const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<PictureMatch[] | null>(null);
@@ -295,12 +307,24 @@ function ProductRow({ product: p, currency }: { product: FoundProduct; currency?
               {off > 0 ? <span className="ml-1.5 text-xs font-medium text-good">−{off}%</span> : null}
             </p>
           ) : null}
+          {p.sourcing ? (
+            <a href={p.sourcing.url} target="_blank" rel="noopener noreferrer" className="block text-xs font-medium text-primary hover:underline">
+              AliExpress ${p.sourcing.price.toFixed(2)} · ×{p.sourcing.markup}
+            </a>
+          ) : null}
           <div className="flex flex-wrap gap-1.5">
             <Button asChild size="sm" variant="outline" className="h-10 sm:h-7 text-xs">
               <a href={p.url} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="w-3.5 h-3.5 mr-1" /> Open product
               </a>
             </Button>
+            {words ? (
+              <Button asChild size="sm" variant="outline" className="h-10 sm:h-7 text-xs">
+                <Link to={whoElse}>
+                  <Users className="w-3.5 h-3.5 mr-1" /> Who else sells this
+                </Link>
+              </Button>
+            ) : null}
             {p.image && matches === null ? (
               <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs" onClick={() => void onFind()} disabled={busy}>
                 {busy ? <Spinner className="w-3.5 h-3.5 mr-1" /> : <Search className="w-3.5 h-3.5 mr-1" />}

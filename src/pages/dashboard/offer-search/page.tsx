@@ -23,22 +23,25 @@ export default function OfferSearchPage() {
   const start = useAction(api.offerSearch.start);
   const recent = useQuery(api.offerSearch.recent, {});
   const [params, setParams] = useSearchParams();
-  const [offer, setOffer] = useState<OfferId | "custom">("bxgy");
+  // "Who else sells this" (a store's product) opens here with ?country=&words= to search for that product.
+  const words = params.get("words");
+  const fromLink = params.get("country")?.toUpperCase();
+  const [offer, setOffer] = useState<OfferId | "custom">(words ? "custom" : "bxgy");
   // Starts on the user's target country (onboarding / Settings) when Offer Search covers it, else Denmark.
   const mine = useQuery(api.onboarding.mine, {});
   const target = mine?.targetCountry;
-  const [picked, setCountry] = useState<string | null>(null);
+  const [picked, setCountry] = useState<string | null>(fromLink && OFFER_COUNTRIES[fromLink] ? fromLink : null);
   const country = picked ?? (target && OFFER_COUNTRIES[target] ? target : "DK");
   const [extra, setExtra] = useState("");
-  const [custom, setCustom] = useState("");
+  const [custom, setCustom] = useState(words ?? "");
   const [busy, setBusy] = useState(false);
   const id = params.get("id") as Id<"offerSearches"> | null;
   const search = useQuery(api.offerSearch.get, id ? { id } : "skip");
 
   // Open the latest search when none is chosen.
   useEffect(() => {
-    if (!id && recent?.searches[0]) setParams({ id: recent.searches[0]._id }, { replace: true });
-  }, [id, recent, setParams]);
+    if (!id && !words && recent?.searches[0]) setParams({ id: recent.searches[0]._id }, { replace: true });
+  }, [id, words, recent, setParams]);
 
   const run = async () => {
     setBusy(true);
@@ -172,6 +175,40 @@ function Results({ search }: { search: SearchView }) {
         Ad counts are the ads this search found, not the store's total. EU reach and spend show for EU and UK searches (Meta publishes reach only there).
       </p>
       <StoreResults key={search._id} stores={search.stores} country={search.country} />
+      {search.offer ? <FindMore id={search._id} status={search.moreStatus} /> : null}
+    </div>
+  );
+}
+
+/** "Find more": 150 more ads with the offer's other phrases, added to these results (once per search). */
+function FindMore({ id, status }: { id: Id<"offerSearches">; status?: string }) {
+  const findMore = useAction(api.offerSearch.findMore);
+  const [busy, setBusy] = useState(false);
+  if (status === "running") {
+    return (
+      <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Spinner className="w-4 h-4" /> Finding more stores…
+      </p>
+    );
+  }
+  if (status === "done") return <p className="text-center text-sm text-muted-foreground">All phrases searched</p>;
+  if (status === "failed") return <p className="text-center text-sm text-muted-foreground">Finding more didn't finish. Try a new search.</p>;
+  const go = async () => {
+    setBusy(true);
+    try {
+      await findMore({ id });
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't search for more"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="text-center">
+      <Button variant="outline" onClick={() => void go()} disabled={busy}>
+        {busy ? <Spinner className="w-4 h-4 mr-1.5" /> : <Search className="w-4 h-4 mr-1.5" />}
+        Find more stores (+150 ads)
+      </Button>
     </div>
   );
 }
