@@ -151,9 +151,16 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   language through Apify (trigger "offer", counted against `APIFY_DAILY_BUDGET_USD`); its ads also land in Ad Spy.
   Same search within 6h is answered from the last one. Phrases per language: `convex/lib/offerSearch.ts` (up to 3 short forms dropshippers
   write, searched as exact phrases, `keyword_exact_phrase`; 150 ads a search). Only ads showing the searched offer are kept (`adShowsOffer`:
-  its offer tags or the searched words; the daily research keeps any offer). Each store gets `productCount` (Shopify /products.json) and a
-  dropshipper score (`dropshipScore`: Shopify, ≤30/≤60 products, ≥30% crossed-out discount, urgency ads; big brands 0; likely = Shopify and
-  4+ of 6) with its reasons; the results open on "Likely dropshippers" sorted by it, with "Show all N stores".
+  its offer tags or the searched words; the daily research keeps any offer). Each Shopify store is typed (`storeType`): Hero store (≤15
+  products, ≤3 types), Niche dropship (≤80, ≤8), General store, or Brand/retailer (big brands, non-Shopify), from /meta.json's
+  published count, /products.json (types, share on sale, ™ titles, a default vendor like "Mijn winkel") and its home page's dropship apps
+  (Loox, Ali Reviews, Parcel Panel, Track123, Trackpanda; DSers/AutoDS/CJ/Zendrop/Sell The Trend/Spocket count double), plus urgency ads,
+  a ≥30% discount and an AliExpress match; reasons shown on the card. Users' searches (not the daily research) match the main product of
+  up to 15 likely stores on AliExpress automatically (picture search, `aliexpressImage.claimForSearch` in the daily picture limit):
+  cheapest match and markup (store price in USD ÷ supplier). "Find more stores (+150 ads)" (`offerSearch.findMore`, once per offer
+  search, counts as a search via `moreAt`) runs the offer's `more` phrases and merges new stores in (`mergeStores`, up to 80).
+  "Who else sells this" on a product opens Offer Search with `?country=&words=` (`shortProductName`). Results open on "Likely
+  dropshippers" sorted hero → niche → general, then EU reach.
   Each found store (top 40) gets: EU reach (EU/UK searches, from the scraper's ad details, no extra cost; spend = reach × the user's CPM in
   the app), Shopify + currency + country from `/meta.json`, and up to 2 products its ads link to from `/products/<handle>.json` (name, price,
   compare-at, photo). The results (`offer-search/_components/StoreResults.tsx`, `filterStores`) filter by Shopify / ads / days running and sort

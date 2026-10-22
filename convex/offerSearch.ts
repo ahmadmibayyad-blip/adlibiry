@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
@@ -8,11 +8,18 @@ import { requireAdmin } from "./admin/helpers";
 import { runCostCap } from "./apify";
 import { PICTURE_ACTOR, fromPictureSearch, pictureLimit, type PictureMatch } from "./lib/aliexpress";
 import { budgetLeft } from "./lib/fusion";
+import { toUsd } from "./lib/priceParse";
+import { inspectHtml } from "./lib/storeInspect";
 import {
   adLibrarySearchUrl,
   adShowsOffer,
+  mergeStores,
+  morePhrases,
+  catalogueSignals,
+  DROPSHIP_APPS,
+  sourcingAppsIn,
   dailyOfferPhrases,
-  dropshipScore,
+  storeType,
   groupByStore,
   OFFER_COUNTRIES,
   OFFER_IDS,
@@ -67,6 +74,21 @@ async function signedInUser(ctx: { db: import("./_generated/server").QueryCtx["d
   return ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", token)).unique();
 }
 
+/** Searches that used the day's limit: new ones (not answered from the cache), and each "Find more" by when it ran
+ * (also on a search from an earlier day). */
+async function searchesUsed(ctx: QueryCtx, userId: Id<"users">, since: string, limit: number): Promise<number> {
+  const made = await ctx.db.query("offerSearches").withIndex("by_user", (q) => q.eq("userId", userId).gt("createdAt", since)).take(limit + 50);
+  const more = await ctx.db.query("offerSearches").withIndex("by_user_more", (q) => q.eq("userId", userId).gt("moreAt", since)).take(limit + 50);
+  return made.filter((r) => !r.cachedFrom).length + more.length;
+}
+
+const limitMessage = (limit: number) =>
+  limit === FREE_SEARCHES_PER_DAY
+    ? `Free accounts get ${FREE_SEARCHES_PER_DAY} offer searches a day. Upgrade to Pro for ${PRO_SEARCHES_PER_DAY}.`
+    : limit === TRIAL_SEARCHES_PER_DAY
+      ? `The free trial includes ${TRIAL_SEARCHES_PER_DAY} offer searches a day. Subscribe to Pro for ${PRO_SEARCHES_PER_DAY}.`
+      : `That's ${limit} offer searches today. More tomorrow.`;
+
 /** The user, their searches today and limit, and a recent search with the same key. */
 export const before = internalQuery({
   args: { token: v.string(), key: v.string() },
@@ -75,13 +97,10 @@ export const before = internalQuery({
     if (!user) return null;
     const since = new Date(Date.now() - 86_400_000).toISOString();
     const limit = searchLimit(user);
-    const today = (await ctx.db.query("offerSearches").withIndex("by_user", (q) => q.eq("userId", user._id).gt("createdAt", since)).take(limit + 50)).filter(
-      (s) => !s.cachedFrom,
-    );
     const fresh = new Date(Date.now() - CACHE_MS).toISOString();
     const recentSame = await ctx.db.query("offerSearches").withIndex("by_key", (q) => q.eq("key", args.key).gt("createdAt", fresh)).order("desc").take(5);
     const cached = recentSame.find((s) => s.status !== "failed") ?? null;
-    return { userId: user._id, used: today.length, limit, cached };
+    return { userId: user._id, used: await searchesUsed(ctx, user._id, since, limit), limit, cached };
   },
 });
 
@@ -127,15 +146,7 @@ export const start = action({
       return { id, cached: true };
     }
     if (b.used >= b.limit) {
-      throw new ConvexError({
-        code: "LIMIT",
-        message:
-          b.limit === FREE_SEARCHES_PER_DAY
-            ? `Free accounts get ${FREE_SEARCHES_PER_DAY} offer searches a day. Upgrade to Pro for ${PRO_SEARCHES_PER_DAY}.`
-            : b.limit === TRIAL_SEARCHES_PER_DAY
-              ? `The free trial includes ${TRIAL_SEARCHES_PER_DAY} offer searches a day. Subscribe to Pro for ${PRO_SEARCHES_PER_DAY}.`
-              : `That's ${b.limit} offer searches today. More tomorrow.`,
-      });
+      throw new ConvexError({ code: "LIMIT", message: limitMessage(b.limit) });
     }
     if (!process.env.APIFY_TOKEN) throw new ConvexError({ code: "NOT_SET_UP", message: "Offer Search isn't switched on yet (APIFY_TOKEN)." });
     const day = new Date().toISOString().slice(0, 10);
@@ -172,6 +183,42 @@ export const start = action({
   },
 });
 
+// "Find more": 150 more ads for a finished offer search, with the offer's other phrases; once per search, counts as one.
+export const findMore = action({
+  args: { id: v.id("offerSearches") },
+  handler: async (ctx, args): Promise<{ ok: true }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
+    if (!process.env.APIFY_TOKEN) throw new ConvexError({ code: "NOT_SET_UP", message: "Offer Search isn't switched on yet (APIFY_TOKEN)." });
+    const spent: number = await ctx.runQuery(internal.fusion.spentOn, { day: new Date().toISOString().slice(0, 10) });
+    if (budgetLeft(spent, dailyBudget()) < capUsd()) {
+      throw new ConvexError({ code: "BUDGET", message: "Offer Search has reached today's search budget. Please try again tomorrow." });
+    }
+    const runToken = crypto.randomUUID().replace(/-/g, "");
+    const claim = await ctx.runMutation(internal.offerSearch.claimMore, { token: stableToken(identity), id: args.id, moreRunToken: runToken });
+    if (!claim.ok) throw new ConvexError({ code: claim.code, message: claim.message });
+    const row = (await ctx.runQuery(internal.offerSearch.moreRow, { id: args.id }))!;
+    const phrases = morePhrases(row.offer, row.country);
+    try {
+      await ctx.runAction(internal.apify.startTrackedRun, {
+        token: runToken,
+        country: row.country,
+        keyword: phrases.join(" | ").slice(0, 200),
+        niche: "General",
+        maxAds: MAX_ADS,
+        urls: phrases.map((p) => adLibrarySearchUrl(row.country, p)),
+        trigger: "offer",
+      });
+    } catch (e) {
+      await ctx.runMutation(internal.offerSearch.finished, { runToken, error: "couldn't start" });
+      console.error("Offer search: Find more run didn't start", (e instanceof Error ? e.message : String(e)).slice(0, 300));
+      throw new ConvexError({ code: "START", message: "Couldn't search for more right now. Please try again in a minute." });
+    }
+    await ctx.scheduler.runAfter(8 * 60_000, internal.offerSearch.checkRun, { runToken, attempt: 1 });
+    return { ok: true };
+  },
+});
+
 /** Saves a finished search on every row that waits for it (the user's, and any answered from it while it ran). */
 /** The searches still waiting on an Apify run, with what each searched for. */
 export const runningForToken = internalQuery({
@@ -179,6 +226,70 @@ export const runningForToken = internalQuery({
   handler: async (ctx, args) => {
     const rows = await ctx.db.query("offerSearches").withIndex("by_token", (q) => q.eq("runToken", args.runToken)).take(100);
     return rows.filter((r) => r.status === "running").map((r) => ({ _id: r._id, offer: r.offer, phrases: r.phrases, daily: !!r.daily }));
+  },
+});
+
+/** The searches whose "Find more" is waiting on this Apify run. */
+export const moreForToken = internalQuery({
+  args: { runToken: v.string() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("offerSearches").withIndex("by_more_token", (q) => q.eq("moreRunToken", args.runToken)).take(10);
+    return rows
+      .filter((r) => r.moreStatus === "running")
+      .map((r) => ({ _id: r._id, offer: r.offer, country: r.country, adsFound: r.adsFound, stores: (r.stores ?? []) as FoundStore[] }));
+  },
+});
+
+/** A search's stores after "Find more". */
+export const finishedMore = internalMutation({
+  args: { id: v.id("offerSearches"), stores: v.any(), adsFound: v.number() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get("offerSearches", args.id);
+    if (row?.moreStatus !== "running") return;
+    await ctx.db.patch("offerSearches", args.id, { moreStatus: "done", stores: args.stores, adsFound: args.adsFound });
+  },
+});
+
+/** "Find more", checked and claimed in one step so two clicks at once start one run: the user's own finished offer
+ * search, not searched further yet, within today's searches. */
+export const claimMore = internalMutation({
+  args: { token: v.string(), id: v.id("offerSearches"), moreRunToken: v.string() },
+  handler: async (ctx, args): Promise<{ ok: true } | { ok: false; code: string; message: string }> => {
+    const user = await signedInUser(ctx, args.token);
+    if (!user) return { ok: false, code: "UNAUTHENTICATED", message: "Please sign in first." };
+    const row = await ctx.db.get("offerSearches", args.id);
+    if (!row || row.userId !== user._id) return { ok: false, code: "NOT_FOUND", message: "This search isn't there anymore." };
+    if (!row.offer || !OFFER_IDS.includes(row.offer as OfferId)) return { ok: false, code: "BAD_REQUEST", message: "Find more works on offer searches, not your own words." };
+    if (row.moreStatus) return { ok: false, code: "DONE", message: "All phrases searched." };
+    if (row.status !== "done") return { ok: false, code: "NOT_DONE", message: "Wait for the search to finish first." };
+    const limit = searchLimit(user);
+    if ((await searchesUsed(ctx, user._id, new Date(Date.now() - 86_400_000).toISOString(), limit)) >= limit) {
+      return { ok: false, code: "LIMIT", message: limitMessage(limit) };
+    }
+    await ctx.db.patch("offerSearches", args.id, { moreRunToken: args.moreRunToken, moreStatus: "running", moreAt: new Date().toISOString() });
+    return { ok: true };
+  },
+});
+
+/** The search Find more runs on (after claimMore). */
+export const moreRow = internalQuery({
+  args: { id: v.id("offerSearches") },
+  handler: async (ctx, args) => {
+    const r = await ctx.db.get("offerSearches", args.id);
+    return r ? { offer: r.offer as OfferId, country: r.country } : null;
+  },
+});
+
+/** One run is read by one finish at a time; a backup check while it's being read skips it (again after 15 min). */
+export const claimRead = internalMutation({
+  args: { runToken: v.string() },
+  handler: async (ctx, args): Promise<boolean> => {
+    const run = await ctx.db.query("apifyRuns").withIndex("by_token", (q) => q.eq("token", args.runToken)).unique();
+    if (!run) return true;
+    const now = Date.now();
+    if (run.readAt && now - run.readAt < 15 * 60_000) return false;
+    await ctx.db.patch("apifyRuns", run._id, { readAt: now });
+    return true;
   },
 });
 
@@ -192,6 +303,91 @@ export const finishedSearch = internalMutation({
   },
 });
 
+type Sourcing = NonNullable<FoundProduct["sourcing"]>;
+
+/** Each list's stores with their shop data (read once per store), typed, and (`source`) the main product of up to 15
+ * likely dropshippers matched on AliExpress. */
+async function buildStores(ctx: ActionCtx, groups: FoundStore[][], source: boolean): Promise<FoundStore[][]> {
+  const byHost = new Map<string, FoundStore>();
+  for (const g of groups) for (const st of g) if (!byHost.has(st.host)) byHost.set(st.host, st);
+  const shop = new Map((await inBatches([...byHost.values()], 10, withShopData)).map((st) => [st.host, st]));
+  const typed = groups.map((g) =>
+    g.map((st) => {
+      const d = shop.get(st.host);
+      const merged: FoundStore = d
+        ? {
+            ...st,
+            shopify: d.shopify,
+            currency: d.currency,
+            storeCountry: d.storeCountry,
+            products: d.products,
+            productCount: d.productCount,
+            catalogue: d.catalogue,
+            productTypes: d.productTypes,
+            onSaleShare: d.onSaleShare,
+            tmShare: d.tmShare,
+            defaultVendor: d.defaultVendor,
+            apps: d.apps,
+          }
+        : st;
+      return { ...dropUndefined(merged), dropship: storeType(merged) };
+    }),
+  );
+  if (!source) return typed;
+  const candidates = new Map<string, FoundStore>();
+  for (const g of typed) for (const st of g) if (st.dropship.likely && !candidates.has(st.host)) candidates.set(st.host, st);
+  const matches = await sourceHeroProducts(ctx, [...candidates.values()].sort((a, b) => b.ads - a.ads));
+  return typed.map((g) => g.map((st) => withSourcing(st, matches.get(st.host))));
+}
+const SOURCED_PER_SEARCH = 15;
+
+/** Up to 15 stores' main product photo through AliExpress's picture search (5 at a time, each counted in the day's
+ * picture limit): the cheapest match, with the store's price in USD over it as the markup. Never throws. */
+async function sourceHeroProducts(ctx: ActionCtx, stores: FoundStore[]): Promise<Map<string, Sourcing>> {
+  const out = new Map<string, Sourcing>();
+  const token = process.env.APIFY_TOKEN?.trim();
+  if (!token) return out;
+  const picks = stores.filter((s) => s.products?.[0]?.image && s.products[0].price).slice(0, SOURCED_PER_SEARCH);
+  if (!picks.length) return out;
+  const rates: Record<string, number> = await ctx.runQuery(internal.currency.allRates, {});
+  let open = true;
+  for (let i = 0; i < picks.length && open; i += 5) {
+    await Promise.all(
+      picks.slice(i, i + 5).map(async (s) => {
+        if (!open || !(await ctx.runMutation(internal.aliexpressImage.claimForSearch, { limit: pictureLimit() }))) {
+          open = false;
+          return;
+        }
+        const p = s.products![0];
+        const usd = toUsd({ amount: p.price!, currency: s.currency ?? "USD" }, rates);
+        try {
+          const q = new URLSearchParams({ token, timeout: "60", maxTotalChargeUsd: "0.02" });
+          const res = await fetch(`https://api.apify.com/v2/acts/${PICTURE_ACTOR}/run-sync-get-dataset-items?${q}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: p.image, destination: "aliexpress", language: "en", currency: "USD" }),
+            signal: AbortSignal.timeout(75_000),
+          });
+          if (!res.ok) return;
+          const found = fromPictureSearch(await res.json().catch(() => null), { price: usd, title: p.title });
+          const best = found.reduce<PictureMatch | undefined>((m, x) => (!m || x.price < m.price ? x : m), undefined);
+          if (best && usd) out.set(s.host, { price: best.price, url: best.url, title: best.title, markup: Math.round((usd / best.price) * 10) / 10 });
+        } catch {
+          // No match for this one.
+        }
+      }),
+    );
+  }
+  return out;
+}
+
+/** The store with its main product's AliExpress match, typed again so the match counts. */
+function withSourcing(s: FoundStore, match: Sourcing | undefined): FoundStore {
+  if (!match || !s.products?.length) return s;
+  const next: FoundStore = { ...s, products: [{ ...s.products[0], sourcing: match }, ...s.products.slice(1)] };
+  return { ...next, dropship: storeType(next) };
+}
+
 const dropUndefined = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== undefined)) as T;
 
 export const finished = internalMutation({
@@ -199,6 +395,10 @@ export const finished = internalMutation({
   handler: async (ctx, args) => {
     const rows = await ctx.db.query("offerSearches").withIndex("by_token", (q) => q.eq("runToken", args.runToken)).take(100);
     const finishedAt = new Date().toISOString();
+    // A "Find more" run that failed or found nothing: the first results stay as they are.
+    for (const row of await ctx.db.query("offerSearches").withIndex("by_more_token", (q) => q.eq("moreRunToken", args.runToken)).take(10)) {
+      if (row.moreStatus === "running") await ctx.db.patch("offerSearches", row._id, { moreStatus: args.error ? "failed" : "done" });
+    }
     for (const row of rows) {
       if (row.status !== "running") continue;
       await ctx.db.patch(
@@ -223,17 +423,31 @@ async function getJson(url: string): Promise<unknown> {
   }
 }
 
-/** Products in a Shopify store's catalogue, from /products.json (up to 250), or undefined when it doesn't answer. */
-async function productCount(host: string): Promise<number | undefined> {
+/** A Shopify store's /products.json (up to 250), or null when it doesn't answer. */
+async function productList(host: string): Promise<unknown[] | null> {
   const body = (await getJson(`https://${host}/products.json?limit=250`)) as { products?: unknown } | null;
-  return Array.isArray(body?.products) ? body.products.length : undefined;
+  return Array.isArray(body?.products) ? body.products : null;
+}
+
+/** The dropshipping apps on a store's home page (Store Inspector's app list plus supplier-ordering apps). */
+async function dropshipApps(host: string): Promise<string[]> {
+  try {
+    const res = await fetch(`https://${host}/`, { headers: { "User-Agent": UA, Accept: "text/html" }, signal: AbortSignal.timeout(6_000) });
+    if (!res.ok) return [];
+    const html = (await res.text()).slice(0, 2_000_000);
+    const known = inspectHtml(html).apps.map((a) => a.name).filter((n) => DROPSHIP_APPS.has(n));
+    return [...new Set([...known, ...sourcingAppsIn(html)])];
+  } catch {
+    return [];
+  }
 }
 
 /** Shopify stores answer /meta.json (currency, country), /products.json and /products/<handle>.json; others are left as they are. */
 async function withShopData(s: FoundStore): Promise<FoundStore> {
   const meta = readShopMeta(await getJson(`https://${s.host}/meta.json`));
   if (!meta) return { ...s, shopify: false };
-  const count = await productCount(s.host);
+  const [list, apps] = await Promise.all([productList(s.host), dropshipApps(s.host)]);
+  const count = list?.length;
   const handles = s.productPaths.map(productHandle).filter((h): h is string => !!h).slice(0, PRODUCTS_PER_STORE);
   const products = (
     await Promise.all(handles.map(async (h) => readShopifyProduct(await getJson(`https://${s.host}/products/${encodeURIComponent(h)}.json`), s.host, h)))
@@ -245,6 +459,9 @@ async function withShopData(s: FoundStore): Promise<FoundStore> {
     ...(meta.country ? { storeCountry: meta.country } : {}),
     ...(products.length ? { products } : {}),
     ...(count !== undefined ? { productCount: count } : {}),
+    ...(meta.products !== undefined ? { catalogue: meta.products } : count ? { catalogue: count } : {}),
+    ...catalogueSignals(list),
+    ...(apps.length ? { apps } : {}),
   };
 }
 
@@ -260,6 +477,8 @@ export const finish = internalAction({
   handler: async (ctx, args) => {
     const token = process.env.APIFY_TOKEN;
     if (!token) return;
+    // The webhook and the 8-minute backup check can both come: the run's shop reads and picture searches happen once.
+    if (!(await ctx.runMutation(internal.offerSearch.claimRead, { runToken: args.runToken }))) return;
     const res = await fetch(`https://api.apify.com/v2/datasets/${encodeURIComponent(args.datasetId)}/items?clean=true&format=json&limit=500&token=${token}`).catch(() => null);
     if (!res?.ok) {
       await ctx.runMutation(internal.offerSearch.finished, { runToken: args.runToken, error: "Meta's results couldn't be read. Please try again." });
@@ -276,8 +495,22 @@ export const finish = internalAction({
       );
       return;
     }
-    // Each search on this run keeps only the ads showing its offer (a daily research run serves every offer);
-    // a store's shop data is read once however many searches show it.
+    // A "Find more" run: its ads go into that search's first results.
+    const moreRows = await ctx.runQuery(internal.offerSearch.moreForToken, { runToken: args.runToken });
+    if (moreRows.length) {
+      for (const row of moreRows) {
+        const offer = (row.offer as OfferId | undefined) ?? null;
+        const counted = new Set(row.stores.flatMap((st) => st.adIds ?? []));
+        const kept = ads.filter((a) => !counted.has(a.id) && adShowsOffer(a, offer, offer ? morePhrases(offer, row.country) : []));
+        const found = groupByStore(kept);
+        const have = new Set(row.stores.map((st) => st.host));
+        const [fresh] = await buildStores(ctx, [found.filter((st) => !have.has(st.host)).slice(0, STORES_KEPT)], true);
+        const stores = mergeStores(row.stores, [...found.filter((st) => have.has(st.host)), ...fresh]).map((st) => ({ ...st, dropship: storeType(st) }));
+        await ctx.runMutation(internal.offerSearch.finishedMore, { id: row._id, stores, adsFound: (row.adsFound ?? 0) + kept.length });
+      }
+      return;
+    }
+    // Each search on this run keeps only the ads showing its offer (a daily research run serves every offer).
     const searches = await ctx.runQuery(internal.offerSearch.runningForToken, { runToken: args.runToken });
     const perSearch = searches.map((row) => {
       // The daily research searches every offer at once; a user's search one offer, or their own words.
@@ -285,18 +518,10 @@ export const finish = internalAction({
       const kept = ads.filter((a) => offers.some((o) => adShowsOffer(a, o, row.phrases)));
       return { id: row._id, adsFound: kept.length, stores: groupByStore(kept).slice(0, STORES_KEPT) };
     });
-    const byHost = new Map<string, FoundStore>();
-    for (const x of perSearch) for (const st of x.stores) if (!byHost.has(st.host)) byHost.set(st.host, st);
-    const shop = new Map((await inBatches([...byHost.values()], 10, withShopData)).map((st) => [st.host, st]));
-    for (const x of perSearch) {
-      const stores = x.stores.map((st) => {
-        const d = shop.get(st.host);
-        const merged: FoundStore = d
-          ? { ...st, shopify: d.shopify, currency: d.currency, storeCountry: d.storeCountry, products: d.products, productCount: d.productCount }
-          : st;
-        return { ...dropUndefined(merged), dropship: dropshipScore(merged) };
-      });
-      await ctx.runMutation(internal.offerSearch.finishedSearch, { id: x.id, stores, adsFound: x.adsFound });
+    // Users' searches get the AliExpress match; the daily research doesn't.
+    const built = await buildStores(ctx, perSearch.map((x) => x.stores), searches.some((r) => !r.daily));
+    for (const [n, x] of perSearch.entries()) {
+      await ctx.runMutation(internal.offerSearch.finishedSearch, { id: x.id, stores: built[n], adsFound: x.adsFound });
     }
   },
 });
@@ -306,7 +531,8 @@ export const runByToken = internalQuery({
   handler: async (ctx, args) => {
     const run = await ctx.db.query("apifyRuns").withIndex("by_token", (q) => q.eq("token", args.runToken)).unique();
     const search = await ctx.db.query("offerSearches").withIndex("by_token", (q) => q.eq("runToken", args.runToken)).first();
-    return { runId: run?.runId, running: search?.status === "running" };
+    const more = await ctx.db.query("offerSearches").withIndex("by_more_token", (q) => q.eq("moreRunToken", args.runToken)).first();
+    return { runId: run?.runId, running: search?.status === "running" || more?.moreStatus === "running" };
   },
 });
 
@@ -343,7 +569,7 @@ export const get = query({
     if (!identity) return null;
     const s = await ctx.db.get("offerSearches", args.id);
     if (!s) return null;
-    return { _id: s._id, country: s.country, offer: s.offer, phrases: s.phrases, status: s.status, createdAt: s.createdAt, finishedAt: s.finishedAt, error: s.error, adsFound: s.adsFound, stores: (s.stores ?? []) as FoundStore[] };
+    return { _id: s._id, country: s.country, offer: s.offer, phrases: s.phrases, status: s.status, createdAt: s.createdAt, finishedAt: s.finishedAt, error: s.error, adsFound: s.adsFound, moreStatus: s.moreStatus, stores: (s.stores ?? []) as FoundStore[] };
   },
 });
 
@@ -359,7 +585,7 @@ export const recent = query({
     const since = new Date(Date.now() - 86_400_000).toISOString();
     const limit = searchLimit(user);
     return {
-      used: rows.filter((r) => r.createdAt > since && !r.cachedFrom).length,
+      used: await searchesUsed(ctx, user._id, since, limit),
       limit,
       searches: rows.map((r) => ({ _id: r._id, country: r.country, offer: r.offer, phrases: r.phrases, status: r.status, createdAt: r.createdAt, stores: (r.stores as FoundStore[] | undefined)?.length ?? 0 })),
     };
