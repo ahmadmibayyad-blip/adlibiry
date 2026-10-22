@@ -96,10 +96,20 @@ describe("StoreResults", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
     expect(screen.getByRole("menuitem", { name: "Netherlands (this search)" })).toBeInTheDocument();
+    const tab = { closed: false, opener: {}, location: { href: "" }, document: { title: "", body: { textContent: "" } } };
+    const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
     fireEvent.click(screen.getByRole("menuitem", { name: "Germany" }));
+    expect(open).toHaveBeenCalledWith("", "_blank");
+    expect(tab.opener).toBeNull();
     expect(keywords).toHaveBeenCalledWith({ title: "ReliveX™ Magnetische Inlegzolen | Verlies Gewicht", supplierTitle: "Magnetic therapy insoles", country: "DE" });
     const box = await screen.findByLabelText("Search words");
     expect(box).toHaveValue("Magnetische Einlegesohlen, Abnehm Einlagen");
+    const meta = new URL(tab.location.href);
+    expect(meta.origin + meta.pathname).toBe("https://www.facebook.com/ads/library/");
+    expect(meta.searchParams.get("country")).toBe("DE");
+    expect(meta.searchParams.get("q")).toBe("Magnetische Einlegesohlen");
+    expect(screen.getByRole("link", { name: "Abnehm Einlagen" })).toHaveAttribute("href", expect.stringContaining("q=Abnehm+Einlagen"));
+    open.mockRestore();
     fireEvent.change(box, { target: { value: "Magnet Einlegesohlen, Abnehm Einlagen" } });
     fireEvent.click(screen.getByRole("button", { name: "Search Meta in Germany" }));
     await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("?id=s9"));
@@ -114,9 +124,12 @@ describe("StoreResults", () => {
       products: [{ handle: "vest", url: "https://middo.nl/products/vest", title: "VitaBoost PowerVest™ | Verhoog Energie", price: 24.95, image: "https://cdn.shopify.com/vest.jpg" }],
     };
     show([vest]);
+    const open = vi.spyOn(window, "open").mockReturnValue(null); // a blocked tab: the panel still works
     fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Sweden" }));
     expect(await screen.findByLabelText("Search words")).toHaveValue("PowerVest, Magnetische Einlegesohlen, Abnehm Einlagen");
+    expect(screen.getByRole("link", { name: "PowerVest" })).toHaveAttribute("href", expect.stringContaining("country=SE"));
+    open.mockRestore();
   });
 
   it("shows the stores selling the same product first, by picture match", () => {

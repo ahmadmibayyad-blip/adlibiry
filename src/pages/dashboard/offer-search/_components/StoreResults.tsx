@@ -5,7 +5,7 @@ import { Bookmark, BookmarkCheck, Clock, ExternalLink, Eye, FolderPlus, Layers, 
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
-import { filterStores, OFFER_COUNTRIES, shortProductName, type FoundProduct, type FoundStore, type StoreSort, type StoreType, inventedName } from "@/convex/lib/offerSearch.ts";
+import { adLibrarySearchUrl, filterStores, OFFER_COUNTRIES, shortProductName, type FoundProduct, type FoundStore, type StoreSort, type StoreType, inventedName } from "@/convex/lib/offerSearch.ts";
 import type { PictureMatch } from "@/convex/lib/aliexpress.ts";
 import AddToCollection from "@/components/AddToCollection.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
@@ -416,12 +416,20 @@ function CollectionButton({ store: s, storeId }: { store: FoundStore; storeId?: 
 const searchUrl = (country: string, words: string) => `/dashboard/offer-search?${new URLSearchParams({ country, words }).toString()}`;
 
 /** "Who else sells this": pick a country, then see stores whose ads in AdSpy show the same product picture, and search
- * Meta there with the words shoppers in that language use (editable). */
+ * Meta there with the words shoppers in that language use (editable). Picking a country also opens Meta's Ad Library in a
+ * new tab, searching that country for the first search word once it's known. */
 function WhoElse({ product: p, words, country, brand }: { product: FoundProduct; words: string; country: string; brand?: string }) {
   const [open, setOpen] = useState(false);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPicked] = useState<{ code: string; tab: Window | null } | null>(null);
   const choose = (code: string) => {
-    setPicked(code);
+    // Opened now, during the click (a tab opened after the words arrive would be blocked), and pointed at Meta when they do.
+    const tab = window.open("", "_blank");
+    if (tab) {
+      tab.opener = null;
+      tab.document.title = "Meta Ad Library";
+      tab.document.body.textContent = "Finding search words…";
+    }
+    setPicked({ code, tab });
     setOpen(false);
   };
   return (
@@ -445,7 +453,9 @@ function WhoElse({ product: p, words, country, brand }: { product: FoundProduct;
           ))}
         </div>
       ) : null}
-      {picked ? <SameProductPanel key={picked} product={p} words={words} brand={brand} country={picked} onClose={() => setPicked(null)} /> : null}
+      {picked ? (
+        <SameProductPanel key={picked.code} product={p} words={words} brand={brand} country={picked.code} tab={picked.tab} onClose={() => setPicked(null)} />
+      ) : null}
     </div>
   );
 }
@@ -455,12 +465,15 @@ function SameProductPanel({
   words,
   brand,
   country,
+  tab,
   onClose,
 }: {
   product: FoundProduct;
   words: string;
   brand?: string;
   country: string;
+  /** The tab opened when the country was picked, sent to Meta's Ad Library with the first search word. */
+  tab?: Window | null;
   onClose: () => void;
 }) {
   const getKeywords = useAction(api.whoElse.keywords);
@@ -477,21 +490,25 @@ function SameProductPanel({
   const madeUp = inventedName(title, brand);
   useEffect(() => {
     let live = true;
-    const withName = (list: string[]) => [...new Set([...(madeUp ? [madeUp] : []), ...list])].slice(0, 3).join(", ");
+    const withName = (list: string[]) => [...new Set([...(madeUp ? [madeUp] : []), ...list])].slice(0, 3);
+    const found = (list: string[]) => {
+      if (tab && !tab.closed && list[0]) tab.location.href = adLibrarySearchUrl(country, list[0], false);
+      if (live) setTerms(list.join(", "));
+    };
     getKeywords({ title, ...(supplierTitle ? { supplierTitle } : {}), country })
-      .then((r) => live && setTerms(withName(r.keywords)))
+      .then((r) => found(withName(r.keywords)))
       .catch((err) => {
-        if (!live) return;
-        toast.error(errorMessage(err, "Couldn't find words for it; edit them yourself."));
-        setTerms(withName([words]));
+        if (live) toast.error(errorMessage(err, "Couldn't find words for it; edit them yourself."));
+        found(withName([words]));
       });
     return () => {
       live = false;
     };
-  }, [getKeywords, title, supplierTitle, country, words, madeUp]);
+  }, [getKeywords, title, supplierTitle, country, words, madeUp, tab]);
+  const termList = (terms ?? "").split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3);
 
   const searchMeta = async () => {
-    const keywords = (terms ?? "").split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3);
+    const keywords = termList;
     if (!keywords.length) return;
     setSearching(true);
     try {
@@ -529,6 +546,16 @@ function SameProductPanel({
           Up to 3 search terms, separated by commas. Counts as one search.{" "}
           {p.image ? "Each store's ad pictures are then compared with this product's photo." : ""}
         </p>
+        {termList.length ? (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            In Meta's Ad Library:
+            {termList.map((t) => (
+              <a key={t} href={adLibrarySearchUrl(country, t, false)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+                {t} <ExternalLink className="w-3 h-3" />
+              </a>
+            ))}
+          </p>
+        ) : null}
       </div>
     </div>
   );
