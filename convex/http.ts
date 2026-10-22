@@ -5,6 +5,7 @@ import { auth } from "./auth";
 import { parseExtensionAd } from "./lib/extensionSubmission";
 import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
 import { apiGet } from "./publicApi";
+import { webhook as sallaWebhook } from "./sallaApp";
 import { callback as shopifyCallback, webhook as shopifyWebhook } from "./shopifyApp";
 import { serveAdImage, serveTheme } from "./storeThemeHttp";
 import { serveVideo } from "./videoDownload";
@@ -108,6 +109,8 @@ http.route({ path: "/mcp", method: "OPTIONS", handler: mcpOptions });
 // Shopify app install and webhooks (see convex/shopifyApp.ts).
 http.route({ path: "/shopify/callback", method: "GET", handler: shopifyCallback });
 http.route({ path: "/shopify/webhooks", method: "POST", handler: shopifyWebhook });
+// AdSpy COD Confirm, the Salla app: store tokens and orders (see convex/sallaApp.ts).
+http.route({ path: "/salla/webhook", method: "POST", handler: sallaWebhook });
 // Launch → Full store: the storefront theme zip Shopify installs (convex/storeThemeHttp.ts).
 http.route({ path: "/shopify/theme.zip", method: "GET", handler: serveTheme });
 http.route({ path: "/launch/ad-image", method: "GET", handler: serveAdImage });
