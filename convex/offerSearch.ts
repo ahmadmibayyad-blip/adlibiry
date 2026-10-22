@@ -7,12 +7,19 @@ import { byTier } from "./lib/billing";
 import { requireAdmin } from "./admin/helpers";
 import { runCostCap } from "./apify";
 import { PICTURE_ACTOR, fromPictureSearch, pictureLimit, type PictureMatch } from "./lib/aliexpress";
+import Anthropic from "@anthropic-ai/sdk";
+import { claimAiRequest } from "./lib/aiQuota";
+import { claudeClient } from "./lib/claudeClient";
+import { claudeErrorMessage } from "./lib/claudeErrors";
 import { budgetLeft } from "./lib/fusion";
 import { toUsd } from "./lib/priceParse";
 import { inspectHtml } from "./lib/storeInspect";
 import {
   adLibrarySearchUrl,
   adShowsOffer,
+  bestSupplierMatch,
+  offerPictureLimit,
+  searchLanguage,
   mergeStores,
   morePhrases,
   catalogueSignals,
@@ -183,6 +190,47 @@ export const start = action({
   },
 });
 
+// "Who else sells this" in another country: the product's short name in that country's language (a small AI call,
+// in the AI daily limit), put in the search box for the user to check before searching.
+export const translateWords = action({
+  args: { words: v.string(), country: v.string() },
+  handler: async (ctx, args): Promise<{ words: string }> => {
+    if (!(await ctx.auth.getUserIdentity())) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
+    const language = searchLanguage(args.country);
+    if (!language) throw new ConvexError({ code: "BAD_COUNTRY", message: "Pick one of the listed countries." });
+    const words = args.words.trim().slice(0, 80);
+    if (!words) throw new ConvexError({ code: "BAD_REQUEST", message: "There's no product name to translate." });
+    if (!process.env.ANTHROPIC_API_KEY) throw new ConvexError({ code: "NOT_CONFIGURED", message: "AI isn't set up yet (missing ANTHROPIC_API_KEY)." });
+    await claimAiRequest(ctx);
+    try {
+      const message = await claudeClient().messages.create({
+        model: "claude-haiku-5-5",
+        max_tokens: 60,
+        system:
+          "You translate a short product name for a shop search. Answer with the product name in the language given, as shoppers there " +
+          "would search for it: at most 6 words, keep brand names, no quotes and no notes.",
+        messages: [{ role: "user", content: `Language: ${language}\nProduct name: ${words}` }],
+      });
+      const text = message.content
+        .map((b) => (b.type === "text" ? b.text : ""))
+        .join("")
+        .trim()
+        .split("\n")[0]
+        .replace(/^["'“”]+|["'“”]+$/g, "")
+        .trim()
+        .slice(0, 80);
+      if (!text || message.stop_reason === "refusal") throw new ConvexError({ code: "AI_ERROR", message: "The AI didn't translate it. Try again." });
+      return { words: text };
+    } catch (error) {
+      if (error instanceof Anthropic.APIError) {
+        const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
+        throw new ConvexError({ code: "AI_ERROR", message: claudeErrorMessage(error, user?.role === "admin") });
+      }
+      throw error;
+    }
+  },
+});
+
 // "Find more": 150 more ads for a finished offer search, with the offer's other phrases; once per search, counts as one.
 export const findMore = action({
   args: { id: v.id("offerSearches") },
@@ -211,6 +259,8 @@ export const findMore = action({
       });
     } catch (e) {
       await ctx.runMutation(internal.offerSearch.finished, { runToken, error: "couldn't start" });
+      // Nothing ran, so it doesn't count as a search.
+      await ctx.runMutation(internal.offerSearch.uncountMore, { id: args.id });
       console.error("Offer search: Find more run didn't start", (e instanceof Error ? e.message : String(e)).slice(0, 300));
       throw new ConvexError({ code: "START", message: "Couldn't search for more right now. Please try again in a minute." });
     }
@@ -260,7 +310,7 @@ export const claimMore = internalMutation({
     const row = await ctx.db.get("offerSearches", args.id);
     if (!row || row.userId !== user._id) return { ok: false, code: "NOT_FOUND", message: "This search isn't there anymore." };
     if (!row.offer || !OFFER_IDS.includes(row.offer as OfferId)) return { ok: false, code: "BAD_REQUEST", message: "Find more works on offer searches, not your own words." };
-    if (row.moreStatus) return { ok: false, code: "DONE", message: "All phrases searched." };
+    if (row.moreStatus && row.moreStatus !== "failed") return { ok: false, code: "DONE", message: "All phrases searched." };
     if (row.status !== "done") return { ok: false, code: "NOT_DONE", message: "Wait for the search to finish first." };
     const limit = searchLimit(user);
     if ((await searchesUsed(ctx, user._id, new Date(Date.now() - 86_400_000).toISOString(), limit)) >= limit) {
@@ -268,6 +318,13 @@ export const claimMore = internalMutation({
     }
     await ctx.db.patch("offerSearches", args.id, { moreRunToken: args.moreRunToken, moreStatus: "running", moreAt: new Date().toISOString() });
     return { ok: true };
+  },
+});
+
+export const uncountMore = internalMutation({
+  args: { id: v.id("offerSearches") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch("offerSearches", args.id, { moreAt: undefined });
   },
 });
 
@@ -354,7 +411,7 @@ async function sourceHeroProducts(ctx: ActionCtx, stores: FoundStore[]): Promise
   for (let i = 0; i < picks.length && open; i += 5) {
     await Promise.all(
       picks.slice(i, i + 5).map(async (s) => {
-        if (!open || !(await ctx.runMutation(internal.aliexpressImage.claimForSearch, { limit: pictureLimit() }))) {
+        if (!open || !(await ctx.runMutation(internal.aliexpressImage.claimForSearch, { limit: offerPictureLimit() }))) {
           open = false;
           return;
         }
@@ -370,7 +427,7 @@ async function sourceHeroProducts(ctx: ActionCtx, stores: FoundStore[]): Promise
           });
           if (!res.ok) return;
           const found = fromPictureSearch(await res.json().catch(() => null), { price: usd, title: p.title });
-          const best = found.reduce<PictureMatch | undefined>((m, x) => (!m || x.price < m.price ? x : m), undefined);
+          const best = bestSupplierMatch(found);
           if (best && usd) out.set(s.host, { price: best.price, url: best.url, title: best.title, markup: Math.round((usd / best.price) * 10) / 10 });
         } catch {
           // No match for this one.

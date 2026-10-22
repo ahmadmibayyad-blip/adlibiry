@@ -51,11 +51,12 @@ export const claimDay = internalMutation({
   },
 });
 
-/** The same daily count for Offer Search's automatic matches, which run with no user signed in (a webhook). */
+/** Offer Search's automatic matches: their own daily count (OFFER_PICTURES_PER_DAY), so they never use up the product
+ * pages' picture searches; they run with no user signed in (a webhook). */
 export const claimForSearch = internalMutation({
   args: { limit: v.number() },
   handler: async (ctx, args): Promise<boolean> => {
-    const day = usageKey(new Date().toISOString().slice(0, 10));
+    const day = `offer-picture:${new Date().toISOString().slice(0, 10)}`;
     const used = await ctx.db.query("supplierLookupUsage").withIndex("by_day", (q) => q.eq("day", day)).unique();
     if ((used?.count ?? 0) >= args.limit) return false;
     if (used) await ctx.db.patch("supplierLookupUsage", used._id, { count: used.count + 1 });

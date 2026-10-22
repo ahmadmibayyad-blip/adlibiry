@@ -156,10 +156,14 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   published count, /products.json (types, share on sale, ™ titles, a default vendor like "Mijn winkel") and its home page's dropship apps
   (Loox, Ali Reviews, Parcel Panel, Track123, Trackpanda; DSers/AutoDS/CJ/Zendrop/Sell The Trend/Spocket count double), plus urgency ads,
   a ≥30% discount and an AliExpress match; reasons shown on the card. Users' searches (not the daily research) match the main product of
-  up to 15 likely stores on AliExpress automatically (picture search, `aliexpressImage.claimForSearch` in the daily picture limit):
-  cheapest match and markup (store price in USD ÷ supplier). "Find more stores (+150 ads)" (`offerSearch.findMore`, once per offer
-  search, counts as a search via `moreAt`) runs the offer's `more` phrases and merges new stores in (`mergeStores`, up to 80).
-  "Who else sells this" on a product opens Offer Search with `?country=&words=` (`shortProductName`). Results open on "Likely
+  up to 15 likely stores on AliExpress automatically (picture search, `aliexpressImage.claimForSearch`, its own daily cap
+  `OFFER_PICTURES_PER_DAY`, default 100, apart from the product pages' `PICTURE_LOOKUPS_PER_DAY`): the match most people buy, else the
+  middle price of the 3 cheapest (`bestSupplierMatch`), and the markup (store price in USD ÷ supplier). "Find more stores (+150 ads)" (`offerSearch.findMore`, once per offer
+  search, counts as a search via `moreAt`; a failed one can be tried again) runs the offer's `more` phrases and merges new stores in
+  (`mergeStores`, up to 80).
+  "Who else sells this" on a product is a country menu: this search's country with the same words, or another country with the
+  product's name translated into its language (`offerSearch.translateWords`, Claude Haiku, AI daily limit); it opens Offer Search with
+  `?country=&words=` (`shortProductName`) for the user to check before searching. Results open on "Likely
   dropshippers" sorted hero → niche → general, then EU reach.
   Each found store (top 40) gets: EU reach (EU/UK searches, from the scraper's ad details, no extra cost; spend = reach × the user's CPM in
   the app), Shopify + currency + country from `/meta.json`, and up to 2 products its ads link to from `/products/<handle>.json` (name, price,

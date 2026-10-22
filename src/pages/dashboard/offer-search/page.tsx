@@ -198,7 +198,6 @@ function FindMore({ id, status }: { id: Id<"offerSearches">; status?: string }) 
     );
   }
   if (status === "done") return <p className="text-center text-sm text-muted-foreground">All phrases searched</p>;
-  if (status === "failed") return <p className="text-center text-sm text-muted-foreground">Finding more didn't finish. Try a new search.</p>;
   const go = async () => {
     setBusy(true);
     try {
@@ -210,7 +209,8 @@ function FindMore({ id, status }: { id: Id<"offerSearches">; status?: string }) 
     }
   };
   return (
-    <div className="text-center">
+    <div className="text-center space-y-1">
+      {status === "failed" ? <p className="text-sm text-muted-foreground">The last try didn't finish.</p> : null}
       <Button variant="outline" onClick={() => void go()} disabled={busy}>
         {busy ? <Spinner className="w-4 h-4 mr-1.5" /> : <Search className="w-4 h-4 mr-1.5" />}
         Find more stores (+150 ads)

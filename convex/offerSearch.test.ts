@@ -235,12 +235,36 @@ describe("Offer Search sourcing proof", () => {
     expect(done.stores[0].dropship!.reasons).toContain(`On AliExpress ×${sourcing.markup}`);
   });
 
-  it("finishes without sourcing once the day's picture searches are used up", async () => {
-    vi.stubEnv("PICTURE_LOOKUPS_PER_DAY", "0");
+  it("finishes without sourcing once Offer Search's picture searches for the day are used up", async () => {
+    vi.stubEnv("OFFER_PICTURES_PER_DAY", "0");
     const { done, pictureCalls } = await searchWithPictures([{ site: "aliexpress", title: "x", price: 1, currency: "USD", productUrl: "https://www.aliexpress.com/item/1.html" }]);
     expect(pictureCalls).toEqual([]);
     expect(done).toMatchObject({ status: "done" });
     expect(done.stores[0].products![0]).not.toHaveProperty("sourcing");
+  });
+
+  it("has its own picture limit, apart from the product pages'", async () => {
+    vi.stubEnv("PICTURE_LOOKUPS_PER_DAY", "0");
+    const { done } = await searchWithPictures([{ site: "aliexpress", title: "Dog car seat hammock", price: 9.5, currency: "USD", productUrl: "https://www.aliexpress.com/item/1.html" }]);
+    expect(done.stores[0].products![0].sourcing).toMatchObject({ price: 9.5 });
+  });
+
+  it("takes the match most people buy, not just the cheapest", async () => {
+    const { done } = await searchWithPictures([
+      { site: "aliexpress", title: "Dog car seat hammock mini", price: 5, currency: "USD", productUrl: "https://www.aliexpress.com/item/3.html", tradeCount: 3 },
+      { site: "aliexpress", title: "Dog car seat hammock", price: 9.5, currency: "USD", productUrl: "https://www.aliexpress.com/item/1.html", tradeCount: 900 },
+      { site: "aliexpress", title: "Dog car seat hammock lite", price: 4.6, currency: "USD", productUrl: "https://www.aliexpress.com/item/4.html" },
+    ]);
+    expect(done.stores[0].products![0].sourcing).toMatchObject({ price: 9.5, url: "https://www.aliexpress.com/item/1.html" });
+  });
+
+  it("takes the middle price when no match shows its orders", async () => {
+    const { done } = await searchWithPictures([
+      { site: "aliexpress", title: "Dog car seat hammock a", price: 5, currency: "USD", productUrl: "https://www.aliexpress.com/item/3.html" },
+      { site: "aliexpress", title: "Dog car seat hammock b", price: 9.5, currency: "USD", productUrl: "https://www.aliexpress.com/item/1.html" },
+      { site: "aliexpress", title: "Dog car seat hammock c", price: 14, currency: "USD", productUrl: "https://www.aliexpress.com/item/5.html" },
+    ]);
+    expect(done.stores[0].products![0].sourcing).toMatchObject({ price: 9.5 });
   });
 
   it("leaves a product without a match as it is", async () => {
@@ -355,6 +379,30 @@ describe("Offer Search: Find more", () => {
     await user.action(api.offerSearch.findMore, { id });
     await t.action(internal.apify.handleWebhook, { token: (await tokens(t))[1], datasetId: "ds2", eventType: "ACTOR.RUN.FAILED" });
     expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ status: "done", moreStatus: "failed", adsFound: 2 });
+    // It can be tried again.
+    await user.action(api.offerSearch.findMore, { id });
+    expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ moreStatus: "running" });
+    expect((await tokens(t)).length).toBe(3);
+  });
+});
+
+describe("Offer Search: product name in another language", () => {
+  it("translates a product's name for another country's search", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "test");
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_u: unknown, init?: RequestInit) => {
+      asked.push(String(init?.body));
+      return json({
+        id: "msg_1", type: "message", role: "assistant", model: "claude-haiku-5-5",
+        content: [{ type: "text", text: " Magnetische Einlegesohlen\n" }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
+      });
+    }));
+    const { user } = await setup();
+    expect(await user.action(api.offerSearch.translateWords, { words: "Magnetische Inlegzolen", country: "de" })).toEqual({ words: "Magnetische Einlegesohlen" });
+    expect(asked[0]).toContain("German");
+    expect(asked[0]).toContain("Magnetische Inlegzolen");
+    expect(await user.action(api.offerSearch.translateWords, { words: "x", country: "PL" }).catch((e) => e.data)).toMatchObject({ code: "BAD_COUNTRY" });
+    expect(await user.action(api.offerSearch.translateWords, { words: "  ", country: "DE" }).catch((e) => e.data)).toMatchObject({ code: "BAD_REQUEST" });
   });
 });
 
