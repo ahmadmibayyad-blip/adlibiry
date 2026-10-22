@@ -473,10 +473,14 @@ export default defineSchema({
     adsFound: v.optional(v.number()),
     stores: v.optional(v.any()),     // lib/offerSearch.ts FoundStore[]
     daily: v.optional(v.string()),   // the day, for Admin → Offer research (offerSearch.dailyResearch)
+    moreRunToken: v.optional(v.string()), // "Find more": its Apify run (offerSearch.findMore)
+    moreStatus: v.optional(v.string()),   // running | done | failed
+    moreAt: v.optional(v.string()),       // when Find more ran (counts as a search that day)
   })
     .index("by_user", ["userId", "createdAt"])
     .index("by_key", ["key", "createdAt"])
     .index("by_token", ["runToken"])
+    .index("by_more_token", ["moreRunToken"])
     .index("by_daily", ["daily", "country"]),
 
   apifyRuns: defineTable({

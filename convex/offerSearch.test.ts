@@ -249,6 +249,80 @@ describe("Offer Search sourcing proof", () => {
   });
 });
 
+describe("Offer Search: Find more", () => {
+  const more = [
+    { ad_archive_id: "11", page_name: "PawTech", start_date: (Date.now() - 3 * DAY) / 1000, snapshot: { body: { text: "Kun i dag 1+1 gratis" }, link_url: "https://pawtech.dk/products/seat" } },
+    { ad_archive_id: "12", page_name: "NewStore", start_date: (Date.now() - 9 * DAY) / 1000, snapshot: { body: { text: "3 for 2 på alt" }, link_url: "https://newstore.dk/" } },
+    { ad_archive_id: "13", page_name: "Other", start_date: (Date.now() - 9 * DAY) / 1000, snapshot: { body: { text: "Nyhedsbrev" }, link_url: "https://other.dk/" } },
+  ];
+  function stub() {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    const runs: { urls: { url: string }[] }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("api.apify.com/v2/acts/")) {
+        runs.push(JSON.parse(String(init?.body)));
+        return json({ data: { id: `run${runs.length}`, status: "RUNNING" } });
+      }
+      if (url.includes("/datasets/ds1/items")) return json(items);
+      if (url.includes("/datasets/ds2/items")) return json(more);
+      return new Response("", { status: 404 });
+    }));
+    return runs;
+  }
+  const tokens = (t: ReturnType<typeof convexTest>) => t.run(async (ctx) => (await ctx.db.query("apifyRuns").collect()).map((r) => r.token));
+
+  it("finds more stores once, with the offer's other phrases, and counts as a search", async () => {
+    const runs = stub();
+    const { t, user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
+    await t.action(internal.apify.handleWebhook, { token: (await tokens(t))[0], datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ status: "done", adsFound: 2 });
+
+    await user.action(api.offerSearch.findMore, { id });
+    expect(runs[1].urls.map((x) => decodeURIComponent(x.url))).toEqual([
+      expect.stringContaining('q="køb+1+få+1+gratis"&search_type=keyword_exact_phrase'),
+      expect.stringContaining('q="3+for+2"'),
+      expect.stringContaining('q="kun+i+dag+1+1"'),
+    ]);
+    expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ moreStatus: "running" });
+    expect(await user.query(api.offerSearch.recent, {})).toMatchObject({ used: 2 });
+
+    await t.action(internal.apify.handleWebhook, { token: (await tokens(t))[1], datasetId: "ds2", eventType: "ACTOR.RUN.SUCCEEDED" });
+    const done = (await user.query(api.offerSearch.get, { id }))!;
+    expect(done).toMatchObject({ status: "done", moreStatus: "done", adsFound: 4 });
+    // The new store is added, PawTech's second ad counted; the ad without the offer is left out.
+    expect(done.stores.map((s) => [s.host, s.ads])).toEqual([["pawtech.dk", 2], ["helysta.dk", 1], ["newstore.dk", 1]]);
+    expect(done.stores.every((s) => s.dropship)).toBe(true);
+
+    expect(await (user.action(api.offerSearch.findMore, { id }).catch((e) => e.data))).toMatchObject({ code: "DONE", message: "All phrases searched." });
+    expect(runs).toHaveLength(2);
+  });
+
+  it("isn't for your own words, unfinished searches or someone else's search", async () => {
+    stub();
+    const { t, user } = await setup();
+    const own = await user.action(api.offerSearch.start, { country: "DK", custom: "hundeseng" });
+    await t.run((ctx) => ctx.db.patch("offerSearches", own.id, { status: "done", stores: [] }));
+    expect(await user.action(api.offerSearch.findMore, { id: own.id }).catch((e) => e.data)).toMatchObject({ code: "BAD_REQUEST" });
+    const offer = await user.action(api.offerSearch.start, { offer: "percent", country: "DK" });
+    expect(await user.action(api.offerSearch.findMore, { id: offer.id }).catch((e) => e.data)).toMatchObject({ code: "NOT_DONE" });
+    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u2", role: "user", plan: "pro", subscriptionStatus: "active" }));
+    const other = t.withIdentity({ subject: "u2|s" });
+    expect(await other.action(api.offerSearch.findMore, { id: offer.id }).catch((e) => e.data)).toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("marks Find more failed when its run fails, and keeps the first results", async () => {
+    stub();
+    const { t, user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
+    await t.action(internal.apify.handleWebhook, { token: (await tokens(t))[0], datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    await user.action(api.offerSearch.findMore, { id });
+    await t.action(internal.apify.handleWebhook, { token: (await tokens(t))[1], datasetId: "ds2", eventType: "ACTOR.RUN.FAILED" });
+    expect(await user.query(api.offerSearch.get, { id })).toMatchObject({ status: "done", moreStatus: "failed", adsFound: 2 });
+  });
+});
+
 describe("Offer Search store actions", () => {
   it("adds a found store to AdSpy once, to track it or put it in a collection", async () => {
     vi.useFakeTimers();
