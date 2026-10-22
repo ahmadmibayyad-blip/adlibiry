@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { stableToken } from "./lib/authIdentity";
@@ -74,8 +74,13 @@ async function signedInUser(ctx: { db: import("./_generated/server").QueryCtx["d
   return ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", token)).unique();
 }
 
-/** Searches that used the day's limit: new ones (not answered from the cache) and each "Find more". */
-const searchesUsed = (rows: Doc<"offerSearches">[], since: string) => rows.filter((r) => !r.cachedFrom).length + rows.filter((r) => r.moreAt && r.moreAt > since).length;
+/** Searches that used the day's limit: new ones (not answered from the cache), and each "Find more" by when it ran
+ * (also on a search from an earlier day). */
+async function searchesUsed(ctx: QueryCtx, userId: Id<"users">, since: string, limit: number): Promise<number> {
+  const made = await ctx.db.query("offerSearches").withIndex("by_user", (q) => q.eq("userId", userId).gt("createdAt", since)).take(limit + 50);
+  const more = await ctx.db.query("offerSearches").withIndex("by_user_more", (q) => q.eq("userId", userId).gt("moreAt", since)).take(limit + 50);
+  return made.filter((r) => !r.cachedFrom).length + more.length;
+}
 
 const limitMessage = (limit: number) =>
   limit === FREE_SEARCHES_PER_DAY
@@ -92,11 +97,10 @@ export const before = internalQuery({
     if (!user) return null;
     const since = new Date(Date.now() - 86_400_000).toISOString();
     const limit = searchLimit(user);
-    const today = await ctx.db.query("offerSearches").withIndex("by_user", (q) => q.eq("userId", user._id).gt("createdAt", since)).take(limit + 50);
     const fresh = new Date(Date.now() - CACHE_MS).toISOString();
     const recentSame = await ctx.db.query("offerSearches").withIndex("by_key", (q) => q.eq("key", args.key).gt("createdAt", fresh)).order("desc").take(5);
     const cached = recentSame.find((s) => s.status !== "failed") ?? null;
-    return { userId: user._id, used: searchesUsed(today, since), limit, cached };
+    return { userId: user._id, used: await searchesUsed(ctx, user._id, since, limit), limit, cached };
   },
 });
 
@@ -185,22 +189,16 @@ export const findMore = action({
   handler: async (ctx, args): Promise<{ ok: true }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
-    const c = await ctx.runQuery(internal.offerSearch.moreCheck, { token: stableToken(identity), id: args.id });
-    if (!c) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
-    const row = c.row;
-    if (!row) throw new ConvexError({ code: "NOT_FOUND", message: "This search isn't there anymore." });
-    if (!row.offer || !OFFER_IDS.includes(row.offer as OfferId)) throw new ConvexError({ code: "BAD_REQUEST", message: "Find more works on offer searches, not your own words." });
-    if (row.moreStatus) throw new ConvexError({ code: "DONE", message: "All phrases searched." });
-    if (row.status !== "done") throw new ConvexError({ code: "NOT_DONE", message: "Wait for the search to finish first." });
-    if (c.used >= c.limit) throw new ConvexError({ code: "LIMIT", message: limitMessage(c.limit) });
     if (!process.env.APIFY_TOKEN) throw new ConvexError({ code: "NOT_SET_UP", message: "Offer Search isn't switched on yet (APIFY_TOKEN)." });
     const spent: number = await ctx.runQuery(internal.fusion.spentOn, { day: new Date().toISOString().slice(0, 10) });
     if (budgetLeft(spent, dailyBudget()) < capUsd()) {
       throw new ConvexError({ code: "BUDGET", message: "Offer Search has reached today's search budget. Please try again tomorrow." });
     }
-    const phrases = morePhrases(row.offer as OfferId, row.country);
     const runToken = crypto.randomUUID().replace(/-/g, "");
-    await ctx.runMutation(internal.offerSearch.setMore, { id: row._id, moreRunToken: runToken, moreStatus: "running" });
+    const claim = await ctx.runMutation(internal.offerSearch.claimMore, { token: stableToken(identity), id: args.id, moreRunToken: runToken });
+    if (!claim.ok) throw new ConvexError({ code: claim.code, message: claim.message });
+    const row = (await ctx.runQuery(internal.offerSearch.moreRow, { id: args.id }))!;
+    const phrases = morePhrases(row.offer, row.country);
     try {
       await ctx.runAction(internal.apify.startTrackedRun, {
         token: runToken,
@@ -252,24 +250,46 @@ export const finishedMore = internalMutation({
   },
 });
 
-/** The user, their search, and today's searches for "Find more". */
-export const moreCheck = internalQuery({
-  args: { token: v.string(), id: v.id("offerSearches") },
-  handler: async (ctx, args) => {
+/** "Find more", checked and claimed in one step so two clicks at once start one run: the user's own finished offer
+ * search, not searched further yet, within today's searches. */
+export const claimMore = internalMutation({
+  args: { token: v.string(), id: v.id("offerSearches"), moreRunToken: v.string() },
+  handler: async (ctx, args): Promise<{ ok: true } | { ok: false; code: string; message: string }> => {
     const user = await signedInUser(ctx, args.token);
-    if (!user) return null;
+    if (!user) return { ok: false, code: "UNAUTHENTICATED", message: "Please sign in first." };
     const row = await ctx.db.get("offerSearches", args.id);
-    const since = new Date(Date.now() - 86_400_000).toISOString();
+    if (!row || row.userId !== user._id) return { ok: false, code: "NOT_FOUND", message: "This search isn't there anymore." };
+    if (!row.offer || !OFFER_IDS.includes(row.offer as OfferId)) return { ok: false, code: "BAD_REQUEST", message: "Find more works on offer searches, not your own words." };
+    if (row.moreStatus) return { ok: false, code: "DONE", message: "All phrases searched." };
+    if (row.status !== "done") return { ok: false, code: "NOT_DONE", message: "Wait for the search to finish first." };
     const limit = searchLimit(user);
-    const today = await ctx.db.query("offerSearches").withIndex("by_user", (q) => q.eq("userId", user._id).gt("createdAt", since)).take(limit + 50);
-    return { row: row && row.userId === user._id ? row : null, used: searchesUsed(today, since), limit };
+    if ((await searchesUsed(ctx, user._id, new Date(Date.now() - 86_400_000).toISOString(), limit)) >= limit) {
+      return { ok: false, code: "LIMIT", message: limitMessage(limit) };
+    }
+    await ctx.db.patch("offerSearches", args.id, { moreRunToken: args.moreRunToken, moreStatus: "running", moreAt: new Date().toISOString() });
+    return { ok: true };
   },
 });
 
-export const setMore = internalMutation({
-  args: { id: v.id("offerSearches"), moreRunToken: v.string(), moreStatus: v.string() },
+/** The search Find more runs on (after claimMore). */
+export const moreRow = internalQuery({
+  args: { id: v.id("offerSearches") },
   handler: async (ctx, args) => {
-    await ctx.db.patch("offerSearches", args.id, { moreRunToken: args.moreRunToken, moreStatus: args.moreStatus, moreAt: new Date().toISOString() });
+    const r = await ctx.db.get("offerSearches", args.id);
+    return r ? { offer: r.offer as OfferId, country: r.country } : null;
+  },
+});
+
+/** One run is read by one finish at a time; a backup check while it's being read skips it (again after 15 min). */
+export const claimRead = internalMutation({
+  args: { runToken: v.string() },
+  handler: async (ctx, args): Promise<boolean> => {
+    const run = await ctx.db.query("apifyRuns").withIndex("by_token", (q) => q.eq("token", args.runToken)).unique();
+    if (!run) return true;
+    const now = Date.now();
+    if (run.readAt && now - run.readAt < 15 * 60_000) return false;
+    await ctx.db.patch("apifyRuns", run._id, { readAt: now });
+    return true;
   },
 });
 
@@ -457,6 +477,8 @@ export const finish = internalAction({
   handler: async (ctx, args) => {
     const token = process.env.APIFY_TOKEN;
     if (!token) return;
+    // The webhook and the 8-minute backup check can both come: the run's shop reads and picture searches happen once.
+    if (!(await ctx.runMutation(internal.offerSearch.claimRead, { runToken: args.runToken }))) return;
     const res = await fetch(`https://api.apify.com/v2/datasets/${encodeURIComponent(args.datasetId)}/items?clean=true&format=json&limit=500&token=${token}`).catch(() => null);
     if (!res?.ok) {
       await ctx.runMutation(internal.offerSearch.finished, { runToken: args.runToken, error: "Meta's results couldn't be read. Please try again." });
@@ -478,7 +500,8 @@ export const finish = internalAction({
     if (moreRows.length) {
       for (const row of moreRows) {
         const offer = (row.offer as OfferId | undefined) ?? null;
-        const kept = ads.filter((a) => adShowsOffer(a, offer, offer ? morePhrases(offer, row.country) : []));
+        const counted = new Set(row.stores.flatMap((st) => st.adIds ?? []));
+        const kept = ads.filter((a) => !counted.has(a.id) && adShowsOffer(a, offer, offer ? morePhrases(offer, row.country) : []));
         const found = groupByStore(kept);
         const have = new Set(row.stores.map((st) => st.host));
         const [fresh] = await buildStores(ctx, [found.filter((st) => !have.has(st.host)).slice(0, STORES_KEPT)], true);
@@ -562,7 +585,7 @@ export const recent = query({
     const since = new Date(Date.now() - 86_400_000).toISOString();
     const limit = searchLimit(user);
     return {
-      used: searchesUsed(rows.filter((r) => r.createdAt > since), since),
+      used: await searchesUsed(ctx, user._id, since, limit),
       limit,
       searches: rows.map((r) => ({ _id: r._id, country: r.country, offer: r.offer, phrases: r.phrases, status: r.status, createdAt: r.createdAt, stores: (r.stores as FoundStore[] | undefined)?.length ?? 0 })),
     };

@@ -254,6 +254,8 @@ describe("Offer Search: Find more", () => {
     { ad_archive_id: "11", page_name: "PawTech", start_date: (Date.now() - 3 * DAY) / 1000, snapshot: { body: { text: "Kun i dag 1+1 gratis" }, link_url: "https://pawtech.dk/products/seat" } },
     { ad_archive_id: "12", page_name: "NewStore", start_date: (Date.now() - 9 * DAY) / 1000, snapshot: { body: { text: "3 for 2 på alt" }, link_url: "https://newstore.dk/" } },
     { ad_archive_id: "13", page_name: "Other", start_date: (Date.now() - 9 * DAY) / 1000, snapshot: { body: { text: "Nyhedsbrev" }, link_url: "https://other.dk/" } },
+    // Already counted by the first run (the phrases overlap): not counted twice.
+    items[0],
   ];
   function stub() {
     vi.stubEnv("APIFY_TOKEN", "apify-test");
@@ -297,6 +299,39 @@ describe("Offer Search: Find more", () => {
 
     expect(await (user.action(api.offerSearch.findMore, { id }).catch((e) => e.data))).toMatchObject({ code: "DONE", message: "All phrases searched." });
     expect(runs).toHaveLength(2);
+  });
+
+  it("starts one run however many times it's pressed at once", async () => {
+    const runs = stub();
+    const { t, user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
+    await t.action(internal.apify.handleWebhook, { token: (await tokens(t))[0], datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    const results = await Promise.all([1, 2, 3].map(() => user.action(api.offerSearch.findMore, { id }).then(() => "ok", (e) => e.data?.code)));
+    expect(results.filter((r) => r === "ok")).toHaveLength(1);
+    expect(runs).toHaveLength(2);
+  });
+
+  it("counts Find more on an older search against today's limit", async () => {
+    stub();
+    const { t, user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
+    await t.action(internal.apify.handleWebhook, { token: (await tokens(t))[0], datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    await t.run((ctx) => ctx.db.patch("offerSearches", id, { createdAt: new Date(Date.now() - 3 * DAY).toISOString() }));
+    expect(await user.query(api.offerSearch.recent, {})).toMatchObject({ used: 0 });
+    await user.action(api.offerSearch.findMore, { id });
+    expect(await user.query(api.offerSearch.recent, {})).toMatchObject({ used: 1 });
+  });
+
+  it("reads a finished run once, even when the backup check comes while it's being read", async () => {
+    const runs = stub();
+    const { t, user } = await setup();
+    await user.action(api.offerSearch.start, { offer: "bxgy", country: "DK" });
+    const token = (await tokens(t))[0];
+    await t.action(internal.offerSearch.finish, { runToken: token, datasetId: "ds1" });
+    const reads = (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.length;
+    await t.action(internal.offerSearch.finish, { runToken: token, datasetId: "ds1" });
+    expect((fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.length).toBe(reads);
+    expect(runs).toHaveLength(1);
   });
 
   it("isn't for your own words, unfinished searches or someone else's search", async () => {

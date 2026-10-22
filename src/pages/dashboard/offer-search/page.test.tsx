@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { Link, MemoryRouter } from "react-router-dom";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OfferSearchPage from "./page.tsx";
@@ -61,6 +61,17 @@ describe("Offer Search page", () => {
     state.search = done({ offer: undefined });
     show();
     expect(screen.queryByRole("button", { name: /Find more/ })).toBeNull();
+  });
+
+  it("switches to the product's name when Who else sells this is clicked on this page", () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/offer-search?id=s1"]}>
+        <Link to="/dashboard/offer-search?country=NL&words=Magnetische+Inlegzolen">who else</Link>
+        <OfferSearchPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByText("who else"));
+    expect(screen.getByDisplayValue("Magnetische Inlegzolen")).toBeInTheDocument();
   });
 
   it("starts from a product name sent by Who else sells this", () => {

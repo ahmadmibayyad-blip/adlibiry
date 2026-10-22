@@ -20,6 +20,12 @@ import { StoreResults } from "./_components/StoreResults.tsx";
 
 const COUNTRY_OPTIONS = Object.entries(OFFER_COUNTRIES).map(([code, c]) => ({ value: code, label: c.name }));
 export default function OfferSearchPage() {
+  const [params] = useSearchParams();
+  // A "Who else sells this" link (new ?words=) starts the form afresh, also when it's clicked on this page.
+  return <OfferSearchForm key={`${params.get("words") ?? ""}|${params.get("country") ?? ""}`} />;
+}
+
+function OfferSearchForm() {
   const start = useAction(api.offerSearch.start);
   const recent = useQuery(api.offerSearch.recent, {});
   const [params, setParams] = useSearchParams();

@@ -347,6 +347,8 @@ export type FoundStore = {
   defaultVendor?: boolean;
   /** Dropshipping apps seen on its home page (reviews imported from AliExpress, parcel tracking, sourcing apps). */
   apps?: string[];
+  /** The ads counted for it (ids), so "Find more" doesn't count one twice. */
+  adIds?: string[];
   /** How likely the store is a dropshipper (dropshipScore). */
   dropship?: Dropship;
 };
@@ -472,6 +474,8 @@ export function shortProductName(title: string, brand?: string): string {
   return t.replace(/[,.!]+/g, " ").split(/\s+/).filter(Boolean).slice(0, 4).join(" ");
 }
 
+const MAX_AD_IDS = 200;
+
 /** A "Find more" run's stores added to the first run's: counts added up for stores found twice, new ones after. */
 export function mergeStores(first: FoundStore[], more: FoundStore[], max = 80): FoundStore[] {
   const out = first.map((s) => ({ ...s, offers: [...s.offers.map((o) => ({ ...o }))] }));
@@ -485,6 +489,7 @@ export function mergeStores(first: FoundStore[], more: FoundStore[], max = 80): 
     }
     s.ads += m.ads;
     s.copies += m.copies;
+    if (m.adIds) s.adIds = [...(s.adIds ?? []), ...m.adIds].slice(0, MAX_AD_IDS);
     s.oldestDays = Math.max(s.oldestDays, m.oldestDays);
     if (m.reach) s.reach = (s.reach ?? 0) + m.reach;
     for (const o of m.offers) {
@@ -609,6 +614,7 @@ export function groupByStore(ads: SearchAd[], now = Date.now()): FoundStore[] {
       advertisers: [...new Set(g.ads.map((a) => a.pageName))].slice(0, 3),
       ...(g.ads.find((a) => a.pageId)?.pageId ? { pageId: g.ads.find((a) => a.pageId)!.pageId } : {}),
       ads: g.ads.length,
+      adIds: g.ads.map((a) => a.id).slice(0, MAX_AD_IDS),
       copies: g.ads.reduce((n, a) => n + a.copies, 0),
       oldestDays: sample[0]?.days ?? 0,
       offers: [...offerCount.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 5),
