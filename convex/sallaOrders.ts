@@ -82,7 +82,7 @@ function tokenKey(): string {
 }
 
 /** A valid access token for the store, refreshing it (once, under the lock) when it's close to running out. */
-async function accessToken(ctx: ActionCtx, merchantId: number): Promise<string> {
+export async function accessToken(ctx: ActionCtx, merchantId: number): Promise<string> {
   const key = tokenKey();
   for (let attempt = 0; attempt < 10; attempt++) {
     const claim = await ctx.runMutation(internal.sallaOrders.claimRefresh, { merchantId });
@@ -130,7 +130,7 @@ async function accessToken(ctx: ActionCtx, merchantId: number): Promise<string> 
   return decryptToken(s.accessToken, key);
 }
 
-async function sallaFetch<T>(token: string, path: string, init?: { method: string; body: unknown }): Promise<T> {
+export async function sallaFetch<T>(token: string, path: string, init?: { method: string; body: unknown }): Promise<T> {
   const res = await fetch(`${SALLA_API}${path}`, {
     method: init?.method ?? "GET",
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(init ? { "Content-Type": "application/json" } : {}) },
@@ -159,7 +159,7 @@ async function awaitingStatusId(ctx: ActionCtx, merchantId: number, token: strin
   return id;
 }
 
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 300);
+export const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 300);
 
 /** Scheduled for each new COD order: hold it in "بانتظار التأكيد" until the customer answers. */
 export const hold = internalAction({
@@ -173,16 +173,23 @@ export const hold = internalAction({
     } catch (e) {
       await ctx.runMutation(internal.sallaOrders.recordOrder, { merchantId, orderId, lastError: errorText(e) });
     }
+    // Ask the customer either way: a failed hold shouldn't leave the order unconfirmed.
+    await ctx.scheduler.runAfter(0, internal.sallaWhatsapp.sendConfirm, { merchantId, orderId, reminder: 0 });
   },
 });
 
-/** The customer's answer (WhatsApp buttons later; runnable from the Convex dashboard meanwhile). */
+/** Writes the customer's answer to Salla (from the WhatsApp buttons or the no-answer cancel; runnable from the dashboard too). */
 export const decide = internalAction({
-  args: { merchantId: v.number(), orderId: v.string(), decision: v.union(v.literal("confirmed"), v.literal("cancelled")) },
-  handler: async (ctx, { merchantId, orderId, decision }) => {
+  args: {
+    merchantId: v.number(),
+    orderId: v.string(),
+    decision: v.union(v.literal("confirmed"), v.literal("cancelled")),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, { merchantId, orderId, decision, ...args }) => {
     try {
       const token = await accessToken(ctx, merchantId);
-      const note = decision === "confirmed" ? "أكد العميل الطلب عبر واتساب" : "ألغى العميل الطلب عبر واتساب";
+      const note = args.note ?? (decision === "confirmed" ? "أكد العميل الطلب عبر واتساب" : "ألغى العميل الطلب عبر واتساب");
       await sallaFetch(token, `/orders/${orderId}/status`, { method: "POST", body: statusBody(decision, note) });
       await ctx.runMutation(internal.sallaOrders.recordOrder, { merchantId, orderId, status: decision, decidedAt: Date.now() });
       return { ok: true };

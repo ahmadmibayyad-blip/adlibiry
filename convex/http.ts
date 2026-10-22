@@ -6,6 +6,7 @@ import { parseExtensionAd } from "./lib/extensionSubmission";
 import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
 import { apiGet } from "./publicApi";
 import { webhook as sallaWebhook } from "./sallaApp";
+import { verify as whatsappVerify, webhook as whatsappWebhook } from "./sallaWhatsapp";
 import { callback as shopifyCallback, webhook as shopifyWebhook } from "./shopifyApp";
 import { serveAdImage, serveTheme } from "./storeThemeHttp";
 import { serveVideo } from "./videoDownload";
@@ -111,6 +112,9 @@ http.route({ path: "/shopify/callback", method: "GET", handler: shopifyCallback 
 http.route({ path: "/shopify/webhooks", method: "POST", handler: shopifyWebhook });
 // AdSpy COD Confirm, the Salla app: store tokens and orders (see convex/sallaApp.ts).
 http.route({ path: "/salla/webhook", method: "POST", handler: sallaWebhook });
+// Its WhatsApp confirm buttons (Meta Cloud API webhook, see convex/sallaWhatsapp.ts).
+http.route({ path: "/whatsapp/webhook", method: "GET", handler: whatsappVerify });
+http.route({ path: "/whatsapp/webhook", method: "POST", handler: whatsappWebhook });
 // Launch → Full store: the storefront theme zip Shopify installs (convex/storeThemeHttp.ts).
 http.route({ path: "/shopify/theme.zip", method: "GET", handler: serveTheme });
 http.route({ path: "/launch/ad-image", method: "GET", handler: serveAdImage });

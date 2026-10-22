@@ -982,6 +982,7 @@ export default defineSchema({
     uninstalledAt: v.optional(v.number()),
     awaitingStatusId: v.optional(v.number()),  // our "بانتظار التأكيد" sub-status in this store
     refreshLockUntil: v.optional(v.number()),  // a token refresh is running until then (refresh tokens are single use)
+    storeName: v.optional(v.string()),         // shown in the WhatsApp message, read once from /store/info
   }).index("by_merchant", ["merchantId"]),
   // COD orders awaiting WhatsApp confirmation. Ids and amount only, no customer PII.
   sallaCodOrders: defineTable({
@@ -990,12 +991,19 @@ export default defineSchema({
     referenceId: v.optional(v.string()),
     total: v.optional(v.number()),
     currency: v.optional(v.string()),
-    status: v.string(),        // "pending" | "confirmed" | "cancelled"
+    status: v.string(),        // "pending" | "confirmed" | "cancelled": the customer's answer (or no answer in time)
     createdAt: v.number(),
     heldAt: v.optional(v.number()),        // set to "بانتظار التأكيد" in Salla
     decidedAt: v.optional(v.number()),     // confirmed/cancelled written back to Salla
-    lastError: v.optional(v.string()),     // the last Salla API failure for this order
-  }).index("by_merchant_order", ["merchantId", "orderId"]),
+    lastError: v.optional(v.string()),     // the last Salla or WhatsApp failure for this order
+    phoneHash: v.optional(v.string()),     // keyed hash of the customer's WhatsApp number, to match replies (never the number)
+    waMessageId: v.optional(v.string()),   // the last confirm message sent, for delivery failures
+    sentAt: v.optional(v.number()),        // last confirm message (first one or a reminder)
+    reminders: v.optional(v.number()),     // reminders sent so far
+    answeredAt: v.optional(v.number()),
+  })
+    .index("by_merchant_order", ["merchantId", "orderId"])
+    .index("by_wa_message", ["waMessageId"]),
   sallaWebhookEvents: defineTable({
     key: v.string(),           // merchant:event:hash of the raw body
     receivedAt: v.number(),
