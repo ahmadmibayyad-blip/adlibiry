@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Bookmark, BookmarkCheck, Clock, ExternalLink, Eye, FolderPlus, Layers, Radar, Search, ShoppingBag, Users } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
-import { filterStores, shortProductName, type FoundProduct, type FoundStore, type StoreSort, type StoreType } from "@/convex/lib/offerSearch.ts";
+import { filterStores, OFFER_COUNTRIES, shortProductName, type FoundProduct, type FoundStore, type StoreSort, type StoreType } from "@/convex/lib/offerSearch.ts";
 import type { PictureMatch } from "@/convex/lib/aliexpress.ts";
 import AddToCollection from "@/components/AddToCollection.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
@@ -272,7 +272,6 @@ function StoreCard({
 
 function ProductRow({ product: p, currency, country, brand }: { product: FoundProduct; currency?: string; country: string; brand?: string }) {
   const words = shortProductName(p.title, brand);
-  const whoElse = `/dashboard/offer-search?${new URLSearchParams({ country, words }).toString()}`;
   const find = useAction(api.offerSearch.aliexpressFor);
   const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<PictureMatch[] | null>(null);
@@ -318,13 +317,7 @@ function ProductRow({ product: p, currency, country, brand }: { product: FoundPr
                 <ExternalLink className="w-3.5 h-3.5 mr-1" /> Open product
               </a>
             </Button>
-            {words ? (
-              <Button asChild size="sm" variant="outline" className="h-10 sm:h-7 text-xs">
-                <Link to={whoElse}>
-                  <Users className="w-3.5 h-3.5 mr-1" /> Who else sells this
-                </Link>
-              </Button>
-            ) : null}
+            {words ? <WhoElse words={words} country={country} /> : null}
             {p.image && matches === null ? (
               <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs" onClick={() => void onFind()} disabled={busy}>
                 {busy ? <Spinner className="w-3.5 h-3.5 mr-1" /> : <Search className="w-3.5 h-3.5 mr-1" />}
@@ -410,5 +403,56 @@ function CollectionButton({ store: s, storeId }: { store: FoundStore; storeId?: 
       {busy ? <Spinner className="w-4 h-4 mr-1.5" /> : <FolderPlus className="w-4 h-4 mr-1.5" />}
       Collection
     </Button>
+  );
+}
+
+const searchUrl = (country: string, words: string) => `/dashboard/offer-search?${new URLSearchParams({ country, words }).toString()}`;
+
+/** "Who else sells this": this search's country with the same words, or another country with the name in its language. */
+function WhoElse({ words, country }: { words: string; country: string }) {
+  const translate = useAction(api.offerSearch.translateWords);
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const go = async (code: string) => {
+    setBusy(code);
+    try {
+      const r = await translate({ words, country: code });
+      navigate(searchUrl(code, r.words));
+    } catch (err) {
+      toast.error(errorMessage(err, "Couldn't translate the name; searching the same words."));
+      navigate(searchUrl(code, words));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="relative">
+      <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)}>
+        <Users className="w-3.5 h-3.5 mr-1" /> Who else sells this
+      </Button>
+      {open ? (
+        <div role="menu" className="absolute z-20 mt-1 w-56 max-h-72 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
+          <Link role="menuitem" to={searchUrl(country, words)} className="block rounded px-2 py-1.5 text-sm hover:bg-muted">
+            {OFFER_COUNTRIES[country]?.name ?? country} (this search)
+          </Link>
+          {Object.entries(OFFER_COUNTRIES)
+            .filter(([code]) => code !== country)
+            .map(([code, c]) => (
+              <button
+                key={code}
+                type="button"
+                role="menuitem"
+                disabled={!!busy}
+                onClick={() => void go(code)}
+                className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-60"
+              >
+                {busy === code ? <Spinner className="w-3.5 h-3.5" /> : null}
+                {c.name}
+              </button>
+            ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

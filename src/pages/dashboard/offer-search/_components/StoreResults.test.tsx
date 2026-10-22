@@ -1,14 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { FoundStore } from "@/convex/lib/offerSearch.ts";
 import { StoreResults } from "./StoreResults.tsx";
 
-vi.mock("convex/react", () => ({
-  useQuery: () => [],
-  useMutation: () => vi.fn(),
-  useAction: () => vi.fn(),
-}));
+const translate = vi.fn(async (_: unknown) => ({ words: "Magnetische Einlegesohlen" }));
+vi.mock("convex/react", async () => {
+  const { getFunctionName } = await import("convex/server");
+  return {
+    useQuery: () => [],
+    useMutation: () => vi.fn(),
+    useAction: (ref: unknown) => (getFunctionName(ref as never) === "offerSearch:translateWords" ? translate : vi.fn()),
+  };
+});
 vi.mock("@/components/AddToCollection.tsx", () => ({ default: () => null }));
 
 const store = (host: string, ads: number, dropship?: FoundStore["dropship"]): FoundStore => ({
@@ -73,6 +77,39 @@ describe("StoreResults", () => {
       },
     ]);
     expect(screen.getByRole("link", { name: "AliExpress $9.50 · ×4.2" })).toHaveAttribute("href", "https://www.aliexpress.com/item/1.html");
-    expect(screen.getByRole("link", { name: /Who else sells this/ })).toHaveAttribute("href", "/dashboard/offer-search?country=NL&words=Magnetische+Inlegzolen");
+    fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
+    // This search's country: the same words, no translation.
+    expect(screen.getByRole("menuitem", { name: "Netherlands (this search)" })).toHaveAttribute("href", "/dashboard/offer-search?country=NL&words=Magnetische+Inlegzolen");
+    expect(screen.getByRole("menuitem", { name: "Germany" })).toBeInTheDocument();
+  });
+
+  it("searches another country with the product's name in its language", async () => {
+    function Where() {
+      return <div data-testid="where">{useLocation().search}</div>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/r"]}>
+        <Routes>
+          <Route
+            path="/r"
+            element={
+              <StoreResults
+                country="NL"
+                stores={[{
+                  ...store("relivex.nl", 5, { score: 4, likely: true, type: "niche", reasons: [] }),
+                  advertisers: ["ReliveX"],
+                  products: [{ handle: "zolen", url: "https://relivex.nl/products/zolen", title: "ReliveX™ Magnetische Inlegzolen | Verlies Gewicht", price: 29.95 }],
+                }]}
+              />
+            }
+          />
+          <Route path="/dashboard/offer-search" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Germany" }));
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("?country=DE&words=Magnetische+Einlegesohlen"));
+    expect(translate).toHaveBeenCalledWith({ words: "Magnetische Inlegzolen", country: "DE" });
   });
 });

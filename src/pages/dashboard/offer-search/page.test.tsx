@@ -57,6 +57,14 @@ describe("Offer Search page", () => {
     expect(screen.queryByRole("button", { name: /Find more/ })).toBeNull();
   });
 
+  it("lets a failed Find more be tried again", async () => {
+    state.search = done({ moreStatus: "failed" });
+    show();
+    expect(screen.getByText("The last try didn't finish.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Find more stores (+150 ads)" }));
+    await waitFor(() => expect(findMore).toHaveBeenCalledWith({ id: "s1" }));
+  });
+
   it("has no Find more for the user's own words", () => {
     state.search = done({ offer: undefined });
     show();

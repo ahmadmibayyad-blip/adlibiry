@@ -3,6 +3,7 @@
 // (convex/offerSearch.ts runs it through Apify), and the active ads that come back are grouped by the
 // store they link to, with their offer chips (lib/offerTags.ts). Pure and unit tested.
 
+import type { PictureMatch } from "./aliexpress";
 import { offerTags, type OfferKind } from "./offerTags";
 import { bigBrandIn } from "./productMatch";
 
@@ -475,6 +476,25 @@ export function shortProductName(title: string, brand?: string): string {
 }
 
 const MAX_AD_IDS = 200;
+
+/** Offer Search's automatic AliExpress matches a day, for all users (OFFER_PICTURES_PER_DAY, default 100). */
+export const offerPictureLimit = () => Math.max(0, Number(process.env.OFFER_PICTURES_PER_DAY ?? 100) || 0);
+
+/** The supplier listing to compare against: the one most people buy, else the middle price of the 3 cheapest
+ * (the cheapest alone is often a near-miss). */
+export function bestSupplierMatch(matches: PictureMatch[]): PictureMatch | undefined {
+  const bought = matches.filter((m) => m.orders);
+  if (bought.length) return bought.reduce((a, b) => ((b.orders ?? 0) > (a.orders ?? 0) ? b : a));
+  const cheapest = [...matches].sort((a, b) => a.price - b.price).slice(0, 3);
+  return cheapest[Math.floor((cheapest.length - 1) / 2)];
+}
+
+const LANGUAGE_NAMES: Record<Lang, string> = { en: "English", da: "Danish", sv: "Swedish", no: "Norwegian", de: "German", nl: "Dutch", fr: "French", es: "Spanish" };
+/** The language a country's Offer Search uses, by name ("German"), or undefined for a country we don't search. */
+export function searchLanguage(country: string): string | undefined {
+  const c = OFFER_COUNTRIES[country.toUpperCase()];
+  return c ? LANGUAGE_NAMES[c.lang] : undefined;
+}
 
 /** A "Find more" run's stores added to the first run's: counts added up for stores found twice, new ones after. */
 export function mergeStores(first: FoundStore[], more: FoundStore[], max = 80): FoundStore[] {
