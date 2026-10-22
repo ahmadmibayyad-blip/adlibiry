@@ -1338,5 +1338,45 @@ export default defineSchema({
     amount: v.number(),
     currency: v.string(),
     at: v.number(),
-  }).index("by_payment_intent", ["paymentIntentId"]),
+  })
+    .index("by_payment_intent", ["paymentIntentId"])
+    .index("by_user", ["userId"]),
+
+  // Affiliate program (convex/affiliates.ts): one row per user who joined.
+  // Links are adspypro.net/r/<code>.
+  affiliates: defineTable({
+    userId: v.id("users"),
+    code: v.string(),                       // lowercase a-z 0-9 -
+    payoutEmail: v.optional(v.string()),    // PayPal / Wise email for payouts
+    clicks: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_code", ["code"]),
+
+  // Who brought whom: one row per referred user, set once shortly after sign-up.
+  referrals: defineTable({
+    affiliateId: v.id("affiliates"),
+    userId: v.id("users"),
+    at: v.number(),
+    firstPaidAt: v.optional(v.number()),    // start of the 12-month commission window
+  })
+    .index("by_user", ["userId"])
+    .index("by_affiliate", ["affiliateId"]),
+
+  // One commission per Pro payment of a referred user (written by proPlan.claimPayment).
+  // "earned" becomes payable after the hold; an admin marks it "paid" or "void" (refund).
+  affiliateCommissions: defineTable({
+    affiliateId: v.id("affiliates"),
+    userId: v.id("users"),
+    paymentIntentId: v.string(),
+    paymentAmount: v.number(),              // cents
+    amount: v.number(),                     // cents, the affiliate's share
+    currency: v.string(),
+    at: v.number(),
+    status: v.union(v.literal("earned"), v.literal("paid"), v.literal("void")),
+    paidAt: v.optional(v.number()),
+  })
+    .index("by_affiliate", ["affiliateId"])
+    .index("by_payment_intent", ["paymentIntentId"]),
 });

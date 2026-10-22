@@ -30,6 +30,8 @@ const WinnersPage = lazy(() => import("./pages/dashboard/winners/page.tsx"));
 const AgentsPage = lazy(() => import("./pages/dashboard/agents/page.tsx"));
 const HooksPage = lazy(() => import("./pages/dashboard/hooks/page.tsx"));
 const InfoPage = lazy(() => import("./pages/info/page.tsx"));
+const Referral = lazy(() => import("./pages/Referral.tsx"));
+const ComparePage = lazy(() => import("./pages/compare/page.tsx"));
 const ResearchPage = lazy(() => import("./pages/dashboard/research/page.tsx"));
 const StoreTrackerPage = lazy(() => import("./pages/dashboard/stores/page.tsx"));
 const AlertsPage = lazy(() => import("./pages/dashboard/alerts/page.tsx"));
@@ -87,6 +89,10 @@ export default function App() {
           {/* Fallback from api/landing.ts when it can't read the page. */}
           <Route path="/app.html" element={<Navigate to="/" replace />} />
           <Route path="/unsubscribe" element={<UnsubscribePage />} />
+          {/* Affiliate links (convex/affiliates.ts) */}
+          <Route path="/r/:code" element={<Referral />} />
+          {/* Comparison pages; the build also writes them as static HTML (vite.config.ts) */}
+          <Route path="/vs/:slug" element={<ComparePage />} />
 
           {/* Dashboard — protected */}
           <Route

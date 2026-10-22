@@ -19,6 +19,7 @@ import {
 } from "./lib/adspyBackend";
 import { StripeApiError, chargeSavedCard, createCustomer, saveCardOnPayment } from "./lib/stripeApi";
 import { stableToken } from "./lib/authIdentity";
+import { recordCommission } from "./affiliates";
 
 // Pro (€35 / month, or €360 / year) through the AdSpy Pro backend and Stripe:
 // 1. createProPayment: the backend creates a PaymentIntent for €35
@@ -51,7 +52,9 @@ export const claimPayment = internalMutation({
       .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", args.paymentIntentId))
       .unique();
     if (used) return used.userId === args.userId ? "ok" : "taken";
-    await ctx.db.insert("proPayments", { ...args, at: Date.now() });
+    const at = Date.now();
+    await ctx.db.insert("proPayments", { ...args, at });
+    await recordCommission(ctx, { ...args, at });
     return "ok";
   },
 });
