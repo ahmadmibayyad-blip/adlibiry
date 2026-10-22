@@ -2,58 +2,83 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { ConvexError, v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { claimAiRequest } from "./lib/aiQuota";
 import { claudeClient } from "./lib/claudeClient";
 import { claudeErrorMessage } from "./lib/claudeErrors";
 import { EMBED_SIZE, VOYAGE_URL, parseVoyage, voyageBody } from "./lib/adEmbeddings";
-import { parseKeywords, searchLanguage, storesFromImageHits, type ImageStore } from "./lib/offerSearch";
+import { parseKeywords, pictureMatch, searchLanguage } from "./lib/offerSearch";
 
-// Offer Search → a product → "Who else sells this" in a country: stores whose ads in AdSpy show the same product
-// picture (Voyage image vectors, like Looks similar), and the words shoppers there use for it, to search Meta with.
+// Offer Search → a product → "Who else sells this" in a country: the words to search Meta for (its made-up name, if
+// it has one, and what shops there call it), then each found store's ad pictures compared with the product photo
+// (Voyage image vectors) to tell the stores selling the same product from Meta's noise.
 
-const MAX_STORES = 12;
+const PICTURES_PER_STORE = 3;
+const VOYAGE_BATCH = 32;
 
-/** Stores in the country whose ads in AdSpy show the same product picture, best match first. */
-export const samePicture = action({
-  args: { imageUrl: v.string(), country: v.string(), excludeHost: v.string() },
-  handler: async (ctx, args): Promise<{ stores: ImageStore[]; skipped?: string }> => {
-    if (!(await ctx.auth.getUserIdentity())) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
+async function dataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return null;
+    const { Jimp } = await import("jimp");
+    const pic = await Jimp.read(Buffer.from(await res.arrayBuffer()));
+    pic.scaleToFit({ w: EMBED_SIZE, h: EMBED_SIZE });
+    return `data:image/jpeg;base64,${(await pic.getBuffer("image/jpeg")).toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Each store's picture match with the product photo, saved on the search (scheduled when a product search finishes). */
+export const matchPictures = internalAction({
+  args: { id: v.id("offerSearches") },
+  handler: async (ctx, args): Promise<void> => {
+    const row = await ctx.runQuery(internal.offerSearch.forPictures, { id: args.id });
+    if (!row) return;
     const key = process.env.VOYAGE_API_KEY?.trim();
-    if (!key) return { stores: [], skipped: "Picture matching isn't set up yet (VOYAGE_API_KEY)." };
-    if (!/^https:\/\//.test(args.imageUrl)) return { stores: [], skipped: "This product has no photo to match." };
-    try {
-      const img = await fetch(args.imageUrl, { signal: AbortSignal.timeout(15_000) });
-      if (!img.ok) return { stores: [], skipped: "The product photo couldn't be read." };
-      const { Jimp } = await import("jimp");
-      const pic = await Jimp.read(Buffer.from(await img.arrayBuffer()));
-      pic.scaleToFit({ w: EMBED_SIZE, h: EMBED_SIZE });
-      const dataUrl = `data:image/jpeg;base64,${(await pic.getBuffer("image/jpeg")).toString("base64")}`;
-      const res = await fetch(VOYAGE_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify(voyageBody([dataUrl])),
-        signal: AbortSignal.timeout(30_000),
-      });
-      const vector = parseVoyage(await res.json().catch(() => null), 1)?.[0];
-      if (!res.ok || !vector) return { stores: [], skipped: "Picture matching didn't answer. Try again in a minute." };
-      // Every country's ads share the index, so look wide and keep the country asked for.
-      const hits = await ctx.vectorSearch("adEmbeddings", "by_embedding", { vector, limit: 256 });
-      const { hits: loaded } = await ctx.runQuery(internal.adEmbeddings.adsForHits, {
-        hits: hits.map((h) => ({ id: h._id as Id<"adEmbeddings">, score: h._score })),
-      });
-      const stores = storesFromImageHits(
-        loaded.map((h) => ({ score: h.score, ad: { ...h.ad, _id: h.ad._id as string } })),
-        args.country,
-        args.excludeHost.replace(/^www\./, ""),
-      );
-      return { stores: stores.slice(0, MAX_STORES) };
-    } catch (e) {
-      console.warn("Who else: picture match failed", e instanceof Error ? e.message : e);
-      return { stores: [], skipped: "Picture matching didn't work this time." };
+    if (!key) {
+      await ctx.runMutation(internal.offerSearch.savePictures, { id: args.id, matches: {}, status: "skipped" });
+      return;
     }
+    // In order: the product photo, then each store's ad pictures.
+    const wanted: { host: string | null; url: string }[] = [{ host: null, url: row.productImage }];
+    for (const st of row.stores) for (const s of st.sample.slice(0, PICTURES_PER_STORE)) if (s.image) wanted.push({ host: st.host, url: s.image });
+    const pics: (string | null)[] = [];
+    for (let i = 0; i < wanted.length; i += 10) pics.push(...(await Promise.all(wanted.slice(i, i + 10).map((w) => dataUrl(w.url)))));
+    const usable = wanted.map((w, i) => ({ ...w, pic: pics[i] })).filter((w): w is typeof w & { pic: string } => !!w.pic);
+    // Without the product photo there's nothing to compare with: the page shows every store.
+    if (!usable.length || usable[0].host !== null) {
+      await ctx.runMutation(internal.offerSearch.savePictures, { id: args.id, matches: {}, status: "skipped" });
+      return;
+    }
+    const vectors: number[][] = [];
+    try {
+      for (let i = 0; i < usable.length; i += VOYAGE_BATCH) {
+        const batch = usable.slice(i, i + VOYAGE_BATCH);
+        const res = await fetch(VOYAGE_URL, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify(voyageBody(batch.map((b) => b.pic))),
+          signal: AbortSignal.timeout(60_000),
+        });
+        const got = res.ok ? parseVoyage(await res.json().catch(() => null), batch.length) : null;
+        if (!got) throw new Error(`Voyage ${res.status}`);
+        vectors.push(...got);
+      }
+    } catch (e) {
+      console.warn("Who else: picture check failed", e instanceof Error ? e.message : e);
+      await ctx.runMutation(internal.offerSearch.savePictures, { id: args.id, matches: {}, status: "skipped" });
+      return;
+    }
+    const product = vectors[0];
+    const byHost = new Map<string, number[][]>();
+    usable.forEach((u, i) => {
+      if (u.host) byHost.set(u.host, [...(byHost.get(u.host) ?? []), vectors[i]]);
+    });
+    const matches: Record<string, number> = {};
+    for (const [host, vs] of byHost) matches[host] = pictureMatch(product, vs);
+    await ctx.runMutation(internal.offerSearch.savePictures, { id: args.id, matches, status: "done" });
   },
 });
 

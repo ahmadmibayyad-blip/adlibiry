@@ -3,7 +3,7 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Jimp } from "jimp";
 import schema from "./schema";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { EMBED_DIMENSIONS } from "./lib/adEmbeddings";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -16,45 +16,46 @@ afterEach(() => {
 const unit = (axis: number, lean = 0) => Array.from({ length: EMBED_DIMENSIONS }, (_, i) => (i === axis ? 1 : i === axis + 1 ? lean : 0));
 const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
 
-describe("Who else sells this: same picture", () => {
-  it("finds stores in the country whose ads show the same product picture", async () => {
+describe("Who else sells this: picture check on Meta's results", () => {
+  async function searchRow(t: ReturnType<typeof convexTest>) {
+    return await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" });
+      const st = (host: string, image: string) => ({ host, advertisers: [host], ads: 1, copies: 1, oldestDays: 3, offers: [], productPaths: [], sample: [{ id: host, headline: "h", image, days: 3, offers: [] }] });
+      return await ctx.db.insert("offerSearches", {
+        userId, key: "SE|~powervest", country: "SE", phrases: ["PowerVest"], status: "done", createdAt: new Date().toISOString(), loose: true,
+        productImage: "https://cdn.shopify.com/vest.jpg", pictureStatus: "running",
+        stores: [st("north-alpine.com", "https://img/north.jpg"), st("dramabox.com", "https://img/drama.jpg")],
+      });
+    });
+  }
+
+  it("scores each store by how much its ad pictures look like the product photo", async () => {
     vi.stubEnv("VOYAGE_API_KEY", "voyage-test");
     const png = await new Jimp({ width: 40, height: 30, color: 0x3366ccff }).getBuffer("image/png");
-    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request) => {
+    const sent: number[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
       const url = String(u instanceof Request ? u.url : u);
-      if (url === "https://cdn.shopify.com/zolen.jpg") return new Response(new Uint8Array(png), { headers: { "content-type": "image/png" } });
-      if (url.startsWith("https://api.voyageai.com/")) return json({ data: [{ index: 0, embedding: unit(0) }] });
-      return new Response("", { status: 404 });
+      if (url.startsWith("https://api.voyageai.com/")) {
+        sent.push(JSON.parse(String(init?.body)).inputs.length);
+        // In order: the product photo, north-alpine's ad picture, dramabox's.
+        return json({ data: [unit(0), unit(0, 0.1), unit(5)].map((embedding, index) => ({ index, embedding })) });
+      }
+      return new Response(new Uint8Array(png), { headers: { "content-type": "image/png" } });
     }));
     const t = convexTest(schema, modules);
-    await t.run(async (ctx) => {
-      await ctx.db.insert("users", { tokenIdentifier: "u1", role: "user", plan: "pro", subscriptionStatus: "active" });
-      const base = {
-        platform: "Facebook", niche: "Health & Wellness", bodyText: "", landingPageUrl: "", spendEstimate: "", likes: 0, views: "0", daysRunning: 1,
-        aiScore: 50, targeting: { ageRange: "", gender: "All", interests: [] }, firstSeenAt: "2026-10-01T00:00:00.000Z", source: "apify",
-      };
-      const add = async (host: string, country: string, embedding: number[]) => {
-        const id = await ctx.db.insert("ads", { ...base, country, landingHost: host, advertiserName: host, headline: `Ad ${host}`, creativeUrl: `https://img/${host}.jpg` });
-        await ctx.db.insert("adEmbeddings", { adId: id, embedding, niche: base.niche, model: "voyage-multimodal-3.5" });
-      };
-      await add("einlage.de", "DE", unit(0));
-      await add("relivex.nl", "DE", unit(0)); // the store asked about
-      await add("einlage.dk", "DK", unit(0)); // another country
-      await add("schuhe.de", "DE", unit(5)); // another product
-    });
-    const user = t.withIdentity({ subject: "u1|s" });
-    const r = await user.action(api.whoElse.samePicture, { imageUrl: "https://cdn.shopify.com/zolen.jpg", country: "de", excludeHost: "relivex.nl" });
-    expect(r).toEqual({ stores: [expect.objectContaining({ host: "einlage.de", ads: 1, match: 100, image: "https://img/einlage.de.jpg" })] });
+    const id = await searchRow(t);
+    await t.action(internal.whoElse.matchPictures, { id });
+    const row = (await t.run((ctx) => ctx.db.get("offerSearches", id)))!;
+    expect(sent).toEqual([3]);
+    expect(row.pictureStatus).toBe("done");
+    expect((row.stores as { host: string; match?: number }[]).map((st) => [st.host, st.match])).toEqual([["north-alpine.com", 100], ["dramabox.com", 0]]);
   });
 
-  it("says when picture search isn't set up, and needs sign-in", async () => {
+  it("says when picture matching isn't set up", async () => {
     const t = convexTest(schema, modules);
-    await t.run((ctx) => ctx.db.insert("users", { tokenIdentifier: "u1", role: "user" }));
-    expect(await t.withIdentity({ subject: "u1|s" }).action(api.whoElse.samePicture, { imageUrl: "https://x/y.jpg", country: "DE", excludeHost: "a.nl" })).toEqual({
-      stores: [],
-      skipped: "Picture matching isn't set up yet (VOYAGE_API_KEY).",
-    });
-    await expect(t.action(api.whoElse.samePicture, { imageUrl: "https://x/y.jpg", country: "DE", excludeHost: "a.nl" })).rejects.toThrow(/sign in/i);
+    const id = await searchRow(t);
+    await t.action(internal.whoElse.matchPictures, { id });
+    expect(await t.run((ctx) => ctx.db.get("offerSearches", id))).toMatchObject({ pictureStatus: "skipped" });
   });
 });
 

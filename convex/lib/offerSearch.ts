@@ -229,40 +229,26 @@ export function parseKeywords(text: string): string[] {
     .slice(0, 3);
 }
 
-// Voyage similarity from which two ad pictures show the same product (Looks similar shows from 0.5).
-const SAME_PRODUCT = 0.75;
+const sameWord = (a: string, b?: string) => !!b && a.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") === b.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
-export type ImageStore = { host: string; advertiser: string; ads: number; match: number; adId: string; image?: string; headline: string };
-type ImageHit = {
-  score: number;
-  ad: { _id: string; landingHost?: string; country: string; advertiserName: string; creativeUrl?: string; hostedImageUrl?: string; headline: string };
-};
-
-/** AdSpy ads with the same product picture in a country, by store (not the one asked about), best match first. */
-export function storesFromImageHits(hits: ImageHit[], country: string, excludeHost: string): ImageStore[] {
-  const byHost = new Map<string, ImageStore & { score: number }>();
-  for (const h of hits) {
-    const host = h.ad.landingHost?.replace(/^www\./, "");
-    if (!host || host === excludeHost || h.ad.country.toUpperCase() !== country.toUpperCase() || h.score < SAME_PRODUCT) continue;
-    const have = byHost.get(host);
-    if (have) {
-      have.ads += 1;
-      if (h.score <= have.score) continue;
-    }
-    const image = h.ad.hostedImageUrl || h.ad.creativeUrl;
-    byHost.set(host, {
-      host,
-      advertiser: h.ad.advertiserName,
-      ads: have?.ads ?? 1,
-      match: Math.round(h.score * 100),
-      score: h.score,
-      adId: h.ad._id,
-      ...(image ? { image } : {}),
-      headline: h.ad.headline,
-    });
-  }
-  return [...byHost.values()].sort((a, b) => b.score - a.score).map(({ score: _score, ...s }) => s);
+/** A product's made-up name ("PowerVest™", "HandyBelt®", "PestReject"), which dropshippers often keep in every country;
+ * not the store's own name. Marked with ™/® first, else a CamelCase word. */
+export function inventedName(title: string, brand?: string): string | undefined {
+  const marked = [...title.matchAll(/([\p{L}\p{N}]+)\s*[™®]/gu)].map((m) => m[1]);
+  const camel = title.split(/[^\p{L}\p{N}]+/u).filter((w) => /\p{Ll}\p{Lu}/u.test(w));
+  return [...marked, ...camel].find((w) => w.length >= 4 && !sameWord(w, brand));
 }
+
+/** How much a store's ad pictures look like the product photo: the best cosine similarity, 0-100. */
+export function pictureMatch(product: number[], samples: number[][]): number {
+  const norm = (v: number[]) => Math.sqrt(v.reduce((n, x) => n + x * x, 0)) || 1;
+  const p = norm(product);
+  const best = Math.max(0, ...samples.map((s) => s.reduce((n, x, i) => n + x * (product[i] ?? 0), 0) / (p * norm(s))));
+  return Math.round(best * 100);
+}
+
+/** From this picture match a store counts as selling the same product (ad pictures vs a plain product photo). */
+export const SAME_PRODUCT_MATCH = 60;
 
 /** The daily offer research (Admin → Offer research): every offer's main phrase, one run per country. */
 export function researchUrls(country: string): string[] {
@@ -413,6 +399,8 @@ export type FoundStore = {
   apps?: string[];
   /** The ads counted for it (ids), so "Find more" doesn't count one twice. */
   adIds?: string[];
+  /** A product search (Who else sells this): how much its ad pictures look like the product photo, 0-100. */
+  match?: number;
   /** How likely the store is a dropshipper (dropshipScore). */
   dropship?: Dropship;
 };
@@ -643,8 +631,8 @@ export function readShopifyProduct(json: unknown, host: string, handle: string):
   };
 }
 
-export type StoreSort = "ads" | "days" | "reach" | "dropship";
-export type StoreFilter = { shopifyOnly?: boolean; likelyOnly?: boolean; type?: StoreType; minAds?: number; minDays?: number; country?: string; sort?: StoreSort };
+export type StoreSort = "ads" | "days" | "reach" | "dropship" | "match";
+export type StoreFilter = { shopifyOnly?: boolean; likelyOnly?: boolean; sameProduct?: boolean; type?: StoreType; minAds?: number; minDays?: number; country?: string; sort?: StoreSort };
 
 // Likely dropshippers first: hero, niche, general (and likely ones from before store types), then the rest.
 const TYPE_ORDER: Record<StoreType, number> = { hero: 0, niche: 1, general: 2, brand: 4 };
@@ -653,8 +641,9 @@ const typeRank = (s: FoundStore) => (s.dropship?.type ? TYPE_ORDER[s.dropship.ty
 /** The page's filters and sorting over a search's stores (Offer Search and Admin → Offer research). */
 export function filterStores(stores: FoundStore[], f: StoreFilter): FoundStore[] {
   const out = stores.filter(
-    (s) => (!f.shopifyOnly || s.shopify) && (!f.likelyOnly || s.dropship?.likely) && (!f.type || s.dropship?.type === f.type) && s.ads >= (f.minAds ?? 0) && s.oldestDays >= (f.minDays ?? 0) && (!f.country || s.country === f.country),
+    (s) => (!f.shopifyOnly || s.shopify) && (!f.likelyOnly || s.dropship?.likely) && (!f.type || s.dropship?.type === f.type) && (!f.sameProduct || (s.match ?? 0) >= SAME_PRODUCT_MATCH) && s.ads >= (f.minAds ?? 0) && s.oldestDays >= (f.minDays ?? 0) && (!f.country || s.country === f.country),
   );
+  if (f.sort === "match") return out.sort((a, b) => (b.match ?? -1) - (a.match ?? -1) || b.ads - a.ads);
   if (f.sort === "dropship") return out.sort((a, b) => typeRank(a) - typeRank(b) || (b.reach ?? 0) - (a.reach ?? 0) || b.ads - a.ads);
   if (f.sort === "days") return out.sort((a, b) => b.oldestDays - a.oldestDays || b.ads - a.ads);
   if (f.sort === "reach") return out.sort((a, b) => (b.reach ?? 0) - (a.reach ?? 0) || b.ads - a.ads);

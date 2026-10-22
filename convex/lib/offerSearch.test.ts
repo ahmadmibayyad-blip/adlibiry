@@ -5,7 +5,8 @@ import {
   adMatchesWords,
   adShowsOffer,
   parseKeywords,
-  storesFromImageHits,
+  inventedName,
+  pictureMatch,
   catalogueSignals,
   dailyOfferPhrases,
   isDefaultVendor,
@@ -325,24 +326,24 @@ describe("shortError", () => {
     expect(parseKeywords("")).toEqual([]);
   });
 
-  it("groups same-picture ads by store in the country asked, best match first", () => {
-    const hit = (id: string, host: string, country: string, score: number, adv = host) => ({
-      score, ad: { _id: id, landingHost: host, country, advertiserName: adv, creativeUrl: `https://img/${id}.jpg`, headline: `h${id}` },
-    });
-    const stores = storesFromImageHits(
-      [
-        hit("1", "einlage.de", "DE", 0.91), hit("2", "einlage.de", "DE", 0.84), hit("3", "sohle.de", "DE", 0.78),
-        hit("4", "relivex.nl", "DE", 0.99), // the store asked about
-        hit("5", "other.dk", "DK", 0.95), // another country
-        hit("6", "weak.de", "DE", 0.6), // not the same product
-        hit("7", "", "DE", 0.9), // no store
-      ],
-      "de",
-      "relivex.nl",
-    );
-    expect(stores).toEqual([
-      { host: "einlage.de", advertiser: "einlage.de", ads: 2, match: 91, adId: "1", image: "https://img/1.jpg", headline: "h1" },
-      { host: "sohle.de", advertiser: "sohle.de", ads: 1, match: 78, adId: "3", image: "https://img/3.jpg", headline: "h3" },
-    ]);
+  it("finds a product's made-up name, not the store's", () => {
+    expect(inventedName("VitaBoost PowerVest™ | Verhoog Energie", "Middo")).toBe("PowerVest");
+    expect(inventedName("PestReject™ | Verjaag Insecten", "Dezizo")).toBe("PestReject");
+    expect(inventedName("ReliveX™ Magnetische Inlegzolen", "ReliveX")).toBeUndefined(); // that's the store
+    expect(inventedName("HandyBelt® - Gesploze Riem", "SupeRust")).toBe("HandyBelt");
+    expect(inventedName("CloudPillo Kussen", "Cloudpillo")).toBeUndefined();
+    expect(inventedName("Wijnkoeler – Geen Lauwe Wijn Meer")).toBeUndefined();
+  });
+
+  it("scores how much a store's ad pictures look like the product photo", () => {
+    expect(pictureMatch([1, 0, 0], [[0, 1, 0], [0.8, 0.6, 0]])).toBe(80);
+    expect(pictureMatch([1, 0], [])).toBe(0);
+  });
+
+  it("shows the stores selling the same product first", () => {
+    const st = (host: string, ads: number, match?: number): FoundStore => ({ ...base, host, ads, copies: ads, ...(match !== undefined ? { match } : {}) });
+    const stores = [st("dramabox.com", 9, 12), st("north-alpine.com", 2, 81), st("weckmethod.eu", 3, 64), st("nopic.se", 5)];
+    expect(filterStores(stores, { sameProduct: true, sort: "match" }).map((s) => s.host)).toEqual(["north-alpine.com", "weckmethod.eu"]);
+    expect(filterStores(stores, { sort: "match" }).map((s) => s.host)).toEqual(["north-alpine.com", "weckmethod.eu", "dramabox.com", "nopic.se"]);
   });
 });
