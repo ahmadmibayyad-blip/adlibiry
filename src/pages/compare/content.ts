@@ -2,7 +2,7 @@
 // (vite.config.ts comparePages → dist/vs/<slug>.html) so search engines read
 // the text without running the app.
 // Competitor facts are only what their own sites showed on CHECKED; re-check
-// prices before changing them (PiPiADS's annual price is a Q4 promo until 31 Dec).
+// prices before changing them. Kalodata shows prices only after sign-up.
 
 export const CHECKED = "22 October 2026";
 
@@ -46,7 +46,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       CHECKED +
       ".",
     rows: [
-      { feature: "Price", us: US.price, them: "Starter $49, Premium $99, Business $199 a month; $39 / $79 / $158 a month paid quarterly" },
+      { feature: "Price", us: US.price, them: "Starter $49, Premium $99, Business $199 a month; $34 / $69 / $139 a month paid yearly" },
       { feature: "Trial", us: US.trial, them: "\"Try for free\"; trial length not stated" },
       { feature: "Facebook & Instagram ads", us: US.meta, them: "Yes, with spend and activity filters" },
       { feature: "TikTok", us: US.tiktok, them: "TikTok ads listing in the plan table; influencer product placements" },
@@ -62,7 +62,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       "A large community and many creator tutorials.",
     ],
     weWin: [
-      "Lower price: €35 a month for everything, against $49 for Minea's entry plan with monthly AI caps.",
+      "One plan with everything for €35 a month (€30 paid yearly). Minea's Starter is $49 ($34 yearly) and allows 10 AI ad analyses a month.",
       "From a winning ad to your own version: analyse why the video works, get a script for your product, and make the video with an AI actor.",
       "CJ Dropshipping next to AliExpress, with shipping to your country and the margin worked out.",
       "Spend estimates you can adjust: set your own CPM instead of a fixed one.",
@@ -79,7 +79,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       "AdSpy Pro vs WinningHunter on price, trial, platforms, store tracking and AI tools. AdSpy Pro is €35/month with a 7-day trial, no card needed.",
     intro: "WinningHunter is a popular ad spy for Shopify sellers. Here's how it compares with AdSpy Pro, from both sites on " + CHECKED + ".",
     rows: [
-      { feature: "Price", us: US.price, them: "Basic $49, Standard $79, Enterprise $249 a month; quarterly saves 15%, yearly 40%" },
+      { feature: "Price", us: US.price, them: "Basic $49, Standard $79, Enterprise $249 a month; $30 / $48 / $150 a month paid yearly" },
       { feature: "Trial", us: US.trial, them: "Free start, no credit card; trial length not stated" },
       { feature: "Facebook & Instagram ads", us: US.meta, them: "Facebook ads with real-time ad scores and spend data" },
       { feature: "TikTok", us: US.tiktok, them: "TikTok Shop on Basic; TikTok ads from Standard ($79)" },
@@ -96,7 +96,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       "1-on-1 weekly calls on their Enterprise plan.",
     ],
     weWin: [
-      "TikTok ads, TikTok Shop and every tool at €35 a month; WinningHunter's TikTok ads start at $79.",
+      "TikTok ads, TikTok Shop and every tool in one plan (€35 a month, €30 yearly); WinningHunter's TikTok ads come with Standard ($79, or $48 yearly).",
       "Supplier prices from AliExpress and CJ on every product, so you see the margin before you test.",
       "Make your own version of a winning ad: script, voice-over and AI actor video.",
       "Launch a product page or a full store to Shopify from the product.",
@@ -148,7 +148,7 @@ export const COMPARE_PAGES: ComparePage[] = [
       "AdSpy Pro vs PiPiADS on price, credits, TikTok and Meta coverage, suppliers and AI tools. AdSpy Pro is €35/month with no credits to count.",
     intro: "PiPiADS is a TikTok-first ad library that also covers Meta. Here's how it compares with AdSpy Pro, from both sites on " + CHECKED + ".",
     rows: [
-      { feature: "Price", us: US.price, them: "Basic $49, Advanced $99, Enterprise $900 a month; annual at half price until 31 Dec (Q4 offer)" },
+      { feature: "Price", us: US.price, them: "Basic $49, Advanced $99, Enterprise $900 a month; annual plans cost less" },
       { feature: "How usage works", us: "No credits. Daily limits only on AI tools", them: "Credits: 1 per ad in a list, 20 per ad opened; Basic has 30,000 a month" },
       { feature: "Trial", us: US.trial, them: "500 credits, ads only, no ad details. No refunds" },
       { feature: "TikTok", us: US.tiktok, them: "TikTok ads and TikTok Shop" },
