@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   adLink,
   adLibrarySearchUrl,
+  adMatchesWords,
   adShowsOffer,
+  parseKeywords,
+  storesFromImageHits,
   catalogueSignals,
   dailyOfferPhrases,
   isDefaultVendor,
@@ -296,5 +299,50 @@ describe("shortError", () => {
     // Brands and retailers are left out; most ads first.
     expect(filterStores(stores, { likelyOnly: true }).map((s) => s.host)).toEqual(["moobalm.store", "glowora.nl", "relivex.nl"]);
     expect(filterStores(stores, { type: "niche" }).map((s) => s.host)).toEqual(["glowora.nl", "relivex.nl"]);
+  });
+
+  it("searches a product's words loosely, not as an exact phrase", () => {
+    const url = decodeURIComponent(adLibrarySearchUrl("de", "magnetische einlegesohlen", false).replace(/\+/g, " "));
+    expect(url).toContain("q=magnetische einlegesohlen&search_type=keyword_unordered");
+    expect(url).not.toContain('"');
+  });
+
+  it("keeps ads with most of a keyword's words", () => {
+    const ad = (body: string) => ({ headline: "", body });
+    const words = ["magnetische einlegesohlen", "abnehm einlagen"];
+    expect(adMatchesWords(ad("Die neuen magnetischen Sohlen!"), words)).toBe(false); // "magnetischen" isn't "magnetische"
+    expect(adMatchesWords(ad("Magnetische Einlegesohlen – 50% Rabatt"), words)).toBe(true);
+    expect(adMatchesWords(ad("Einlegesohlen für jeden Schuh"), words)).toBe(true); // 1 of 2 words is half
+    expect(adMatchesWords(ad("Neue Schuhe im Sale"), words)).toBe(false);
+    expect(adMatchesWords(ad("Abnehm-Einlagen"), words)).toBe(true);
+  });
+
+  it("reads the AI's shopper keywords", () => {
+    expect(parseKeywords('1. "Magnetische Einlegesohlen"\n- Abnehm Einlagen\nEinlegesohlen Magnet\nextra one')).toEqual([
+      "Magnetische Einlegesohlen", "Abnehm Einlagen", "Einlegesohlen Magnet",
+    ]);
+    expect(parseKeywords("a very long keyword phrase that goes on and on")).toEqual(["a very long keyword"]);
+    expect(parseKeywords("")).toEqual([]);
+  });
+
+  it("groups same-picture ads by store in the country asked, best match first", () => {
+    const hit = (id: string, host: string, country: string, score: number, adv = host) => ({
+      score, ad: { _id: id, landingHost: host, country, advertiserName: adv, creativeUrl: `https://img/${id}.jpg`, headline: `h${id}` },
+    });
+    const stores = storesFromImageHits(
+      [
+        hit("1", "einlage.de", "DE", 0.91), hit("2", "einlage.de", "DE", 0.84), hit("3", "sohle.de", "DE", 0.78),
+        hit("4", "relivex.nl", "DE", 0.99), // the store asked about
+        hit("5", "other.dk", "DK", 0.95), // another country
+        hit("6", "weak.de", "DE", 0.6), // not the same product
+        hit("7", "", "DE", 0.9), // no store
+      ],
+      "de",
+      "relivex.nl",
+    );
+    expect(stores).toEqual([
+      { host: "einlage.de", advertiser: "einlage.de", ads: 2, match: 91, adId: "1", image: "https://img/1.jpg", headline: "h1" },
+      { host: "sohle.de", advertiser: "sohle.de", ads: 1, match: 78, adId: "3", image: "https://img/3.jpg", headline: "h3" },
+    ]);
   });
 });

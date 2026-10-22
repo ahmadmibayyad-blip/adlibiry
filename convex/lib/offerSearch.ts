@@ -195,10 +195,73 @@ export function searchKey(country: string, phrases: string[]): string {
   return `${country.toUpperCase()}|${phrases.map((p) => p.toLowerCase()).sort().join("|")}`;
 }
 
-export function adLibrarySearchUrl(country: string, phrase: string): string {
-  // Exact phrase: "keyword_unordered" let "2+1 gratis" match every ad that merely says "gratis".
-  const p = new URLSearchParams({ active_status: "active", ad_type: "all", country: country.toUpperCase(), q: `"${phrase}"`, search_type: "keyword_exact_phrase", media_type: "all" });
+export function adLibrarySearchUrl(country: string, phrase: string, exact = true): string {
+  // Offers as exact phrases ("keyword_unordered" let "2+1 gratis" match every ad that merely says "gratis"); a product's
+  // words loosely, since sellers name the same product in many ways.
+  const p = new URLSearchParams({
+    active_status: "active",
+    ad_type: "all",
+    country: country.toUpperCase(),
+    q: exact ? `"${phrase}"` : phrase,
+    search_type: exact ? "keyword_exact_phrase" : "keyword_unordered",
+    media_type: "all",
+  });
   return `https://www.facebook.com/ads/library/?${p.toString()}`;
+}
+
+const tokens = (t: string) => t.toLowerCase().normalize("NFC").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+
+/** A product search's ads: those with at least half the words of one of the keywords ("Einlegesohlen" for "Magnetische Einlegesohlen"). */
+export function adMatchesWords(ad: Pick<SearchAd, "headline" | "body">, keywords: string[]): boolean {
+  const have = new Set(tokens(`${ad.headline}\n${ad.body}`));
+  return keywords.some((k) => {
+    const want = tokens(k);
+    return want.length > 0 && want.filter((w) => have.has(w)).length >= Math.ceil(want.length / 2);
+  });
+}
+
+/** The AI's shopper keywords: up to 3 lines, numbering, bullets and quotes stripped, 4 words each at most. */
+export function parseKeywords(text: string): string[] {
+  return text
+    .split("\n")
+    .map((l) => l.replace(/^\s*(?:\d+[.)]|[-*•])\s*/, "").replace(/["'“”„]/g, "").trim().split(/\s+/).slice(0, 4).join(" "))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+// Voyage similarity from which two ad pictures show the same product (Looks similar shows from 0.5).
+const SAME_PRODUCT = 0.75;
+
+export type ImageStore = { host: string; advertiser: string; ads: number; match: number; adId: string; image?: string; headline: string };
+type ImageHit = {
+  score: number;
+  ad: { _id: string; landingHost?: string; country: string; advertiserName: string; creativeUrl?: string; hostedImageUrl?: string; headline: string };
+};
+
+/** AdSpy ads with the same product picture in a country, by store (not the one asked about), best match first. */
+export function storesFromImageHits(hits: ImageHit[], country: string, excludeHost: string): ImageStore[] {
+  const byHost = new Map<string, ImageStore & { score: number }>();
+  for (const h of hits) {
+    const host = h.ad.landingHost?.replace(/^www\./, "");
+    if (!host || host === excludeHost || h.ad.country.toUpperCase() !== country.toUpperCase() || h.score < SAME_PRODUCT) continue;
+    const have = byHost.get(host);
+    if (have) {
+      have.ads += 1;
+      if (h.score <= have.score) continue;
+    }
+    const image = h.ad.hostedImageUrl || h.ad.creativeUrl;
+    byHost.set(host, {
+      host,
+      advertiser: h.ad.advertiserName,
+      ads: have?.ads ?? 1,
+      match: Math.round(h.score * 100),
+      score: h.score,
+      adId: h.ad._id,
+      ...(image ? { image } : {}),
+      headline: h.ad.headline,
+    });
+  }
+  return [...byHost.values()].sort((a, b) => b.score - a.score).map(({ score: _score, ...s }) => s);
 }
 
 /** The daily offer research (Admin → Offer research): every offer's main phrase, one run per country. */
