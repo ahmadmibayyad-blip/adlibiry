@@ -180,7 +180,19 @@ function Results({ search }: { search: SearchView }) {
       <p className="text-xs text-muted-foreground">
         Ad counts are the ads this search found, not the store's total. EU reach and spend show for EU and UK searches (Meta publishes reach only there).
       </p>
-      <StoreResults key={search._id} stores={search.stores} country={search.country} />
+      {search.pictureStatus === "running" ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner className="w-4 h-4" /> Comparing each store's ad pictures with the product photo…
+        </p>
+      ) : search.pictureStatus === "skipped" ? (
+        <p className="text-sm text-muted-foreground">The picture comparison didn't run this time, so every store Meta found is shown.</p>
+      ) : null}
+      <StoreResults
+        key={search._id}
+        stores={search.stores}
+        country={search.country}
+        pictures={!!search.productImage && search.pictureStatus !== "skipped"}
+      />
       {search.offer ? <FindMore id={search._id} status={search.moreStatus} /> : null}
     </div>
   );

@@ -387,6 +387,34 @@ describe("Offer Search: Find more", () => {
 });
 
 describe("Offer Search: a product's keywords", () => {
+  it("keeps every ad Meta finds for a product with a photo, and compares their pictures", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    const runs: { urls: { url: string }[] }[] = [];
+    const ads = [
+      { ad_archive_id: "31", page_name: "NorthAlpine", start_date: (Date.now() - 4 * DAY) / 1000, snapshot: { body: { text: "No more dad bod" }, link_url: "https://north-alpine.com/products/northpower" } },
+      { ad_archive_id: "32", page_name: "DramaBox", start_date: (Date.now() - 4 * DAY) / 1000, snapshot: { body: { text: "Watch now" }, link_url: "https://dramabox.com/" } },
+    ];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("api.apify.com/v2/acts/")) {
+        runs.push(JSON.parse(String(init?.body)));
+        return json({ data: { id: "run1", status: "RUNNING" } });
+      }
+      if (url.includes("/datasets/ds1/items")) return json(ads);
+      return new Response("", { status: 404 });
+    }));
+    const { t, user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { country: "SE", keywords: ["PowerVest"], productImage: "https://cdn.shopify.com/vest.jpg" });
+    const run = await t.run(async (ctx) => (await ctx.db.query("apifyRuns").collect())[0]);
+    await t.action(internal.apify.handleWebhook, { token: run.token, datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    const done = (await user.query(api.offerSearch.get, { id }))!;
+    // The ad text doesn't say "PowerVest": the picture check decides, not the words.
+    expect(done).toMatchObject({ status: "done", adsFound: 2, productImage: "https://cdn.shopify.com/vest.jpg", pictureStatus: "running" });
+    const jobs = await t.run((ctx) => ctx.db.system.query("_scheduled_functions").collect());
+    expect(jobs.map((j) => j.name)).toContain("whoElse:matchPictures");
+    expect(runs).toHaveLength(1);
+  });
+
   it("searches a product's keywords loosely and keeps ads with most of their words", async () => {
     vi.stubEnv("APIFY_TOKEN", "apify-test");
     const runs: { urls: { url: string }[] }[] = [];

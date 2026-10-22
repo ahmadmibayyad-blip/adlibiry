@@ -475,6 +475,8 @@ export default defineSchema({
     stores: v.optional(v.any()),     // lib/offerSearch.ts FoundStore[]
     daily: v.optional(v.string()),   // the day, for Admin → Offer research (offerSearch.dailyResearch)
     loose: v.optional(v.boolean()),       // a product's keywords ("Who else sells this"), searched loosely
+    productImage: v.optional(v.string()), // that product's photo: each store's ad pictures are compared with it (whoElse.matchPictures)
+    pictureStatus: v.optional(v.string()), // running | done | skipped
     moreRunToken: v.optional(v.string()), // "Find more": its Apify run (offerSearch.findMore)
     moreStatus: v.optional(v.string()),   // running | done | failed
     moreAt: v.optional(v.string()),       // when Find more ran (counts as a search that day)

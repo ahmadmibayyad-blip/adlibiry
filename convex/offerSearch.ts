@@ -117,6 +117,7 @@ export const create = internalMutation({
     runToken: v.optional(v.string()),
     cachedFrom: v.optional(v.id("offerSearches")),
     loose: v.optional(v.boolean()),
+    productImage: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"offerSearches">> => {
     const from = args.cachedFrom ? await ctx.db.get("offerSearches", args.cachedFrom) : null;
@@ -126,6 +127,7 @@ export const create = internalMutation({
       createdAt: new Date().toISOString(),
       ...(from?.stores ? { stores: from.stores, adsFound: from.adsFound, finishedAt: from.finishedAt } : {}),
       ...(from?.runToken ? { runToken: from.runToken } : {}),
+      ...(from?.pictureStatus ? { pictureStatus: from.pictureStatus } : {}),
     });
   },
 });
@@ -137,8 +139,9 @@ export const start = action({
     country: v.string(),
     extra: v.optional(v.string()),
     custom: v.optional(v.string()),
-    // A product's keywords (Who else sells this): up to 3, searched loosely.
+    // A product's keywords (Who else sells this): up to 3, searched loosely, and its photo to compare the ads' pictures with.
     keywords: v.optional(v.array(v.string())),
+    productImage: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ id: Id<"offerSearches">; cached: boolean }> => {
     const identity = await ctx.auth.getUserIdentity();
@@ -150,13 +153,14 @@ export const start = action({
     const offer = !loose && OFFER_IDS.includes(args.offer as OfferId) ? (args.offer as OfferId) : undefined;
     if (!loose && !offer && !args.custom?.trim()) throw new ConvexError({ code: "NO_OFFER", message: "Pick an offer or type what to search for." });
     const phrases = loose ? words : searchPhrases({ offer, country, extra: args.extra, custom: args.custom });
-    // A keyword search isn't the same search as those words as an exact phrase.
-    const key = searchKey(country, loose ? phrases.map((p) => `~${p}`) : phrases);
+    const productImage = loose && args.productImage && /^https:\/\//.test(args.productImage) ? args.productImage.slice(0, 500) : undefined;
+    // A keyword search isn't the same search as those words as an exact phrase, nor as the same words for another product.
+    const key = searchKey(country, loose ? [...phrases.map((p) => `~${p}`), ...(productImage ? [`#${productImage}`] : [])] : phrases);
 
     const b = await ctx.runQuery(internal.offerSearch.before, { token: stableToken(identity), key });
     if (!b) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     if (b.cached) {
-      const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), ...(loose ? { loose } : {}), phrases, cachedFrom: b.cached._id });
+      const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), ...(loose ? { loose } : {}), ...(productImage ? { productImage } : {}), phrases, cachedFrom: b.cached._id });
       return { id, cached: true };
     }
     if (b.used >= b.limit) {
@@ -170,7 +174,7 @@ export const start = action({
     }
 
     const runToken = crypto.randomUUID().replace(/-/g, "");
-    const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), ...(loose ? { loose } : {}), phrases, runToken });
+    const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), ...(loose ? { loose } : {}), ...(productImage ? { productImage } : {}), phrases, runToken });
     try {
       await ctx.runAction(internal.apify.startTrackedRun, {
         token: runToken,
@@ -241,7 +245,28 @@ export const runningForToken = internalQuery({
   args: { runToken: v.string() },
   handler: async (ctx, args) => {
     const rows = await ctx.db.query("offerSearches").withIndex("by_token", (q) => q.eq("runToken", args.runToken)).take(100);
-    return rows.filter((r) => r.status === "running").map((r) => ({ _id: r._id, offer: r.offer, phrases: r.phrases, daily: !!r.daily, loose: !!r.loose }));
+    return rows.filter((r) => r.status === "running").map((r) => ({ _id: r._id, offer: r.offer, phrases: r.phrases, daily: !!r.daily, loose: !!r.loose, productImage: r.productImage }));
+  },
+});
+
+/** A product search's photo and stores, for the picture check. */
+export const forPictures = internalQuery({
+  args: { id: v.id("offerSearches") },
+  handler: async (ctx, args) => {
+    const r = await ctx.db.get("offerSearches", args.id);
+    return r?.productImage ? { productImage: r.productImage, stores: (r.stores ?? []) as FoundStore[] } : null;
+  },
+});
+
+/** The picture check's result: each store's match (0-100), and its status. */
+export const savePictures = internalMutation({
+  args: { id: v.id("offerSearches"), matches: v.any(), status: v.string() },
+  handler: async (ctx, args) => {
+    const r = await ctx.db.get("offerSearches", args.id);
+    if (!r) return;
+    const matches = args.matches as Record<string, number>;
+    const stores = ((r.stores ?? []) as FoundStore[]).map((st) => (matches[st.host] !== undefined ? { ...st, match: matches[st.host] } : st));
+    await ctx.db.patch("offerSearches", args.id, { stores, pictureStatus: args.status });
   },
 });
 
@@ -318,11 +343,17 @@ export const claimRead = internalMutation({
 
 /** One search's stores, once its run is read. */
 export const finishedSearch = internalMutation({
-  args: { id: v.id("offerSearches"), stores: v.any(), adsFound: v.number() },
+  args: { id: v.id("offerSearches"), stores: v.any(), adsFound: v.number(), pictureStatus: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const row = await ctx.db.get("offerSearches", args.id);
     if (row?.status !== "running") return;
-    await ctx.db.patch("offerSearches", args.id, { status: "done", stores: args.stores, adsFound: args.adsFound, finishedAt: new Date().toISOString() });
+    await ctx.db.patch("offerSearches", args.id, {
+      status: "done",
+      stores: args.stores,
+      adsFound: args.adsFound,
+      finishedAt: new Date().toISOString(),
+      ...(args.pictureStatus ? { pictureStatus: args.pictureStatus } : {}),
+    });
   },
 });
 
@@ -538,13 +569,16 @@ export const finish = internalAction({
     const perSearch = searches.map((row) => {
       // The daily research searches every offer at once; a user's search one offer, or their own words.
       const offers: (OfferId | null)[] = row.daily ? OFFER_IDS : [(row.offer as OfferId | undefined) ?? null];
-      const kept = ads.filter((a) => (row.loose ? adMatchesWords(a, row.phrases) : offers.some((o) => adShowsOffer(a, o, row.phrases))));
-      return { id: row._id, adsFound: kept.length, stores: groupByStore(kept).slice(0, STORES_KEPT) };
+      // A product search with a photo keeps every ad Meta found: the picture check decides (whoElse.matchPictures).
+      const kept = row.loose && row.productImage ? ads : ads.filter((a) => (row.loose ? adMatchesWords(a, row.phrases) : offers.some((o) => adShowsOffer(a, o, row.phrases))));
+      return { id: row._id, adsFound: kept.length, stores: groupByStore(kept).slice(0, STORES_KEPT), pictures: !!row.productImage };
     });
     // Users' searches get the AliExpress match; the daily research doesn't.
     const built = await buildStores(ctx, perSearch.map((x) => x.stores), searches.some((r) => !r.daily));
     for (const [n, x] of perSearch.entries()) {
-      await ctx.runMutation(internal.offerSearch.finishedSearch, { id: x.id, stores: built[n], adsFound: x.adsFound });
+      const pictures = x.pictures && built[n].length > 0;
+      await ctx.runMutation(internal.offerSearch.finishedSearch, { id: x.id, stores: built[n], adsFound: x.adsFound, ...(pictures ? { pictureStatus: "running" } : {}) });
+      if (pictures) await ctx.scheduler.runAfter(0, internal.whoElse.matchPictures, { id: x.id });
     }
   },
 });
@@ -592,7 +626,7 @@ export const get = query({
     if (!identity) return null;
     const s = await ctx.db.get("offerSearches", args.id);
     if (!s) return null;
-    return { _id: s._id, country: s.country, offer: s.offer, phrases: s.phrases, status: s.status, createdAt: s.createdAt, finishedAt: s.finishedAt, error: s.error, adsFound: s.adsFound, moreStatus: s.moreStatus, stores: (s.stores ?? []) as FoundStore[] };
+    return { _id: s._id, country: s.country, offer: s.offer, phrases: s.phrases, status: s.status, createdAt: s.createdAt, finishedAt: s.finishedAt, error: s.error, adsFound: s.adsFound, moreStatus: s.moreStatus, productImage: s.productImage, pictureStatus: s.pictureStatus, stores: (s.stores ?? []) as FoundStore[] };
   },
 });
 
