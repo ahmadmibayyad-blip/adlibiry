@@ -978,6 +978,8 @@ export default defineSchema({
     installedAt: v.number(),
     updatedAt: v.number(),
     uninstalledAt: v.optional(v.number()),
+    awaitingStatusId: v.optional(v.number()),  // our "بانتظار التأكيد" sub-status in this store
+    refreshLockUntil: v.optional(v.number()),  // a token refresh is running until then (refresh tokens are single use)
   }).index("by_merchant", ["merchantId"]),
   // COD orders awaiting WhatsApp confirmation. Ids and amount only, no customer PII.
   sallaCodOrders: defineTable({
@@ -986,8 +988,11 @@ export default defineSchema({
     referenceId: v.optional(v.string()),
     total: v.optional(v.number()),
     currency: v.optional(v.string()),
-    status: v.string(),        // "pending" | later "confirmed" | "cancelled"
+    status: v.string(),        // "pending" | "confirmed" | "cancelled"
     createdAt: v.number(),
+    heldAt: v.optional(v.number()),        // set to "بانتظار التأكيد" in Salla
+    decidedAt: v.optional(v.number()),     // confirmed/cancelled written back to Salla
+    lastError: v.optional(v.string()),     // the last Salla API failure for this order
   }).index("by_merchant_order", ["merchantId", "orderId"]),
   sallaWebhookEvents: defineTable({
     key: v.string(),           // merchant:event:hash of the raw body
