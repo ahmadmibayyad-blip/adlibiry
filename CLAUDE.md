@@ -161,9 +161,11 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   middle price of the 3 cheapest (`bestSupplierMatch`), and the markup (store price in USD ÷ supplier). "Find more stores (+150 ads)" (`offerSearch.findMore`, once per offer
   search, counts as a search via `moreAt`; a failed one can be tried again) runs the offer's `more` phrases and merges new stores in
   (`mergeStores`, up to 80).
-  "Who else sells this" on a product is a country menu: this search's country with the same words, or another country with the
-  product's name translated into its language (`offerSearch.translateWords`, Claude Haiku, AI daily limit); it opens Offer Search with
-  `?country=&words=` (`shortProductName`) for the user to check before searching. Results open on "Likely
+  "Who else sells this" on a product is a country menu opening a panel (`convex/whoElse.ts`, Node): stores in that country whose
+  ads in AdSpy show the same product picture (`samePicture`: Voyage vector of the product photo, top 256 in `adEmbeddings`, ads of
+  that country with similarity ≥ 0.75, by store, `storesFromImageHits`), and the words shops there use for it (`keywords`: Claude
+  Haiku from the product name and its AliExpress match, AI daily limit), editable, to "Search Meta in <country>": `offerSearch.start`
+  with `keywords` runs a loose search (`keyword_unordered`, row `loose`, ads with half a keyword's words, `adMatchesWords`). Results open on "Likely
   dropshippers" sorted hero → niche → general, then EU reach.
   Each found store (top 40) gets: EU reach (EU/UK searches, from the scraper's ad details, no extra cost; spend = reach × the user's CPM in
   the app), Shopify + currency + country from `/meta.json`, and up to 2 products its ads link to from `/products/<handle>.json` (name, price,

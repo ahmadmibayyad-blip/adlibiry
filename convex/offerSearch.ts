@@ -7,19 +7,15 @@ import { byTier } from "./lib/billing";
 import { requireAdmin } from "./admin/helpers";
 import { runCostCap } from "./apify";
 import { PICTURE_ACTOR, fromPictureSearch, pictureLimit, type PictureMatch } from "./lib/aliexpress";
-import Anthropic from "@anthropic-ai/sdk";
-import { claimAiRequest } from "./lib/aiQuota";
-import { claudeClient } from "./lib/claudeClient";
-import { claudeErrorMessage } from "./lib/claudeErrors";
 import { budgetLeft } from "./lib/fusion";
 import { toUsd } from "./lib/priceParse";
 import { inspectHtml } from "./lib/storeInspect";
 import {
   adLibrarySearchUrl,
+  adMatchesWords,
   adShowsOffer,
   bestSupplierMatch,
   offerPictureLimit,
-  searchLanguage,
   mergeStores,
   morePhrases,
   catalogueSignals,
@@ -120,6 +116,7 @@ export const create = internalMutation({
     phrases: v.array(v.string()),
     runToken: v.optional(v.string()),
     cachedFrom: v.optional(v.id("offerSearches")),
+    loose: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<Id<"offerSearches">> => {
     const from = args.cachedFrom ? await ctx.db.get("offerSearches", args.cachedFrom) : null;
@@ -135,21 +132,31 @@ export const create = internalMutation({
 
 /** Starts a search, or answers from the same one made in the last 6 hours. */
 export const start = action({
-  args: { offer: v.optional(v.string()), country: v.string(), extra: v.optional(v.string()), custom: v.optional(v.string()) },
+  args: {
+    offer: v.optional(v.string()),
+    country: v.string(),
+    extra: v.optional(v.string()),
+    custom: v.optional(v.string()),
+    // A product's keywords (Who else sells this): up to 3, searched loosely.
+    keywords: v.optional(v.array(v.string())),
+  },
   handler: async (ctx, args): Promise<{ id: Id<"offerSearches">; cached: boolean }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     const country = args.country.toUpperCase();
     if (!OFFER_COUNTRIES[country]) throw new ConvexError({ code: "BAD_COUNTRY", message: "Pick one of the listed countries." });
-    const offer = OFFER_IDS.includes(args.offer as OfferId) ? (args.offer as OfferId) : undefined;
-    if (!offer && !args.custom?.trim()) throw new ConvexError({ code: "NO_OFFER", message: "Pick an offer or type what to search for." });
-    const phrases = searchPhrases({ offer, country, extra: args.extra, custom: args.custom });
-    const key = searchKey(country, phrases);
+    const words = [...new Set((args.keywords ?? []).map((k) => k.trim().replace(/\s+/g, " ")).filter((k) => k && k.length <= 40))].slice(0, 3);
+    const loose = words.length > 0;
+    const offer = !loose && OFFER_IDS.includes(args.offer as OfferId) ? (args.offer as OfferId) : undefined;
+    if (!loose && !offer && !args.custom?.trim()) throw new ConvexError({ code: "NO_OFFER", message: "Pick an offer or type what to search for." });
+    const phrases = loose ? words : searchPhrases({ offer, country, extra: args.extra, custom: args.custom });
+    // A keyword search isn't the same search as those words as an exact phrase.
+    const key = searchKey(country, loose ? phrases.map((p) => `~${p}`) : phrases);
 
     const b = await ctx.runQuery(internal.offerSearch.before, { token: stableToken(identity), key });
     if (!b) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
     if (b.cached) {
-      const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), phrases, cachedFrom: b.cached._id });
+      const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), ...(loose ? { loose } : {}), phrases, cachedFrom: b.cached._id });
       return { id, cached: true };
     }
     if (b.used >= b.limit) {
@@ -163,7 +170,7 @@ export const start = action({
     }
 
     const runToken = crypto.randomUUID().replace(/-/g, "");
-    const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), phrases, runToken });
+    const id = await ctx.runMutation(internal.offerSearch.create, { userId: b.userId, key, country, ...(offer ? { offer } : {}), ...(loose ? { loose } : {}), phrases, runToken });
     try {
       await ctx.runAction(internal.apify.startTrackedRun, {
         token: runToken,
@@ -171,7 +178,7 @@ export const start = action({
         keyword: phrases.join(" | ").slice(0, 200),
         niche: "General",
         maxAds: MAX_ADS,
-        urls: phrases.map((p) => adLibrarySearchUrl(country, p)),
+        urls: phrases.map((p) => adLibrarySearchUrl(country, p, !loose)),
         trigger: "offer",
       });
     } catch (e) {
@@ -187,47 +194,6 @@ export const start = action({
     // If Apify's webhook never comes, look at the run ourselves.
     await ctx.scheduler.runAfter(8 * 60_000, internal.offerSearch.checkRun, { runToken, attempt: 1 });
     return { id, cached: false };
-  },
-});
-
-// "Who else sells this" in another country: the product's short name in that country's language (a small AI call,
-// in the AI daily limit), put in the search box for the user to check before searching.
-export const translateWords = action({
-  args: { words: v.string(), country: v.string() },
-  handler: async (ctx, args): Promise<{ words: string }> => {
-    if (!(await ctx.auth.getUserIdentity())) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in first." });
-    const language = searchLanguage(args.country);
-    if (!language) throw new ConvexError({ code: "BAD_COUNTRY", message: "Pick one of the listed countries." });
-    const words = args.words.trim().slice(0, 80);
-    if (!words) throw new ConvexError({ code: "BAD_REQUEST", message: "There's no product name to translate." });
-    if (!process.env.ANTHROPIC_API_KEY) throw new ConvexError({ code: "NOT_CONFIGURED", message: "AI isn't set up yet (missing ANTHROPIC_API_KEY)." });
-    await claimAiRequest(ctx);
-    try {
-      const message = await claudeClient().messages.create({
-        model: "claude-haiku-5-5",
-        max_tokens: 60,
-        system:
-          "You translate a short product name for a shop search. Answer with the product name in the language given, as shoppers there " +
-          "would search for it: at most 6 words, keep brand names, no quotes and no notes.",
-        messages: [{ role: "user", content: `Language: ${language}\nProduct name: ${words}` }],
-      });
-      const text = message.content
-        .map((b) => (b.type === "text" ? b.text : ""))
-        .join("")
-        .trim()
-        .split("\n")[0]
-        .replace(/^["'“”]+|["'“”]+$/g, "")
-        .trim()
-        .slice(0, 80);
-      if (!text || message.stop_reason === "refusal") throw new ConvexError({ code: "AI_ERROR", message: "The AI didn't translate it. Try again." });
-      return { words: text };
-    } catch (error) {
-      if (error instanceof Anthropic.APIError) {
-        const user = await ctx.runQuery(internal.users.getCurrentUserInternal);
-        throw new ConvexError({ code: "AI_ERROR", message: claudeErrorMessage(error, user?.role === "admin") });
-      }
-      throw error;
-    }
   },
 });
 
@@ -275,7 +241,7 @@ export const runningForToken = internalQuery({
   args: { runToken: v.string() },
   handler: async (ctx, args) => {
     const rows = await ctx.db.query("offerSearches").withIndex("by_token", (q) => q.eq("runToken", args.runToken)).take(100);
-    return rows.filter((r) => r.status === "running").map((r) => ({ _id: r._id, offer: r.offer, phrases: r.phrases, daily: !!r.daily }));
+    return rows.filter((r) => r.status === "running").map((r) => ({ _id: r._id, offer: r.offer, phrases: r.phrases, daily: !!r.daily, loose: !!r.loose }));
   },
 });
 
@@ -572,7 +538,7 @@ export const finish = internalAction({
     const perSearch = searches.map((row) => {
       // The daily research searches every offer at once; a user's search one offer, or their own words.
       const offers: (OfferId | null)[] = row.daily ? OFFER_IDS : [(row.offer as OfferId | undefined) ?? null];
-      const kept = ads.filter((a) => offers.some((o) => adShowsOffer(a, o, row.phrases)));
+      const kept = ads.filter((a) => (row.loose ? adMatchesWords(a, row.phrases) : offers.some((o) => adShowsOffer(a, o, row.phrases))));
       return { id: row._id, adsFound: kept.length, stores: groupByStore(kept).slice(0, STORES_KEPT) };
     });
     // Users' searches get the AliExpress match; the daily research doesn't.

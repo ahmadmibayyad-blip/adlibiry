@@ -386,23 +386,36 @@ describe("Offer Search: Find more", () => {
   });
 });
 
-describe("Offer Search: product name in another language", () => {
-  it("translates a product's name for another country's search", async () => {
-    vi.stubEnv("ANTHROPIC_API_KEY", "test");
-    const asked: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (_u: unknown, init?: RequestInit) => {
-      asked.push(String(init?.body));
-      return json({
-        id: "msg_1", type: "message", role: "assistant", model: "claude-haiku-5-5",
-        content: [{ type: "text", text: " Magnetische Einlegesohlen\n" }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
-      });
+describe("Offer Search: a product's keywords", () => {
+  it("searches a product's keywords loosely and keeps ads with most of their words", async () => {
+    vi.stubEnv("APIFY_TOKEN", "apify-test");
+    const runs: { urls: { url: string }[] }[] = [];
+    const ads = [
+      { ad_archive_id: "21", page_name: "Einlage", start_date: (Date.now() - 4 * DAY) / 1000, snapshot: { body: { text: "Magnetische Einlegesohlen jetzt -50%" }, link_url: "https://einlage.de/products/sohle" } },
+      { ad_archive_id: "22", page_name: "Schuh", start_date: (Date.now() - 4 * DAY) / 1000, snapshot: { body: { text: "Neue Schuhe im Sale" }, link_url: "https://schuh.de/" } },
+    ];
+    vi.stubGlobal("fetch", vi.fn(async (u: string | URL | Request, init?: RequestInit) => {
+      const url = String(u instanceof Request ? u.url : u);
+      if (url.includes("api.apify.com/v2/acts/")) {
+        runs.push(JSON.parse(String(init?.body)));
+        return json({ data: { id: "run1", status: "RUNNING" } });
+      }
+      if (url.includes("/datasets/ds1/items")) return json(ads);
+      return new Response("", { status: 404 });
     }));
-    const { user } = await setup();
-    expect(await user.action(api.offerSearch.translateWords, { words: "Magnetische Inlegzolen", country: "de" })).toEqual({ words: "Magnetische Einlegesohlen" });
-    expect(asked[0]).toContain("German");
-    expect(asked[0]).toContain("Magnetische Inlegzolen");
-    expect(await user.action(api.offerSearch.translateWords, { words: "x", country: "PL" }).catch((e) => e.data)).toMatchObject({ code: "BAD_COUNTRY" });
-    expect(await user.action(api.offerSearch.translateWords, { words: "  ", country: "DE" }).catch((e) => e.data)).toMatchObject({ code: "BAD_REQUEST" });
+    const { t, user } = await setup();
+    const { id } = await user.action(api.offerSearch.start, { country: "DE", keywords: [" Magnetische Einlegesohlen ", "Abnehm Einlagen", "", "x".repeat(60)] });
+    expect(runs[0].urls.map((x) => decodeURIComponent(x.url.replace(/\+/g, " ")))).toEqual([
+      expect.stringContaining("q=Magnetische Einlegesohlen&search_type=keyword_unordered"),
+      expect.stringContaining("q=Abnehm Einlagen&search_type=keyword_unordered"),
+    ]);
+    const run = await t.run(async (ctx) => (await ctx.db.query("apifyRuns").collect())[0]);
+    await t.action(internal.apify.handleWebhook, { token: run.token, datasetId: "ds1", eventType: "ACTOR.RUN.SUCCEEDED" });
+    const done = (await user.query(api.offerSearch.get, { id }))!;
+    expect(done).toMatchObject({ status: "done", adsFound: 1, phrases: ["Magnetische Einlegesohlen", "Abnehm Einlagen"] });
+    expect(done.stores.map((st) => st.host)).toEqual(["einlage.de"]);
+    // A keyword search has no "Find more" (it isn't an offer search).
+    expect(await user.action(api.offerSearch.findMore, { id }).catch((e) => e.data)).toMatchObject({ code: "BAD_REQUEST" });
   });
 });
 

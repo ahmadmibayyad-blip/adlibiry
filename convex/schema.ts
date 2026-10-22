@@ -474,6 +474,7 @@ export default defineSchema({
     adsFound: v.optional(v.number()),
     stores: v.optional(v.any()),     // lib/offerSearch.ts FoundStore[]
     daily: v.optional(v.string()),   // the day, for Admin → Offer research (offerSearch.dailyResearch)
+    loose: v.optional(v.boolean()),       // a product's keywords ("Who else sells this"), searched loosely
     moreRunToken: v.optional(v.string()), // "Find more": its Apify run (offerSearch.findMore)
     moreStatus: v.optional(v.string()),   // running | done | failed
     moreAt: v.optional(v.string()),       // when Find more ran (counts as a search that day)

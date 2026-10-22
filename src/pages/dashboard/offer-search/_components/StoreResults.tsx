@@ -1,16 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Bookmark, BookmarkCheck, Clock, ExternalLink, Eye, FolderPlus, Layers, Radar, Search, ShoppingBag, Users } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
-import { filterStores, OFFER_COUNTRIES, shortProductName, type FoundProduct, type FoundStore, type StoreSort, type StoreType } from "@/convex/lib/offerSearch.ts";
+import { filterStores, OFFER_COUNTRIES, shortProductName, type FoundProduct, type FoundStore, type ImageStore, type StoreSort, type StoreType } from "@/convex/lib/offerSearch.ts";
 import type { PictureMatch } from "@/convex/lib/aliexpress.ts";
 import AddToCollection from "@/components/AddToCollection.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { useCpm } from "@/hooks/use-cpm.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
@@ -229,7 +230,7 @@ function StoreCard({
       {s.products?.length ? (
         <div className="space-y-2">
           {s.products.map((p) => (
-            <ProductRow key={p.handle} product={p} currency={s.currency} country={country} brand={s.advertisers[0]} />
+            <ProductRow key={p.handle} product={p} currency={s.currency} country={country} brand={s.advertisers[0]} host={s.host} />
           ))}
         </div>
       ) : null}
@@ -270,7 +271,7 @@ function StoreCard({
   );
 }
 
-function ProductRow({ product: p, currency, country, brand }: { product: FoundProduct; currency?: string; country: string; brand?: string }) {
+function ProductRow({ product: p, currency, country, brand, host }: { product: FoundProduct; currency?: string; country: string; brand?: string; host: string }) {
   const words = shortProductName(p.title, brand);
   const find = useAction(api.offerSearch.aliexpressFor);
   const [busy, setBusy] = useState(false);
@@ -317,7 +318,7 @@ function ProductRow({ product: p, currency, country, brand }: { product: FoundPr
                 <ExternalLink className="w-3.5 h-3.5 mr-1" /> Open product
               </a>
             </Button>
-            {words ? <WhoElse words={words} country={country} /> : null}
+            {words ? <WhoElse product={p} words={words} country={country} host={host} /> : null}
             {p.image && matches === null ? (
               <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs" onClick={() => void onFind()} disabled={busy}>
                 {busy ? <Spinner className="w-3.5 h-3.5 mr-1" /> : <Search className="w-3.5 h-3.5 mr-1" />}
@@ -408,23 +409,14 @@ function CollectionButton({ store: s, storeId }: { store: FoundStore; storeId?: 
 
 const searchUrl = (country: string, words: string) => `/dashboard/offer-search?${new URLSearchParams({ country, words }).toString()}`;
 
-/** "Who else sells this": this search's country with the same words, or another country with the name in its language. */
-function WhoElse({ words, country }: { words: string; country: string }) {
-  const translate = useAction(api.offerSearch.translateWords);
-  const navigate = useNavigate();
+/** "Who else sells this": pick a country, then see stores whose ads in AdSpy show the same product picture, and search
+ * Meta there with the words shoppers in that language use (editable). */
+function WhoElse({ product: p, words, country, host }: { product: FoundProduct; words: string; country: string; host: string }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
-  const go = async (code: string) => {
-    setBusy(code);
-    try {
-      const r = await translate({ words, country: code });
-      navigate(searchUrl(code, r.words));
-    } catch (err) {
-      toast.error(errorMessage(err, "Couldn't translate the name; searching the same words."));
-      navigate(searchUrl(code, words));
-    } finally {
-      setBusy(null);
-    }
+  const [picked, setPicked] = useState<string | null>(null);
+  const choose = (code: string) => {
+    setPicked(code);
+    setOpen(false);
   };
   return (
     <div className="relative">
@@ -433,26 +425,122 @@ function WhoElse({ words, country }: { words: string; country: string }) {
       </Button>
       {open ? (
         <div role="menu" className="absolute z-20 mt-1 w-56 max-h-72 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
-          <Link role="menuitem" to={searchUrl(country, words)} className="block rounded px-2 py-1.5 text-sm hover:bg-muted">
-            {OFFER_COUNTRIES[country]?.name ?? country} (this search)
-          </Link>
-          {Object.entries(OFFER_COUNTRIES)
-            .filter(([code]) => code !== country)
-            .map(([code, c]) => (
-              <button
-                key={code}
-                type="button"
-                role="menuitem"
-                disabled={!!busy}
-                onClick={() => void go(code)}
-                className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-60"
-              >
-                {busy === code ? <Spinner className="w-3.5 h-3.5" /> : null}
-                {c.name}
-              </button>
-            ))}
+          {[country, ...Object.keys(OFFER_COUNTRIES).filter((c) => c !== country)].map((code) => (
+            <button
+              key={code}
+              type="button"
+              role="menuitem"
+              onClick={() => choose(code)}
+              className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+            >
+              {OFFER_COUNTRIES[code]?.name ?? code}
+              {code === country ? " (this search)" : ""}
+            </button>
+          ))}
         </div>
       ) : null}
+      {picked ? <SameProductPanel key={picked} product={p} words={words} country={picked} host={host} onClose={() => setPicked(null)} /> : null}
+    </div>
+  );
+}
+
+function SameProductPanel({ product: p, words, country, host, onClose }: { product: FoundProduct; words: string; country: string; host: string; onClose: () => void }) {
+  const samePicture = useAction(api.whoElse.samePicture);
+  const getKeywords = useAction(api.whoElse.keywords);
+  const start = useAction(api.offerSearch.start);
+  const navigate = useNavigate();
+  const name = OFFER_COUNTRIES[country]?.name ?? country;
+  const [pictures, setPictures] = useState<{ stores: ImageStore[]; skipped?: string } | null>(null);
+  const [terms, setTerms] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  // Primitive inputs, so a live refresh of the search's data doesn't ask again.
+  const image = p.image;
+  const title = p.title;
+  const supplierTitle = p.sourcing?.title;
+  useEffect(() => {
+    let live = true;
+    if (image) {
+      samePicture({ imageUrl: image, country, excludeHost: host })
+        .then((r) => live && setPictures(r))
+        .catch(() => live && setPictures({ stores: [], skipped: "Picture matching didn't work this time." }));
+    }
+    getKeywords({ title, ...(supplierTitle ? { supplierTitle } : {}), country })
+      .then((r) => live && setTerms(r.keywords.join(", ")))
+      .catch((err) => {
+        if (!live) return;
+        toast.error(errorMessage(err, "Couldn't find words for it; edit them yourself."));
+        setTerms(words);
+      });
+    return () => {
+      live = false;
+    };
+  }, [samePicture, getKeywords, image, title, supplierTitle, country, host, words]);
+
+  const searchMeta = async () => {
+    const keywords = (terms ?? "").split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3);
+    if (!keywords.length) return;
+    setSearching(true);
+    try {
+      const r = await start({ country, keywords });
+      navigate(`/dashboard/offer-search?id=${r.id}`);
+    } catch (err) {
+      toast.error(errorMessage(err, "The search couldn't start"));
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 w-[min(28rem,85vw)] rounded-lg border border-border bg-card p-3 space-y-3 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium">Same product in {name}</p>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+      {p.image ? (
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">Same picture in AdSpy's ads</p>
+          {pictures === null ? (
+            <Spinner className="w-4 h-4" />
+          ) : pictures.stores.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{pictures.skipped ?? `No ad with this picture in AdSpy for ${name} yet.`}</p>
+          ) : (
+            pictures.stores.map((st) => (
+              <div key={st.host} className="flex items-center gap-2">
+                {st.image ? <img src={st.image} alt="" loading="lazy" className="w-10 h-10 shrink-0 rounded object-cover bg-muted" /> : null}
+                <div className="min-w-0 flex-1">
+                  <a href={`https://${st.host}`} target="_blank" rel="noopener noreferrer" className="block truncate font-medium hover:underline">
+                    {st.host}
+                  </a>
+                  <span className="text-xs text-muted-foreground">
+                    {st.ads} {st.ads === 1 ? "ad" : "ads"} · {st.match}% match
+                  </span>
+                </div>
+                <Link to={`/dashboard/ads/${st.adId}`} className="text-xs text-primary hover:underline">
+                  See ad
+                </Link>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
+      <div className="space-y-1.5">
+        <label htmlFor={`words-${country}`} className="text-xs text-muted-foreground">
+          Search words
+        </label>
+        {terms === null ? (
+          <Spinner className="w-4 h-4" />
+        ) : (
+          <Input id={`words-${country}`} aria-label="Search words" value={terms} onChange={(e) => setTerms(e.target.value)} />
+        )}
+        <Button size="sm" className="h-10 sm:h-8" onClick={() => void searchMeta()} disabled={searching || !terms?.trim()}>
+          {searching ? <Spinner className="w-3.5 h-3.5 mr-1" /> : <Search className="w-3.5 h-3.5 mr-1" />}
+          Search Meta in {name}
+        </Button>
+        <p className="text-xs text-muted-foreground">Up to 3 words, separated by commas. Counts as one search.</p>
+      </div>
     </div>
   );
 }
