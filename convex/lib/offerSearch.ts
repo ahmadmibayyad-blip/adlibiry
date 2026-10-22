@@ -503,13 +503,36 @@ export function productHandle(path: string): string | null {
   return m ? decodeURIComponent(m[1]).toLowerCase() : null;
 }
 
-/** A Shopify store's /meta.json: null when it isn't one (the Shopify check). */
-export function readShopMeta(json: unknown): { currency?: string; country?: string } | null {
-  const m = (json ?? {}) as { myshopify_domain?: unknown; currency?: unknown; country?: unknown };
+/** A Shopify store's /meta.json: null when it isn't one (the Shopify check). `products` is its published count. */
+export function readShopMeta(json: unknown): { currency?: string; country?: string; products?: number } | null {
+  const m = (json ?? {}) as { myshopify_domain?: unknown; currency?: unknown; country?: unknown; published_products_count?: unknown };
   if (typeof m.myshopify_domain !== "string" || !m.myshopify_domain) return null;
+  const count = m.published_products_count;
   return {
     ...(typeof m.currency === "string" && /^[A-Z]{3}$/.test(m.currency) ? { currency: m.currency } : {}),
     ...(typeof m.country === "string" && /^[A-Z]{2}$/.test(m.country) ? { country: m.country } : {}),
+    ...(typeof count === "number" && Number.isFinite(count) && count >= 0 ? { products: count } : {}),
+  };
+}
+
+const share = (n: number, of: number) => Math.round((n / of) * 100) / 100;
+
+/** What a store's /products.json says about it: product types, the share on sale (first variant), ™ titles, a default vendor. */
+export function catalogueSignals(products: unknown): Pick<FoundStore, "productTypes" | "onSaleShare" | "tmShare" | "defaultVendor"> {
+  if (!Array.isArray(products) || !products.length) return {};
+  const list = products as { product_type?: unknown; title?: unknown; vendor?: unknown; variants?: { price?: unknown; compare_at_price?: unknown }[] }[];
+  const types = new Set(list.map((p) => (typeof p.product_type === "string" ? p.product_type.trim().toLowerCase() : "")).filter(Boolean));
+  const onSale = list.filter((p) => {
+    const v = Array.isArray(p.variants) ? p.variants[0] : undefined;
+    const price = Number(v?.price);
+    return price > 0 && Number(v?.compare_at_price) > price;
+  }).length;
+  const tm = list.filter((p) => typeof p.title === "string" && /[™®]/.test(p.title)).length;
+  return {
+    productTypes: types.size,
+    onSaleShare: share(onSale, list.length),
+    tmShare: share(tm, list.length),
+    ...(list.some((p) => typeof p.vendor === "string" && isDefaultVendor(p.vendor)) ? { defaultVendor: true } : {}),
   };
 }
 

@@ -41,8 +41,16 @@ describe("Offer Search", () => {
       }
       if (url.includes("/datasets/ds1/items")) return json(items);
       if (url.includes("/actor-runs/run1")) return json({ data: { status: "SUCCEEDED", defaultDatasetId: "ds1", usageTotalUsd: 0.05 } });
-      if (url === "https://pawtech.dk/meta.json") return json({ myshopify_domain: "pawtech.myshopify.com", currency: "DKK", country: "DK" });
-      if (url === "https://pawtech.dk/products.json?limit=250") return json({ products: Array.from({ length: 7 }, (_, i) => ({ id: i })) });
+      if (url === "https://pawtech.dk/meta.json") return json({ myshopify_domain: "pawtech.myshopify.com", currency: "DKK", country: "DK", published_products_count: 7 });
+      if (url === "https://pawtech.dk/") return new Response('<script src="https://loox.io/widget/abc/loox.js"></script>', { headers: { "content-type": "text/html" } });
+      if (url === "https://pawtech.dk/products.json?limit=250") {
+        return json({
+          products: Array.from({ length: 7 }, (_, i) => ({
+            id: i, product_type: "Pet", title: i === 0 ? "Hundesæde™" : `Pet ${i}`, vendor: i === 1 ? "Mijn winkel" : "PawTech",
+            variants: [{ price: "99", compare_at_price: i < 6 ? "199" : null }],
+          })),
+        });
+      }
       if (url === "https://pawtech.dk/products/seat.json") return json({ product: { title: "Hundesæde", variants: [{ price: "299.00", compare_at_price: "499.00" }], image: { src: "https://cdn.shopify.com/seat.jpg" } } });
       return new Response("", { status: 404 });
     }));
@@ -70,9 +78,11 @@ describe("Offer Search", () => {
       ["helysta.dk", 1, false],
     ]);
     expect(done!.stores[0].offers.map((o) => o.label)).toEqual(["Buy 2 get 1"]);
-    // Each store is scored: Shopify, 7 products in its catalogue, a big crossed-out discount.
-    expect(done!.stores[0]).toMatchObject({ productCount: 7 });
-    expect(done!.stores[0].dropship).toEqual({ score: 1, likely: true, type: "hero", reasons: ["7 products", "−40%"] });
+    // Each store is typed from its catalogue, its apps and its offer: a hero store.
+    expect(done!.stores[0]).toMatchObject({ catalogue: 7, productTypes: 1, onSaleShare: 0.86, tmShare: 0.14, defaultVendor: true, apps: ["Loox"] });
+    expect(done!.stores[0].dropship).toEqual({
+      score: 4, likely: true, type: "hero", reasons: ["7 products", "1 type", "86% on sale", "Loox", "default vendor", "−40%"],
+    });
     expect(done!.stores[1].dropship).toEqual({ score: 0, likely: false, type: "brand", reasons: [] });
     // The Shopify store's currency and the product its ads link to, read from the store itself.
     expect(done!.stores[0]).toMatchObject({

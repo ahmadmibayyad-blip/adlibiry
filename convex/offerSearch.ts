@@ -8,9 +8,13 @@ import { requireAdmin } from "./admin/helpers";
 import { runCostCap } from "./apify";
 import { PICTURE_ACTOR, fromPictureSearch, pictureLimit, type PictureMatch } from "./lib/aliexpress";
 import { budgetLeft } from "./lib/fusion";
+import { inspectHtml } from "./lib/storeInspect";
 import {
   adLibrarySearchUrl,
   adShowsOffer,
+  catalogueSignals,
+  DROPSHIP_APPS,
+  sourcingAppsIn,
   dailyOfferPhrases,
   storeType,
   groupByStore,
@@ -223,17 +227,31 @@ async function getJson(url: string): Promise<unknown> {
   }
 }
 
-/** Products in a Shopify store's catalogue, from /products.json (up to 250), or undefined when it doesn't answer. */
-async function productCount(host: string): Promise<number | undefined> {
+/** A Shopify store's /products.json (up to 250), or null when it doesn't answer. */
+async function productList(host: string): Promise<unknown[] | null> {
   const body = (await getJson(`https://${host}/products.json?limit=250`)) as { products?: unknown } | null;
-  return Array.isArray(body?.products) ? body.products.length : undefined;
+  return Array.isArray(body?.products) ? body.products : null;
+}
+
+/** The dropshipping apps on a store's home page (Store Inspector's app list plus supplier-ordering apps). */
+async function dropshipApps(host: string): Promise<string[]> {
+  try {
+    const res = await fetch(`https://${host}/`, { headers: { "User-Agent": UA, Accept: "text/html" }, signal: AbortSignal.timeout(6_000) });
+    if (!res.ok) return [];
+    const html = (await res.text()).slice(0, 2_000_000);
+    const known = inspectHtml(html).apps.map((a) => a.name).filter((n) => DROPSHIP_APPS.has(n));
+    return [...new Set([...known, ...sourcingAppsIn(html)])];
+  } catch {
+    return [];
+  }
 }
 
 /** Shopify stores answer /meta.json (currency, country), /products.json and /products/<handle>.json; others are left as they are. */
 async function withShopData(s: FoundStore): Promise<FoundStore> {
   const meta = readShopMeta(await getJson(`https://${s.host}/meta.json`));
   if (!meta) return { ...s, shopify: false };
-  const count = await productCount(s.host);
+  const [list, apps] = await Promise.all([productList(s.host), dropshipApps(s.host)]);
+  const count = list?.length;
   const handles = s.productPaths.map(productHandle).filter((h): h is string => !!h).slice(0, PRODUCTS_PER_STORE);
   const products = (
     await Promise.all(handles.map(async (h) => readShopifyProduct(await getJson(`https://${s.host}/products/${encodeURIComponent(h)}.json`), s.host, h)))
@@ -245,6 +263,9 @@ async function withShopData(s: FoundStore): Promise<FoundStore> {
     ...(meta.country ? { storeCountry: meta.country } : {}),
     ...(products.length ? { products } : {}),
     ...(count !== undefined ? { productCount: count } : {}),
+    ...(meta.products !== undefined ? { catalogue: meta.products } : count ? { catalogue: count } : {}),
+    ...catalogueSignals(list),
+    ...(apps.length ? { apps } : {}),
   };
 }
 
@@ -292,7 +313,20 @@ export const finish = internalAction({
       const stores = x.stores.map((st) => {
         const d = shop.get(st.host);
         const merged: FoundStore = d
-          ? { ...st, shopify: d.shopify, currency: d.currency, storeCountry: d.storeCountry, products: d.products, productCount: d.productCount }
+          ? {
+              ...st,
+              shopify: d.shopify,
+              currency: d.currency,
+              storeCountry: d.storeCountry,
+              products: d.products,
+              productCount: d.productCount,
+              catalogue: d.catalogue,
+              productTypes: d.productTypes,
+              onSaleShare: d.onSaleShare,
+              tmShare: d.tmShare,
+              defaultVendor: d.defaultVendor,
+              apps: d.apps,
+            }
           : st;
         return { ...dropUndefined(merged), dropship: storeType(merged) };
       });

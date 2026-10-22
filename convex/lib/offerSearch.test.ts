@@ -3,6 +3,7 @@ import {
   adLink,
   adLibrarySearchUrl,
   adShowsOffer,
+  catalogueSignals,
   dailyOfferPhrases,
   isDefaultVendor,
   mergeStores,
@@ -129,6 +130,7 @@ describe("Offer Search store details", () => {
 
   it("knows a Shopify store by its /meta.json and reads a product's price, compare-at price and photo", () => {
     expect(readShopMeta({ myshopify_domain: "x.myshopify.com", currency: "DKK", country: "DK" })).toEqual({ currency: "DKK", country: "DK" });
+    expect(readShopMeta({ myshopify_domain: "x.myshopify.com", published_products_count: 595 })).toEqual({ products: 595 });
     expect(readShopMeta({ name: "not shopify" })).toBeNull();
     expect(readShopMeta(null)).toBeNull();
     const product = { product: { title: " Hundesæde ", variants: [{ price: "299.00", compare_at_price: "599.00" }], image: { src: "//cdn.shopify.com/s/files/seat.jpg" } } };
@@ -245,6 +247,15 @@ describe("shortError", () => {
     });
     expect(matched.reasons).toContain("On AliExpress ×7.6");
     expect(matched.score).toBe(1);
+  });
+
+  it("reads a catalogue's types, sale share, ™ titles and default vendor", () => {
+    const p = (type: string, price: string, compareAt: string | null, title = "Seat", vendor = "Pawtech") => ({ product_type: type, title, vendor, variants: [{ price, compare_at_price: compareAt }] });
+    expect(
+      catalogueSignals([p("Pet", "299", "499", "Seat™"), p("Pet", "99", "199"), p("Toys", "50", null, "Ball", "Mijn winkel"), p("", "10", "10")]),
+    ).toEqual({ productTypes: 2, onSaleShare: 0.5, tmShare: 0.25, defaultVendor: true });
+    expect(catalogueSignals([])).toEqual({});
+    expect(catalogueSignals("nope")).toEqual({});
   });
 
   it("finds sourcing apps in a page's code", () => {
