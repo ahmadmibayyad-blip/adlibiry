@@ -1,0 +1,200 @@
+import { v } from "convex/values";
+import { httpAction, internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { accessToken, errorText, sallaFetch } from "./sallaOrders";
+import {
+  AUTO_CANCEL_AFTER_MS, CONFIRM_TEMPLATE, GRAPH_API, REMINDER_DELAYS_MS, REPLIES,
+  confirmMessage, parsePayload, parseWaWebhook, phoneHash, textMessage, verifyMetaSignature, waNumber,
+} from "./lib/whatsapp";
+
+// The WhatsApp half of the COD flow: after hold() (convex/sallaOrders.ts) the customer
+// gets the confirm template, reminders at +2 h and +24 h, and the order is cancelled
+// a day after the last one with no answer. Taps arrive at /whatsapp/webhook.
+// One sender for now (Meta Embedded Signup per store comes later). Convex env:
+// WHATSAPP_TOKEN (system user token), WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_APP_SECRET
+// (signs the webhook), WHATSAPP_VERIFY_TOKEN (webhook setup), optional
+// WHATSAPP_TEMPLATE / WHATSAPP_TEMPLATE_LANG (default cod_order_confirm / ar).
+// The customer's number is read from Salla when sending and never stored.
+
+type Ans = "confirmed" | "cancelled";
+const answer = v.union(v.literal("confirmed"), v.literal("cancelled"));
+
+function sender() {
+  const token = process.env.WHATSAPP_TOKEN?.trim();
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+  return token && phoneNumberId ? { token, phoneNumberId } : null;
+}
+
+async function waSend(s: { token: string; phoneNumberId: string }, body: unknown): Promise<string> {
+  const res = await fetch(`${GRAPH_API}/${s.phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${s.token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as { messages?: { id?: string }[]; error?: { code?: number; message?: string } };
+  if (!res.ok || !data.messages?.[0]?.id) {
+    throw new Error(`WhatsApp send failed (${res.status}${data.error ? `, ${data.error.code}: ${data.error.message}` : ""})`);
+  }
+  return data.messages[0].id;
+}
+
+export const order = internalQuery({
+  args: { merchantId: v.number(), orderId: v.string() },
+  handler: async (ctx, args) =>
+    ctx.db
+      .query("sallaCodOrders")
+      .withIndex("by_merchant_order", (q) => q.eq("merchantId", args.merchantId).eq("orderId", args.orderId))
+      .unique(),
+});
+
+export const saveStoreName = internalMutation({
+  args: { merchantId: v.number(), name: v.string() },
+  handler: async (ctx, args) => {
+    const s = await ctx.db.query("sallaStores").withIndex("by_merchant", (q) => q.eq("merchantId", args.merchantId)).unique();
+    if (s) await ctx.db.patch("sallaStores", s._id, { storeName: args.name });
+  },
+});
+
+export const recordSent = internalMutation({
+  args: { merchantId: v.number(), orderId: v.string(), phoneHash: v.string(), waMessageId: v.string(), reminder: v.number() },
+  handler: async (ctx, { merchantId, orderId, reminder, ...fields }) => {
+    const o = await ctx.db
+      .query("sallaCodOrders")
+      .withIndex("by_merchant_order", (q) => q.eq("merchantId", merchantId).eq("orderId", orderId))
+      .unique();
+    if (o) await ctx.db.patch("sallaCodOrders", o._id, { ...fields, reminders: reminder, sentAt: Date.now(), lastError: undefined });
+  },
+});
+
+type ClaimArgs = { merchantId: number; orderId: string; answer: Ans; fromHash?: string; note?: string };
+
+/**
+ * Takes the customer's answer once: only from the number the message went to (`fromHash`, omitted
+ * for the no-answer cancel) and only while the order is pending. Writes it to Salla when taken.
+ */
+async function claim(ctx: MutationCtx, { merchantId, orderId, answer, fromHash, note }: ClaimArgs): Promise<"taken" | "already" | "ignored"> {
+  const o = await ctx.db
+    .query("sallaCodOrders")
+    .withIndex("by_merchant_order", (q) => q.eq("merchantId", merchantId).eq("orderId", orderId))
+    .unique();
+  if (!o || (fromHash !== undefined && o.phoneHash !== fromHash)) return "ignored";
+  if (o.status !== "pending") return "already";
+  await ctx.db.patch("sallaCodOrders", o._id, { status: answer, answeredAt: Date.now() });
+  await ctx.scheduler.runAfter(0, internal.sallaOrders.decide, { merchantId, orderId, decision: answer, note });
+  return "taken";
+}
+
+export const claimAnswer = internalMutation({
+  args: { merchantId: v.number(), orderId: v.string(), answer, fromHash: v.string() },
+  handler: (ctx, args) => claim(ctx, args),
+});
+
+export const markFailed = internalMutation({
+  args: { waMessageId: v.string(), error: v.string() },
+  handler: async (ctx, args) => {
+    const o = await ctx.db.query("sallaCodOrders").withIndex("by_wa_message", (q) => q.eq("waMessageId", args.waMessageId)).first();
+    if (o) await ctx.db.patch("sallaCodOrders", o._id, { lastError: args.error });
+  },
+});
+
+type SallaOrder = {
+  reference_id?: number | string;
+  customer?: { first_name?: string; mobile?: number | string; mobile_code?: string };
+  amounts?: { total?: { amount?: number | string; currency?: string } };
+};
+
+/** The confirm message (reminder 0) or a reminder; schedules the next step while the order stays pending. */
+export const sendConfirm = internalAction({
+  args: { merchantId: v.number(), orderId: v.string(), reminder: v.number() },
+  handler: async (ctx, { merchantId, orderId, reminder }): Promise<void> => {
+    const o = await ctx.runQuery(internal.sallaWhatsapp.order, { merchantId, orderId });
+    if (!o || o.status !== "pending") return;
+    const fail = async (e: unknown): Promise<void> => { await ctx.runMutation(internal.sallaOrders.recordOrder, { merchantId, orderId, lastError: errorText(e) }); };
+    const s = sender();
+    const key = process.env.SHOPIFY_TOKEN_KEY?.trim();
+    if (!s || !key) return fail("WhatsApp isn't set up (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID), so the customer wasn't asked");
+    try {
+      const token = await accessToken(ctx, merchantId);
+      const ord = await sallaFetch<SallaOrder>(token, `/orders/${orderId}`);
+      const to = waNumber(ord?.customer?.mobile, ord?.customer?.mobile_code);
+      if (!to) throw new Error("The order has no usable mobile number");
+
+      const store = await ctx.runQuery(internal.sallaOrders.store, { merchantId });
+      let storeName = store?.storeName;
+      if (!storeName) {
+        storeName = (await sallaFetch<{ name?: string }>(token, "/store/info").catch(() => null))?.name?.trim() || undefined;
+        if (storeName) await ctx.runMutation(internal.sallaWhatsapp.saveStoreName, { merchantId, name: storeName });
+      }
+      const total = ord?.amounts?.total;
+      const template = {
+        name: process.env.WHATSAPP_TEMPLATE?.trim() || CONFIRM_TEMPLATE.name,
+        language: process.env.WHATSAPP_TEMPLATE_LANG?.trim() || CONFIRM_TEMPLATE.language,
+      };
+      const waMessageId = await waSend(s, confirmMessage(to, {
+        customer: ord?.customer?.first_name?.trim() || "عميلنا العزيز",
+        store: storeName ?? "المتجر",
+        reference: String(ord?.reference_id ?? o.referenceId ?? orderId),
+        total: total?.amount != null ? `${total.amount} ${total.currency ?? o.currency ?? ""}`.trim() : "-",
+      }, merchantId, orderId, template));
+      await ctx.runMutation(internal.sallaWhatsapp.recordSent, { merchantId, orderId, phoneHash: await phoneHash(to, key), waMessageId, reminder });
+    } catch (e) {
+      return fail(e); // no reminders after a failed send: the merchant sees the error and calls
+    }
+    if (reminder < REMINDER_DELAYS_MS.length) {
+      await ctx.scheduler.runAfter(REMINDER_DELAYS_MS[reminder], internal.sallaWhatsapp.sendConfirm, { merchantId, orderId, reminder: reminder + 1 });
+    } else {
+      await ctx.scheduler.runAfter(AUTO_CANCEL_AFTER_MS, internal.sallaWhatsapp.cancelUnanswered, { merchantId, orderId });
+    }
+  },
+});
+
+export const cancelUnanswered = internalMutation({
+  args: { merchantId: v.number(), orderId: v.string() },
+  handler: async (ctx, { merchantId, orderId }) => {
+    await claim(ctx, { merchantId, orderId, answer: "cancelled", note: "أُلغي الطلب تلقائياً: لم يرد العميل على رسائل التأكيد عبر واتساب" });
+  },
+});
+
+/** Meta's webhook check when the URL is saved in the app dashboard. */
+export const verify = httpAction(async (_ctx, request) => {
+  const q = new URL(request.url).searchParams;
+  const expected = process.env.WHATSAPP_VERIFY_TOKEN?.trim();
+  if (expected && q.get("hub.mode") === "subscribe" && q.get("hub.verify_token") === expected) {
+    return new Response(q.get("hub.challenge") ?? "", { status: 200 });
+  }
+  return new Response("Forbidden", { status: 403 });
+});
+
+export const webhook = httpAction(async (ctx, request) => {
+  const appSecret = process.env.WHATSAPP_APP_SECRET?.trim();
+  const raw = await request.text();
+  if (!appSecret || !(await verifyMetaSignature(raw, request.headers.get("x-hub-signature-256"), appSecret))) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return new Response("Bad payload", { status: 400 });
+  }
+  const key = process.env.SHOPIFY_TOKEN_KEY?.trim();
+  const s = sender();
+  for (const evt of parseWaWebhook(body)) {
+    if (evt.kind === "failed") {
+      await ctx.runMutation(internal.sallaWhatsapp.markFailed, { waMessageId: evt.messageId, error: evt.error });
+      continue;
+    }
+    const tap = parsePayload(evt.payload);
+    if (!tap || !key) continue;
+    // Meta retries deliveries: act on each tap once.
+    if (!(await ctx.runMutation(internal.sallaApp.markDelivery, { key: `wa:${evt.messageId || evt.payload}` }))) continue;
+    const result: "taken" | "already" | "ignored" = await ctx.runMutation(internal.sallaWhatsapp.claimAnswer, {
+      merchantId: tap.merchantId, orderId: tap.orderId, answer: tap.answer, fromHash: await phoneHash(evt.from, key),
+    });
+    // The tap opened the 24 h service window, so a plain text reply is allowed.
+    if (result !== "ignored" && s) {
+      await waSend(s, textMessage(evt.from, result === "taken" ? REPLIES[tap.answer] : REPLIES.already)).catch(() => {});
+    }
+  }
+  return new Response(null, { status: 200 });
+});
