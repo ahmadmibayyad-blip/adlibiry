@@ -161,11 +161,14 @@ Vercel runs `convex deploy` on every push to `main`, so merging a PR ships both 
   middle price of the 3 cheapest (`bestSupplierMatch`), and the markup (store price in USD ÷ supplier). "Find more stores (+150 ads)" (`offerSearch.findMore`, once per offer
   search, counts as a search via `moreAt`; a failed one can be tried again) runs the offer's `more` phrases and merges new stores in
   (`mergeStores`, up to 80).
-  "Who else sells this" on a product is a country menu opening a panel (`convex/whoElse.ts`, Node): stores in that country whose
-  ads in AdSpy show the same product picture (`samePicture`: Voyage vector of the product photo, top 256 in `adEmbeddings`, ads of
-  that country with similarity ≥ 0.75, by store, `storesFromImageHits`), and the words shops there use for it (`keywords`: Claude
-  Haiku from the product name and its AliExpress match, AI daily limit), editable, to "Search Meta in <country>": `offerSearch.start`
-  with `keywords` runs a loose search (`keyword_unordered`, row `loose`, ads with half a keyword's words, `adMatchesWords`). Results open on "Likely
+  "Who else sells this" on a product is a country menu opening a panel: search words = the product's made-up name if it has one
+  (`inventedName`: ™/® or CamelCase, not the store's name; dropshippers keep it across countries) + shop words from Claude Haiku
+  (`whoElse.keywords`, from the name and its AliExpress match, AI daily limit), editable. "Search Meta in <country>" =
+  `offerSearch.start` with `keywords` + `productImage`: a loose search (`keyword_unordered`, row `loose`) that keeps every ad, then
+  `whoElse.matchPictures` (Node, scheduled) compares up to 3 ad pictures per store with the product photo (Voyage vectors,
+  `pictureMatch` 0-100) and saves `match` on each store; results open on "Same product" (match >= `SAME_PRODUCT_MATCH`, 60) by
+  best match. Tested 2026-10-22: Meta's keyword search reads ad text only, so generic words ("Schwitzweste") find little; made-up
+  names find real sellers among much noise, which the picture check filters. Without a photo, ads need half a keyword's words. Results open on "Likely
   dropshippers" sorted hero → niche → general, then EU reach.
   Each found store (top 40) gets: EU reach (EU/UK searches, from the scraper's ad details, no extra cost; spend = reach × the user's CPM in
   the app), Shopify + currency + country from `/meta.json`, and up to 2 products its ads link to from `/products/<handle>.json` (name, price,

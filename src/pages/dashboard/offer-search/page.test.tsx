@@ -65,6 +65,12 @@ describe("Offer Search page", () => {
     await waitFor(() => expect(findMore).toHaveBeenCalledWith({ id: "s1" }));
   });
 
+  it("says while it compares the stores' ad pictures with the product photo", () => {
+    state.search = done({ offer: undefined, loose: true, productImage: "https://cdn.shopify.com/vest.jpg", pictureStatus: "running" });
+    show();
+    expect(screen.getByText("Comparing each store's ad pictures with the product photo…")).toBeInTheDocument();
+  });
+
   it("has no Find more for the user's own words", () => {
     state.search = done({ offer: undefined });
     show();

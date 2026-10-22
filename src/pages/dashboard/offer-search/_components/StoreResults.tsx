@@ -5,7 +5,7 @@ import { Bookmark, BookmarkCheck, Clock, ExternalLink, Eye, FolderPlus, Layers, 
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
-import { filterStores, OFFER_COUNTRIES, shortProductName, type FoundProduct, type FoundStore, type ImageStore, type StoreSort, type StoreType } from "@/convex/lib/offerSearch.ts";
+import { filterStores, OFFER_COUNTRIES, shortProductName, type FoundProduct, type FoundStore, type StoreSort, type StoreType, inventedName } from "@/convex/lib/offerSearch.ts";
 import type { PictureMatch } from "@/convex/lib/aliexpress.ts";
 import AddToCollection from "@/components/AddToCollection.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
@@ -25,6 +25,7 @@ import { price } from "@/lib/money.ts";
 const PAGE = 40;
 const ANY = "any";
 const LIKELY = "likely";
+const SAME = "same";
 const TYPE_LABEL: Partial<Record<StoreType, string>> = { hero: "Hero store", niche: "Niche dropship", general: "General store" };
 const TYPES: StoreType[] = ["hero", "niche", "general"];
 
@@ -44,13 +45,14 @@ function money(n: number, currency?: string): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export function StoreResults({ stores, country, showCountry }: { stores: FoundStore[]; country?: string; showCountry?: boolean }) {
+export function StoreResults({ stores, country, showCountry, pictures }: { stores: FoundStore[]; country?: string; showCountry?: boolean; pictures?: boolean }) {
   // Searches since the dropshipper score open on likely dropshippers, most likely first; older ones as before.
   const scored = stores.some((s) => s.dropship);
-  const [platform, setPlatform] = useState(scored ? LIKELY : ANY);
+  // A product search (Who else sells this) opens on the stores whose ad pictures match the product photo.
+  const [platform, setPlatform] = useState(pictures ? SAME : scored ? LIKELY : ANY);
   const [minAds, setMinAds] = useState(ANY);
   const [minDays, setMinDays] = useState(ANY);
-  const [sort, setSort] = useState<StoreSort>(scored ? "dropship" : "ads");
+  const [sort, setSort] = useState<StoreSort>(pictures ? "match" : scored ? "dropship" : "ads");
   const [where, setWhere] = useState(ANY);
   const [shown, setShown] = useState(PAGE);
   const [cpm] = useCpm();
@@ -61,6 +63,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
       filterStores(stores, {
         shopifyOnly: platform === "shopify",
         likelyOnly: platform === LIKELY,
+        sameProduct: platform === SAME,
         ...(TYPES.includes(platform as StoreType) ? { type: platform as StoreType } : {}),
         minAds: minAds === ANY ? 0 : Number(minAds),
         minDays: minDays === ANY ? 0 : Number(minDays),
@@ -92,6 +95,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
           onChange={setPlatform}
           options={[
             { value: ANY, label: "Any" },
+            ...(pictures ? [{ value: SAME, label: "Same product" }] : []),
             ...(scored
               ? [
                   { value: LIKELY, label: "Likely dropshippers" },
@@ -123,6 +127,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
           value={sort}
           onChange={(v) => setSort(v as StoreSort)}
           options={[
+            ...(pictures ? [{ value: "match", label: "Best picture match" }] : []),
             ...(scored ? [{ value: "dropship", label: "Most likely dropshipper" }] : []),
             { value: "ads", label: "Most ads" },
             { value: "days", label: "Longest running" },
@@ -132,7 +137,7 @@ export function StoreResults({ stores, country, showCountry }: { stores: FoundSt
         <span className="text-xs text-muted-foreground">
           {list.length === stores.length ? `${stores.length} stores` : `${list.length} of ${stores.length} stores`}
         </span>
-        {platform === LIKELY && list.length < stores.length ? (
+        {(platform === LIKELY || platform === SAME) && list.length < stores.length ? (
           <Button variant="link" size="sm" className="h-8 px-1" onClick={() => setPlatform(ANY)}>
             Show all {stores.length} stores
           </Button>
@@ -188,6 +193,7 @@ function StoreCard({
               {s.country}
             </Badge>
           ) : null}
+          {s.match !== undefined ? <Badge variant="outline">{s.match}% picture match</Badge> : null}
           {s.dropship?.likely ? (
             <Badge className="gap-1">
               <Radar className="w-3 h-3" /> {(s.dropship.type && TYPE_LABEL[s.dropship.type]) || "Likely dropshipper"}
@@ -230,7 +236,7 @@ function StoreCard({
       {s.products?.length ? (
         <div className="space-y-2">
           {s.products.map((p) => (
-            <ProductRow key={p.handle} product={p} currency={s.currency} country={country} brand={s.advertisers[0]} host={s.host} />
+            <ProductRow key={p.handle} product={p} currency={s.currency} country={country} brand={s.advertisers[0]} />
           ))}
         </div>
       ) : null}
@@ -271,7 +277,7 @@ function StoreCard({
   );
 }
 
-function ProductRow({ product: p, currency, country, brand, host }: { product: FoundProduct; currency?: string; country: string; brand?: string; host: string }) {
+function ProductRow({ product: p, currency, country, brand }: { product: FoundProduct; currency?: string; country: string; brand?: string }) {
   const words = shortProductName(p.title, brand);
   const find = useAction(api.offerSearch.aliexpressFor);
   const [busy, setBusy] = useState(false);
@@ -318,7 +324,7 @@ function ProductRow({ product: p, currency, country, brand, host }: { product: F
                 <ExternalLink className="w-3.5 h-3.5 mr-1" /> Open product
               </a>
             </Button>
-            {words ? <WhoElse product={p} words={words} country={country} host={host} /> : null}
+            {words ? <WhoElse product={p} words={words} country={country} brand={brand} /> : null}
             {p.image && matches === null ? (
               <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs" onClick={() => void onFind()} disabled={busy}>
                 {busy ? <Spinner className="w-3.5 h-3.5 mr-1" /> : <Search className="w-3.5 h-3.5 mr-1" />}
@@ -411,7 +417,7 @@ const searchUrl = (country: string, words: string) => `/dashboard/offer-search?$
 
 /** "Who else sells this": pick a country, then see stores whose ads in AdSpy show the same product picture, and search
  * Meta there with the words shoppers in that language use (editable). */
-function WhoElse({ product: p, words, country, host }: { product: FoundProduct; words: string; country: string; host: string }) {
+function WhoElse({ product: p, words, country, brand }: { product: FoundProduct; words: string; country: string; brand?: string }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const choose = (code: string) => {
@@ -439,50 +445,57 @@ function WhoElse({ product: p, words, country, host }: { product: FoundProduct; 
           ))}
         </div>
       ) : null}
-      {picked ? <SameProductPanel key={picked} product={p} words={words} country={picked} host={host} onClose={() => setPicked(null)} /> : null}
+      {picked ? <SameProductPanel key={picked} product={p} words={words} brand={brand} country={picked} onClose={() => setPicked(null)} /> : null}
     </div>
   );
 }
 
-function SameProductPanel({ product: p, words, country, host, onClose }: { product: FoundProduct; words: string; country: string; host: string; onClose: () => void }) {
-  const samePicture = useAction(api.whoElse.samePicture);
+function SameProductPanel({
+  product: p,
+  words,
+  brand,
+  country,
+  onClose,
+}: {
+  product: FoundProduct;
+  words: string;
+  brand?: string;
+  country: string;
+  onClose: () => void;
+}) {
   const getKeywords = useAction(api.whoElse.keywords);
   const start = useAction(api.offerSearch.start);
   const navigate = useNavigate();
   const name = OFFER_COUNTRIES[country]?.name ?? country;
-  const [pictures, setPictures] = useState<{ stores: ImageStore[]; skipped?: string } | null>(null);
   const [terms, setTerms] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
   // Primitive inputs, so a live refresh of the search's data doesn't ask again.
-  const image = p.image;
   const title = p.title;
   const supplierTitle = p.sourcing?.title;
+  // Dropshippers often keep a product's made-up name ("PowerVest") in every country: searched first.
+  const madeUp = inventedName(title, brand);
   useEffect(() => {
     let live = true;
-    if (image) {
-      samePicture({ imageUrl: image, country, excludeHost: host })
-        .then((r) => live && setPictures(r))
-        .catch(() => live && setPictures({ stores: [], skipped: "Picture matching didn't work this time." }));
-    }
+    const withName = (list: string[]) => [...new Set([...(madeUp ? [madeUp] : []), ...list])].slice(0, 3).join(", ");
     getKeywords({ title, ...(supplierTitle ? { supplierTitle } : {}), country })
-      .then((r) => live && setTerms(r.keywords.join(", ")))
+      .then((r) => live && setTerms(withName(r.keywords)))
       .catch((err) => {
         if (!live) return;
         toast.error(errorMessage(err, "Couldn't find words for it; edit them yourself."));
-        setTerms(words);
+        setTerms(withName([words]));
       });
     return () => {
       live = false;
     };
-  }, [samePicture, getKeywords, image, title, supplierTitle, country, host, words]);
+  }, [getKeywords, title, supplierTitle, country, words, madeUp]);
 
   const searchMeta = async () => {
     const keywords = (terms ?? "").split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3);
     if (!keywords.length) return;
     setSearching(true);
     try {
-      const r = await start({ country, keywords });
+      const r = await start({ country, keywords, ...(p.image ? { productImage: p.image } : {}) });
       navigate(`/dashboard/offer-search?id=${r.id}`);
     } catch (err) {
       toast.error(errorMessage(err, "The search couldn't start"));
@@ -499,33 +512,6 @@ function SameProductPanel({ product: p, words, country, host, onClose }: { produ
           Close
         </Button>
       </div>
-      {p.image ? (
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">Same picture in AdSpy's ads</p>
-          {pictures === null ? (
-            <Spinner className="w-4 h-4" />
-          ) : pictures.stores.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{pictures.skipped ?? `No ad with this picture in AdSpy for ${name} yet.`}</p>
-          ) : (
-            pictures.stores.map((st) => (
-              <div key={st.host} className="flex items-center gap-2">
-                {st.image ? <img src={st.image} alt="" loading="lazy" className="w-10 h-10 shrink-0 rounded object-cover bg-muted" /> : null}
-                <div className="min-w-0 flex-1">
-                  <a href={`https://${st.host}`} target="_blank" rel="noopener noreferrer" className="block truncate font-medium hover:underline">
-                    {st.host}
-                  </a>
-                  <span className="text-xs text-muted-foreground">
-                    {st.ads} {st.ads === 1 ? "ad" : "ads"} · {st.match}% match
-                  </span>
-                </div>
-                <Link to={`/dashboard/ads/${st.adId}`} className="text-xs text-primary hover:underline">
-                  See ad
-                </Link>
-              </div>
-            ))
-          )}
-        </div>
-      ) : null}
       <div className="space-y-1.5">
         <label htmlFor={`words-${country}`} className="text-xs text-muted-foreground">
           Search words
@@ -539,7 +525,10 @@ function SameProductPanel({ product: p, words, country, host, onClose }: { produ
           {searching ? <Spinner className="w-3.5 h-3.5 mr-1" /> : <Search className="w-3.5 h-3.5 mr-1" />}
           Search Meta in {name}
         </Button>
-        <p className="text-xs text-muted-foreground">Up to 3 words, separated by commas. Counts as one search.</p>
+        <p className="text-xs text-muted-foreground">
+          Up to 3 search terms, separated by commas. Counts as one search.{" "}
+          {p.image ? "Each store's ad pictures are then compared with this product's photo." : ""}
+        </p>
       </div>
     </div>
   );

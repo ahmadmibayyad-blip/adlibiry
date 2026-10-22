@@ -4,9 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { FoundStore } from "@/convex/lib/offerSearch.ts";
 import { StoreResults } from "./StoreResults.tsx";
 
-const samePicture = vi.fn(async (_: unknown) => ({
-  stores: [{ host: "einlage.de", advertiser: "Einlage", ads: 1, match: 91, adId: "ad7", image: "https://img/7.jpg", headline: "Einlegesohlen" }],
-}));
 const keywords = vi.fn(async (_: unknown) => ({ keywords: ["Magnetische Einlegesohlen", "Abnehm Einlagen"] }));
 const start = vi.fn(async (_: unknown) => ({ id: "s9", cached: false }));
 vi.mock("convex/react", async () => {
@@ -15,7 +12,7 @@ vi.mock("convex/react", async () => {
     useQuery: () => [],
     useMutation: () => vi.fn(),
     useAction: (ref: unknown) =>
-      ({ "whoElse:samePicture": samePicture, "whoElse:keywords": keywords, "offerSearch:start": start } as Record<string, unknown>)[getFunctionName(ref as never)] ?? vi.fn(),
+      ({ "whoElse:keywords": keywords, "offerSearch:start": start } as Record<string, unknown>)[getFunctionName(ref as never)] ?? vi.fn(),
   };
 });
 vi.mock("@/components/AddToCollection.tsx", () => ({ default: () => null }));
@@ -85,7 +82,7 @@ describe("StoreResults", () => {
     expect(screen.getByRole("link", { name: "AliExpress $9.50 · ×4.2" })).toHaveAttribute("href", "https://www.aliexpress.com/item/1.html");
   });
 
-  it("shows who sells the same product in another country, and searches Meta for it there", async () => {
+  it("searches Meta for the product in another country, with its photo to compare", async () => {
     function Where() {
       return <div data-testid="where">{useLocation().search}</div>;
     }
@@ -100,26 +97,38 @@ describe("StoreResults", () => {
     fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
     expect(screen.getByRole("menuitem", { name: "Netherlands (this search)" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "Germany" }));
-    // Same picture in AdSpy's ads, found right away.
-    await waitFor(() => expect(screen.getByText("einlage.de")).toBeInTheDocument());
-    expect(screen.getByText("1 ad · 91% match")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "See ad" })).toHaveAttribute("href", "/dashboard/ads/ad7");
-    expect(samePicture).toHaveBeenCalledWith({ imageUrl: "https://cdn.shopify.com/zolen.jpg", country: "DE", excludeHost: "relivex.nl" });
     expect(keywords).toHaveBeenCalledWith({ title: "ReliveX™ Magnetische Inlegzolen | Verlies Gewicht", supplierTitle: "Magnetic therapy insoles", country: "DE" });
-    // The shopper words, editable, then Meta.
     const box = await screen.findByLabelText("Search words");
     expect(box).toHaveValue("Magnetische Einlegesohlen, Abnehm Einlagen");
     fireEvent.change(box, { target: { value: "Magnet Einlegesohlen, Abnehm Einlagen" } });
     fireEvent.click(screen.getByRole("button", { name: "Search Meta in Germany" }));
     await waitFor(() => expect(screen.getByTestId("where").textContent).toBe("?id=s9"));
-    expect(start).toHaveBeenCalledWith({ country: "DE", keywords: ["Magnet Einlegesohlen", "Abnehm Einlagen"] });
+    expect(start).toHaveBeenCalledWith({ country: "DE", keywords: ["Magnet Einlegesohlen", "Abnehm Einlagen"], productImage: "https://cdn.shopify.com/zolen.jpg" });
   });
 
-  it("says when AdSpy has no ad with the same picture there", async () => {
-    samePicture.mockResolvedValueOnce({ stores: [] });
-    show([relivex()]);
+  it("puts the product's made-up name first in the search words", async () => {
+    const vest: FoundStore = {
+      ...relivex(),
+      host: "middo.nl",
+      advertisers: ["Middo"],
+      products: [{ handle: "vest", url: "https://middo.nl/products/vest", title: "VitaBoost PowerVest™ | Verhoog Energie", price: 24.95, image: "https://cdn.shopify.com/vest.jpg" }],
+    };
+    show([vest]);
     fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Sweden" }));
-    expect(await screen.findByText("No ad with this picture in AdSpy for Sweden yet.")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Search words")).toHaveValue("PowerVest, Magnetische Einlegesohlen, Abnehm Einlagen");
+  });
+
+  it("shows the stores selling the same product first, by picture match", () => {
+    const st = (host: string, match: number) => ({ ...store(host, 2), match });
+    render(
+      <MemoryRouter>
+        <StoreResults stores={[st("dramabox.com", 12), st("north-alpine.com", 81), st("weckmethod.eu", 64)]} country="SE" pictures />
+      </MemoryRouter>,
+    );
+    expect(hosts()).toEqual(["north-alpine.com", "weckmethod.eu"]);
+    expect(screen.getByText("81% picture match")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show all 3 stores" }));
+    expect(hosts()).toEqual(["north-alpine.com", "weckmethod.eu", "dramabox.com"]);
   });
 });
