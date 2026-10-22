@@ -61,6 +61,8 @@ export const addCodOrder = internalMutation({
       .unique();
     if (existing) return;
     await ctx.db.insert("sallaCodOrders", { ...args, status: "pending", createdAt: Date.now() });
+    // Set "بانتظار التأكيد" in Salla after the webhook has answered (Salla waits ~30 s at most).
+    await ctx.scheduler.runAfter(0, internal.sallaOrders.hold, { merchantId: args.merchantId, orderId: args.orderId });
   },
 });
 
