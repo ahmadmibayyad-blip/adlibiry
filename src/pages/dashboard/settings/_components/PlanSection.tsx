@@ -23,6 +23,7 @@ export default function PlanSection() {
   const trial = useQuery(api.billing.myTrial, {});
   const startTrial = useMutation(api.billing.startProTrial);
   const onTrial = trial?.state === "active" && !!trial.endsAt;
+  const onGift = trial?.state === "gift" && !!trial.endsAt;
   const [open, setOpen] = useState(false);
 
   const beginTrial = async () => {
@@ -45,6 +46,7 @@ export default function PlanSection() {
 
   const renewNote = (() => {
     if (onTrial) return `Free Pro trial until ${day(trial.endsAt!)}, with smaller daily limits. Subscribe to keep Pro and open Launch.`;
+    if (onGift) return `Pro is free for you until ${day(trial.endsAt!)}, with everything unlocked. Subscribe any time to keep it after that.`;
     if (!isPro || !billing?.periodEnd) return "Every result is unlocked.";
     const amount = proCharge(billing.period);
     return billing.autoRenew
@@ -73,7 +75,7 @@ export default function PlanSection() {
                     variant="outline"
                     className={cn("text-xs", isPro ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-border")}
                   >
-                    {onTrial ? "Pro · free trial" : isPro ? `Pro${billing ? ` · ${billing.period}` : ""}` : "Free"}
+                    {onTrial ? "Pro · free trial" : onGift ? "Pro · free" : isPro ? `Pro${billing ? ` · ${billing.period}` : ""}` : "Free"}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -91,7 +93,7 @@ export default function PlanSection() {
                   Start 7-day free trial
                 </Button>
               )}
-              {(!isPro || onTrial) && (
+              {(!isPro || onTrial || onGift) && (
                 <Button size="sm" variant={trial?.state === "available" ? "outline" : "default"} onClick={() => setOpen(true)}>
                   {trial?.state !== "available" && <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
                   Upgrade to Pro
@@ -100,7 +102,7 @@ export default function PlanSection() {
             </div>
           </div>
 
-          {isPro && !onTrial && billing?.canAutoRenew && (
+          {isPro && !onTrial && !onGift && billing?.canAutoRenew && (
             <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer">
               <span className="text-sm">
                 Auto-renew

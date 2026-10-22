@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byTier, effectivePlan, planForPrice, priceIdForVariant, tierOf } from "./billing";
+import { byTier, effectivePlan, planForPrice, priceIdForVariant, resultLimit, tierOf } from "./billing";
 
 const env = {
   STRIPE_PRICE_STARTER_MONTHLY: "price_s_m",
@@ -52,5 +52,28 @@ describe("tierOf", () => {
     expect(tierOf({ plan: "pro", subscriptionStatus: "canceled", proTrialEndsAt: now + 86_400_000 }, now)).toBe("trial");
     expect(tierOf({ role: "admin" }, now)).toBe("admin");
     expect(byTier({ proTrialEndsAt: now + 1 }, { admin: 4, paid: 3, trial: 2, free: 1 }, now)).toBe(2);
+  });
+});
+
+describe("free Pro from an admin (compProUntil)", () => {
+  const now = 1_000_000;
+  it("counts as paid Pro until the date, with every result", () => {
+    const gift = { plan: "none", compProUntil: now + 1 };
+    expect(effectivePlan(gift, now)).toBe("pro");
+    expect(tierOf(gift, now)).toBe("paid");
+    expect(resultLimit(gift, now)).toBeNull();
+    // Even next to a used trial or a backend that says "not subscribed".
+    expect(tierOf({ ...gift, proTrialEndsAt: now - 1, subscriptionStatus: "canceled" }, now)).toBe("paid");
+  });
+
+  it("ends by itself", () => {
+    const over = { compProUntil: now };
+    expect(effectivePlan(over, now)).toBe("none");
+    expect(tierOf(over, now)).toBe("free");
+    expect(resultLimit(over, now)).toBe(10);
+  });
+
+  it("lifts a 7-day trial to full Pro", () => {
+    expect(tierOf({ proTrialEndsAt: now + 1, compProUntil: now + 1 }, now)).toBe("paid");
   });
 });

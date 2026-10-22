@@ -30,6 +30,7 @@ export default defineSchema({
     targetCountry: v.optional(v.string()), // ISO code of the market they sell to (verdict panel's "Room left")
     onboardedAt: v.optional(v.string()),
     proTrialEndsAt: v.optional(v.number()), // ms; set once when the 7-day Pro trial starts (lib/billing.ts)
+    compProUntil: v.optional(v.number()), // ms; free Pro an admin gave (e.g. affiliates), counts as paid (lib/billing.ts)
     subscriptionEventAt: v.optional(v.number()), // Stripe event.created (s) of the last applied change
     role: v.optional(v.string()), // "admin" | "user"
     avatarUrl: v.optional(v.string()),

@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { stableToken } from "./lib/authIdentity";
 import { resultLimitFor } from "./lib/access";
-import { PRO_TRIAL_DAYS, effectivePlan, onProTrial, planForPrice, type Plan } from "./lib/billing";
+import { PRO_TRIAL_DAYS, effectivePlan, onCompPro, onProTrial, planForPrice, tierOf, type Plan } from "./lib/billing";
 
 // The signed-in user's plan. A query (not an action) so the app updates the
 // moment the Stripe webhook records a new subscription.
@@ -26,12 +26,16 @@ async function currentUser(ctx: QueryCtx) {
 }
 
 // The Pro free trial: "available" until it's been used, then "active" for 7
-// days with the end date, then "used".
+// days with the end date, then "used". "gift": free Pro an admin gave, until endsAt.
 export const myTrial = query({
   args: {},
-  handler: async (ctx): Promise<{ state: "available" | "active" | "used" | "paid" | "signedOut"; endsAt?: number }> => {
+  handler: async (ctx): Promise<{ state: "available" | "active" | "used" | "paid" | "gift" | "signedOut"; endsAt?: number }> => {
     const user = await currentUser(ctx);
     if (!user) return { state: "signedOut" };
+    // A paying customer's plan wins over free Pro.
+    if (onCompPro(user) && tierOf({ ...user, compProUntil: undefined }) !== "paid") {
+      return { state: "gift", endsAt: user.compProUntil };
+    }
     if (onProTrial(user)) return { state: "active", endsAt: user.proTrialEndsAt };
     if (effectivePlan(user) !== "none") return { state: "paid" };
     return { state: user.proTrialEndsAt === undefined ? "available" : "used" };

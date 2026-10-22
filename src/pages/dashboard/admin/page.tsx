@@ -52,6 +52,10 @@ type Product = Doc<"products">;
 type Ad = Doc<"ads">;
 type UserDoc = Doc<"users">;
 
+// When free Pro from an admin ends (convex/users.ts giveFreePro); null if none.
+const freeProUntil = (user: UserDoc): number | null =>
+  user.compProUntil !== undefined && user.compProUntil > Date.now() ? user.compProUntil : null;
+
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -942,12 +946,23 @@ function UsersTab() {
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 300);
   const setUserRole = useMutation(api.users.setUserRole);
+  const giveFreePro = useMutation(api.users.giveFreePro);
 
   const { results, status, loadMore } = usePaginatedQuery(
     api.users.listUsers,
     { search: debouncedSearch || undefined },
     { initialNumItems: 20 }
   );
+
+  // Free Pro (e.g. for a creator making a video): 30 days, or remove it.
+  const handleFreePro = async (user: UserDoc, days: number) => {
+    try {
+      const { until } = await giveFreePro({ userId: user._id, days });
+      toast.success(until ? `Pro free until ${new Date(until).toLocaleDateString()}` : "Free Pro removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't change free Pro");
+    }
+  };
 
   const handleToggleAdmin = async (user: UserDoc) => {
     const newRole = user.role === "admin" ? "user" : "admin";
@@ -1011,9 +1026,19 @@ function UsersTab() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {user.customerId ? "Connected" : "No subscription"}
+                      {freeProUntil(user)
+                        ? `Free Pro until ${new Date(freeProUntil(user)!).toLocaleDateString()}`
+                        : user.customerId ? "Connected" : "No subscription"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2 whitespace-nowrap">
+                      <Button size="sm" variant="outline" onClick={() => handleFreePro(user, 30)}>
+                        Give Pro 30 days
+                      </Button>
+                      {freeProUntil(user) !== null && (
+                        <Button size="sm" variant="ghost" onClick={() => handleFreePro(user, 0)}>
+                          Remove
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"

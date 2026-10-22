@@ -33,13 +33,22 @@ export function planForPrice(priceId: string | undefined, env: Env): Plan {
 // the card; canceled, unpaid, incomplete and paused don't.
 const ACCESS_STATUSES = new Set(["active", "trialing", "past_due"]);
 
-export type PlanUser = { role?: string; plan?: string; subscriptionStatus?: string; proTrialEndsAt?: number };
+export type PlanUser = { role?: string; plan?: string; subscriptionStatus?: string; proTrialEndsAt?: number; compProUntil?: number };
 
 // Pro free trial: 7 days of full Pro, no card, once per account (users.proTrialEndsAt).
 export const PRO_TRIAL_DAYS = 7;
 
 export function onProTrial(user: PlanUser | null, now = Date.now()): boolean {
   return user?.proTrialEndsAt !== undefined && user.proTrialEndsAt > now;
+}
+
+// Free Pro an admin gave (users.compProUntil, e.g. a creator testing the app for a
+// video): full Pro like a paying customer, Launch included, until the date. It
+// sits next to the backend's plan, so the hourly plan check doesn't undo it.
+export const COMP_PRO_DAYS = 30;
+
+export function onCompPro(user: PlanUser | null, now = Date.now()): boolean {
+  return user?.compProUntil !== undefined && user.compProUntil > now;
 }
 
 function paidPlan(user: PlanUser): Plan {
@@ -52,7 +61,7 @@ export function effectivePlan(user: PlanUser | null, now = Date.now()): Plan {
   // Admins get full access without going through billing.
   if (user.role === "admin") return "agency";
   const paid = paidPlan(user);
-  return paid === "none" && onProTrial(user, now) ? "pro" : paid;
+  return paid === "none" && (onCompPro(user, now) || onProTrial(user, now)) ? "pro" : paid;
 }
 
 // Which allowance an account gets. "trial" is the 7-day Pro trial (or an old
@@ -66,7 +75,7 @@ export function tierOf(user: PlanUser | null, now = Date.now()): Tier {
   if (user.role === "admin") return "admin";
   if (effectivePlan(user, now) === "none") return "free";
   const paying = (user.subscriptionStatus === "active" || user.subscriptionStatus === "past_due") && paidPlan(user) !== "none";
-  return paying ? "paid" : "trial";
+  return paying || onCompPro(user, now) ? "paid" : "trial";
 }
 
 /** The value for the user's tier, e.g. a daily limit. */
@@ -80,7 +89,7 @@ export function byTier<T>(user: PlanUser | null, values: Record<Tier, T>, now = 
 export const TRIAL_RESULT_LIMIT = 10;
 
 export function resultLimit(user: PlanUser | null, now = Date.now()): number | null {
-  if (user?.role === "admin" || onProTrial(user, now)) return null;
+  if (user?.role === "admin" || onProTrial(user, now) || onCompPro(user, now)) return null;
   const paying = user?.subscriptionStatus === "active" || user?.subscriptionStatus === "past_due";
   return paying && effectivePlan(user) !== "none" ? null : TRIAL_RESULT_LIMIT;
 }
