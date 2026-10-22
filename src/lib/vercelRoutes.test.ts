@@ -17,4 +17,9 @@ describe("vercel.json", () => {
     }
     expect(pattern.test("/dashboard/ad-spy")).toBe(true);
   });
+
+  it("serves /vs/<slug> from the built comparison pages (vite.config.ts comparePages)", () => {
+    expect(new RegExp(`^${appRewrite!.source}$`).test("/vs/minea")).toBe(false);
+    expect(config.rewrites).toContainEqual({ source: "/vs/:slug", destination: "/vs/:slug.html" });
+  });
 });

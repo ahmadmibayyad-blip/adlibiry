@@ -1,5 +1,6 @@
 import Logo from "@/components/Logo.tsx";
 import { Link } from "react-router-dom";
+import { COMPARE_PAGES } from "../compare/content.ts";
 
 // Product links go to sections of the home page (the app itself needs an
 // account); the others open the info pages in src/pages/info.
@@ -15,7 +16,9 @@ const footerLinks: Record<string, { label: string; to: string }[]> = {
     { label: "About", to: "/about" },
     { label: "Press", to: "/press" },
     { label: "Partners", to: "/partners" },
+    { label: "Affiliate program", to: "/partners" },
   ],
+  Compare: COMPARE_PAGES.map((p) => ({ label: `vs ${p.name}`, to: `/vs/${p.slug}` })),
   Support: [
     { label: "Help Center", to: "/help" },
     { label: "Data & methodology", to: "/methodology" },
@@ -41,7 +44,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-border bg-card/30 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-3 lg:col-span-2">
             <a href="/" className="inline-flex mb-4 cursor-pointer" aria-label="AdSpy Pro home">
