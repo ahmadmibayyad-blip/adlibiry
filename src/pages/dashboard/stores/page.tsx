@@ -21,6 +21,7 @@ import FilterNumberInput from "@/components/FilterNumberInput.tsx";
 import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { SATURATION_COUNTRIES } from "@/lib/countries.ts";
 import { storeImage } from "@/lib/storeImage.ts";
+import ProductImage from "@/components/ProductImage.tsx";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 
@@ -294,7 +295,7 @@ export default function StoreTrackerPage() {
                   onClick={() => handleOpenStore(store)}
                   className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
                 >
-                  <img src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                  <ProductImage src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium leading-snug line-clamp-1">{store.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -327,7 +328,7 @@ export default function StoreTrackerPage() {
                   onClick={() => handleOpenStore(store)}
                   className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
                 >
-                  <img src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                  <ProductImage src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium leading-snug line-clamp-1">{store.name}</div>
                     {storeRevenueLabel(store) && <div className="text-xs text-muted-foreground">{storeRevenueLabel(store)}</div>}

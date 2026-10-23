@@ -135,7 +135,7 @@ export default function AdFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{ad ? "Edit ad" : "Add curated ad"}</DialogTitle>
         </DialogHeader>

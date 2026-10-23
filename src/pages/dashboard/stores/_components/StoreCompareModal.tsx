@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { X, DollarSign, Users, Megaphone, TrendingUp } from "lucide-react";
 import { storeImage } from "@/lib/storeImage.ts";
+import ProductImage from "@/components/ProductImage.tsx";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 
 type StoreDoc = Doc<"stores">;
@@ -25,7 +26,7 @@ export default function StoreCompareModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Compare Stores</DialogTitle>
         </DialogHeader>
@@ -45,7 +46,7 @@ export default function StoreCompareModal({
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
-                  <img src={storeImage(store)} alt={store.name} className="w-12 h-12 rounded-lg object-cover mb-2.5" />
+                  <ProductImage src={storeImage(store)} alt={store.name} className="w-12 h-12 rounded-lg object-cover mb-2.5" />
                   <h3 className="font-semibold text-sm mb-0.5 pr-6">{store.name}</h3>
                   <div className="text-xs text-muted-foreground mb-3">{store.niche} · {store.country}</div>
 

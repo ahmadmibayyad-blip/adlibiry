@@ -498,7 +498,7 @@ function LaunchButton({
         </Button>
       )}
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setLaunchId(null); setStep(1); onClose?.(); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Launch to Shopify</DialogTitle>
             <DialogDescription>

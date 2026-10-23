@@ -77,7 +77,7 @@ function AddButton({ product, dialogOnly, open: openProp, onOpenChange }: Props)
         </Button>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Quick add to Shopify</DialogTitle>
             <DialogDescription>

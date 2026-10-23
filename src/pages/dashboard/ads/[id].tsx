@@ -191,7 +191,7 @@ export default function AdDetailPage() {
               <span className="inline-block mt-2 text-xs font-semibold px-2.5 py-1 rounded-md bg-muted border border-border">{ad.ctaText}</span>
             )}
             {/* Only the numbers we have: missing data is left out, not shown as "—". */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-2 mt-4">
               {ad.daysRunning > 0 && <StatTile label="Running" value={`${ad.daysRunning} days`} />}
               {ad.pageRank && (ad.pageActiveAds ?? 0) > 1 ? (
                 <StatTile
