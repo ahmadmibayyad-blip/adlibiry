@@ -54,7 +54,7 @@ export default function AINicheReportModal({ niche, open, onOpenChange }: { nich
 
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setReport(null); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />

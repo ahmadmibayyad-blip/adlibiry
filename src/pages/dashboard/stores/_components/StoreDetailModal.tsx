@@ -38,13 +38,13 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="sr-only">{store.name}</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-start gap-4 mb-4">
-          <img src={storeImage(store)} alt={store.name} className="w-16 h-16 rounded-xl object-cover border border-border" />
+          <ProductImage src={storeImage(store)} alt={store.name} className="w-16 h-16 rounded-xl object-cover border border-border" />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold leading-tight mb-1">{store.name}</h2>
             <div className="flex items-center gap-2 flex-wrap text-xs">

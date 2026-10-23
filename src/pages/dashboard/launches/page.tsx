@@ -587,7 +587,7 @@ export default function LaunchesPage() {
       {goLiveLaunch ? <MakeLive key={goLiveLaunch._id} launch={goLiveLaunch} open onOpenChange={(o) => !o && setGoingLive(null)} /> : null}
       {deleting.length ? <DeleteLaunches key={deleting.map((l) => l._id).join()} launches={deleting} open onOpenChange={(o) => !o && setToDelete(null)} /> : null}
       <Dialog open={!!adsLaunch} onOpenChange={(o) => !o && setAdsFor(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Ads for {(adsLaunch?.copy as { title?: string } | undefined)?.title ?? adsLaunch?.product?.title ?? "this product"}</DialogTitle>
             <DialogDescription>Ad text written from the ads already winning, and ready-made ad images.</DialogDescription>

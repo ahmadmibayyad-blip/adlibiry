@@ -74,7 +74,7 @@ export default function StoreCheck({ variant = "outline", label = "Ready to sell
         {label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Ready to sell?</DialogTitle>
             <DialogDescription>What your Shopify store still needs before you run ads to it.</DialogDescription>

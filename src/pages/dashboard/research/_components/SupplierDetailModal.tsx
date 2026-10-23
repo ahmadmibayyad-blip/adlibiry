@@ -13,7 +13,7 @@ export default function SupplierDetailModal({ supplier, open, onOpenChange }: { 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="sr-only">{supplier.title}</DialogTitle>
         </DialogHeader>

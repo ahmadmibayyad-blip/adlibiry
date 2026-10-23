@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Authenticated } from "convex/react";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { storeImage } from "@/lib/storeImage.ts";
+import ProductImage from "@/components/ProductImage.tsx";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
 
@@ -58,12 +59,13 @@ export default function StoreCard({
   return (
     <div className="group bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all">
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-        <img
-          src={storeImage(store)}
-          alt={store.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
-          onClick={onClick}
-        />
+        <div className="w-full h-full cursor-pointer" onClick={onClick}>
+          <ProductImage
+            src={storeImage(store)}
+            alt={store.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        </div>
         <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-background/90 backdrop-blur-sm rounded-lg px-2 py-1 border border-border">
           <Store className="w-3 h-3 text-primary" />
           <span className="text-xs font-medium">{store.platform}</span>

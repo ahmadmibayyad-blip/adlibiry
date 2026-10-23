@@ -117,7 +117,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-0">
+      <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>{ad.headline}</DialogTitle>
         </DialogHeader>

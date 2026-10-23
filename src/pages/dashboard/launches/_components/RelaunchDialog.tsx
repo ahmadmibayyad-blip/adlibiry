@@ -36,7 +36,7 @@ export default function RelaunchDialog({ launch, aiPhotosReady, onClose }: { lau
 
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Relaunch</DialogTitle>
           <DialogDescription>{(launch.copy as { title?: string } | undefined)?.title ?? "This product"}, with the same settings and the extras you pick here.</DialogDescription>
