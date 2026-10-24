@@ -983,6 +983,8 @@ export default defineSchema({
     awaitingStatusId: v.optional(v.number()),  // our "بانتظار التأكيد" sub-status in this store
     refreshLockUntil: v.optional(v.number()),  // a token refresh is running until then (refresh tokens are single use)
     storeName: v.optional(v.string()),         // shown in the WhatsApp message, read once from /store/info
+    paused: v.optional(v.boolean()),           // merchant turned confirmations off (dashboard inside Salla)
+    parcelCost: v.optional(v.number()),        // SAR a refused COD parcel costs them, for "saved"
   }).index("by_merchant", ["merchantId"]),
   // COD orders awaiting WhatsApp confirmation. Ids and amount only, no customer PII.
   sallaCodOrders: defineTable({
@@ -1003,7 +1005,15 @@ export default defineSchema({
     answeredAt: v.optional(v.number()),
   })
     .index("by_merchant_order", ["merchantId", "orderId"])
+    .index("by_merchant_created", ["merchantId", "createdAt"])
     .index("by_wa_message", ["waMessageId"]),
+  // Sessions of the dashboard page inside Salla's admin, made after Salla's token introspection.
+  sallaSessions: defineTable({
+    sid: v.string(),           // random, sent by the page as a bearer token
+    merchantId: v.number(),
+    userId: v.optional(v.number()),
+    expiresAt: v.number(),
+  }).index("by_sid", ["sid"]),
   sallaWebhookEvents: defineTable({
     key: v.string(),           // merchant:event:hash of the raw body
     receivedAt: v.number(),
