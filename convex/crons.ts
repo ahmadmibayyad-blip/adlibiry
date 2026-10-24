@@ -141,6 +141,9 @@ crons.weekly("build hooks of the week", { dayOfWeek: "monday", hourUTC: 9, minut
 crons.hourly("count profit from Shopify orders", { minuteUTC: 25 }, internal.profit.recountAll, {});
 
 
+// Salla COD app: PDPL retention (phone hashes off orders after 90 days, old rows after a year).
+crons.daily("purge old Salla COD data", { hourUTC: 2, minuteUTC: 40 }, internal.sallaPurge.run, {});
+
 crons.daily("prune Shopify install attempts", { hourUTC: 3, minuteUTC: 50 }, internal.shopifyApp.pruneStates, {});
 
 export default crons;

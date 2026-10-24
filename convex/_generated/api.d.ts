@@ -149,6 +149,7 @@ import type * as revenueTruth from "../revenueTruth.js";
 import type * as sallaApp from "../sallaApp.js";
 import type * as sallaEmbedded from "../sallaEmbedded.js";
 import type * as sallaOrders from "../sallaOrders.js";
+import type * as sallaPurge from "../sallaPurge.js";
 import type * as sallaWhatsapp from "../sallaWhatsapp.js";
 import type * as saturation_analyze from "../saturation/analyze.js";
 import type * as saturation_compare from "../saturation/compare.js";
@@ -334,6 +335,7 @@ declare const fullApi: ApiFromModules<{
   sallaApp: typeof sallaApp;
   sallaEmbedded: typeof sallaEmbedded;
   sallaOrders: typeof sallaOrders;
+  sallaPurge: typeof sallaPurge;
   sallaWhatsapp: typeof sallaWhatsapp;
   "saturation/analyze": typeof saturation_analyze;
   "saturation/compare": typeof saturation_compare;
