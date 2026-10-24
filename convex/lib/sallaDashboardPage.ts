@@ -59,12 +59,24 @@ th { color:var(--color-muted); font-weight:500; }
 .btn { border:1px solid var(--color-primary); background:var(--color-primary); color:var(--color-on-primary); border-radius:6px; padding:6px 14px; font:inherit; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block; }
 .btn.ghost { background:transparent; color:var(--color-primary); }
 .feed { width:100%; max-width:560px; padding:6px 8px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-bg); color:var(--color-text); font:inherit; font-size:12px; direction:ltr; }
+.meter { height:6px; border-radius:3px; background:var(--color-border); overflow:hidden; max-width:560px; }
+.meter > div { height:100%; background:var(--color-primary); }
+.meter.full > div { background:var(--color-danger); }
+.plan-warn { color:var(--color-danger); }
 .notice { border:1px solid var(--color-danger); color:var(--color-danger); border-radius:8px; padding:16px; display:none; }
 </style>
 </head>
 <body>
 <div class="app-page"><main class="app-content">
   <div class="notice" id="notice"></div>
+  <section class="card">
+    <div class="card-header"><h2 class="card-title" data-t="planTitle"></h2><span class="muted" id="planName"></span></div>
+    <div class="card-body">
+      <p id="planUse"></p>
+      <div class="meter" id="planMeter" hidden><div id="planBar"></div></div>
+      <p class="muted" id="planNote"></p>
+    </div>
+  </section>
   <section class="card">
     <div class="card-header">
       <h2 class="card-title" data-t="results"></h2>
@@ -136,7 +148,12 @@ th { color:var(--color-muted); font-weight:500; }
       sConfirmed:"مؤكد", sCancelled:"ملغي", sNoAnswer:"ملغي (لا رد)", sPending:"بانتظار الرد", reminders:"تذكير",
       empty:"لا توجد طلبات دفع عند الاستلام في هذه الفترة بعد.", save:"حفظ", saved_ok:"تم حفظ الإعدادات", save_err:"تعذر الحفظ",
       badCost:"أدخل تكلفة بين 0 و1000 ر.س", load_err:"تعذر تحميل البيانات. حدّث الصفحة.", outside:"افتح هذه الصفحة من لوحة تحكم سلة.",
-      notInstalled:"التطبيق غير مثبت على هذا المتجر." },
+      notInstalled:"التطبيق غير مثبت على هذا المتجر.",
+      planTitle:"الباقة", t_confirm:"تأكيد", t_pro:"تأكيد برو", t_bundle:"تأكيد بلا حدود", t_trial:"الفترة التجريبية",
+      useOf:"{n} من {limit} تأكيد هذا الشهر", useAll:"{n} طلب أُرسل للتأكيد هذا الشهر", trialEnds:"تنتهي الفترة التجريبية في {date}.",
+      planFull:"وصلت إلى حد باقتك: {n} طلب هذا الشهر لم يُرسل له تأكيد. رقِّ الباقة من صفحة التطبيق في متجر تطبيقات سلة.",
+      planOff:"الاشتراك غير نشط، فالطلبات الجديدة لا تُرسل لها رسائل. جدّد الاشتراك من صفحة التطبيق في متجر تطبيقات سلة.",
+      planReset:"يتجدّد العدّاد أول كل شهر." },
     en: { title:"COD order confirmation", results:"Results", settings:"Settings", recent:"Latest orders",
       d7:"7 days", d30:"30 days", d90:"90 days",
       asked:"Orders asked to confirm", confirmed:"Confirmed by customer", byCustomer:"Cancelled by customer", noAnswer:"Cancelled, no answer", pending:"Awaiting answer",
@@ -161,7 +178,12 @@ th { color:var(--color-muted); font-weight:500; }
       sConfirmed:"Confirmed", sCancelled:"Cancelled", sNoAnswer:"Cancelled (no answer)", sPending:"Awaiting answer", reminders:"reminder",
       empty:"No cash-on-delivery orders in this period yet.", save:"Save", saved_ok:"Settings saved", save_err:"Couldn't save",
       badCost:"Enter a cost between 0 and 1000 SAR", load_err:"Couldn't load the data. Reload the page.", outside:"Open this page from your Salla dashboard.",
-      notInstalled:"The app isn't installed on this store." }
+      notInstalled:"The app isn't installed on this store.",
+      planTitle:"Plan", t_confirm:"Confirm", t_pro:"Confirm Pro", t_bundle:"Confirm Unlimited", t_trial:"Free trial",
+      useOf:"{n} of {limit} confirmations this month", useAll:"{n} orders sent for confirmation this month", trialEnds:"The trial ends on {date}.",
+      planFull:"You've reached your plan's limit: {n} orders this month got no confirmation. Upgrade from the app's page in the Salla App Store.",
+      planOff:"The subscription isn't active, so new orders get no messages. Renew it from the app's page in the Salla App Store.",
+      planReset:"The count starts again on the 1st of each month." }
   };
   var sdk = window.salla && window.salla.embedded;
   var lang = "ar", t = T.ar, sid = null, days = 30, state = null;
@@ -212,6 +234,7 @@ th { color:var(--color-muted); font-weight:500; }
     if (document.activeElement !== $("cost")) $("cost").value = state.settings.parcelCost;
     document.querySelectorAll("#range button").forEach(function (b) { b.setAttribute("aria-pressed", String(Number(b.getAttribute("data-days")) === days)); });
     renderFeed(state.feedKey);
+    renderPlan(state.plan);
     if (!state.recent.length) { $("rows").innerHTML = '<tr><td colspan="4" class="empty">' + t.empty + "</td></tr>"; return; }
     $("rows").innerHTML = state.recent.map(function (o) {
       var cls = o.refused ? "b-cancelled" : o.status === "confirmed" ? "b-confirmed" : o.status === "cancelled" ? "b-cancelled" : "b-pending";
@@ -226,6 +249,22 @@ th { color:var(--color-muted); font-weight:500; }
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
+  function fill(s, v) { return s.replace(/\\{(\\w+)\\}/g, function (_, k) { return v[k]; }); }
+  function renderPlan(p) {
+    $("planName").textContent = p.tier ? t["t_" + p.tier] || "" : "";
+    $("planUse").textContent = p.limit != null ? fill(t.useOf, { n: num(p.sent), limit: num(p.limit) }) : fill(t.useAll, { n: num(p.sent) });
+    $("planMeter").hidden = p.limit == null;
+    if (p.limit != null) {
+      $("planBar").style.width = Math.min(100, Math.round((p.sent / p.limit) * 100)) + "%";
+      $("planMeter").className = "meter" + (p.sent >= p.limit ? " full" : "");
+    }
+    var note = $("planNote");
+    note.className = "muted";
+    if (p.limited && !p.active) { note.textContent = t.planOff; note.className = "plan-warn"; }
+    else if (p.skipped) { note.textContent = fill(t.planFull, { n: num(p.skipped) }); note.className = "plan-warn"; }
+    else if (p.trial && p.endsAt) note.textContent = fill(t.trialEnds, { date: new Date(p.endsAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-GB", { dateStyle: "medium" }) });
+    else note.textContent = p.limit != null ? t.planReset : "";
+  }
   function renderFeed(key) {
     $("feedNone").hidden = !!key;
     $("feedSome").hidden = !key;

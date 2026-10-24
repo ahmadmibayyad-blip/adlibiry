@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { DEFAULT_PARCEL_COST, codStats, errorKind, parseParcelCost, readIntrospect } from "./lib/sallaStats";
 import { dashboardPage } from "./lib/sallaDashboardPage";
 import { ordersCsv } from "./lib/sallaCsv";
+import { planGate, usageMonth, type StoredPlan } from "./lib/sallaPlans";
 
 // The merchant's page inside Salla's admin (an embedded page of app 1730909299):
 // GET /salla/app serves it, the page posts Salla's short-lived iframe token to
@@ -54,12 +55,26 @@ export const data = internalQuery({
       .order("desc")
       .take(5000);
     const parcelCost = store?.parcelCost ?? DEFAULT_PARCEL_COST;
+    const planRow = await ctx.db.query("sallaPlans").withIndex("by_merchant", (q) => q.eq("merchantId", merchantId)).unique();
+    const usage = await ctx.db
+      .query("sallaUsage")
+      .withIndex("by_merchant_month", (q) => q.eq("merchantId", merchantId).eq("month", usageMonth(Date.now())))
+      .unique();
+    const gate = planGate(planRow as StoredPlan | null, Date.now());
     return {
       merchantId,
       storeName: store?.storeName ?? null,
       installed: !!store && !store.uninstalledAt,
       settings: { paused: store?.paused ?? false, parcelCost, blockRefusers: store?.blockRefusers ?? false },
       feedKey: store?.feedKey ?? null,
+      plan: {
+        tier: planRow?.tier ?? null,
+        trial: planRow?.status === "trial",
+        endsAt: planRow?.endsAt ?? null,
+        ...gate,
+        sent: usage?.sent ?? 0,
+        skipped: usage?.skipped ?? 0,
+      },
       days,
       stats: codStats(orders, parcelCost),
       recent: orders.slice(0, 25).map((o) => ({

@@ -77,6 +77,15 @@ describe("Dashboard inside Salla", () => {
     expect(d.stats).toMatchObject({ asked: 3, confirmed: 1, cancelledByCustomer: 1, pending: 1, failed: 1, saved: 35 });
     expect(d.recent.map((o: { reference: string }) => o.reference).sort()).toEqual(["101", "102", "103"]);
     expect(d.recent.find((o: { reference: string }) => o.reference === "103").error).toBe("no mobile");
+    // Installed before billing: no plan, not limited.
+    expect(d.plan).toMatchObject({ tier: null, limited: false, limit: null, sent: 0, skipped: 0 });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("sallaPlans", { merchantId: MERCHANT, tier: "pro", status: "active", storeType: "live", updatedAt: Date.now() });
+      await ctx.db.insert("sallaUsage", { merchantId: MERCHANT, month: new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 7), sent: 12, skipped: 0 });
+    });
+    const d2 = await (await t.fetch("/salla/app/data", { method: "POST", headers: { authorization: `Bearer ${session}` }, body: "{}" })).json();
+    expect(d2.plan).toMatchObject({ tier: "pro", limited: true, active: true, limit: 3000, sent: 12 });
 
     expect((await t.fetch("/salla/app/data", { method: "POST", headers: { authorization: "Bearer nope" }, body: "{}" })).status).toBe(401);
   });
