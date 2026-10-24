@@ -83,7 +83,7 @@ describe("Dashboard inside Salla", () => {
     expect((await save({ paused: true, parcelCost: 40 })).status).toBe(200);
 
     const d = await (await t.fetch("/salla/app/data", { method: "POST", headers: { authorization: `Bearer ${session}` }, body: JSON.stringify({ days: 7 }) })).json();
-    expect(d.settings).toEqual({ paused: true, parcelCost: 40 });
+    expect(d.settings).toEqual({ paused: true, parcelCost: 40, blockRefusers: false });
     expect(d.stats.saved).toBe(40);
 
     await t.mutation(internal.sallaApp.addCodOrder, { merchantId: MERCHANT, orderId: "55" });

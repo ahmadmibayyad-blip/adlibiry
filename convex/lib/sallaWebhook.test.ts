@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codOrderFrom, parseAuthorize, parseSallaEvent, signBody, verifySallaSignature } from "./sallaWebhook";
+import { codOrderFrom, parseAuthorize, parseSallaEvent, signBody, statusUpdateFrom, verifySallaSignature } from "./sallaWebhook";
 
 describe("salla webhook helpers", () => {
   it("accepts a body signed with the current or previous secret, nothing else", async () => {
@@ -38,4 +38,11 @@ describe("salla webhook helpers", () => {
     expect(codOrderFrom({ ...order, payment_method: "credit_card" })).toBeNull();
     expect(codOrderFrom({ payment_method: "cod" })).toBeNull();
   });
+});
+
+it("reads the order and new status from order.status.updated", () => {
+  // data.id is the status-change record; the order is data.order.
+  expect(statusUpdateFrom({ id: 198290473, status: "مسترجع", order: { id: 629263027, status: { id: 1, name: "مسترجع", slug: "restored" } } }))
+    .toEqual({ orderId: "629263027", slug: "restored" });
+  expect(statusUpdateFrom({ id: 1, status: "x" })).toBeNull();
 });

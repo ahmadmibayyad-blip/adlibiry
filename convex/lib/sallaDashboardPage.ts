@@ -50,6 +50,7 @@ th { color:var(--color-muted); font-weight:500; }
 .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
 .b-confirmed { background:rgba(0,178,89,.12); color:var(--color-success); }
 .b-cancelled { background:rgba(245,67,74,.12); color:var(--color-danger); }
+.b-warn { background:rgba(245,67,74,.08); color:var(--color-danger); border:1px solid var(--color-danger); margin-inline-start:4px; }
 .b-pending { background:var(--color-bg); color:var(--color-muted); border:1px solid var(--color-border); }
 .err { color:var(--color-danger); font-size:11px; white-space:normal; }
 .empty { text-align:center; color:var(--color-muted); padding:24px; }
@@ -75,6 +76,7 @@ th { color:var(--color-muted); font-weight:500; }
     <div class="card-header"><h2 class="card-title" data-t="settings"></h2></div>
     <div class="card-body">
       <div class="row"><label id="l-on" data-t="onLabel"></label><button type="button" class="switch" id="on" role="switch" aria-labelledby="l-on" aria-checked="true"></button><span class="muted" id="onHint"></span></div>
+      <div class="row"><label id="l-block" data-t="blockLabel"></label><button type="button" class="switch" id="block" role="switch" aria-labelledby="l-block" aria-checked="false"></button><span class="muted" data-t="blockHint"></span></div>
       <div class="row"><label for="cost" data-t="costLabel"></label><input type="number" id="cost" min="0" max="1000" step="1"><span class="muted" data-t="costHint"></span></div>
       <p class="muted" data-t="flow"></p>
     </div>
@@ -95,6 +97,9 @@ th { color:var(--color-muted); font-weight:500; }
       d7:"7 أيام", d30:"30 يوماً", d90:"90 يوماً",
       asked:"طلبات أُرسل لها تأكيد", confirmed:"أكدها العميل", byCustomer:"ألغاها العميل", noAnswer:"أُلغيت لعدم الرد", pending:"بانتظار الرد",
       confirmRate:"نسبة التأكيد", answerRate:"نسبة الرد", saved:"وفّرت تقريباً", failed:"لم تصل الرسالة",
+      refused:"أكدها ثم رفض الاستلام", blocked:"أُلغيت: رفض سابقاً",
+      blockLabel:"إلغاء طلبات من رفض الاستلام سابقاً", blockHint:"إن أكد العميل طلباً ثم أُرجع أو أُلغي، يُلغى طلبه التالي بالدفع عند الاستلام تلقائياً. إن أوقفته، يُرسل له التأكيد ويُعلَّم الطلب فقط.",
+      warn:"سبق أن رفض", sRefused:"رُفض عند التسليم", sBlocked:"ملغي (رفض سابق)",
       savedNote:"التوفير = الطلبات الملغاة قبل الشحن × تكلفة الطرد المرتجع التي تحددها أدناه.",
       onLabel:"إرسال التأكيد عبر واتساب", onYes:"يعمل: كل طلب دفع عند الاستلام جديد يصل العميل سؤال تأكيد", onNo:"متوقف: الطلبات الجديدة لا تُرسل لها رسائل",
       costLabel:"تكلفة الطرد المرتجع (ر.س)", costHint:"شحن ذهاباً وإياباً، عادةً 30–40 ر.س",
@@ -108,6 +113,9 @@ th { color:var(--color-muted); font-weight:500; }
       d7:"7 days", d30:"30 days", d90:"90 days",
       asked:"Orders asked to confirm", confirmed:"Confirmed by customer", byCustomer:"Cancelled by customer", noAnswer:"Cancelled, no answer", pending:"Awaiting answer",
       confirmRate:"Confirm rate", answerRate:"Answer rate", saved:"Saved, about", failed:"Message not delivered",
+      refused:"Confirmed, then refused", blocked:"Cancelled: refused before",
+      blockLabel:"Cancel orders from past refusers", blockHint:"If a customer confirmed an order and it came back or was cancelled, their next cash-on-delivery order is cancelled automatically. Off: they still get the question and the order is only flagged.",
+      warn:"Refused before", sRefused:"Refused at delivery", sBlocked:"Cancelled (refused before)",
       savedNote:"Saved = orders cancelled before shipping × the refused-parcel cost you set below.",
       onLabel:"Ask customers on WhatsApp", onYes:"On: every new cash-on-delivery order gets a confirm question", onNo:"Paused: new orders get no messages",
       costLabel:"Refused parcel cost (SAR)", costHint:"Two-way shipping, usually SAR 30–40",
@@ -157,19 +165,22 @@ th { color:var(--color-muted); font-weight:500; }
     $("stats").innerHTML =
       stat(t.saved, money(s.saved, "SAR"), true) + stat(t.asked, num(s.asked)) + stat(t.confirmRate, pct(s.confirmRate)) +
       stat(t.answerRate, pct(s.answerRate)) + stat(t.confirmed, num(s.confirmed)) + stat(t.byCustomer, num(s.cancelledByCustomer)) +
-      stat(t.noAnswer, num(s.cancelledNoAnswer)) + stat(t.pending, num(s.pending)) + (s.failed ? stat(t.failed, num(s.failed)) : "");
+      stat(t.noAnswer, num(s.cancelledNoAnswer)) + stat(t.pending, num(s.pending)) + stat(t.refused, num(s.refused)) +
+      (s.blocked ? stat(t.blocked, num(s.blocked)) : "") + (s.failed ? stat(t.failed, num(s.failed)) : "");
     var on = !state.settings.paused;
     $("on").setAttribute("aria-checked", on ? "true" : "false");
     $("onHint").textContent = on ? t.onYes : t.onNo;
+    $("block").setAttribute("aria-checked", state.settings.blockRefusers ? "true" : "false");
     if (document.activeElement !== $("cost")) $("cost").value = state.settings.parcelCost;
     document.querySelectorAll("#range button").forEach(function (b) { b.setAttribute("aria-pressed", String(Number(b.getAttribute("data-days")) === days)); });
     if (!state.recent.length) { $("rows").innerHTML = '<tr><td colspan="4" class="empty">' + t.empty + "</td></tr>"; return; }
     $("rows").innerHTML = state.recent.map(function (o) {
-      var cls = o.status === "confirmed" ? "b-confirmed" : o.status === "cancelled" ? "b-cancelled" : "b-pending";
-      var label = o.status === "confirmed" ? t.sConfirmed : o.status === "cancelled" ? (o.answered ? t.sCancelled : t.sNoAnswer) : t.sPending;
+      var cls = o.refused ? "b-cancelled" : o.status === "confirmed" ? "b-confirmed" : o.status === "cancelled" ? "b-cancelled" : "b-pending";
+      var label = o.refused ? t.sRefused : o.blocked ? t.sBlocked : o.status === "confirmed" ? t.sConfirmed :
+        o.status === "cancelled" ? (o.answered ? t.sCancelled : t.sNoAnswer) : t.sPending;
       if (o.status === "pending" && o.reminders) label += " · " + num(o.reminders) + " " + t.reminders;
       return "<tr><td>#" + esc(o.reference) + "</td><td>" + (o.total != null ? money(o.total, o.currency) : "–") + '</td><td><span class="badge ' + cls + '">' +
-        esc(label) + "</span>" + (o.error ? '<div class="err">' + esc(o.error) + "</div>" : "") + "</td><td>" +
+        esc(label) + "</span>" + (o.priorRefusals && !o.blocked ? '<span class="badge b-warn">' + t.warn + " ×" + num(o.priorRefusals) + "</span>" : "") + (o.error ? '<div class="err">' + esc(o.error) + "</div>" : "") + "</td><td>" +
         new Date(o.createdAt).toLocaleString(lang === "ar" ? "ar-SA" : "en-GB", { dateStyle: "medium", timeStyle: "short" }) + "</td></tr>";
     }).join("");
   }
@@ -186,8 +197,9 @@ th { color:var(--color-muted); font-weight:500; }
     var cost = Number($("cost").value);
     if (!isFinite(cost) || cost < 0 || cost > 1000 || $("cost").value === "") { toast("error", t.badCost); return; }
     var paused = $("on").getAttribute("aria-checked") !== "true";
+    var blockRefusers = $("block").getAttribute("aria-checked") === "true";
     try { sdk.ui.loading.show(); } catch (e) {}
-    api("/salla/app/settings", { paused: paused, parcelCost: cost })
+    api("/salla/app/settings", { paused: paused, parcelCost: cost, blockRefusers: blockRefusers })
       .then(function () { toast("success", t.saved_ok); return load(); })
       .catch(function (e) { if (e.message !== "expired") toast("error", t.save_err); })
       .then(function () { try { sdk.ui.loading.hide(); } catch (e) {} });
@@ -197,6 +209,9 @@ th { color:var(--color-muted); font-weight:500; }
     var on = this.getAttribute("aria-checked") !== "true";
     this.setAttribute("aria-checked", String(on));
     $("onHint").textContent = on ? t.onYes : t.onNo;
+  });
+  $("block").addEventListener("click", function () {
+    this.setAttribute("aria-checked", String(this.getAttribute("aria-checked") !== "true"));
   });
   $("range").addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;

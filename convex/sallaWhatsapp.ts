@@ -118,6 +118,18 @@ export const sendConfirm = internalAction({
       const ord = await sallaFetch<SallaOrder>(token, `/orders/${orderId}`);
       const to = waNumber(ord?.customer?.mobile, ord?.customer?.mobile_code);
       if (!to) throw new Error("The order has no usable mobile number");
+      const hash = await phoneHash(to, key);
+
+      // Refused a confirmed order before: flag it, or cancel it when the merchant asked for that.
+      if (reminder === 0) {
+        const prior = await ctx.runQuery(internal.sallaWhatsapp.priorRefusals, { merchantId, phoneHash: hash });
+        if (prior.refusals > 0) {
+          const cancelled: boolean = await ctx.runMutation(internal.sallaWhatsapp.flagRefuser, {
+            merchantId, orderId, phoneHash: hash, refusals: prior.refusals, cancel: prior.block,
+          });
+          if (cancelled) return;
+        }
+      }
 
       const store = await ctx.runQuery(internal.sallaOrders.store, { merchantId });
       let storeName = store?.storeName;
@@ -136,7 +148,7 @@ export const sendConfirm = internalAction({
         reference: String(ord?.reference_id ?? o.referenceId ?? orderId),
         total: total?.amount != null ? `${total.amount} ${total.currency ?? o.currency ?? ""}`.trim() : "-",
       }, merchantId, orderId, template));
-      await ctx.runMutation(internal.sallaWhatsapp.recordSent, { merchantId, orderId, phoneHash: await phoneHash(to, key), waMessageId, reminder });
+      await ctx.runMutation(internal.sallaWhatsapp.recordSent, { merchantId, orderId, phoneHash: hash, waMessageId, reminder });
     } catch (e) {
       return fail(e); // no reminders after a failed send: the merchant sees the error and calls
     }
@@ -145,6 +157,39 @@ export const sendConfirm = internalAction({
     } else {
       await ctx.scheduler.runAfter(AUTO_CANCEL_AFTER_MS, internal.sallaWhatsapp.cancelUnanswered, { merchantId, orderId });
     }
+  },
+});
+
+export const priorRefusals = internalQuery({
+  args: { merchantId: v.number(), phoneHash: v.string() },
+  handler: async (ctx, { merchantId, phoneHash: hash }) => {
+    const r = await ctx.db
+      .query("sallaRefusers")
+      .withIndex("by_merchant_phone", (q) => q.eq("merchantId", merchantId).eq("phoneHash", hash))
+      .unique();
+    const store = await ctx.db.query("sallaStores").withIndex("by_merchant", (q) => q.eq("merchantId", merchantId)).unique();
+    return { refusals: r?.refusals ?? 0, block: !!store?.blockRefusers };
+  },
+});
+
+/** Notes the earlier refusals on the order; with `cancel`, cancels it without asking. True when cancelled. */
+export const flagRefuser = internalMutation({
+  args: { merchantId: v.number(), orderId: v.string(), phoneHash: v.string(), refusals: v.number(), cancel: v.boolean() },
+  handler: async (ctx, { merchantId, orderId, phoneHash: hash, refusals, cancel }) => {
+    const o = await ctx.db
+      .query("sallaCodOrders")
+      .withIndex("by_merchant_order", (q) => q.eq("merchantId", merchantId).eq("orderId", orderId))
+      .unique();
+    if (!o) return false;
+    await ctx.db.patch("sallaCodOrders", o._id, { priorRefusals: refusals, phoneHash: hash });
+    if (!cancel) return false;
+    const r = await claim(ctx, {
+      merchantId, orderId, answer: "cancelled",
+      note: `أُلغي الطلب تلقائياً: سبق لهذا العميل رفض استلام ${refusals} من طلبات الدفع عند الاستلام بعد تأكيدها`,
+    });
+    // Not a customer answer: keep it out of the answer rate.
+    if (r === "taken") await ctx.db.patch("sallaCodOrders", o._id, { answeredAt: undefined, blocked: true });
+    return r === "taken";
   },
 });
 
