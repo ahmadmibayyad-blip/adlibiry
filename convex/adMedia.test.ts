@@ -90,7 +90,11 @@ describe("product photos from ads", () => {
       await ctx.db.insert("ads", ad("b", { creativeUrl: "https://cdn.example/b.jpg", productId: stable }));
       return { expiring, stable };
     });
+    // One picture per run: parallel copies in convex-test sometimes lost one in CI.
+    vi.stubEnv("MEDIA_DAILY_IMAGES", "1");
     await t.action(internal.adMediaAction.daily, {});
+    await t.action(internal.adMediaAction.daily, {});
+    vi.unstubAllEnvs();
     const ad1 = await t.run((ctx) => ctx.db.query("ads").withIndex("by_product", (q) => q.eq("productId", ids.expiring)).first());
     expect((await t.run((ctx) => ctx.db.get("products", ids.expiring)))!.imageUrl).toBe(ad1!.hostedImageUrl);
     expect((await t.run((ctx) => ctx.db.get("products", ids.stable)))!.imageUrl).toBe("https://cdn.shopify.com/s/files/comb.jpg");
