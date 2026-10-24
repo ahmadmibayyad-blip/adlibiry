@@ -36,6 +36,7 @@ body { margin:0; background:var(--color-bg); color:var(--color-text); font-famil
 .seg button { border:0; background:transparent; color:var(--color-text); padding:4px 12px; font:inherit; font-size:13px; cursor:pointer; }
 .seg button[aria-pressed="true"] { background:var(--color-primary); color:var(--color-on-primary); }
 .row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding-block:8px; }
+[hidden] { display:none !important; }
 .row label { font-weight:500; min-width:200px; }
 input[type=number] { width:120px; padding:6px 8px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-surface); color:var(--color-text); font:inherit; }
 .switch { position:relative; width:44px; height:24px; border-radius:12px; border:0; background:var(--color-border); cursor:pointer; padding:0; }
