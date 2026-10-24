@@ -3,11 +3,14 @@ import { httpAction, internalMutation, internalQuery, type QueryCtx } from "./_g
 import { internal } from "./_generated/api";
 import { DEFAULT_PARCEL_COST, codStats, errorKind, parseParcelCost, readIntrospect } from "./lib/sallaStats";
 import { dashboardPage } from "./lib/sallaDashboardPage";
+import { ordersCsv } from "./lib/sallaCsv";
 
 // The merchant's page inside Salla's admin (an embedded page of app 1730909299):
 // GET /salla/app serves it, the page posts Salla's short-lived iframe token to
 // /salla/app/session, we check it with Salla's introspection and hand back our own
 // session id, and /salla/app/data + /salla/app/settings act for that merchant only.
+// /salla/app/feed makes (or replaces) the store's secret CSV link; GET /salla/feed/<key>.csv
+// serves its orders for Google Sheets' IMPORTDATA (?download=1: with BOM, as a file for Excel).
 // Optional env SALLA_APP_ID (default 1730909299).
 
 const APP_ID = () => process.env.SALLA_APP_ID?.trim() || "1730909299";
@@ -56,6 +59,7 @@ export const data = internalQuery({
       storeName: store?.storeName ?? null,
       installed: !!store && !store.uninstalledAt,
       settings: { paused: store?.paused ?? false, parcelCost, blockRefusers: store?.blockRefusers ?? false },
+      feedKey: store?.feedKey ?? null,
       days,
       stats: codStats(orders, parcelCost),
       recent: orders.slice(0, 25).map((o) => ({
@@ -95,6 +99,36 @@ export const saveSettings = internalMutation({
     }
     await ctx.db.patch("sallaStores", store._id, patch);
     return "ok" as const;
+  },
+});
+
+const randomHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
+
+/** The store's CSV link key, made on first use; `rotate` replaces it so the old link stops working. */
+export const feedKey = internalMutation({
+  args: { sid: v.string(), rotate: v.boolean() },
+  handler: async (ctx, { sid, rotate }) => {
+    const merchantId = await sessionMerchant(ctx, sid);
+    if (merchantId == null) return null;
+    const store = await ctx.db.query("sallaStores").withIndex("by_merchant", (q) => q.eq("merchantId", merchantId)).unique();
+    if (!store) return null;
+    if (store.feedKey && !rotate) return store.feedKey;
+    const key = randomHex(20);
+    await ctx.db.patch("sallaStores", store._id, { feedKey: key });
+    return key;
+  },
+});
+
+export const feedOrders = internalQuery({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const store = await ctx.db.query("sallaStores").withIndex("by_feed_key", (q) => q.eq("feedKey", key)).unique();
+    if (!store || store.uninstalledAt) return null;
+    return ctx.db
+      .query("sallaCodOrders")
+      .withIndex("by_merchant_created", (q) => q.eq("merchantId", store.merchantId))
+      .order("desc")
+      .take(5000);
   },
 });
 
@@ -143,4 +177,26 @@ export const settingsRoute = httpAction(async (ctx, request) => {
   });
   if (result === "unauthorized") return json({ error: result }, 401);
   return result === "ok" ? json({ ok: true }) : json({ error: result }, 400);
+});
+
+export const feedRoute = httpAction(async (ctx, request) => {
+  const body = (await request.json().catch(() => null)) as { rotate?: unknown } | null;
+  const key = await ctx.runMutation(internal.sallaEmbedded.feedKey, { sid: bearer(request), rotate: body?.rotate === true });
+  return key ? json({ feedKey: key }) : json({ error: "unauthorized" }, 401);
+});
+
+export const feed = httpAction(async (ctx, request) => {
+  const url = new URL(request.url);
+  const key = /\/salla\/feed\/([0-9a-f]{40})\.csv$/.exec(url.pathname)?.[1];
+  const orders = key ? await ctx.runQuery(internal.sallaEmbedded.feedOrders, { key }) : null;
+  if (!orders) return new Response("Not found", { status: 404 });
+  const download = url.searchParams.get("download") === "1";
+  return new Response(ordersCsv(orders, download), {
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex",
+      ...(download ? { "content-disposition": 'attachment; filename="cod-orders.csv"' } : {}),
+    },
+  });
 });

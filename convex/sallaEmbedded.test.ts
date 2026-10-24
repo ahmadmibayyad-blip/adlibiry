@@ -94,4 +94,35 @@ describe("Dashboard inside Salla", () => {
     const added = await t.run((ctx) => ctx.db.query("sallaCodOrders").withIndex("by_merchant_order", (q) => q.eq("merchantId", MERCHANT).eq("orderId", "55")).unique());
     expect(added).toBeNull();
   });
+
+  it("makes a private CSV link for Google Sheets, and a new one stops the old", async () => {
+    const t = await setup();
+    const { session } = await (await signIn(t)).res.json();
+    const auth = { authorization: `Bearer ${session}` };
+    const before = await (await t.fetch("/salla/app/data", { method: "POST", headers: auth, body: "{}" })).json();
+    expect(before.feedKey).toBeNull();
+
+    const { feedKey } = await (await t.fetch("/salla/app/feed", { method: "POST", headers: auth, body: "{}" })).json();
+    expect(feedKey).toMatch(/^[0-9a-f]{40}$/);
+    // Asking again keeps the same link.
+    expect((await (await t.fetch("/salla/app/feed", { method: "POST", headers: auth, body: "{}" })).json()).feedKey).toBe(feedKey);
+
+    const res = await t.fetch(`/salla/feed/${feedKey}.csv`);
+    expect(res.headers.get("content-type")).toContain("text/csv");
+    const csv = await res.text();
+    expect(csv.split("\r\n")[0]).toContain("رقم الطلب");
+    expect(csv).toContain("101,1,");
+    expect(csv).not.toContain(",9,"); // another store's order
+    const dl = await t.fetch(`/salla/feed/${feedKey}.csv?download=1`);
+    expect(dl.headers.get("content-disposition")).toContain("attachment");
+    // text() drops a leading BOM, so look at the bytes.
+    expect(Array.from(new Uint8Array(await dl.arrayBuffer()).slice(0, 3))).toEqual([0xef, 0xbb, 0xbf]);
+
+    const { feedKey: next } = await (await t.fetch("/salla/app/feed", { method: "POST", headers: auth, body: JSON.stringify({ rotate: true }) })).json();
+    expect(next).not.toBe(feedKey);
+    expect((await t.fetch(`/salla/feed/${feedKey}.csv`)).status).toBe(404);
+    expect((await t.fetch(`/salla/feed/${next}.csv`)).status).toBe(200);
+    expect((await t.fetch("/salla/feed/nope.csv")).status).toBe(404);
+    expect((await t.fetch("/salla/app/feed", { method: "POST", headers: { authorization: "Bearer nope" }, body: "{}" })).status).toBe(401);
+  });
 });
