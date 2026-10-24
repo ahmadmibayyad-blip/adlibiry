@@ -89,6 +89,8 @@ th { color:var(--color-muted); font-weight:500; }
     </table></div>
   </section>
 </main></div>
+<!-- The SDK's UMD build still reads process.env.NODE_ENV in its message handler; without this every message from Salla throws and init() times out. -->
+<script>window.process = window.process || { env: { NODE_ENV: "production" } };</script>
 <script src="${SDK_URL}"></script>
 <script>
 (function () {

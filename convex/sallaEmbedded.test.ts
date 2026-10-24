@@ -48,7 +48,11 @@ describe("Dashboard inside Salla", () => {
     const t = await setup();
     const res = await t.fetch("/salla/app");
     expect(res.headers.get("content-security-policy")).toBe("frame-ancestors https://s.salla.sa");
-    expect(await res.text()).toContain("@salla.sa/embedded-sdk@0.2.6");
+    const html = await res.text();
+    expect(html).toContain("@salla.sa/embedded-sdk@0.2.6");
+    // The SDK's message handler reads process.env.NODE_ENV: defined before the SDK loads.
+    expect(html.indexOf("window.process")).toBeGreaterThan(-1);
+    expect(html.indexOf("window.process")).toBeLessThan(html.indexOf("embedded-sdk@0.2.6"));
   });
 
   it("checks Salla's token with introspection before giving a session", async () => {
