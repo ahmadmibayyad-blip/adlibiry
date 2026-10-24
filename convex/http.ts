@@ -6,6 +6,7 @@ import { parseExtensionAd } from "./lib/extensionSubmission";
 import { mcpNotAllowed, mcpOptions, mcpPost } from "./mcp";
 import { apiGet } from "./publicApi";
 import { webhook as sallaWebhook } from "./sallaApp";
+import { dataRoute as sallaData, page as sallaPage, session as sallaSession, settingsRoute as sallaSettings } from "./sallaEmbedded";
 import { verify as whatsappVerify, webhook as whatsappWebhook } from "./sallaWhatsapp";
 import { callback as shopifyCallback, webhook as shopifyWebhook } from "./shopifyApp";
 import { serveAdImage, serveTheme } from "./storeThemeHttp";
@@ -112,6 +113,11 @@ http.route({ path: "/shopify/callback", method: "GET", handler: shopifyCallback 
 http.route({ path: "/shopify/webhooks", method: "POST", handler: shopifyWebhook });
 // AdSpy COD Confirm, the Salla app: store tokens and orders (see convex/sallaApp.ts).
 http.route({ path: "/salla/webhook", method: "POST", handler: sallaWebhook });
+// Its dashboard page inside Salla's admin (see convex/sallaEmbedded.ts).
+http.route({ path: "/salla/app", method: "GET", handler: sallaPage });
+http.route({ path: "/salla/app/session", method: "POST", handler: sallaSession });
+http.route({ path: "/salla/app/data", method: "POST", handler: sallaData });
+http.route({ path: "/salla/app/settings", method: "POST", handler: sallaSettings });
 // Its WhatsApp confirm buttons (Meta Cloud API webhook, see convex/sallaWhatsapp.ts).
 http.route({ path: "/whatsapp/webhook", method: "GET", handler: whatsappVerify });
 http.route({ path: "/whatsapp/webhook", method: "POST", handler: whatsappWebhook });

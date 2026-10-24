@@ -60,6 +60,9 @@ export const addCodOrder = internalMutation({
       .withIndex("by_merchant_order", (q) => q.eq("merchantId", args.merchantId).eq("orderId", args.orderId))
       .unique();
     if (existing) return;
+    // The merchant turned confirmations off in the dashboard: leave the order alone.
+    const store = await ctx.db.query("sallaStores").withIndex("by_merchant", (q) => q.eq("merchantId", args.merchantId)).unique();
+    if (store?.paused) return;
     await ctx.db.insert("sallaCodOrders", { ...args, status: "pending", createdAt: Date.now() });
     // Set "بانتظار التأكيد" in Salla after the webhook has answered (Salla waits ~30 s at most).
     await ctx.scheduler.runAfter(0, internal.sallaOrders.hold, { merchantId: args.merchantId, orderId: args.orderId });
