@@ -102,6 +102,7 @@ import type * as lib_revenueModel from "../lib/revenueModel.js";
 import type * as lib_sallaApi from "../lib/sallaApi.js";
 import type * as lib_sallaCsv from "../lib/sallaCsv.js";
 import type * as lib_sallaDashboardPage from "../lib/sallaDashboardPage.js";
+import type * as lib_sallaPlans from "../lib/sallaPlans.js";
 import type * as lib_sallaStats from "../lib/sallaStats.js";
 import type * as lib_sallaWebhook from "../lib/sallaWebhook.js";
 import type * as lib_saturationScoring from "../lib/saturationScoring.js";
@@ -286,6 +287,7 @@ declare const fullApi: ApiFromModules<{
   "lib/sallaApi": typeof lib_sallaApi;
   "lib/sallaCsv": typeof lib_sallaCsv;
   "lib/sallaDashboardPage": typeof lib_sallaDashboardPage;
+  "lib/sallaPlans": typeof lib_sallaPlans;
   "lib/sallaStats": typeof lib_sallaStats;
   "lib/sallaWebhook": typeof lib_sallaWebhook;
   "lib/saturationScoring": typeof lib_saturationScoring;

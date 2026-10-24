@@ -3,12 +3,14 @@ import { httpAction, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { encryptToken } from "./lib/shopifyOAuth";
 import { REFUSAL_SLUGS, codOrderFrom, parseAuthorize, parseSallaEvent, signBody, statusUpdateFrom, verifySallaSignature } from "./lib/sallaWebhook";
+import { planEventFrom, planGate, usageMonth, type StoredPlan, type Tier } from "./lib/sallaPlans";
 
 // AdSpy COD Confirm, the Salla app (Partner app 1730909299, Easy Mode OAuth).
 // Salla posts every event to https://<deployment>.convex.site/salla/webhook:
 // app.store.authorize carries the store's tokens (install and every refresh),
 // order.created starts a COD confirmation, order.status.updated catches confirmed orders
-// that came back (refused at the door). Convex env: SALLA_WEBHOOK_SECRET (the
+// that came back (refused at the door), app.subscription.* / app.trial.* set the store's
+// plan and its monthly confirmations (lib/sallaPlans.ts). Convex env: SALLA_WEBHOOK_SECRET (the
 // app's webhook secret from the Partner Portal; SALLA_WEBHOOK_SECRET_PREVIOUS
 // while a rotated one awaits approval) and SHOPIFY_TOKEN_KEY, the AES key that
 // also encrypts the Shopify tokens.
@@ -66,6 +68,21 @@ export const addCodOrder = internalMutation({
     // The merchant turned confirmations off in the dashboard: leave the order alone.
     const store = await ctx.db.query("sallaStores").withIndex("by_merchant", (q) => q.eq("merchantId", args.merchantId)).unique();
     if (store?.paused) return;
+    // The plan's monthly allowance: over it (or with no active plan) the order is left alone and counted.
+    const now = Date.now();
+    const plan = await ctx.db.query("sallaPlans").withIndex("by_merchant", (q) => q.eq("merchantId", args.merchantId)).unique();
+    const gate = planGate(plan as StoredPlan | null, now);
+    const month = usageMonth(now);
+    const usage = await ctx.db
+      .query("sallaUsage")
+      .withIndex("by_merchant_month", (q) => q.eq("merchantId", args.merchantId).eq("month", month))
+      .unique();
+    const sent = usage?.sent ?? 0;
+    const allowed = !gate.limited || (gate.active && (gate.limit == null || sent < gate.limit));
+    const next = { sent: sent + (allowed ? 1 : 0), skipped: (usage?.skipped ?? 0) + (allowed ? 0 : 1) };
+    if (usage) await ctx.db.patch("sallaUsage", usage._id, next);
+    else await ctx.db.insert("sallaUsage", { merchantId: args.merchantId, month, ...next });
+    if (!allowed) return;
     await ctx.db.insert("sallaCodOrders", { ...args, status: "pending", createdAt: Date.now() });
     // Set "بانتظار التأكيد" in Salla after the webhook has answered (Salla waits ~30 s at most).
     await ctx.scheduler.runAfter(0, internal.sallaOrders.hold, { merchantId: args.merchantId, orderId: args.orderId });
@@ -92,6 +109,36 @@ export const recordRefusal = internalMutation({
       .unique();
     if (r) await ctx.db.patch("sallaRefusers", r._id, { refusals: r.refusals + 1, lastAt: now });
     else await ctx.db.insert("sallaRefusers", { merchantId: args.merchantId, phoneHash: o.phoneHash, refusals: 1, lastAt: now });
+  },
+});
+
+/**
+ * app.subscription.* / app.trial.*: started and renewed set the plan; expired and canceled end it,
+ * but only for the subscription on record (a trial ending after the paid plan began changes nothing).
+ */
+export const savePlan = internalMutation({
+  args: {
+    merchantId: v.number(),
+    kind: v.union(v.literal("start"), v.literal("end")),
+    trial: v.boolean(),
+    subscriptionId: v.optional(v.string()),
+    tier: v.string(),
+    planName: v.optional(v.string()),
+    endsAt: v.optional(v.number()),
+    storeType: v.string(),
+  },
+  handler: async (ctx, { merchantId, kind, trial, ...p }) => {
+    const existing = await ctx.db.query("sallaPlans").withIndex("by_merchant", (q) => q.eq("merchantId", merchantId)).unique();
+    if (kind === "start") {
+      const row = { merchantId, ...p, tier: p.tier as Tier, status: trial ? "trial" : "active", updatedAt: Date.now() };
+      if (existing) await ctx.db.replace("sallaPlans", existing._id, row);
+      else await ctx.db.insert("sallaPlans", row);
+      return;
+    }
+    if (!existing || existing.status === "inactive") return;
+    if (trial !== (existing.status === "trial")) return;
+    if (p.subscriptionId && existing.subscriptionId && p.subscriptionId !== existing.subscriptionId) return;
+    await ctx.db.patch("sallaPlans", existing._id, { status: "inactive", updatedAt: Date.now() });
   },
 });
 
@@ -135,6 +182,9 @@ export const webhook = httpAction(async (ctx, request) => {
     if (upd && REFUSAL_SLUGS.includes(upd.slug)) {
       await ctx.runMutation(internal.sallaApp.recordRefusal, { merchantId: evt.merchant, orderId: upd.orderId });
     }
+  } else {
+    const plan = planEventFrom(evt.event, evt.data);
+    if (plan) await ctx.runMutation(internal.sallaApp.savePlan, { merchantId: evt.merchant, ...plan });
   }
   return new Response(null, { status: 200 });
 });

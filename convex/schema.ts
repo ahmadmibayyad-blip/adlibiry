@@ -990,6 +990,25 @@ export default defineSchema({
   })
     .index("by_merchant", ["merchantId"])
     .index("by_feed_key", ["feedKey"]),
+  // The store's Salla plan, from the app.subscription.* / app.trial.* webhooks (lib/sallaPlans.ts).
+  // Kept apart from sallaStores: Salla may send the subscription before the tokens.
+  sallaPlans: defineTable({
+    merchantId: v.number(),
+    subscriptionId: v.optional(v.string()),
+    tier: v.string(),                // "confirm" | "pro" | "bundle" | "trial"
+    status: v.string(),              // "active" | "trial" | "inactive"
+    planName: v.optional(v.string()),
+    endsAt: v.optional(v.number()),  // ms, end of Salla's end_date in Riyadh
+    storeType: v.string(),           // "live" | "demo" | "development": only live stores are limited
+    updatedAt: v.number(),
+  }).index("by_merchant", ["merchantId"]),
+  // COD orders sent for confirmation per store and Riyadh month, and those left out over the plan's limit.
+  sallaUsage: defineTable({
+    merchantId: v.number(),
+    month: v.string(),               // "2026-10"
+    sent: v.number(),
+    skipped: v.number(),
+  }).index("by_merchant_month", ["merchantId", "month"]),
   // COD orders awaiting WhatsApp confirmation. Ids and amount only, no customer PII.
   sallaCodOrders: defineTable({
     merchantId: v.number(),
