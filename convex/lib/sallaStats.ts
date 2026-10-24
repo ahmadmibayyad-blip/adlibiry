@@ -10,6 +10,7 @@ export type StatOrder = {
   total?: number;
   refusedAt?: number;          // confirmed, then refused at the door
   blocked?: boolean;           // cancelled without asking: the number refused before
+  addressAt?: number;          // sent a new address on WhatsApp
 };
 
 export type CodStats = {
@@ -21,6 +22,7 @@ export type CodStats = {
   failed: number;              // still pending with an error: the customer may not have been asked
   refused: number;             // confirmed on WhatsApp, then refused at the door
   blocked: number;             // cancelled without asking because the number refused before
+  addressChanged: number;      // customers who sent a new address on WhatsApp
   answerRate: number | null;   // share of decided orders the customer answered (0..1)
   confirmRate: number | null;  // confirmed / decided (0..1)
   saved: number;               // cancelled before shipping (asked or blocked) × parcel cost
@@ -28,9 +30,10 @@ export type CodStats = {
 };
 
 export function codStats(orders: StatOrder[], parcelCost = DEFAULT_PARCEL_COST): CodStats {
-  let pending = 0, confirmed = 0, byCustomer = 0, noAnswer = 0, failed = 0, answered = 0, confirmedValue = 0, refused = 0, blocked = 0;
+  let pending = 0, confirmed = 0, byCustomer = 0, noAnswer = 0, failed = 0, answered = 0, confirmedValue = 0, refused = 0, blocked = 0, addressChanged = 0;
   for (const o of orders) {
     if (o.refusedAt) refused++;
+    if (o.addressAt) addressChanged++;
     if (o.status === "cancelled" && o.blocked) {
       blocked++;
     } else if (o.status === "confirmed") {
@@ -55,6 +58,7 @@ export function codStats(orders: StatOrder[], parcelCost = DEFAULT_PARCEL_COST):
     failed,
     refused,
     blocked,
+    addressChanged,
     answerRate: decided ? answered / decided : null,
     confirmRate: decided ? confirmed / decided : null,
     saved: (byCustomer + noAnswer + blocked) * parcelCost,
@@ -79,4 +83,17 @@ export function readIntrospect(body: unknown, now = Date.now()): { merchantId: n
   if (Number.isFinite(exp) && exp <= now) return null;
   const userId = Number(b.data.user_id);
   return { merchantId, userId: Number.isInteger(userId) ? userId : undefined, expiresAt: Number.isFinite(exp) ? exp : now + 60 * 60 * 1000 };
+}
+
+export type ErrorKind = "setup" | "no_mobile" | "whatsapp" | "no_status" | "address_note" | "salla" | "other";
+
+/** What kind of failure a stored error is, so the dashboard can say it in the merchant's language. */
+export function errorKind(error: string): ErrorKind {
+  if (/WhatsApp isn't set up/i.test(error)) return "setup";
+  if (/no usable mobile/i.test(error)) return "no_mobile";
+  if (/^WhatsApp\b/i.test(error)) return "whatsapp";
+  if (/under review/i.test(error)) return "no_status";
+  if (/\/histories\b/.test(error)) return "address_note";
+  if (/Salla|token|SHOPIFY_TOKEN_KEY|SALLA_CLIENT/i.test(error)) return "salla";
+  return "other";
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codStats, parseParcelCost, readIntrospect } from "./sallaStats";
+import { codStats, errorKind, parseParcelCost, readIntrospect } from "./sallaStats";
 
 describe("codStats", () => {
   it("counts answers, no-answer cancels and the money saved", () => {
@@ -44,4 +44,15 @@ describe("readIntrospect", () => {
     expect(readIntrospect({ success: true, merchant_id: 1 }, now)).toBeNull();
     expect(readIntrospect(null, now)).toBeNull();
   });
+});
+
+it("names the kind of an order error", () => {
+  expect(errorKind("WhatsApp send failed (400, 100: Authorization Error)")).toBe("whatsapp");
+  expect(errorKind("WhatsApp 131026: Message undeliverable")).toBe("whatsapp");
+  expect(errorKind("WhatsApp isn't set up (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID), so the customer wasn't asked")).toBe("setup");
+  expect(errorKind("The order has no usable mobile number")).toBe("no_mobile");
+  expect(errorKind('No "under review" main status in the store\'s statuses: x')).toBe("no_status");
+  expect(errorKind("Salla POST /orders/1/histories failed (500)")).toBe("address_note");
+  expect(errorKind("Salla GET /orders/1 failed (404)")).toBe("salla");
+  expect(errorKind("boom")).toBe("other");
 });

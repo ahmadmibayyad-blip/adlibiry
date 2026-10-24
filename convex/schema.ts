@@ -1007,10 +1007,13 @@ export default defineSchema({
     refusedAt: v.optional(v.number()),     // confirmed, then returned/cancelled in Salla (refused at the door)
     priorRefusals: v.optional(v.number()), // the number had refused this many confirmed orders before this one
     blocked: v.optional(v.boolean()),      // cancelled without asking because of priorRefusals (store setting)
+    addressAskedAt: v.optional(v.number()), // tapped "تعديل العنوان"; the next text or pin is the new address
+    addressAt: v.optional(v.number()),      // new address received and added to the order's history in Salla (text not kept)
   })
     .index("by_merchant_order", ["merchantId", "orderId"])
     .index("by_merchant_created", ["merchantId", "createdAt"])
-    .index("by_wa_message", ["waMessageId"]),
+    .index("by_wa_message", ["waMessageId"])
+    .index("by_phone_address", ["phoneHash", "addressAskedAt"]),
   // Per store: WhatsApp numbers (keyed hash only) that confirmed an order and then refused it.
   sallaRefusers: defineTable({
     merchantId: v.number(),

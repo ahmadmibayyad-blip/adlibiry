@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buttonPayload, confirmMessage, parsePayload, parseWaWebhook, phoneHash, verifyMetaSignature, waNumber } from "./whatsapp";
+import { addressNote, buttonPayload, confirmMessage, parsePayload, parseWaWebhook, phoneHash, verifyMetaSignature, waNumber } from "./whatsapp";
 import { signBody } from "./sallaWebhook";
 
 describe("waNumber", () => {
@@ -46,7 +46,7 @@ it("hashes numbers per key", async () => {
   expect(await phoneHash("966555123456", "k1")).not.toBe(await phoneHash("966555123456", "k2"));
 });
 
-it("reads button taps and failed deliveries, skips the rest", () => {
+it("reads button taps, texts and failed deliveries, skips the rest", () => {
   const body = {
     entry: [{
       changes: [{
@@ -54,6 +54,7 @@ it("reads button taps and failed deliveries, skips the rest", () => {
           messages: [
             { from: "966555123456", id: "wamid.1", type: "button", button: { payload: "cod:7:42:c", text: "تأكيد الطلب" } },
             { from: "966555123456", id: "wamid.2", type: "text", text: { body: "hello" } },
+            { from: "966555123456", id: "wamid.3", type: "image", image: { id: "m1" } },
           ],
           statuses: [
             { id: "wamid.0", status: "failed", errors: [{ code: 131026, title: "Message undeliverable" }] },
@@ -65,7 +66,30 @@ it("reads button taps and failed deliveries, skips the rest", () => {
   };
   expect(parseWaWebhook(body)).toEqual([
     { kind: "button", from: "966555123456", payload: "cod:7:42:c", messageId: "wamid.1" },
+    { kind: "text", from: "966555123456", text: "hello", messageId: "wamid.2" },
     { kind: "failed", messageId: "wamid.0", error: "WhatsApp 131026: Message undeliverable" },
   ]);
   expect(parseWaWebhook(null)).toEqual([]);
+});
+
+describe("edit address pieces", () => {
+  it("reads the address tap", () => {
+    expect(parsePayload("cod:1:22:a")).toEqual({ merchantId: 1, orderId: "22", answer: "address" });
+  });
+  it("reads typed text and shared locations", () => {
+    const body = { entry: [{ changes: [{ value: { messages: [
+      { from: "966", id: "w1", type: "text", text: { body: "حي النرجس" } },
+      { from: "966", id: "w2", type: "location", location: { latitude: "24.7", longitude: 46.6, address: "الرياض" } },
+      { from: "966", id: "w3", type: "location", location: {} },
+      { from: "966", id: "w4", type: "text", text: { body: "  " } },
+    ] } }] }] };
+    expect(parseWaWebhook(body)).toEqual([
+      { kind: "text", from: "966", text: "حي النرجس", messageId: "w1" },
+      { kind: "location", from: "966", lat: 24.7, lng: 46.6, name: undefined, address: "الرياض", messageId: "w2" },
+    ]);
+  });
+  it("writes the history note", () => {
+    expect(addressNote({ text: "  حي النرجس " })).toBe("عنوان جديد من العميل عبر واتساب: حي النرجس");
+    expect(addressNote({ lat: 1.5, lng: 2 })).toBe("موقع العميل عبر واتساب: https://maps.google.com/?q=1.5,2");
+  });
 });

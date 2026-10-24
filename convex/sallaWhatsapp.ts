@@ -3,13 +3,16 @@ import { httpAction, internalAction, internalMutation, internalQuery, type Mutat
 import { internal } from "./_generated/api";
 import { accessToken, errorText, sallaFetch } from "./sallaOrders";
 import {
-  AUTO_CANCEL_AFTER_MS, CONFIRM_TEMPLATE, GRAPH_API, REMINDER_DELAYS_MS, REPLIES,
-  confirmMessage, parsePayload, parseWaWebhook, phoneHash, textMessage, verifyMetaSignature, waNumber,
+  ADDRESS_WINDOW_MS, AUTO_CANCEL_AFTER_MS, CONFIRM_TEMPLATE, GRAPH_API, REMINDER_DELAYS_MS, REPLIES,
+  addressNote, answerButtons, confirmMessage, locationRequest, parsePayload, parseWaWebhook, phoneHash, textMessage,
+  verifyMetaSignature, waNumber,
 } from "./lib/whatsapp";
 
 // The WhatsApp half of the COD flow: after hold() (convex/sallaOrders.ts) the customer
 // gets the confirm template, reminders at +2 h and +24 h, and the order is cancelled
 // a day after the last one with no answer. Taps arrive at /whatsapp/webhook.
+// "تعديل العنوان" (templates in ADDRESS_BUTTON_TEMPLATES) keeps the order pending and asks
+// for a pin or a typed address, which goes into the order's history in Salla (not stored here).
 // One sender for now (Meta Embedded Signup per store comes later). Convex env:
 // WHATSAPP_TOKEN (system user token), WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_APP_SECRET
 // (signs the webhook), WHATSAPP_VERIFY_TOKEN (webhook setup), optional
@@ -87,6 +90,39 @@ async function claim(ctx: MutationCtx, { merchantId, orderId, answer, fromHash, 
 export const claimAnswer = internalMutation({
   args: { merchantId: v.number(), orderId: v.string(), answer, fromHash: v.string() },
   handler: (ctx, args) => claim(ctx, args),
+});
+
+/** The address button: the order stays pending and waits for a text or pin from the same number. */
+export const askAddress = internalMutation({
+  args: { merchantId: v.number(), orderId: v.string(), fromHash: v.string() },
+  handler: async (ctx, { merchantId, orderId, fromHash }): Promise<"asked" | "already" | "ignored"> => {
+    const o = await ctx.db
+      .query("sallaCodOrders")
+      .withIndex("by_merchant_order", (q) => q.eq("merchantId", merchantId).eq("orderId", orderId))
+      .unique();
+    if (!o || o.phoneHash !== fromHash) return "ignored";
+    if (o.status !== "pending") return "already";
+    await ctx.db.patch("sallaCodOrders", o._id, { addressAskedAt: Date.now() });
+    return "asked";
+  },
+});
+
+/** The pending order this number asked to change the address of (latest, within the window); first = no address yet. */
+export const takeAddress = internalMutation({
+  args: { fromHash: v.string() },
+  handler: async (ctx, { fromHash }) => {
+    const now = Date.now();
+    const asked = await ctx.db
+      .query("sallaCodOrders")
+      .withIndex("by_phone_address", (q) => q.eq("phoneHash", fromHash).gte("addressAskedAt", now - ADDRESS_WINDOW_MS))
+      .order("desc")
+      .take(5);
+    const o = asked.find((x) => x.status === "pending");
+    if (!o) return null;
+    const first = !o.addressAt || o.addressAt < (o.addressAskedAt ?? 0);
+    await ctx.db.patch("sallaCodOrders", o._id, { addressAt: now });
+    return { merchantId: o.merchantId, orderId: o.orderId, first };
+  },
 });
 
 export const markFailed = internalMutation({
@@ -229,14 +265,38 @@ export const webhook = httpAction(async (ctx, request) => {
       await ctx.runMutation(internal.sallaWhatsapp.markFailed, { waMessageId: evt.messageId, error: evt.error });
       continue;
     }
+    if (!key) continue;
+    // Meta retries deliveries: act on each message once.
+    const once = evt.kind === "button" ? evt.messageId || evt.payload : evt.messageId;
+    if (!once || !(await ctx.runMutation(internal.sallaApp.markDelivery, { key: `wa:${once}` }))) continue;
+    const fromHash = await phoneHash(evt.from, key);
+
+    if (evt.kind === "text" || evt.kind === "location") {
+      // Only a number that tapped "تعديل العنوان" is answered; other messages are left for the store.
+      const hit = await ctx.runMutation(internal.sallaWhatsapp.takeAddress, { fromHash });
+      if (!hit) continue;
+      const note = addressNote(evt.kind === "text" ? { text: evt.text } : evt);
+      try {
+        const token = await accessToken(ctx, hit.merchantId);
+        await sallaFetch(token, `/orders/${hit.orderId}/histories`, { method: "POST", body: { note } });
+      } catch (e) {
+        await ctx.runMutation(internal.sallaOrders.recordOrder, { merchantId: hit.merchantId, orderId: hit.orderId, lastError: errorText(e) });
+      }
+      if (hit.first && s) await waSend(s, answerButtons(evt.from, REPLIES.addressSaved, hit.merchantId, hit.orderId)).catch(() => {});
+      continue;
+    }
+
     const tap = parsePayload(evt.payload);
-    if (!tap || !key) continue;
-    // Meta retries deliveries: act on each tap once.
-    if (!(await ctx.runMutation(internal.sallaApp.markDelivery, { key: `wa:${evt.messageId || evt.payload}` }))) continue;
+    if (!tap) continue;
+    // The tap opened the 24 h service window, so free-form replies are allowed.
+    if (tap.answer === "address") {
+      const r = await ctx.runMutation(internal.sallaWhatsapp.askAddress, { merchantId: tap.merchantId, orderId: tap.orderId, fromHash });
+      if (r !== "ignored" && s) await waSend(s, r === "asked" ? locationRequest(evt.from, REPLIES.askAddress) : textMessage(evt.from, REPLIES.already)).catch(() => {});
+      continue;
+    }
     const result: "taken" | "already" | "ignored" = await ctx.runMutation(internal.sallaWhatsapp.claimAnswer, {
-      merchantId: tap.merchantId, orderId: tap.orderId, answer: tap.answer, fromHash: await phoneHash(evt.from, key),
+      merchantId: tap.merchantId, orderId: tap.orderId, answer: tap.answer, fromHash,
     });
-    // The tap opened the 24 h service window, so a plain text reply is allowed.
     if (result !== "ignored" && s) {
       await waSend(s, textMessage(evt.from, result === "taken" ? REPLIES[tap.answer] : REPLIES.already)).catch(() => {});
     }
