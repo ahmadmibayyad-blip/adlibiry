@@ -50,6 +50,7 @@ th { color:var(--color-muted); font-weight:500; }
 .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
 .b-confirmed { background:rgba(0,178,89,.12); color:var(--color-success); }
 .b-cancelled { background:rgba(245,67,74,.12); color:var(--color-danger); }
+.b-info { background:transparent; color:var(--color-primary); border:1px solid var(--color-primary); margin-inline-start:4px; }
 .b-warn { background:rgba(245,67,74,.08); color:var(--color-danger); border:1px solid var(--color-danger); margin-inline-start:4px; }
 .b-pending { background:var(--color-bg); color:var(--color-muted); border:1px solid var(--color-border); }
 .err { color:var(--color-danger); font-size:11px; white-space:normal; }
@@ -102,10 +103,14 @@ th { color:var(--color-muted); font-weight:500; }
       refused:"أكدها ثم رفض الاستلام", blocked:"أُلغيت: رفض سابقاً",
       blockLabel:"إلغاء طلبات من رفض الاستلام سابقاً", blockHint:"إن أكد العميل طلباً ثم أُرجع أو أُلغي، يُلغى طلبه التالي بالدفع عند الاستلام تلقائياً. إن أوقفته، يُرسل له التأكيد ويُعلَّم الطلب فقط.",
       warn:"سبق أن رفض", sRefused:"رُفض عند التسليم", sBlocked:"ملغي (رفض سابق)",
+      addressChanged:"أرسل عنواناً جديداً", sAddress:"عنوان جديد في سجل الطلب",
+      e_setup:"واتساب غير مُعدّ، لم يُرسل السؤال للعميل", e_no_mobile:"لا يوجد رقم جوال صالح في الطلب",
+      e_whatsapp:"تعذّر إرسال رسالة واتساب للعميل", e_no_status:"تعذّر تعليق الطلب: لا توجد حالة «قيد المراجعة» في المتجر",
+      e_address_note:"تعذّر إضافة العنوان الجديد إلى سجل الطلب", e_salla:"تعذّر الاتصال بسلة لهذا الطلب", e_other:"حدث خطأ في هذا الطلب",
       savedNote:"التوفير = الطلبات الملغاة قبل الشحن × تكلفة الطرد المرتجع التي تحددها أدناه.",
       onLabel:"إرسال التأكيد عبر واتساب", onYes:"يعمل: كل طلب دفع عند الاستلام جديد يصل العميل سؤال تأكيد", onNo:"متوقف: الطلبات الجديدة لا تُرسل لها رسائل",
       costLabel:"تكلفة الطرد المرتجع (ر.س)", costHint:"شحن ذهاباً وإياباً، عادةً 30–40 ر.س",
-      flow:"كيف يعمل: الطلب الجديد يُعلَّق بحالة «بانتظار التأكيد» ويصل العميل زرّا «تأكيد الطلب» و«إلغاء الطلب». تذكير بعد ساعتين وبعد 24 ساعة، ثم يُلغى الطلب تلقائياً ويُعاد المخزون إذا لم يرد.",
+      flow:"كيف يعمل: الطلب الجديد يُعلَّق بحالة «بانتظار التأكيد» ويصل العميل زرّا «تأكيد الطلب» و«إلغاء الطلب». تذكير بعد ساعتين وبعد 24 ساعة، ثم يُلغى الطلب تلقائياً ويُعاد المخزون إذا لم يرد. إن غيّر العميل عنوانه عبر واتساب يُضاف العنوان إلى سجل الطلب.",
       colOrder:"الطلب", colTotal:"المبلغ", colStatus:"الحالة", colDate:"التاريخ",
       sConfirmed:"مؤكد", sCancelled:"ملغي", sNoAnswer:"ملغي (لا رد)", sPending:"بانتظار الرد", reminders:"تذكير",
       empty:"لا توجد طلبات دفع عند الاستلام في هذه الفترة بعد.", save:"حفظ", saved_ok:"تم حفظ الإعدادات", save_err:"تعذر الحفظ",
@@ -118,10 +123,14 @@ th { color:var(--color-muted); font-weight:500; }
       refused:"Confirmed, then refused", blocked:"Cancelled: refused before",
       blockLabel:"Cancel orders from past refusers", blockHint:"If a customer confirmed an order and it came back or was cancelled, their next cash-on-delivery order is cancelled automatically. Off: they still get the question and the order is only flagged.",
       warn:"Refused before", sRefused:"Refused at delivery", sBlocked:"Cancelled (refused before)",
+      addressChanged:"Sent a new address", sAddress:"New address in order history",
+      e_setup:"WhatsApp isn't set up, so the customer wasn't asked", e_no_mobile:"The order has no usable mobile number",
+      e_whatsapp:"The WhatsApp message couldn't be sent", e_no_status:"Couldn't hold the order: the store has no “Under review” status",
+      e_address_note:"Couldn't add the new address to the order history", e_salla:"Couldn't reach Salla for this order", e_other:"Something went wrong with this order",
       savedNote:"Saved = orders cancelled before shipping × the refused-parcel cost you set below.",
       onLabel:"Ask customers on WhatsApp", onYes:"On: every new cash-on-delivery order gets a confirm question", onNo:"Paused: new orders get no messages",
       costLabel:"Refused parcel cost (SAR)", costHint:"Two-way shipping, usually SAR 30–40",
-      flow:"How it works: a new order is held as \\u201cAwaiting confirmation\\u201d and the customer gets Confirm / Cancel buttons. Reminders after 2 h and 24 h; with no answer the order is cancelled and stock restored.",
+      flow:"How it works: a new order is held as \\u201cAwaiting confirmation\\u201d and the customer gets Confirm / Cancel buttons. Reminders after 2 h and 24 h; with no answer the order is cancelled and stock restored. A new address sent on WhatsApp is added to the order history.",
       colOrder:"Order", colTotal:"Total", colStatus:"Status", colDate:"Date",
       sConfirmed:"Confirmed", sCancelled:"Cancelled", sNoAnswer:"Cancelled (no answer)", sPending:"Awaiting answer", reminders:"reminder",
       empty:"No cash-on-delivery orders in this period yet.", save:"Save", saved_ok:"Settings saved", save_err:"Couldn't save",
@@ -168,7 +177,8 @@ th { color:var(--color-muted); font-weight:500; }
       stat(t.saved, money(s.saved, "SAR"), true) + stat(t.asked, num(s.asked)) + stat(t.confirmRate, pct(s.confirmRate)) +
       stat(t.answerRate, pct(s.answerRate)) + stat(t.confirmed, num(s.confirmed)) + stat(t.byCustomer, num(s.cancelledByCustomer)) +
       stat(t.noAnswer, num(s.cancelledNoAnswer)) + stat(t.pending, num(s.pending)) + stat(t.refused, num(s.refused)) +
-      (s.blocked ? stat(t.blocked, num(s.blocked)) : "") + (s.failed ? stat(t.failed, num(s.failed)) : "");
+      (s.blocked ? stat(t.blocked, num(s.blocked)) : "") + (s.addressChanged ? stat(t.addressChanged, num(s.addressChanged)) : "") +
+      (s.failed ? stat(t.failed, num(s.failed)) : "");
     var on = !state.settings.paused;
     $("on").setAttribute("aria-checked", on ? "true" : "false");
     $("onHint").textContent = on ? t.onYes : t.onNo;
@@ -182,7 +192,8 @@ th { color:var(--color-muted); font-weight:500; }
         o.status === "cancelled" ? (o.answered ? t.sCancelled : t.sNoAnswer) : t.sPending;
       if (o.status === "pending" && o.reminders) label += " · " + num(o.reminders) + " " + t.reminders;
       return "<tr><td>#" + esc(o.reference) + "</td><td>" + (o.total != null ? money(o.total, o.currency) : "–") + '</td><td><span class="badge ' + cls + '">' +
-        esc(label) + "</span>" + (o.priorRefusals && !o.blocked ? '<span class="badge b-warn">' + t.warn + " ×" + num(o.priorRefusals) + "</span>" : "") + (o.error ? '<div class="err">' + esc(o.error) + "</div>" : "") + "</td><td>" +
+        esc(label) + "</span>" + (o.priorRefusals && !o.blocked ? '<span class="badge b-warn">' + t.warn + " ×" + num(o.priorRefusals) + "</span>" : "") + (o.address ? '<span class="badge b-info">' + t.sAddress + "</span>" : "") +
+        (o.error ? '<div class="err" title="' + esc(o.error) + '">' + esc(t["e_" + o.errorKind] || t.e_other) + "</div>" : "") + "</td><td>" +
         new Date(o.createdAt).toLocaleString(lang === "ar" ? "ar-SA" : "en-GB", { dateStyle: "medium", timeStyle: "short" }) + "</td></tr>";
     }).join("");
   }

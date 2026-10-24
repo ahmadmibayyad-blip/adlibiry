@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { httpAction, internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { DEFAULT_PARCEL_COST, codStats, parseParcelCost, readIntrospect } from "./lib/sallaStats";
+import { DEFAULT_PARCEL_COST, codStats, errorKind, parseParcelCost, readIntrospect } from "./lib/sallaStats";
 import { dashboardPage } from "./lib/sallaDashboardPage";
 
 // The merchant's page inside Salla's admin (an embedded page of app 1730909299):
@@ -68,9 +68,11 @@ export const data = internalQuery({
         priorRefusals: o.priorRefusals ?? 0,
         refused: !!o.refusedAt,
         blocked: !!o.blocked,
+        address: !!o.addressAt,
         reminders: o.reminders ?? 0,
         createdAt: o.createdAt,
         error: o.status === "pending" ? o.lastError ?? null : null,
+        errorKind: o.status === "pending" && o.lastError ? errorKind(o.lastError) : null,
       })),
     };
   },

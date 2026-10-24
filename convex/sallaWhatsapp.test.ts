@@ -42,6 +42,7 @@ function stubApis(calls: Call[]) {
     }
     if (url.endsWith("/store/info")) return json({ data: { name: "متجر الاختبار" } });
     if (url.endsWith("/status")) return json({ data: { message: "ok" } }, 201);
+    if (url.endsWith("/histories")) return json({ data: { id: 1 } });
     return json({}, 404);
   });
 }
@@ -193,5 +194,76 @@ describe("WhatsApp COD confirmation", () => {
     const ok = await t.fetch("/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=123");
     expect(await ok.text()).toBe("123");
     expect((await t.fetch("/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=nope&hub.challenge=1")).status).toBe(403);
+  });
+});
+
+const inbound = (message: object, id: string, from = PHONE) => ({
+  entry: [{ changes: [{ value: { messages: [{ from, id, ...message }] } }] }],
+});
+
+describe("Edit address on WhatsApp", () => {
+  it("asks for a pin, puts the new address in Salla's order history, then takes the confirm", async () => {
+    vi.stubEnv("WHATSAPP_TEMPLATE", "cod_order_confirm_v3");
+    const t = await setup();
+    const calls: Call[] = [];
+    stubApis(calls);
+    await t.action(internal.sallaWhatsapp.sendConfirm, { merchantId: MERCHANT, orderId: ORDER, reminder: 0 });
+    const buttons = calls[2].body.template.components.slice(1);
+    expect(buttons.map((b: { parameters: { payload: string }[] }) => b.parameters[0].payload))
+      .toEqual([`cod:${MERCHANT}:${ORDER}:c`, `cod:${MERCHANT}:${ORDER}:x`, `cod:${MERCHANT}:${ORDER}:a`]);
+
+    // A text before the address button is left alone.
+    calls.length = 0;
+    await post(t, inbound({ type: "text", text: { body: "مرحبا" } }, "wamid.early"));
+    expect(calls).toEqual([]);
+
+    await post(t, tap(`cod:${MERCHANT}:${ORDER}:a`, PHONE, "wamid.addr"));
+    expect(calls[calls.length - 1].body.interactive).toMatchObject({ type: "location_request_message", action: { name: "send_location" } });
+    expect((await order(t)).status).toBe("pending");
+
+    calls.length = 0;
+    await post(t, inbound({ type: "location", location: { latitude: 24.7136, longitude: 46.6753, name: "البيت" } }, "wamid.loc"));
+    expect(calls.map(path)).toEqual([`POST /orders/${ORDER}/histories`, "POST /1234/messages"]);
+    expect(calls[0].body.note).toBe("موقع العميل عبر واتساب: https://maps.google.com/?q=24.7136,46.6753 (البيت)");
+    expect(calls[1].body.interactive.action.buttons.map((b: { reply: { id: string } }) => b.reply.id))
+      .toEqual([`cod:${MERCHANT}:${ORDER}:c`, `cod:${MERCHANT}:${ORDER}:x`]);
+    const o = await order(t);
+    expect(o.addressAt).toBeTypeOf("number");
+    expect(JSON.stringify(o)).not.toContain("46.6753"); // the address itself isn't kept
+
+    // A typed address after the pin is added too, without asking again.
+    calls.length = 0;
+    await post(t, inbound({ type: "text", text: { body: "حي النرجس، شارع 12، مبنى 4" } }, "wamid.txt"));
+    expect(calls.map(path)).toEqual([`POST /orders/${ORDER}/histories`]);
+    expect(calls[0].body.note).toBe("عنوان جديد من العميل عبر واتساب: حي النرجس، شارع 12، مبنى 4");
+
+    // The reply button confirms like the template's.
+    await post(t, inbound({ type: "interactive", interactive: { type: "button_reply", button_reply: { id: `cod:${MERCHANT}:${ORDER}:c`, title: "تأكيد الطلب" } } }, "wamid.ok"));
+    expect((await order(t)).status).toBe("confirmed");
+
+    // After the answer, texts aren't taken as addresses any more.
+    calls.length = 0;
+    await post(t, inbound({ type: "text", text: { body: "شكرا" } }, "wamid.thanks"));
+    expect(calls).toEqual([]);
+  });
+
+  it("ignores the address button from another number", async () => {
+    vi.stubEnv("WHATSAPP_TEMPLATE", "cod_order_confirm_v3");
+    const t = await setup();
+    const calls: Call[] = [];
+    stubApis(calls);
+    await t.action(internal.sallaWhatsapp.sendConfirm, { merchantId: MERCHANT, orderId: ORDER, reminder: 0 });
+    calls.length = 0;
+    await post(t, tap(`cod:${MERCHANT}:${ORDER}:a`, "966500000000", "wamid.other"));
+    expect(calls).toEqual([]);
+    expect((await order(t)).addressAskedAt).toBeUndefined();
+  });
+
+  it("keeps two buttons for templates without the address button", async () => {
+    const t = await setup();
+    const calls: Call[] = [];
+    stubApis(calls);
+    await t.action(internal.sallaWhatsapp.sendConfirm, { merchantId: MERCHANT, orderId: ORDER, reminder: 0 });
+    expect(calls[2].body.template.components).toHaveLength(3);
   });
 });
