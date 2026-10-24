@@ -11,7 +11,7 @@ export function dashboardPage(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AdSpy COD Confirm</title>
+<title>Istilam</title>
 <style>
 :root { --color-primary:#004d5b; --color-secondary:#73fcd7; --color-success:#00b259; --color-danger:#f5434a;
   --color-bg:#f8f8f8; --color-surface:#fff; --color-border:#e5e7eb; --color-text:#1f2937; --color-muted:#6b7280; --color-on-primary:#fff; }
@@ -124,7 +124,7 @@ th { color:var(--color-muted); font-weight:500; }
 <script>
 (function () {
   var T = {
-    ar: { title:"تأكيد طلبات الدفع عند الاستلام", results:"النتائج", settings:"الإعدادات", recent:"آخر الطلبات",
+    ar: { title:"استلام - تأكيد الطلبات عبر واتساب", results:"النتائج", settings:"الإعدادات", recent:"آخر الطلبات",
       d7:"7 أيام", d30:"30 يوماً", d90:"90 يوماً",
       asked:"طلبات أُرسل لها تأكيد", confirmed:"أكدها العميل", byCustomer:"ألغاها العميل", noAnswer:"أُلغيت لعدم الرد", pending:"بانتظار الرد",
       confirmRate:"نسبة التأكيد", answerRate:"نسبة الرد", saved:"وفّرت تقريباً", failed:"لم تصل الرسالة",
@@ -154,7 +154,7 @@ th { color:var(--color-muted); font-weight:500; }
       planFull:"وصلت إلى حد باقتك: {n} طلب هذا الشهر لم يُرسل له تأكيد. رقِّ الباقة من صفحة التطبيق في متجر تطبيقات سلة.",
       planOff:"الاشتراك غير نشط، فالطلبات الجديدة لا تُرسل لها رسائل. جدّد الاشتراك من صفحة التطبيق في متجر تطبيقات سلة.",
       planReset:"يتجدّد العدّاد أول كل شهر." },
-    en: { title:"COD order confirmation", results:"Results", settings:"Settings", recent:"Latest orders",
+    en: { title:"Istilam - COD Confirm on WhatsApp", results:"Results", settings:"Settings", recent:"Latest orders",
       d7:"7 days", d30:"30 days", d90:"90 days",
       asked:"Orders asked to confirm", confirmed:"Confirmed by customer", byCustomer:"Cancelled by customer", noAnswer:"Cancelled, no answer", pending:"Awaiting answer",
       confirmRate:"Confirm rate", answerRate:"Answer rate", saved:"Saved, about", failed:"Message not delivered",

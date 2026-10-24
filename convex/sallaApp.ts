@@ -5,7 +5,7 @@ import { encryptToken } from "./lib/shopifyOAuth";
 import { REFUSAL_SLUGS, codOrderFrom, parseAuthorize, parseSallaEvent, signBody, statusUpdateFrom, verifySallaSignature } from "./lib/sallaWebhook";
 import { planEventFrom, planGate, usageMonth, type StoredPlan, type Tier } from "./lib/sallaPlans";
 
-// AdSpy COD Confirm, the Salla app (Partner app 1730909299, Easy Mode OAuth).
+// Istilam (AdSpy COD Confirm), the Salla app (Partner app 1730909299, Easy Mode OAuth).
 // Salla posts every event to https://<deployment>.convex.site/salla/webhook:
 // app.store.authorize carries the store's tokens (install and every refresh),
 // order.created starts a COD confirmation, order.status.updated catches confirmed orders
