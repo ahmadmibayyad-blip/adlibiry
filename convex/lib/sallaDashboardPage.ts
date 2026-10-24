@@ -55,6 +55,9 @@ th { color:var(--color-muted); font-weight:500; }
 .b-pending { background:var(--color-bg); color:var(--color-muted); border:1px solid var(--color-border); }
 .err { color:var(--color-danger); font-size:11px; white-space:normal; }
 .empty { text-align:center; color:var(--color-muted); padding:24px; }
+.btn { border:1px solid var(--color-primary); background:var(--color-primary); color:var(--color-on-primary); border-radius:6px; padding:6px 14px; font:inherit; font-size:13px; cursor:pointer; text-decoration:none; display:inline-block; }
+.btn.ghost { background:transparent; color:var(--color-primary); }
+.feed { width:100%; max-width:560px; padding:6px 8px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-bg); color:var(--color-text); font:inherit; font-size:12px; direction:ltr; }
 .notice { border:1px solid var(--color-danger); color:var(--color-danger); border-radius:8px; padding:16px; display:none; }
 </style>
 </head>
@@ -83,6 +86,18 @@ th { color:var(--color-muted); font-weight:500; }
     </div>
   </section>
   <section class="card">
+    <div class="card-header"><h2 class="card-title" data-t="sheets"></h2></div>
+    <div class="card-body">
+      <p class="muted" data-t="sheetsHint"></p>
+      <div class="row" id="feedNone"><button type="button" class="btn" id="feedMake" data-t="feedMake"></button></div>
+      <div id="feedSome" hidden>
+        <div class="row"><input class="feed" id="feedFormula" readonly aria-labelledby="l-formula"><button type="button" class="btn" id="feedCopy" data-t="feedCopy"></button></div>
+        <p class="muted" id="l-formula" data-t="feedSteps"></p>
+        <div class="row"><a class="btn ghost" id="feedDownload" target="_blank" rel="noopener" data-t="feedDownload"></a><button type="button" class="btn ghost" id="feedRotate" data-t="feedRotate"></button><span class="muted" data-t="feedPrivate"></span></div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
     <div class="card-header"><h2 class="card-title" data-t="recent"></h2></div>
     <div class="table-wrap"><table>
       <thead><tr><th data-t="colOrder"></th><th data-t="colTotal"></th><th data-t="colStatus"></th><th data-t="colDate"></th></tr></thead>
@@ -103,6 +118,11 @@ th { color:var(--color-muted); font-weight:500; }
       refused:"أكدها ثم رفض الاستلام", blocked:"أُلغيت: رفض سابقاً",
       blockLabel:"إلغاء طلبات من رفض الاستلام سابقاً", blockHint:"إن أكد العميل طلباً ثم أُرجع أو أُلغي، يُلغى طلبه التالي بالدفع عند الاستلام تلقائياً. إن أوقفته، يُرسل له التأكيد ويُعلَّم الطلب فقط.",
       warn:"سبق أن رفض", sRefused:"رُفض عند التسليم", sBlocked:"ملغي (رفض سابق)",
+      sheets:"التصدير إلى Google Sheets", sheetsHint:"رابط خاص بمتجرك فيه طلبات الدفع عند الاستلام (رقم الطلب، المبلغ، الحالة، التواريخ) دون بيانات العملاء. يتحدّث في Google Sheets تلقائياً كل ساعة تقريباً.",
+      feedMake:"إنشاء رابط التصدير", feedCopy:"نسخ", feedCopied:"تم النسخ",
+      feedSteps:"افتح جدولاً في Google Sheets، والصق هذه الصيغة في الخلية A1.", feedDownload:"تنزيل CSV (Excel)",
+      feedRotate:"رابط جديد", feedPrivate:"من يملك الرابط يرى طلباتك؛ «رابط جديد» يوقف القديم.",
+      rotateTitle:"إنشاء رابط جديد؟", rotateMsg:"سيتوقف الرابط الحالي، وتحتاج إلى لصق الصيغة الجديدة في جداولك.", feedErr:"تعذّر إنشاء الرابط",
       addressChanged:"أرسل عنواناً جديداً", sAddress:"عنوان جديد في سجل الطلب",
       e_setup:"واتساب غير مُعدّ، لم يُرسل السؤال للعميل", e_no_mobile:"لا يوجد رقم جوال صالح في الطلب",
       e_whatsapp:"تعذّر إرسال رسالة واتساب للعميل", e_no_status:"تعذّر تعليق الطلب: لا توجد حالة «قيد المراجعة» في المتجر",
@@ -123,6 +143,11 @@ th { color:var(--color-muted); font-weight:500; }
       refused:"Confirmed, then refused", blocked:"Cancelled: refused before",
       blockLabel:"Cancel orders from past refusers", blockHint:"If a customer confirmed an order and it came back or was cancelled, their next cash-on-delivery order is cancelled automatically. Off: they still get the question and the order is only flagged.",
       warn:"Refused before", sRefused:"Refused at delivery", sBlocked:"Cancelled (refused before)",
+      sheets:"Export to Google Sheets", sheetsHint:"A private link with your cash-on-delivery orders (order number, total, status, dates), no customer data. Google Sheets refreshes it about every hour.",
+      feedMake:"Create export link", feedCopy:"Copy", feedCopied:"Copied",
+      feedSteps:"Open a Google Sheets spreadsheet and paste this formula into cell A1.", feedDownload:"Download CSV (Excel)",
+      feedRotate:"New link", feedPrivate:"Anyone with the link sees your orders; “New link” stops the old one.",
+      rotateTitle:"Create a new link?", rotateMsg:"The current link stops working and you'll need to paste the new formula into your sheets.", feedErr:"Couldn't create the link",
       addressChanged:"Sent a new address", sAddress:"New address in order history",
       e_setup:"WhatsApp isn't set up, so the customer wasn't asked", e_no_mobile:"The order has no usable mobile number",
       e_whatsapp:"The WhatsApp message couldn't be sent", e_no_status:"Couldn't hold the order: the store has no “Under review” status",
@@ -185,6 +210,7 @@ th { color:var(--color-muted); font-weight:500; }
     $("block").setAttribute("aria-checked", state.settings.blockRefusers ? "true" : "false");
     if (document.activeElement !== $("cost")) $("cost").value = state.settings.parcelCost;
     document.querySelectorAll("#range button").forEach(function (b) { b.setAttribute("aria-pressed", String(Number(b.getAttribute("data-days")) === days)); });
+    renderFeed(state.feedKey);
     if (!state.recent.length) { $("rows").innerHTML = '<tr><td colspan="4" class="empty">' + t.empty + "</td></tr>"; return; }
     $("rows").innerHTML = state.recent.map(function (o) {
       var cls = o.refused ? "b-cancelled" : o.status === "confirmed" ? "b-confirmed" : o.status === "cancelled" ? "b-cancelled" : "b-pending";
@@ -199,6 +225,18 @@ th { color:var(--color-muted); font-weight:500; }
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
+  function renderFeed(key) {
+    $("feedNone").hidden = !!key;
+    $("feedSome").hidden = !key;
+    if (!key) return;
+    var url = location.origin + "/salla/feed/" + key + ".csv";
+    $("feedFormula").value = '=IMPORTDATA("' + url + '")';
+    $("feedDownload").href = url + "?download=1";
+  }
+  function makeFeed(rotate) {
+    return api("/salla/app/feed", { rotate: rotate }).then(function (j) { state.feedKey = j.feedKey; renderFeed(j.feedKey); })
+      .catch(function (e) { if (e.message !== "expired") toast("error", t.feedErr); });
+  }
   function load() {
     return api("/salla/app/data", { days: days }).then(function (d) {
       state = d;
@@ -225,6 +263,18 @@ th { color:var(--color-muted); font-weight:500; }
   });
   $("block").addEventListener("click", function () {
     this.setAttribute("aria-checked", String(this.getAttribute("aria-checked") !== "true"));
+  });
+  $("feedMake").addEventListener("click", function () { makeFeed(false); });
+  $("feedRotate").addEventListener("click", function () {
+    Promise.resolve(sdk.ui.confirm({ title: t.rotateTitle, message: t.rotateMsg, variant: "danger" }))
+      .then(function (r) { if (r && r.confirmed) makeFeed(true); })
+      .catch(function () {});
+  });
+  $("feedCopy").addEventListener("click", function () {
+    // Salla's iframe doesn't grant clipboard-write, so copy from the selected field.
+    var f = $("feedFormula"); f.focus(); f.select();
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    if (ok) toast("success", t.feedCopied);
   });
   $("range").addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;

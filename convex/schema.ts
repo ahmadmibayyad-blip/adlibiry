@@ -986,7 +986,10 @@ export default defineSchema({
     paused: v.optional(v.boolean()),           // merchant turned confirmations off (dashboard inside Salla)
     parcelCost: v.optional(v.number()),        // SAR a refused COD parcel costs them, for "saved"
     blockRefusers: v.optional(v.boolean()),    // cancel COD orders from numbers that refused a confirmed order before
-  }).index("by_merchant", ["merchantId"]),
+    feedKey: v.optional(v.string()),           // secret of the store's CSV link (/salla/feed/<key>.csv) for Google Sheets
+  })
+    .index("by_merchant", ["merchantId"])
+    .index("by_feed_key", ["feedKey"]),
   // COD orders awaiting WhatsApp confirmation. Ids and amount only, no customer PII.
   sallaCodOrders: defineTable({
     merchantId: v.number(),
