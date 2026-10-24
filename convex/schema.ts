@@ -969,7 +969,7 @@ export default defineSchema({
 
   // Shopify app install in progress (convex/shopifyApp.ts): ties the OAuth
   // callback back to the signed-in user who started it. Single use, 15 minutes.
-  // AdSpy COD Confirm, the Salla app (convex/sallaApp.ts). One row per installed
+  // Istilam (AdSpy COD Confirm), the Salla app (convex/sallaApp.ts). One row per installed
   // store, keyed by Salla's merchant id; tokens are AES-GCM "enc:v1:" like Shopify's.
   sallaStores: defineTable({
     merchantId: v.number(),

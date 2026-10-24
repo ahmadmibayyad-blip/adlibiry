@@ -113,7 +113,7 @@ http.route({ path: "/mcp", method: "OPTIONS", handler: mcpOptions });
 // Shopify app install and webhooks (see convex/shopifyApp.ts).
 http.route({ path: "/shopify/callback", method: "GET", handler: shopifyCallback });
 http.route({ path: "/shopify/webhooks", method: "POST", handler: shopifyWebhook });
-// AdSpy COD Confirm, the Salla app: store tokens and orders (see convex/sallaApp.ts).
+// Istilam (AdSpy COD Confirm), the Salla app: store tokens and orders (see convex/sallaApp.ts).
 http.route({ path: "/salla/webhook", method: "POST", handler: sallaWebhook });
 // Its dashboard page inside Salla's admin (see convex/sallaEmbedded.ts).
 http.route({ path: "/salla/app", method: "GET", handler: sallaPage });
