@@ -53,6 +53,8 @@ describe("Dashboard inside Salla", () => {
     // The SDK's message handler reads process.env.NODE_ENV: defined before the SDK loads.
     expect(html.indexOf("window.process")).toBeGreaterThan(-1);
     expect(html.indexOf("window.process")).toBeLessThan(html.indexOf("embedded-sdk@0.2.6"));
+    // .row and .btn set display, which would beat the hidden attribute.
+    expect(html).toContain("[hidden] { display:none !important; }");
   });
 
   it("checks Salla's token with introspection before giving a session", async () => {
