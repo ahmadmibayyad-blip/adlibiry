@@ -22,6 +22,7 @@ beforeEach(() => {
   vi.stubEnv("WHATSAPP_PHONE_NUMBER_ID", "1234");
   vi.stubEnv("WHATSAPP_APP_SECRET", "app-secret");
   vi.stubEnv("WHATSAPP_VERIFY_TOKEN", "verify-me");
+  vi.stubEnv("SALLA_WEBHOOK_SECRET", "salla-secret");
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -36,7 +37,7 @@ function stubApis(calls: Call[]) {
     const method = init.method ?? "GET";
     calls.push({ url, method, body: typeof init.body === "string" ? JSON.parse(init.body) : undefined });
     if (url.includes("graph.facebook.com")) return json({ messages: [{ id: `wamid.${calls.length}` }] });
-    if (url.endsWith(`/orders/${ORDER}`)) {
+    if (/\/orders\/\d+$/.test(url)) {
       return json({ data: { reference_id: 295064334, customer: { first_name: "أحمد", mobile: 555123456, mobile_code: "+966" }, amounts: { total: { amount: 199, currency: "SAR" } } } });
     }
     if (url.endsWith("/store/info")) return json({ data: { name: "متجر الاختبار" } });
@@ -142,6 +143,49 @@ describe("WhatsApp COD confirmation", () => {
     const id = (await order(t)).waMessageId!;
     await post(t, { entry: [{ changes: [{ value: { statuses: [{ id, status: "failed", errors: [{ code: 131026, title: "Message undeliverable" }] }] } }] }] });
     expect((await order(t)).lastError).toBe("WhatsApp 131026: Message undeliverable");
+  });
+
+  it("remembers a number that confirmed and then refused, and flags or cancels its next COD order", async () => {
+    const t = await setup();
+    const calls: Call[] = [];
+    stubApis(calls);
+    await t.action(internal.sallaWhatsapp.sendConfirm, { merchantId: MERCHANT, orderId: ORDER, reminder: 0 });
+    await post(t, tap(`cod:${MERCHANT}:${ORDER}:c`));
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    // The parcel came back: Salla reports the order as restored.
+    const evt = JSON.stringify({ event: "order.status.updated", merchant: MERCHANT, data: { id: 1, order: { id: Number(ORDER), status: { slug: "restored" } } } });
+    const salla = () => t.fetch("/salla/webhook", { method: "POST", headers: { "x-salla-signature": "" }, body: evt });
+    expect((await salla()).status).toBe(401);
+    expect((await t.fetch("/salla/webhook", { method: "POST", headers: { "x-salla-signature": await signBody(evt, "salla-secret") }, body: evt })).status).toBe(200);
+    expect(await order(t)).toMatchObject({ status: "confirmed", refusedAt: expect.any(Number) });
+    const refusers = await t.run((ctx) => ctx.db.query("sallaRefusers").collect());
+    expect(refusers).toMatchObject([{ merchantId: MERCHANT, refusals: 1 }]);
+    expect(JSON.stringify(refusers)).not.toContain("555123456");
+
+    const newOrder = async (orderId: string) => {
+      await t.run((ctx) => ctx.db.insert("sallaCodOrders", { merchantId: MERCHANT, orderId, status: "pending", createdAt: Date.now() }));
+      calls.length = 0;
+      await t.action(internal.sallaWhatsapp.sendConfirm, { merchantId: MERCHANT, orderId, reminder: 0 });
+      return t.run(async (ctx) => (await ctx.db.query("sallaCodOrders").withIndex("by_merchant_order", (q) => q.eq("merchantId", MERCHANT).eq("orderId", orderId)).unique())!);
+    };
+    // Default: still asked, but flagged.
+    const flagged = await newOrder("445306538");
+    expect(flagged).toMatchObject({ status: "pending", priorRefusals: 1 });
+    expect(calls.some((c) => path(c) === "POST /1234/messages")).toBe(true);
+
+    // With "cancel past refusers" on: cancelled without a message, stock restored.
+    await t.run(async (ctx) => {
+      const s = (await ctx.db.query("sallaStores").first())!;
+      await ctx.db.patch("sallaStores", s._id, { blockRefusers: true });
+    });
+    const blocked = await newOrder("445306539");
+    expect(blocked).toMatchObject({ status: "cancelled", blocked: true, priorRefusals: 1 });
+    expect(blocked.answeredAt).toBeUndefined();
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    // (the flagged order's reminders run here too; none of the messages is about the blocked one)
+    expect(calls.some((c) => path(c) === "POST /1234/messages" && JSON.stringify(c.body).includes("445306539"))).toBe(false);
+    expect(calls.find((c) => c.url.endsWith("/orders/445306539/status"))?.body).toMatchObject({ slug: "canceled", restore_items: true });
   });
 
   it("answers Meta's verify request", async () => {

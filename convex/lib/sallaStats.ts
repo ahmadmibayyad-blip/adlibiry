@@ -8,6 +8,8 @@ export type StatOrder = {
   answeredAt?: number;         // the customer tapped a button
   lastError?: string;
   total?: number;
+  refusedAt?: number;          // confirmed, then refused at the door
+  blocked?: boolean;           // cancelled without asking: the number refused before
 };
 
 export type CodStats = {
@@ -17,16 +19,21 @@ export type CodStats = {
   cancelledByCustomer: number;
   cancelledNoAnswer: number;
   failed: number;              // still pending with an error: the customer may not have been asked
+  refused: number;             // confirmed on WhatsApp, then refused at the door
+  blocked: number;             // cancelled without asking because the number refused before
   answerRate: number | null;   // share of decided orders the customer answered (0..1)
   confirmRate: number | null;  // confirmed / decided (0..1)
-  saved: number;               // cancelled before shipping × parcel cost
+  saved: number;               // cancelled before shipping (asked or blocked) × parcel cost
   confirmedValue: number;      // order totals confirmed
 };
 
 export function codStats(orders: StatOrder[], parcelCost = DEFAULT_PARCEL_COST): CodStats {
-  let pending = 0, confirmed = 0, byCustomer = 0, noAnswer = 0, failed = 0, answered = 0, confirmedValue = 0;
+  let pending = 0, confirmed = 0, byCustomer = 0, noAnswer = 0, failed = 0, answered = 0, confirmedValue = 0, refused = 0, blocked = 0;
   for (const o of orders) {
-    if (o.status === "confirmed") {
+    if (o.refusedAt) refused++;
+    if (o.status === "cancelled" && o.blocked) {
+      blocked++;
+    } else if (o.status === "confirmed") {
       confirmed++;
       confirmedValue += o.total ?? 0;
     } else if (o.status === "cancelled") {
@@ -38,7 +45,7 @@ export function codStats(orders: StatOrder[], parcelCost = DEFAULT_PARCEL_COST):
     }
     if (o.answeredAt && o.status !== "pending") answered++;
   }
-  const decided = confirmed + byCustomer + noAnswer;
+  const decided = confirmed + byCustomer + noAnswer; // blocked orders were never asked
   return {
     asked: orders.length,
     pending,
@@ -46,9 +53,11 @@ export function codStats(orders: StatOrder[], parcelCost = DEFAULT_PARCEL_COST):
     cancelledByCustomer: byCustomer,
     cancelledNoAnswer: noAnswer,
     failed,
+    refused,
+    blocked,
     answerRate: decided ? answered / decided : null,
     confirmRate: decided ? confirmed / decided : null,
-    saved: (byCustomer + noAnswer) * parcelCost,
+    saved: (byCustomer + noAnswer + blocked) * parcelCost,
     confirmedValue: Math.round(confirmedValue * 100) / 100,
   };
 }

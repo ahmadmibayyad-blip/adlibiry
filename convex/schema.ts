@@ -985,6 +985,7 @@ export default defineSchema({
     storeName: v.optional(v.string()),         // shown in the WhatsApp message, read once from /store/info
     paused: v.optional(v.boolean()),           // merchant turned confirmations off (dashboard inside Salla)
     parcelCost: v.optional(v.number()),        // SAR a refused COD parcel costs them, for "saved"
+    blockRefusers: v.optional(v.boolean()),    // cancel COD orders from numbers that refused a confirmed order before
   }).index("by_merchant", ["merchantId"]),
   // COD orders awaiting WhatsApp confirmation. Ids and amount only, no customer PII.
   sallaCodOrders: defineTable({
@@ -1003,10 +1004,20 @@ export default defineSchema({
     sentAt: v.optional(v.number()),        // last confirm message (first one or a reminder)
     reminders: v.optional(v.number()),     // reminders sent so far
     answeredAt: v.optional(v.number()),
+    refusedAt: v.optional(v.number()),     // confirmed, then returned/cancelled in Salla (refused at the door)
+    priorRefusals: v.optional(v.number()), // the number had refused this many confirmed orders before this one
+    blocked: v.optional(v.boolean()),      // cancelled without asking because of priorRefusals (store setting)
   })
     .index("by_merchant_order", ["merchantId", "orderId"])
     .index("by_merchant_created", ["merchantId", "createdAt"])
     .index("by_wa_message", ["waMessageId"]),
+  // Per store: WhatsApp numbers (keyed hash only) that confirmed an order and then refused it.
+  sallaRefusers: defineTable({
+    merchantId: v.number(),
+    phoneHash: v.string(),
+    refusals: v.number(),
+    lastAt: v.number(),
+  }).index("by_merchant_phone", ["merchantId", "phoneHash"]),
   // Sessions of the dashboard page inside Salla's admin, made after Salla's token introspection.
   sallaSessions: defineTable({
     sid: v.string(),           // random, sent by the page as a bearer token

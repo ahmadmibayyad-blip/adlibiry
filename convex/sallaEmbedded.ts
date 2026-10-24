@@ -55,7 +55,7 @@ export const data = internalQuery({
       merchantId,
       storeName: store?.storeName ?? null,
       installed: !!store && !store.uninstalledAt,
-      settings: { paused: store?.paused ?? false, parcelCost },
+      settings: { paused: store?.paused ?? false, parcelCost, blockRefusers: store?.blockRefusers ?? false },
       days,
       stats: codStats(orders, parcelCost),
       recent: orders.slice(0, 25).map((o) => ({
@@ -65,6 +65,9 @@ export const data = internalQuery({
         currency: o.currency ?? null,
         status: o.status,
         answered: !!o.answeredAt,
+        priorRefusals: o.priorRefusals ?? 0,
+        refused: !!o.refusedAt,
+        blocked: !!o.blocked,
         reminders: o.reminders ?? 0,
         createdAt: o.createdAt,
         error: o.status === "pending" ? o.lastError ?? null : null,
@@ -74,14 +77,15 @@ export const data = internalQuery({
 });
 
 export const saveSettings = internalMutation({
-  args: { sid: v.string(), paused: v.optional(v.boolean()), parcelCost: v.optional(v.number()) },
-  handler: async (ctx, { sid, paused, parcelCost }) => {
+  args: { sid: v.string(), paused: v.optional(v.boolean()), parcelCost: v.optional(v.number()), blockRefusers: v.optional(v.boolean()) },
+  handler: async (ctx, { sid, paused, parcelCost, blockRefusers }) => {
     const merchantId = await sessionMerchant(ctx, sid);
     if (merchantId == null) return "unauthorized" as const;
     const store = await ctx.db.query("sallaStores").withIndex("by_merchant", (q) => q.eq("merchantId", merchantId)).unique();
     if (!store) return "not_installed" as const;
-    const patch: { paused?: boolean; parcelCost?: number } = {};
+    const patch: { paused?: boolean; parcelCost?: number; blockRefusers?: boolean } = {};
     if (paused !== undefined) patch.paused = paused;
+    if (blockRefusers !== undefined) patch.blockRefusers = blockRefusers;
     if (parcelCost !== undefined) {
       const cost = parseParcelCost(parcelCost);
       if (cost == null) return "bad_cost" as const;
@@ -128,11 +132,12 @@ export const dataRoute = httpAction(async (ctx, request) => {
 });
 
 export const settingsRoute = httpAction(async (ctx, request) => {
-  const body = (await request.json().catch(() => null)) as { paused?: unknown; parcelCost?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { paused?: unknown; parcelCost?: unknown; blockRefusers?: unknown } | null;
   const result = await ctx.runMutation(internal.sallaEmbedded.saveSettings, {
     sid: bearer(request),
     paused: typeof body?.paused === "boolean" ? body.paused : undefined,
     parcelCost: typeof body?.parcelCost === "number" ? body.parcelCost : undefined,
+    blockRefusers: typeof body?.blockRefusers === "boolean" ? body.blockRefusers : undefined,
   });
   if (result === "unauthorized") return json({ error: result }, 401);
   return result === "ok" ? json({ ok: true }) : json({ error: result }, 400);

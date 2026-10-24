@@ -70,3 +70,15 @@ export function codOrderFrom(data: Record<string, unknown>): CodOrder | null {
     currency: typeof currency === "string" ? currency : undefined,
   };
 }
+
+/** Salla order statuses that, after the customer confirmed, mean the parcel came back or was dropped. */
+export const REFUSAL_SLUGS = ["restoring", "restored", "canceled"];
+
+/** order.status.updated: the order id (data.order.id; data.id is the status-change record) and the new status slug. */
+export function statusUpdateFrom(data: Record<string, unknown>): { orderId: string; slug: string } | null {
+  const order = data.order as { id?: unknown; status?: { slug?: unknown } } | undefined;
+  const id = order?.id;
+  const slug = order?.status?.slug;
+  if ((typeof id !== "number" && typeof id !== "string") || id === "" || typeof slug !== "string") return null;
+  return { orderId: String(id), slug };
+}

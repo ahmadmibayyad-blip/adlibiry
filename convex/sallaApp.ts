@@ -2,12 +2,13 @@ import { v } from "convex/values";
 import { httpAction, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { encryptToken } from "./lib/shopifyOAuth";
-import { codOrderFrom, parseAuthorize, parseSallaEvent, signBody, verifySallaSignature } from "./lib/sallaWebhook";
+import { REFUSAL_SLUGS, codOrderFrom, parseAuthorize, parseSallaEvent, signBody, statusUpdateFrom, verifySallaSignature } from "./lib/sallaWebhook";
 
 // AdSpy COD Confirm, the Salla app (Partner app 1730909299, Easy Mode OAuth).
 // Salla posts every event to https://<deployment>.convex.site/salla/webhook:
 // app.store.authorize carries the store's tokens (install and every refresh),
-// order.created starts a COD confirmation. Convex env: SALLA_WEBHOOK_SECRET (the
+// order.created starts a COD confirmation, order.status.updated catches confirmed orders
+// that came back (refused at the door). Convex env: SALLA_WEBHOOK_SECRET (the
 // app's webhook secret from the Partner Portal; SALLA_WEBHOOK_SECRET_PREVIOUS
 // while a rotated one awaits approval) and SHOPIFY_TOKEN_KEY, the AES key that
 // also encrypts the Shopify tokens.
@@ -43,6 +44,8 @@ export const forgetStore = internalMutation({
     }
     const orders = await ctx.db.query("sallaCodOrders").withIndex("by_merchant_order", (q) => q.eq("merchantId", args.merchantId)).take(500);
     for (const o of orders) await ctx.db.delete("sallaCodOrders", o._id);
+    const refusers = await ctx.db.query("sallaRefusers").withIndex("by_merchant_phone", (q) => q.eq("merchantId", args.merchantId)).take(500);
+    for (const r of refusers) await ctx.db.delete("sallaRefusers", r._id);
   },
 });
 
@@ -66,6 +69,29 @@ export const addCodOrder = internalMutation({
     await ctx.db.insert("sallaCodOrders", { ...args, status: "pending", createdAt: Date.now() });
     // Set "بانتظار التأكيد" in Salla after the webhook has answered (Salla waits ~30 s at most).
     await ctx.scheduler.runAfter(0, internal.sallaOrders.hold, { merchantId: args.merchantId, orderId: args.orderId });
+  },
+});
+
+/**
+ * A confirmed order went to returned/cancelled in Salla: the customer refused it at the door.
+ * Counted once per order against the number it was confirmed from (hash only).
+ */
+export const recordRefusal = internalMutation({
+  args: { merchantId: v.number(), orderId: v.string() },
+  handler: async (ctx, args) => {
+    const o = await ctx.db
+      .query("sallaCodOrders")
+      .withIndex("by_merchant_order", (q) => q.eq("merchantId", args.merchantId).eq("orderId", args.orderId))
+      .unique();
+    if (!o || o.status !== "confirmed" || o.refusedAt || !o.phoneHash) return;
+    const now = Date.now();
+    await ctx.db.patch("sallaCodOrders", o._id, { refusedAt: now });
+    const r = await ctx.db
+      .query("sallaRefusers")
+      .withIndex("by_merchant_phone", (q) => q.eq("merchantId", args.merchantId).eq("phoneHash", o.phoneHash!))
+      .unique();
+    if (r) await ctx.db.patch("sallaRefusers", r._id, { refusals: r.refusals + 1, lastAt: now });
+    else await ctx.db.insert("sallaRefusers", { merchantId: args.merchantId, phoneHash: o.phoneHash, refusals: 1, lastAt: now });
   },
 });
 
@@ -104,6 +130,11 @@ export const webhook = httpAction(async (ctx, request) => {
   } else if (evt.event === "order.created") {
     const order = codOrderFrom(evt.data);
     if (order) await ctx.runMutation(internal.sallaApp.addCodOrder, { merchantId: evt.merchant, ...order });
+  } else if (evt.event === "order.status.updated") {
+    const upd = statusUpdateFrom(evt.data);
+    if (upd && REFUSAL_SLUGS.includes(upd.slug)) {
+      await ctx.runMutation(internal.sallaApp.recordRefusal, { merchantId: evt.merchant, orderId: upd.orderId });
+    }
   }
   return new Response(null, { status: 200 });
 });
