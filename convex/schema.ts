@@ -1031,29 +1031,38 @@ export default defineSchema({
     blocked: v.optional(v.boolean()),      // cancelled without asking because of priorRefusals (store setting)
     addressAskedAt: v.optional(v.number()), // tapped "تعديل العنوان"; the next text or pin is the new address
     addressAt: v.optional(v.number()),      // new address received and added to the order's history in Salla (text not kept)
+    scrubbedAt: v.optional(v.number()),     // phone hash, message id and error removed after 90 days (sallaPurge.ts)
   })
     .index("by_merchant_order", ["merchantId", "orderId"])
     .index("by_merchant_created", ["merchantId", "createdAt"])
     .index("by_wa_message", ["waMessageId"])
-    .index("by_phone_address", ["phoneHash", "addressAskedAt"]),
+    .index("by_phone_address", ["phoneHash", "addressAskedAt"])
+    .index("by_created", ["createdAt"])
+    .index("by_scrubbed_created", ["scrubbedAt", "createdAt"]),
   // Per store: WhatsApp numbers (keyed hash only) that confirmed an order and then refused it.
   sallaRefusers: defineTable({
     merchantId: v.number(),
     phoneHash: v.string(),
     refusals: v.number(),
     lastAt: v.number(),
-  }).index("by_merchant_phone", ["merchantId", "phoneHash"]),
+  })
+    .index("by_merchant_phone", ["merchantId", "phoneHash"])
+    .index("by_last", ["lastAt"]),
   // Sessions of the dashboard page inside Salla's admin, made after Salla's token introspection.
   sallaSessions: defineTable({
     sid: v.string(),           // random, sent by the page as a bearer token
     merchantId: v.number(),
     userId: v.optional(v.number()),
     expiresAt: v.number(),
-  }).index("by_sid", ["sid"]),
+  })
+    .index("by_sid", ["sid"])
+    .index("by_expires", ["expiresAt"]),
   sallaWebhookEvents: defineTable({
     key: v.string(),           // merchant:event:hash of the raw body
     receivedAt: v.number(),
-  }).index("by_key", ["key"]),
+  })
+    .index("by_key", ["key"])
+    .index("by_received", ["receivedAt"]),
 
   shopifyOAuthStates: defineTable({
     state: v.string(),
