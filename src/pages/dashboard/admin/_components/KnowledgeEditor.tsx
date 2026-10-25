@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
@@ -21,7 +21,8 @@ import { TOPIC_ICONS } from "@/lib/knowledgeIcons.ts";
 import { cn } from "@/lib/utils.ts";
 
 // Admin → Knowledge: edit, add, delete and reorder the topics, guides and
-// glossary. Changes stay in this browser until "Save changes", which replaces
+// glossary. Changes are kept on this page only (closing it or switching tabs loses them; the browser asks
+// before closing) until "Save changes", which replaces
 // the guides everyone sees (convex/knowledge.ts saveContent). "Restore the
 // built-in guides" goes back to src/data/knowledge.json.
 
@@ -87,6 +88,12 @@ export default function KnowledgeEditor() {
   const live = saved === undefined ? undefined : (saved?.updatedAt ?? null);
   // Load the guides once; afterwards pick up another admin's save only while nothing here is unsaved.
   const dirty = state ? JSON.stringify(clean(state.draft)) !== JSON.stringify(clean(state.original)) : false;
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   if (saved !== undefined && (state === null || (!dirty && !busy && live !== state.base))) {
     setState(initial(saved));
   }
@@ -218,7 +225,12 @@ export default function KnowledgeEditor() {
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Restore built-in
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={() => setState({ ...state, draft: structuredClone(original) })} disabled={!dirty || busy}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.confirm("Discard all unsaved changes?") && setState({ ...state, draft: structuredClone(original) })}
+          disabled={!dirty || busy}
+        >
           <Undo2 className="w-3.5 h-3.5 mr-1.5" /> Discard
         </Button>
         <Button size="sm" onClick={onSave} disabled={!dirty || busy || problems.length > 0 || conflict}>
@@ -416,7 +428,12 @@ function TopicForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Topic</h2>
-        <Button variant="ghost" size="sm" className="text-bad hover:text-bad" onClick={onDelete}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-bad hover:text-bad"
+          onClick={() => window.confirm(`Delete “${topic.name}” and its ${topic.guides.length} guides? Discard brings them back until you save.`) && onDelete()}
+        >
           <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete topic and its {topic.guides.length} guides
         </Button>
       </div>

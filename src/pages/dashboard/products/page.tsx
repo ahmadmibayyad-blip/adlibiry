@@ -223,10 +223,14 @@ export default function ProductsFeed() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
+              type="search"
+              name="search"
+              aria-label="Search product names"
+              autoComplete="off"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search product names…"
-              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+              className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-9 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -359,8 +363,11 @@ export default function ProductsFeed() {
             {([["grid", LayoutGrid], ["table", Table2]] as const).map(([v, Icon]) => (
               <button
                 key={v}
+                type="button"
                 onClick={() => setView(v)}
                 title={v === "table" ? "Table view" : "Grid view"}
+                aria-label={v === "table" ? "Table view" : "Grid view"}
+                aria-pressed={view === v}
                 className={cn("p-1 rounded-md cursor-pointer", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
               >
                 <Icon className="w-4 h-4" />

@@ -40,8 +40,8 @@ export default function ShopifyTokenForm({ shopDomain, onDone, submitLabel = "Co
           <code>shpat_</code>). Shopify shows it only once; if it's hidden, uninstall and install the app again to get a new one.
         </li>
       </ol>
-      <Input value={shop} onChange={(e) => setShop(e.target.value)} placeholder="my-store.myshopify.com" autoComplete="off" aria-label="Store address" />
-      <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="shpat_…" type="password" autoComplete="off" aria-label="Admin API access token" />
+      <Input name="shop" spellCheck={false} value={shop} onChange={(e) => setShop(e.target.value)} placeholder="my-store.myshopify.com" autoComplete="off" aria-label="Store address" />
+      <Input name="token" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} placeholder="shpat_…" type="password" autoComplete="off" aria-label="Admin API access token" />
       <Button
         className="w-full"
         disabled={busy || !shop.trim() || !token.trim()}

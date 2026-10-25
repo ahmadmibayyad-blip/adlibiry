@@ -7,7 +7,7 @@ import { Area, AreaChart } from "recharts";
 import {
   TrendingUp, TrendingDown, Bookmark, Zap, Trophy, ArrowRight, Package, Sparkles, Megaphone, Flame,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { ChartContainer } from "@/components/ui/chart.tsx";
@@ -284,7 +284,6 @@ const ROW =
 function JustAdded() {
   const data = useQuery(api.dashboard.justAdded, {});
   const [tab, setTab] = useState<"ads" | "products">("ads");
-  const navigate = useNavigate();
   const items = data?.[tab];
   return (
     <div>
@@ -331,7 +330,7 @@ function JustAdded() {
         <div className={ROW}>
           {data.ads.slice(0, 6).map((ad) => (
             <div key={ad._id} className="w-64 shrink-0 snap-start sm:w-auto">
-              <AdCard ad={ad} onClick={() => navigate(`/dashboard/ads/${ad._id}`)} />
+              <AdCard ad={ad} href={`/dashboard/ads/${ad._id}`} />
             </div>
           ))}
         </div>

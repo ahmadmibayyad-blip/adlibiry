@@ -37,7 +37,21 @@ function FollowProductControls({ productId }: { productId: Id<"products"> }) {
   }
   return (
     <div className="flex items-center gap-2">
-      <Button variant="outline" className="border-primary/50 text-primary" onClick={() => unfollow({ productId }).then(() => toast.success("Unfollowed"))}>
+      <Button
+        variant="outline"
+        className="border-primary/50 text-primary"
+        aria-pressed
+        aria-label="Following, press to unfollow"
+        onClick={async () => {
+          const minScore = follow.minScore ?? undefined;
+          try {
+            await unfollow({ productId });
+            toast.success("Unfollowed", { action: { label: "Undo", onClick: () => void followProduct({ productId, minScore }).catch((e) => toast.error(message(e))) } });
+          } catch (e) {
+            toast.error(message(e));
+          }
+        }}
+      >
         <BellRing className="w-4 h-4 mr-2" />
         Following
       </Button>
@@ -52,7 +66,7 @@ function FollowProductControls({ productId }: { productId: Id<"products"> }) {
             toast.error(message(err));
           }
         }}
-        className="h-9 rounded-md border border-border bg-background px-2 text-xs"
+        className="h-9 rounded-md border border-border bg-background text-foreground px-2 text-xs"
       >
         <option value="">No score alert</option>
         {THRESHOLDS.map((t) => (

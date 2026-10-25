@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import LinkScreenshot from "@/components/LinkScreenshot.tsx";
 import PageProducts, { type PickedProduct } from "./PageProducts.tsx";
+import ConfirmAction from "@/components/ConfirmAction.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { pastedImage, screenshotParts, type ScreenshotPart } from "@/lib/screenshotParts.ts";
 import { cn } from "@/lib/utils.ts";
@@ -123,6 +124,9 @@ export default function PageBuilderPage() {
         {!shot ? <LinkScreenshot onShot={pick} /> : null}
         <PageProducts value={products} onChange={setProducts} />
         <textarea
+          name="notes"
+          aria-label="Notes for the AI (optional)"
+          autoComplete="off"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           maxLength={1000}
@@ -236,6 +240,7 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
   const tabButton = (value: typeof tab, label: string, Icon: typeof Eye) => (
     <button
       type="button"
+      aria-pressed={tab === value}
       onClick={() => setTab(value)}
       className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition", tab === value ? "bg-muted text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}
     >
@@ -269,14 +274,26 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
               <Undo2 className="w-4 h-4 mr-1.5" /> Undo change
             </Button>
           ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive"
-            onClick={() => void remove({ id: page._id }).then(onRemoved, (e: unknown) => toast.error(errorMessage(e, "Couldn't delete the page")))}
+          <ConfirmAction
+            title="Delete this page?"
+            description={
+              page.shopify?.home
+                ? "It's removed from AdSpy Pro, with its screenshot and history, but stays your store's home page in Shopify. Use “Restore my old home page” first if you want it back."
+                : page.shopify
+                  ? "It's removed from AdSpy Pro, with its screenshot and history. The page you published stays in your Shopify store."
+                  : "It's removed from AdSpy Pro, with its screenshot and history. This can't be undone."
+            }
+            confirmLabel="Delete page"
+            errorLabel="Couldn't delete the page"
+            onConfirm={async () => {
+              await remove({ id: page._id });
+              onRemoved();
+            }}
           >
-            <Trash2 className="w-4 h-4 mr-1.5" /> Delete
-          </Button>
+            <Button size="sm" variant="ghost" className="text-destructive">
+              <Trash2 className="w-4 h-4 mr-1.5" /> Delete
+            </Button>
+          </ConfirmAction>
         </div>
       </div>
 
@@ -367,10 +384,10 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
         </div>
         {tab === "preview" ? (
           <div className="flex gap-1">
-            <Button size="sm" variant={device === "desktop" ? "secondary" : "ghost"} onClick={() => setDevice("desktop")} aria-label="Desktop">
+            <Button size="sm" variant={device === "desktop" ? "secondary" : "ghost"} onClick={() => setDevice("desktop")} aria-label="Desktop" aria-pressed={device === "desktop"}>
               <Monitor className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant={device === "phone" ? "secondary" : "ghost"} onClick={() => setDevice("phone")} aria-label="Phone">
+            <Button size="sm" variant={device === "phone" ? "secondary" : "ghost"} onClick={() => setDevice("phone")} aria-label="Phone" aria-pressed={device === "phone"}>
               <Smartphone className="w-4 h-4" />
             </Button>
           </div>
@@ -385,7 +402,7 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
               title="Page preview"
               sandbox="allow-scripts"
               srcDoc={html}
-              className={cn("bg-white h-[75vh] transition-all", device === "phone" ? "w-[390px] max-w-full border-x border-border" : "w-full")}
+              className={cn("bg-white h-[75vh] transition-[width]", device === "phone" ? "w-[390px] max-w-full border-x border-border" : "w-full")}
             />
           </div>
         ) : (
@@ -410,6 +427,9 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
           }}
         >
           <Input
+            name="change"
+            aria-label="Change something on the page"
+            autoComplete="off"
             value={change}
             onChange={(e) => setChange(e.target.value)}
             maxLength={1000}

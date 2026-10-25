@@ -22,9 +22,11 @@ export default function AppearanceSection() {
           return (
             <button
               key={opt.value}
+              type="button"
+              aria-pressed={active}
               onClick={() => setTheme(opt.value)}
               className={cn(
-                "flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-medium transition-all cursor-pointer",
+                "flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border text-xs font-medium transition-colors cursor-pointer",
                 active
                   ? "bg-primary/10 border-primary text-primary"
                   : "bg-secondary border-border text-muted-foreground hover:text-foreground"

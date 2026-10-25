@@ -94,7 +94,7 @@ describe("StoreResults", () => {
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /Who else sells this/ }), { key: "Enter" });
     expect(screen.getByRole("menuitem", { name: "Netherlands (this search)" })).toBeInTheDocument();
     const tab = { closed: false, opener: {}, location: { href: "" }, document: { title: "", body: { textContent: "" } } };
     const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
@@ -125,7 +125,7 @@ describe("StoreResults", () => {
     };
     show([vest]);
     const open = vi.spyOn(window, "open").mockReturnValue(null); // a blocked tab: the panel still works
-    fireEvent.click(screen.getByRole("button", { name: /Who else sells this/ }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /Who else sells this/ }), { key: "Enter" });
     fireEvent.click(screen.getByRole("menuitem", { name: "Sweden" }));
     expect(await screen.findByLabelText("Search words")).toHaveValue("PowerVest, Magnetische Einlegesohlen, Abnehm Einlagen");
     expect(screen.getByRole("link", { name: "PowerVest" })).toHaveAttribute("href", expect.stringContaining("country=SE"));

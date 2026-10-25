@@ -96,7 +96,7 @@ export default function ProCheckoutDialog({
         <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
           <input
             type="checkbox"
-            className="mt-0.5 accent-[hsl(var(--primary))]"
+            className="mt-0.5 accent-primary"
             checked={autoRenew}
             onChange={(e) => setAutoRenew(e.target.checked)}
           />
@@ -107,9 +107,9 @@ export default function ProCheckoutDialog({
         </label>
 
         {error ? (
-          <p className="text-sm text-destructive">{error}</p>
+          <p role="alert" className="text-sm text-destructive">{error}</p>
         ) : !clientSecret ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+          <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
             <Loader2 className="w-4 h-4 animate-spin" /> Preparing secure payment…
           </div>
         ) : (
@@ -157,7 +157,7 @@ function PayForm({ period, autoRenew, onDone }: { period: BillingPeriod; autoRen
   return (
     <form onSubmit={pay} className="space-y-4">
       <PaymentElement />
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={!stripe || busy}>
         {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
         Pay €{proCharge(period)}

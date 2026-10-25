@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import ConnectShopify from "@/components/ConnectShopify.tsx";
+import ConfirmAction from "@/components/ConfirmAction.tsx";
 import ShopifyTokenForm from "@/components/ShopifyTokenForm.tsx";
 
 // Quick add (convex/shopifyImport.ts): copies the product to the user's store
@@ -72,7 +73,7 @@ function AddButton({ product, dialogOnly, open: openProp, onOpenChange }: Props)
         </Button>
       )}
       {shop && !dialogOnly && (
-        <Button variant="ghost" size="icon" title="Shopify settings and CSV" onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="icon" title="Shopify settings and CSV" aria-label="Shopify settings and CSV" onClick={() => setOpen(true)}>
           <Settings2 className="w-4 h-4" />
         </Button>
       )}
@@ -96,15 +97,18 @@ function AddButton({ product, dialogOnly, open: openProp, onOpenChange }: Props)
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 Add “{product.title.slice(0, 40)}”
               </Button>
-              <Button
-                variant="ghost"
-                onClick={async () => {
+              <ConfirmAction
+                title="Disconnect your store?"
+                description="AdSpy Pro stops adding products, counting profit and checking orders for this store. Nothing in your Shopify store is deleted, and you can connect it again any time."
+                confirmLabel="Disconnect"
+                errorLabel="Couldn't disconnect the store"
+                onConfirm={async () => {
                   await disconnect({});
                   toast.success("Store disconnected");
                 }}
               >
-                Disconnect store
-              </Button>
+                <Button variant="ghost">Disconnect store</Button>
+              </ConfirmAction>
             </div>
           ) : (
             <Connect onDone={() => setOpen(false)} />

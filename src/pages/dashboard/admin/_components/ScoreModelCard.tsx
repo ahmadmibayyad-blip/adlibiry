@@ -41,6 +41,8 @@ export default function ScoreModelCard() {
   if (!data) return null;
   const { model, report } = data;
   const switchTo = async (next: "v1" | "v2") => {
+    const what = next === "v2" ? "Switch every user to the new scores" : "Switch every user back to the old scores";
+    if (!window.confirm(`${what} from the next scoring run? Product rankings and alerts change for everyone.`)) return;
     try {
       await setModel({ model: next });
       toast.success(next === "v2" ? "New scores go live with this run" : "Back to the old scores with this run");

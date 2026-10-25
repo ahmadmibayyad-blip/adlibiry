@@ -19,10 +19,16 @@ const FIELDS: { key: keyof CalcInput; label: string; hint: string; unit: "€" |
   { key: "refundPct", label: "Refund allowance", hint: "Usually 3–5% of the price", unit: "%" },
 ];
 
-const eur = (n: number) => `€${n.toFixed(2)}`;
+const EUR = new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" });
+const eur = (n: number) => EUR.format(n);
+
+type CalcText = Record<keyof CalcInput, string>;
+const asText = (v: CalcInput) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)])) as CalcText;
 
 export default function KnowledgeCalculator() {
-  const [input, setInput] = useState<CalcInput>(CALC_DEFAULTS);
+  // Fields keep what was typed (an emptied field stays empty while retyping); the maths reads blanks as 0.
+  const [text, setText] = useState<CalcText>(() => asText(CALC_DEFAULTS));
+  const input = Object.fromEntries(Object.entries(text).map(([k, t]) => [k, Math.max(0, Number(t) || 0)])) as CalcInput;
   const r = unitEconomics(input);
   const loss = r.breakEvenCpa <= 0;
 
@@ -57,10 +63,12 @@ export default function KnowledgeCalculator() {
                   inputMode="decimal"
                   min={0}
                   step={f.unit === "%" ? 0.5 : 0.01}
-                  value={input[f.key]}
-                  onChange={(e) => setInput({ ...input, [f.key]: Math.max(0, Number(e.target.value) || 0) })}
+                  name={f.key}
+                  autoComplete="off"
+                  value={text[f.key]}
+                  onChange={(e) => setText({ ...text, [f.key]: e.target.value })}
                   className={cn(
-                    "w-full bg-input border border-border rounded-md py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-ring",
+                    "w-full bg-input border border-border rounded-md py-1.5 text-sm text-right tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     f.unit === "€" ? "pl-6 pr-2.5" : "pl-2.5 pr-7",
                   )}
                 />
@@ -70,12 +78,12 @@ export default function KnowledgeCalculator() {
               </span>
             </label>
           ))}
-          <Button variant="ghost" size="sm" onClick={() => setInput(CALC_DEFAULTS)}>
+          <Button variant="ghost" size="sm" onClick={() => setText(asText(CALC_DEFAULTS))}>
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Back to the example
           </Button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3" aria-live="polite">
           <div className="grid grid-cols-2 gap-3">
             <Result label="Net price (ex VAT)" value={eur(r.net)} />
             <Result label="Break-even CPA" value={eur(r.breakEvenCpa)} hint="The most a sale may cost in ads" tone={loss ? "bad" : "good"} />

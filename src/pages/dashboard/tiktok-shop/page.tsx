@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { usePaginatedQuery } from "convex/react";
 import { ShoppingBag } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -115,7 +115,6 @@ function FromTikTokAds({ niches }: { niches?: string[] }) {
 }
 
 function TikTokAds({ niches }: { niches?: string[] }) {
-  const navigate = useNavigate();
   const [firstPage, rememberLoaded] = useLoadedCount("ads", PAGE);
   const { results, status, loadMore } = usePaginatedQuery(api.ads.list, { platform: "TikTok", ...(niches ? { niches } : {}) }, { initialNumItems: firstPage });
   useEffect(() => rememberLoaded(results.length), [results.length, rememberLoaded]);
@@ -132,7 +131,7 @@ function TikTokAds({ niches }: { niches?: string[] }) {
     <>
       <div className={AD_GRID}>
         {results.map((ad) => (
-          <AdCard key={ad._id} ad={ad} onClick={() => navigate(`/dashboard/ads/${ad._id}`)} />
+          <AdCard key={ad._id} ad={ad} href={`/dashboard/ads/${ad._id}`} />
         ))}
       </div>
       <LoadMore show={status === "CanLoadMore"} onClick={() => loadMore(PAGE)} />

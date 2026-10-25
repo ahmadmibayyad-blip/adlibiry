@@ -47,7 +47,7 @@ export default function ProductGallery({ product }: { product: Doc<"products"> }
               type="button"
               aria-label="Previous photo"
               onClick={() => go(-1)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -55,7 +55,7 @@ export default function ProductGallery({ product }: { product: Doc<"products"> }
               type="button"
               aria-label="Next photo"
               onClick={() => go(1)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
             >
               <ChevronRight className="w-5 h-5" />
             </button>

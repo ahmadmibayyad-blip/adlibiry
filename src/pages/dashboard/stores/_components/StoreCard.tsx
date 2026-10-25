@@ -30,9 +30,10 @@ function TrackButton({ storeId }: { storeId: StoreDoc["_id"] }) {
 
   return (
     <button
+      type="button"
       onClick={handleTrack}
       className={cn(
-        "p-3 sm:p-2 rounded-lg border border-border transition-all cursor-pointer",
+        "p-3 sm:p-2 rounded-lg border border-border transition-colors cursor-pointer",
         isTracked
           ? "bg-primary/10 border-primary/30 text-primary"
           : "bg-background/80 text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -57,13 +58,14 @@ export default function StoreCard({
   onToggleCompare?: () => void;
 }) {
   return (
-    <div className="group bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-all">
+    <div className="group bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-colors">
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-        <div className="w-full h-full cursor-pointer" onClick={onClick}>
+        {/* A bigger mouse target for the store button below, which keyboard and screen readers use. */}
+        <div className="w-full h-full cursor-pointer" onClick={onClick} aria-hidden="true">
           <ProductImage
             src={storeImage(store)}
-            alt={store.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            alt=""
+            className="w-full h-full object-cover motion-safe:group-hover:scale-105 transition-transform duration-500"
           />
         </div>
         <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-background/90 backdrop-blur-sm rounded-lg px-2 py-1 border border-border">
@@ -92,7 +94,7 @@ export default function StoreCard({
         )}
       </div>
 
-      <button onClick={onClick} className="w-full text-left p-4 cursor-pointer">
+      <button type="button" onClick={onClick} className="w-full text-left p-4 cursor-pointer">
         <h3 className="font-semibold text-sm mb-1">{store.name}</h3>
         <div className="text-xs text-muted-foreground mb-3">{store.niche} · {store.country}</div>
 

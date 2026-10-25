@@ -71,13 +71,16 @@ export default function StoreAnalysisCard({ inspectionId, host, initial }: { ins
             size="sm"
             variant="outline"
             onClick={() => {
-              void navigator.clipboard.writeText(analysisText(host, shown)).then(() => toast.success("Copied"));
+              navigator.clipboard.writeText(analysisText(host, shown)).then(
+                () => toast.success("Copied"),
+                () => toast.error("Couldn't copy. Select the text and copy it instead."),
+              );
             }}
           >
             <Copy className="w-4 h-4 mr-1.5" /> Copy
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void run()} disabled={busy}>
-            {busy ? <Spinner className="w-4 h-4 mr-1.5" /> : <Wand2 className="w-4 h-4 mr-1.5" />} Again
+            {busy ? <Spinner className="w-4 h-4 mr-1.5" /> : <Wand2 className="w-4 h-4 mr-1.5" />} Analyze again
           </Button>
         </div>
       </div>

@@ -21,6 +21,7 @@ function CopyButton({ text }: { text: string }) {
       }}
       className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer shrink-0"
       title="Copy hook"
+      aria-label="Copy hook"
     >
       {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
     </button>

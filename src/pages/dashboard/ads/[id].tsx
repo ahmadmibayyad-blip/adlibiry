@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Authenticated, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import { Bookmark, BookmarkCheck, ExternalLink, Info, Package } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Doc, Id } from "@/convex/_generated/dataModel.d.ts";
@@ -45,8 +46,8 @@ function SaveAd({ adId }: { adId: Id<"ads"> }) {
         try {
           const r = await toggle({ adId });
           toast.success(r.saved ? "Ad saved" : "Removed from saved");
-        } catch {
-          toast.error("Please sign in to save ads");
+        } catch (e) {
+          toast.error(errorMessage(e, "Couldn't save the ad"));
         }
       }}
     >
@@ -320,7 +321,6 @@ function useToolSubject(ad: Ad | null | undefined) {
 
 function MoreFromAdvertiser({ name, adId }: { name: string; adId: Id<"ads"> }) {
   const ads = useQuery(api.follows.advertiserAds, { name, excludeId: adId });
-  const navigate = useNavigate();
   if (!ads?.length) return null;
   return (
     <section className="mt-8">
@@ -330,7 +330,7 @@ function MoreFromAdvertiser({ name, adId }: { name: string; adId: Id<"ads"> }) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {ads.map((a) => (
-          <AdCard key={a._id} ad={a} onClick={() => navigate(`/dashboard/ads/${a._id}`)} />
+          <AdCard key={a._id} ad={a} href={`/dashboard/ads/${a._id}`} />
         ))}
       </div>
     </section>

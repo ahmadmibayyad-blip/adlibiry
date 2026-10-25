@@ -54,6 +54,8 @@ export default function SavedProducts() {
         {tabs.map((t) => (
           <button
             key={t.id}
+            type="button"
+            aria-pressed={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn(
               "flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer -mb-px",

@@ -26,7 +26,7 @@ export default function KnowledgeGlossary() {
       <p className="text-sm text-muted-foreground mb-5">The terms used in the guides, in plain words.</p>
       <div className="relative mb-5">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search terms" className="pl-9" aria-label="Search terms" />
+        <Input type="search" name="search" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search terms…" className="pl-9" aria-label="Search terms" />
       </div>
       {shown.length ? (
         <dl className="bg-card border border-border rounded-xl divide-y divide-border">

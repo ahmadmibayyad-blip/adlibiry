@@ -16,7 +16,7 @@ export default function CpmSetting() {
 
   return (
     <label
-      className="flex items-center gap-1.5 h-10 sm:h-8 px-2.5 rounded-lg text-xs border border-border text-muted-foreground"
+      className="flex items-center gap-1.5 h-10 sm:h-8 px-2.5 rounded-lg text-xs border border-border text-muted-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:border-ring"
       title={`Est. spend = EU reach ÷ 1,000 × this CPM (USD per 1,000 people reached). Default $${DEFAULT_CPM}.`}
     >
       CPM $

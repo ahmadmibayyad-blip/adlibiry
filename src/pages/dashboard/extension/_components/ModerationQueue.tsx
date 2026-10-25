@@ -132,7 +132,8 @@ export default function ModerationQueue() {
     { initialNumItems: 10 }
   );
 
-  const handleReject = async (id: Submission["_id"]) => {
+  const handleReject = async (id: Submission["_id"], name: string) => {
+    if (!window.confirm(`Reject the ad from ${name}? It's removed from the queue.`)) return;
     try {
       await rejectSubmission({ id });
       toast.success("Submission rejected");
@@ -196,10 +197,10 @@ export default function ModerationQueue() {
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <Button size="icon-sm" variant="ghost" onClick={() => setApproveTarget(s)} className="text-primary hover:text-primary">
+              <Button size="icon-sm" variant="ghost" aria-label={`Approve ad from ${s.advertiserName}`} onClick={() => setApproveTarget(s)} className="text-primary hover:text-primary">
                 <Check className="w-3.5 h-3.5" />
               </Button>
-              <Button size="icon-sm" variant="ghost" onClick={() => handleReject(s._id)} className="text-destructive hover:text-destructive">
+              <Button size="icon-sm" variant="ghost" aria-label={`Reject ad from ${s.advertiserName}`} onClick={() => handleReject(s._id, s.advertiserName)} className="text-destructive hover:text-destructive">
                 <X className="w-3.5 h-3.5" />
               </Button>
             </div>

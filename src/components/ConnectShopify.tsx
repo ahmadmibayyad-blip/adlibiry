@@ -29,7 +29,7 @@ export default function ConnectShopify() {
         }
       }}
     >
-      <Input value={shop} onChange={(e) => setShop(e.target.value)} placeholder="my-store.myshopify.com" autoComplete="off" />
+      <Input name="shop" aria-label="Store address" inputMode="url" spellCheck={false} value={shop} onChange={(e) => setShop(e.target.value)} placeholder="my-store.myshopify.com" autoComplete="off" />
       <Button type="submit" className="w-full" disabled={busy || !shop.trim()}>
         {busy && <Spinner />}
         Connect with Shopify

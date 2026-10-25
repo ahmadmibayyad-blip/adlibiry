@@ -51,16 +51,18 @@ function SaveButton({ productId }: { productId: Id<"products"> }) {
 
   return (
     <button
+      type="button"
       onClick={handleSave}
       className={cn(
         // The ::before stretches the hit area to 40px on phones without growing the icon.
-        "relative p-1.5 rounded-full border border-border shadow-sm transition-all cursor-pointer before:absolute before:-inset-1.5 sm:before:hidden",
+        "relative p-1.5 rounded-full border border-border shadow-sm transition-colors cursor-pointer before:absolute before:-inset-1.5 sm:before:hidden",
         isSaved
           ? "bg-primary/10 border-primary/30 text-primary"
           : "bg-background/90 text-muted-foreground hover:text-foreground hover:bg-secondary"
       )}
       title={isSaved ? "Remove from saved" : "Save product"}
-      aria-label={isSaved ? "Remove from saved" : "Save product"}
+      aria-label="Save product"
+      aria-pressed={!!isSaved}
     >
       {isSaved ? (
         <BookmarkCheck className="w-3.5 h-3.5" />
@@ -82,7 +84,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
   return (
     <Link
       to={`/dashboard/products/${product._id}`}
-      className="group flex flex-col h-full bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:border-primary/40 hover:shadow-md transition-all"
+      className="group flex flex-col h-full bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:border-primary/40 hover:shadow-md transition-[border-color,box-shadow]"
     >
       {/* Image */}
       <div className="relative aspect-square sm:aspect-[4/3] overflow-hidden bg-muted">

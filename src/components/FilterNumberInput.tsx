@@ -20,7 +20,8 @@ export default function FilterNumberInput({
   return (
     <label
       className={cn(
-        "flex items-center gap-1.5 h-10 sm:h-8 rounded-full pl-3 pr-2 border bg-card border-border cursor-text",
+        // The input drops its own ring (it sits inside the pill), so the pill shows keyboard focus.
+        "flex items-center gap-1.5 h-10 sm:h-8 rounded-full pl-3 pr-2 border bg-card border-border cursor-text has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:border-ring",
         value && "border-primary bg-primary/10",
         className
       )}

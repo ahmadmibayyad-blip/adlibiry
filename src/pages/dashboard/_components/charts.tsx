@@ -81,6 +81,7 @@ export function ChartCard({
               onClick={() => setTable((t) => !t)}
               className={cn("p-1 rounded cursor-pointer hover:text-foreground", table && "text-foreground bg-muted")}
               title={table ? "Show chart" : "Show as table"}
+              aria-label="Show as table"
               aria-pressed={table}
             >
               <Table2 className="w-3.5 h-3.5" />

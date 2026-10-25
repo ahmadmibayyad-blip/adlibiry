@@ -72,7 +72,7 @@ export default function KnowledgeHub() {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center mb-5">
         <div className="relative sm:max-w-sm flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search all guides" className="pl-9" aria-label="Search all guides" />
+          <Input type="search" name="search" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search all guides…" className="pl-9" aria-label="Search all guides" />
         </div>
         <div role="tablist" aria-label="Stage" className="inline-flex rounded-lg border border-border bg-muted/50 p-1 max-w-full overflow-x-auto">
           {(["All", ...STAGES] as const).map((s) => (

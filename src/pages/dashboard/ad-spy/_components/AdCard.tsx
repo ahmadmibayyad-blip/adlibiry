@@ -3,8 +3,10 @@ import { useMutation, useQuery, Authenticated } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { offerTags } from "@/convex/lib/offerTags.ts";
 import { Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layers, Calendar, Copy, Zap, ExternalLink, X, Tag } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import AdStageBadge from "@/components/AdStageBadge.tsx";
@@ -38,13 +40,13 @@ function SaveAdButton({ adId }: { adId: Ad["_id"] }) {
         try {
           const r = await toggleSave({ adId });
           toast.success(r.saved ? "Saved to your creative library" : "Removed from saved");
-        } catch {
-          toast.error("Please sign in to save ads");
+        } catch (err) {
+          toast.error(errorMessage(err, "Couldn't save the ad"));
         }
       }}
       className={cn(
         // 40px hit area on phones; the negative margin keeps the header's size.
-        "p-3 -m-1.5 sm:m-0 sm:p-1.5 rounded-md transition-colors cursor-pointer",
+        "relative z-[2] p-3 -m-1.5 sm:m-0 sm:p-1.5 rounded-md transition-colors cursor-pointer",
         isSaved ? "text-primary" : "text-muted-foreground hover:text-foreground",
       )}
       title={isSaved ? "Remove from saved" : "Save ad"}
@@ -60,6 +62,7 @@ function Metric({ icon: Icon, value, label }: { icon: typeof Eye; value: string;
     <div className="flex flex-col items-center gap-0.5 py-1.5" title={label}>
       <Icon className="w-3.5 h-3.5 text-muted-foreground" />
       <span className="text-xs font-semibold tabular-nums">{value}</span>
+      <span className="sr-only">{label}</span>
     </div>
   );
 }
@@ -67,7 +70,9 @@ function Metric({ icon: Icon, value, label }: { icon: typeof Eye; value: string;
 // Only one card plays at a time: starting one stops the others.
 const PLAY_EVENT = "adcard-play";
 
-export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void }) {
+// The whole card opens the ad: a link when `href` is given (new tab and middle-click work; `onClick` still runs on
+// click), else a button calling `onClick`. It is drawn over the card (z-[1]); Save and the video buttons sit above it.
+export default function AdCard({ ad, href, onClick }: { ad: Ad; href?: string; onClick?: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hovering, setHovering] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -102,19 +107,17 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => e.key === "Enter" && onClick()}
       onMouseEnter={() => {
         setHovering(true);
-        if (ad.videoUrl) setTimeout(() => videoRef.current?.play().catch(() => {}), 50);
+        if (ad.videoUrl && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          setTimeout(() => videoRef.current?.play().catch(() => {}), 50);
+        }
       }}
       onMouseLeave={() => {
         setHovering(false);
         videoRef.current?.pause();
       }}
-      className="group text-left bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-colors cursor-pointer w-full flex flex-col"
+      className="group relative isolate text-left bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 has-[.ad-open:focus-visible]:ring-2 has-[.ad-open:focus-visible]:ring-ring transition-colors cursor-pointer w-full flex flex-col"
     >
       {/* Advertiser header */}
       <div className="flex items-center gap-2 px-3 py-2.5">
@@ -170,12 +173,11 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
           </div>
         )}
         {isVideo && !playing && !(ad.videoUrl && hovering) && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
             <button
               type="button"
               aria-label="Play video"
               onClick={play}
-              onKeyDown={(e) => e.key === "Enter" && play(e)}
               className="pointer-events-auto w-12 h-12 rounded-full bg-black/55 hover:bg-black/75 flex items-center justify-center cursor-pointer transition-colors"
             >
               <Play className="w-5 h-5 text-white fill-white ml-0.5" />
@@ -187,14 +189,14 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
             type="button"
             aria-label="Play with sound"
             onClick={play}
-            className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-black/40 hover:bg-black/70 flex items-center justify-center cursor-pointer"
+            className="absolute inset-0 z-[2] m-auto w-12 h-12 rounded-full bg-black/40 hover:bg-black/70 flex items-center justify-center cursor-pointer"
           >
             <Play className="w-5 h-5 text-white fill-white ml-0.5" />
           </button>
         )}
         {playing && (
-          // Inline player; clicks here don't open the ad.
-          <div className="absolute inset-0 z-10 bg-black" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          // Inline player, above the card's link, so clicks here don't open the ad.
+          <div className="absolute inset-0 z-10 bg-black">
             {ad.videoUrl ? (
               <video src={video.src} poster={image.src} onError={video.onError} autoPlay controls playsInline className="w-full h-full object-contain" />
             ) : tiktokId ? (
@@ -291,8 +293,18 @@ export default function AdCard({ ad, onClick }: { ad: Ad; onClick: () => void })
           </span>
         ) : null}
       </div>
+      {href ? (
+        <Link to={href} onClick={onClick} aria-label={openLabel(ad)} className="ad-open absolute inset-0 z-[1] focus-visible:outline-none" />
+      ) : (
+        <button type="button" onClick={onClick} aria-label={openLabel(ad)} className="ad-open absolute inset-0 z-[1] cursor-pointer focus-visible:outline-none" />
+      )}
     </div>
   );
+}
+
+function openLabel(ad: Ad) {
+  const what = (ad.headline || ad.bodyText || "").trim().slice(0, 80);
+  return what ? `Open ad by ${ad.advertiserName}: ${what}` : `Open ad by ${ad.advertiserName}`;
 }
 
 export function AdCardSkeleton() {

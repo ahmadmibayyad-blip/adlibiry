@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@/convex/_generated/api.js";
@@ -15,7 +15,6 @@ type Result = FunctionReturnType<typeof api.adEmbeddings.looksSimilar>;
 // under "Same creative elsewhere" instead.
 export default function LooksSimilar({ adId, compact = false }: { adId: Id<"ads">; compact?: boolean }) {
   const lookup = useAction(api.adEmbeddings.looksSimilar);
-  const navigate = useNavigate();
   // Kept with the ad it belongs to: while another ad's answer is loading, the old one isn't shown.
   const [state, setState] = useState<{ adId: Id<"ads">; result?: Result; failed?: boolean } | null>(null);
 
@@ -77,7 +76,7 @@ export default function LooksSimilar({ adId, compact = false }: { adId: Id<"ads"
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {ads.map((a) => (
-            <AdCard key={a._id} ad={a} onClick={() => navigate(`/dashboard/ads/${a._id}`)} />
+            <AdCard key={a._id} ad={a} href={`/dashboard/ads/${a._id}`} />
           ))}
         </div>
       )}

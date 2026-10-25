@@ -293,7 +293,7 @@ export default function StoreTrackerPage() {
                 <button
                   key={store._id}
                   onClick={() => handleOpenStore(store)}
-                  className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
+                  className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-colors cursor-pointer text-left"
                 >
                   <ProductImage src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                   <div className="min-w-0">
@@ -326,7 +326,7 @@ export default function StoreTrackerPage() {
                 <button
                   key={store._id}
                   onClick={() => handleOpenStore(store)}
-                  className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-all cursor-pointer text-left"
+                  className="shrink-0 w-56 bg-card border border-border rounded-xl p-3 flex items-center gap-3 hover:border-primary/40 transition-colors cursor-pointer text-left"
                 >
                   <ProductImage src={storeImage(store)} alt={store.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                   <div className="min-w-0">
@@ -349,10 +349,15 @@ export default function StoreTrackerPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
+              type="search"
+              name="search"
+              aria-label="Search Shopify stores by name or URL"
+              autoComplete="off"
+              spellCheck={false}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search any Shopify store by name or URL..."
-              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+              placeholder="Search any Shopify store by name or URL…"
+              className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
             />
           </div>
           {compareIds.length > 0 && (

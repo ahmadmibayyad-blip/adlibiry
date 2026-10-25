@@ -631,6 +631,7 @@ function ProductsTab() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          aria-label={`Edit ${product.title}`}
                           onClick={() => { setEditing(product); setFormOpen(true); }}
                         >
                           <Pencil className="w-3.5 h-3.5" />
@@ -638,6 +639,7 @@ function ProductsTab() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          aria-label={`Delete ${product.title}`}
                           onClick={() => setDeleteTarget(product)}
                           className="text-destructive hover:text-destructive"
                         >
@@ -893,6 +895,7 @@ function AdsTab() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          aria-label={`Edit ad from ${ad.advertiserName}`}
                           onClick={() => { setEditing(ad); setFormOpen(true); }}
                         >
                           <Pencil className="w-3.5 h-3.5" />
@@ -900,6 +903,7 @@ function AdsTab() {
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          aria-label={`Delete ad from ${ad.advertiserName}`}
                           onClick={() => setDeleteTarget(ad)}
                           className="text-destructive hover:text-destructive"
                         >
@@ -956,6 +960,7 @@ function UsersTab() {
 
   // Free Pro (e.g. for a creator making a video): 30 days, or remove it.
   const handleFreePro = async (user: UserDoc, days: number) => {
+    if (days === 0 && !window.confirm(`Remove free Pro from ${user.email ?? user.name ?? "this user"}? They go back to their own plan now.`)) return;
     try {
       const { until } = await giveFreePro({ userId: user._id, days });
       toast.success(until ? `Pro free until ${new Date(until).toLocaleDateString()}` : "Free Pro removed");
@@ -966,6 +971,8 @@ function UsersTab() {
 
   const handleToggleAdmin = async (user: UserDoc) => {
     const newRole = user.role === "admin" ? "user" : "admin";
+    const who = user.email ?? user.name ?? "this user";
+    if (!window.confirm(newRole === "admin" ? `Make ${who} an admin? They get full access to Admin.` : `Remove admin access from ${who}?`)) return;
     try {
       await setUserRole({ userId: user._id, role: newRole });
       toast.success(newRole === "admin" ? "Granted admin access" : "Removed admin access");

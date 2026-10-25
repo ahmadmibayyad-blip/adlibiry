@@ -11,6 +11,7 @@ import AddToCollection from "@/components/AddToCollection.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { useCpm } from "@/hooks/use-cpm.ts";
@@ -419,7 +420,6 @@ const searchUrl = (country: string, words: string) => `/dashboard/offer-search?$
  * Meta there with the words shoppers in that language use (editable). Picking a country also opens Meta's Ad Library in a
  * new tab, searching that country for the first search word once it's known. */
 function WhoElse({ product: p, words, country, brand }: { product: FoundProduct; words: string; country: string; brand?: string }) {
-  const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<{ code: string; tab: Window | null } | null>(null);
   const choose = (code: string) => {
     // Opened now, during the click (a tab opened after the words arrive would be blocked), and pointed at Meta when they do.
@@ -430,29 +430,24 @@ function WhoElse({ product: p, words, country, brand }: { product: FoundProduct;
       tab.document.body.textContent = "Finding search words…";
     }
     setPicked({ code, tab });
-    setOpen(false);
   };
   return (
     <div className="relative">
-      <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)}>
-        <Users className="w-3.5 h-3.5 mr-1" /> Who else sells this
-      </Button>
-      {open ? (
-        <div role="menu" className="absolute z-20 mt-1 w-56 max-h-72 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="h-10 sm:h-7 text-xs">
+            <Users className="w-3.5 h-3.5 mr-1" /> Who else sells this
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56 max-h-72 overflow-y-auto overscroll-contain">
           {[country, ...Object.keys(OFFER_COUNTRIES).filter((c) => c !== country)].map((code) => (
-            <button
-              key={code}
-              type="button"
-              role="menuitem"
-              onClick={() => choose(code)}
-              className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
-            >
+            <DropdownMenuItem key={code} onSelect={() => choose(code)}>
               {OFFER_COUNTRIES[code]?.name ?? code}
               {code === country ? " (this search)" : ""}
-            </button>
+            </DropdownMenuItem>
           ))}
-        </div>
-      ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {picked ? (
         <SameProductPanel key={picked.code} product={p} words={words} brand={brand} country={picked.code} tab={picked.tab} onClose={() => setPicked(null)} />
       ) : null}

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
@@ -37,7 +38,12 @@ beforeEach(() => {
   redo.mockClear();
 });
 
-const show = () => render(<RemakeVideo adId={adId} variant={variant} product="Cooling mat" />);
+const show = () =>
+  render(
+    <MemoryRouter>
+      <RemakeVideo adId={adId} variant={variant} product="Cooling mat" />
+    </MemoryRouter>,
+  );
 
 describe("RemakeVideo", () => {
   it("shows the seconds left and sells more", () => {

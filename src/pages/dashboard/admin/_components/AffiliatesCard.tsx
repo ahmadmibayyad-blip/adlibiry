@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import { HandCoins } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import type { Id } from "@/convex/_generated/dataModel.js";
@@ -17,15 +18,25 @@ export default function AffiliatesCard() {
   const voidForPayment = useMutation(api.affiliates.voidForPayment);
   const [refund, setRefund] = useState("");
 
-  async function pay(affiliateId: Id<"affiliates">, label: string) {
-    const r = await markPaid({ affiliateId });
-    toast.success(r.count ? `Marked ${euros(r.amount)} paid to ${label}` : "Nothing payable yet");
+  async function pay(affiliateId: Id<"affiliates">, label: string, payable: number) {
+    if (!window.confirm(`Mark ${euros(payable)} as paid to ${label}? Do this after you've sent the money.`)) return;
+    try {
+      const r = await markPaid({ affiliateId });
+      toast.success(r.count ? `Marked ${euros(r.amount)} paid to ${label}` : "Nothing payable yet");
+    } catch (e) {
+      toast.error(errorMessage(e, "Couldn't mark it paid"));
+    }
   }
 
   async function onVoid() {
-    const done = await voidForPayment({ paymentIntentId: refund });
-    toast[done ? "success" : "error"](done ? "Commission cancelled" : "No unpaid commission for that payment");
-    if (done) setRefund("");
+    if (!window.confirm(`Cancel the unpaid commission for ${refund.trim()}?`)) return;
+    try {
+      const done = await voidForPayment({ paymentIntentId: refund.trim() });
+      toast[done ? "success" : "error"](done ? "Commission cancelled" : "No unpaid commission for that payment");
+      if (done) setRefund("");
+    } catch (e) {
+      toast.error(errorMessage(e, "Couldn't cancel the commission"));
+    }
   }
 
   return (
@@ -69,7 +80,7 @@ export default function AffiliatesCard() {
                   <td className="py-1.5 pr-3 font-semibold">{euros(r.payable)}</td>
                   <td className="py-1.5 pr-3">{euros(r.paid)}</td>
                   <td className="py-1.5 text-right">
-                    <Button size="sm" variant="secondary" disabled={r.payable === 0} onClick={() => void pay(r._id, r.code)}>
+                    <Button size="sm" variant="secondary" disabled={r.payable === 0} onClick={() => void pay(r._id, r.code, r.payable)}>
                       Mark paid
                     </Button>
                   </td>
@@ -86,7 +97,7 @@ export default function AffiliatesCard() {
           void onVoid();
         }}
       >
-        <Input value={refund} onChange={(e) => setRefund(e.target.value)} placeholder="Refunded payment (pi_…): cancel its commission" />
+        <Input value={refund} onChange={(e) => setRefund(e.target.value)} name="refundPaymentId" autoComplete="off" spellCheck={false} aria-label="Refunded payment ID" placeholder="Refunded payment (pi_…): cancel its commission" />
         <Button type="submit" size="sm" variant="ghost" disabled={!refund.trim()}>
           Cancel commission
         </Button>

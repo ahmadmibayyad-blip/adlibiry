@@ -37,6 +37,10 @@ export default function LinkScreenshot({ onShot, disabled }: { onShot: (image: B
       <div className="flex gap-2">
         <Input
           type="url"
+          name="page-url"
+          aria-label="Page link to screenshot"
+          autoComplete="off"
+          spellCheck={false}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {

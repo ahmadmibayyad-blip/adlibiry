@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { DollarSign, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { displayCurrency } from "@/lib/money.ts";
@@ -9,9 +9,13 @@ import { formatMoney } from "@/convex/lib/currency.ts";
 export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: number; baseCost: number }) {
   const { code, rate } = displayCurrency();
   const round2 = (n: number) => Math.round(n * 100) / 100;
-  const [price, setPrice] = useState(round2(basePrice * rate));
-  const [cost, setCost] = useState(round2(baseCost * rate));
-  const [shipping, setShipping] = useState(round2(4.99 * rate));
+  // Kept as typed, so an emptied field stays empty while retyping; blanks count as 0.
+  const [priceText, setPrice] = useState(String(round2(basePrice * rate)));
+  const [costText, setCost] = useState(String(round2(baseCost * rate)));
+  const [shippingText, setShipping] = useState(String(round2(4.99 * rate)));
+  const price = Number(priceText) || 0;
+  const cost = Number(costText) || 0;
+  const shipping = Number(shippingText) || 0;
   const fmt = (n: number) => formatMoney(n, code, 1);
 
   const profit = price - cost - shipping;
@@ -30,35 +34,11 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
         <h3 className="font-semibold text-sm">Profit Calculator</h3>
       </div>
       <div className="space-y-3 mb-4">
-        <div className="flex items-center justify-between gap-3">
-          <label className="text-xs text-muted-foreground w-24 shrink-0">Sell price ({code})</label>
-          <input
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(Number(e.target.value))}
-            className="flex-1 bg-input border border-border rounded-md px-2.5 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <label className="text-xs text-muted-foreground w-24 shrink-0">Product cost ({code})</label>
-          <input
-            type="number"
-            value={cost}
-            onChange={(e) => setCost(Number(e.target.value))}
-            className="flex-1 bg-input border border-border rounded-md px-2.5 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <label className="text-xs text-muted-foreground w-24 shrink-0">Shipping ({code})</label>
-          <input
-            type="number"
-            value={shipping}
-            onChange={(e) => setShipping(Number(e.target.value))}
-            className="flex-1 bg-input border border-border rounded-md px-2.5 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
+        <MoneyField label={`Sell price (${code})`} value={priceText} onChange={setPrice} />
+        <MoneyField label={`Product cost (${code})`} value={costText} onChange={setCost} />
+        <MoneyField label={`Shipping (${code})`} value={shippingText} onChange={setShipping} />
       </div>
-      <div className="border-t border-border pt-4 space-y-2">
+      <div className="border-t border-border pt-4 space-y-2 tabular-nums" aria-live="polite">
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Profit per order</span>
           <span className={cn("font-bold text-sm", empty ? "text-muted-foreground" : profit >= 0 ? "text-good" : "text-bad")}>
@@ -88,6 +68,26 @@ export default function ProfitCalculator({ basePrice, baseCost }: { basePrice: n
           Margin below 20% — consider raising price or negotiating cost.
         </div>
       )}
+    </div>
+  );
+}
+
+function MoneyField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const id = useId();
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <label htmlFor={id} className="text-xs text-muted-foreground w-24 shrink-0">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        inputMode="decimal"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex-1 min-w-0 bg-input border border-border rounded-md px-2.5 py-1.5 text-sm text-right tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      />
     </div>
   );
 }

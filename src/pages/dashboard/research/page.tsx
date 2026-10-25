@@ -56,6 +56,8 @@ export default function ResearchPage() {
         {tabs.map((t) => (
           <button
             key={t.id}
+            type="button"
+            aria-pressed={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn(
               "flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer -mb-px whitespace-nowrap",
@@ -91,9 +93,11 @@ function TrendsTab() {
             return (
               <button
                 key={d}
+                type="button"
+                aria-pressed={isActive}
                 onClick={() => setDirection(d === "All" ? undefined : d)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer border",
+                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border",
                   isActive
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-card border-border text-muted-foreground hover:text-foreground"
@@ -232,10 +236,14 @@ function SourcingTab({ initialNiche }: { initialNiche?: string }) {
         <div className="relative mb-3">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
+            type="search"
+            name="search"
+            aria-label="Product to source"
+            autoComplete="off"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Product to source, e.g. dog cooling mat"
-            className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+            className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
           />
         </div>
         <FilterSelect

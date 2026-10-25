@@ -133,6 +133,9 @@ function RemoveItem({ id, kind, refId }: { id: Id<"collections">; kind: Kind; re
         setBusy(true);
         try {
           await toggle({ id, kind, refId });
+          toast.success("Removed from the collection", {
+            action: { label: "Undo", onClick: () => void toggle({ id, kind, refId }).catch((e) => toast.error(errorMessage(e, "Couldn't add it back"))) },
+          });
         } catch (e) {
           toast.error(errorMessage(e, "Couldn't remove it"));
           setBusy(false);

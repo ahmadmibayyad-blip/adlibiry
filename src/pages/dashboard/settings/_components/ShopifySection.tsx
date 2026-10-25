@@ -5,6 +5,7 @@ import { ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
+import ConfirmAction from "@/components/ConfirmAction.tsx";
 import ConnectShopify from "@/components/ConnectShopify.tsx";
 import ShopifyTokenForm from "@/components/ShopifyTokenForm.tsx";
 
@@ -43,16 +44,20 @@ export default function ShopifySection() {
             {store.viaApp ? " through the AdSpy Pro app." : " with an Admin API token from your store's custom app."}
           </p>
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={async () => {
+            <ConfirmAction
+              title="Disconnect your store?"
+              description="AdSpy Pro stops adding products, counting profit and checking orders for this store. Nothing in your Shopify store is deleted, and you can connect it again any time."
+              confirmLabel="Disconnect"
+              errorLabel="Couldn't disconnect the store"
+              onConfirm={async () => {
                 await disconnect({});
                 toast.success("Store disconnected");
               }}
             >
-              Disconnect
-            </Button>
+              <Button size="sm" variant="ghost">
+                Disconnect
+              </Button>
+            </ConfirmAction>
           </div>
         </div>
         {store.viaApp ? (

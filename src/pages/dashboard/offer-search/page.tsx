@@ -79,6 +79,7 @@ function OfferSearchForm() {
             <button
               key={o}
               type="button"
+              aria-pressed={offer === o}
               onClick={() => setOffer(o)}
               className={cn(
                 "rounded-full border px-3 py-1.5 min-h-10 sm:min-h-0 text-sm transition",
@@ -90,6 +91,7 @@ function OfferSearchForm() {
           ))}
           <button
             type="button"
+            aria-pressed={offer === "custom"}
             onClick={() => setOffer("custom")}
             className={cn(
               "rounded-full border px-3 py-1.5 min-h-10 sm:min-h-0 text-sm transition",
@@ -108,9 +110,9 @@ function OfferSearchForm() {
         >
           <FilterSelect label="Country" value={country} onChange={setCountry} options={COUNTRY_OPTIONS} active />
           {offer === "custom" ? (
-            <Input className="h-10 sm:h-8 w-full sm:w-60" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="e.g. 3 for 2, in the country's language" />
+            <Input className="h-10 sm:h-8 w-full sm:w-60" name="offer-words" aria-label="Your own offer words" autoComplete="off" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="e.g. 3 for 2, in the country's language" />
           ) : null}
-          <Input className="h-10 sm:h-8 w-full sm:w-56" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Product word (optional), e.g. hund" />
+          <Input className="h-10 sm:h-8 w-full sm:w-56" name="product-word" aria-label="Product word (optional)" autoComplete="off" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Product word (optional), e.g. hund" />
           <Button type="submit" size="sm" className="h-10 sm:h-8" disabled={busy || (offer === "custom" && !custom.trim())}>
             {busy ? <Spinner className="w-4 h-4 mr-2" /> : <Search className="w-4 h-4 mr-2" />}
             Search
@@ -123,6 +125,7 @@ function OfferSearchForm() {
               <button
                 key={s._id}
                 type="button"
+                aria-pressed={id === s._id}
                 onClick={() => setParams({ id: s._id })}
                 className={cn(
                   "rounded-full border px-2.5 py-0.5 min-h-10 sm:min-h-0 text-xs transition",

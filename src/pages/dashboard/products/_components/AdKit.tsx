@@ -17,17 +17,21 @@ import { errorMessage } from "@/lib/errorMessage.ts";
 type Ad = { angle: string; hook: string; primaryText: string; headline: string };
 const MAX_RUNS = 3; // convex/launch.ts MAX_AD_IMAGE_RUNS
 
-export function CopyButton({ text }: { text: string }) {
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
       type="button"
       className="text-muted-foreground hover:text-foreground shrink-0"
-      aria-label="Copy"
-      onClick={() => {
-        navigator.clipboard?.writeText(text);
-        setDone(true);
-        setTimeout(() => setDone(false), 1500);
+      aria-label={done ? "Copied" : label}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setDone(true);
+          setTimeout(() => setDone(false), 1500);
+        } catch {
+          toast.error("Couldn't copy. Select the text and copy it instead.");
+        }
       }}
     >
       {done ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -97,7 +101,7 @@ function AdCard({ ad, index, src }: { ad: Ad; index: number; src?: string }) {
           <div key={label} className="flex gap-2 items-start">
             <span className="text-muted-foreground w-20 shrink-0">{label}</span>
             <span className="flex-1">{text}</span>
-            <CopyButton text={text} />
+            <CopyButton text={text} label={`Copy ${label.toLowerCase()}`} />
           </div>
         ))}
       </div>

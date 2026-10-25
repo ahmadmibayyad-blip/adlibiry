@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronDown } from "lucide-react";
 
@@ -39,20 +39,25 @@ const faqs = [
 
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   return (
-    <div
-      className="border border-border rounded-xl overflow-hidden cursor-pointer hover:border-primary/30 transition-colors"
-      onClick={() => setOpen(!open)}
-    >
-      <div className="flex items-center justify-between px-6 py-5 bg-card">
+    <div className="border border-border rounded-xl overflow-hidden hover:border-primary/30 transition-colors">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-6 py-5 bg-card text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
         <span className="font-semibold text-sm pr-4">{q}</span>
         <ChevronDown
           className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         />
-      </div>
+      </button>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
+            id={panelId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Scale, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -90,7 +91,14 @@ export default function RevenueCalibrationCard() {
               </span>
               <span className="flex items-center gap-2 shrink-0">
                 <strong className="tabular-nums">${r.monthlyRevenueUsd.toLocaleString("en-US")}/mo</strong>
-                <button type="button" aria-label="Remove" onClick={() => remove({ id: r._id })} className="text-muted-foreground hover:text-destructive cursor-pointer">
+                <button
+                  type="button"
+                  aria-label={`Remove ${r.url}`}
+                  onClick={() => {
+                    if (window.confirm(`Remove ${r.url} from the calibration?`)) remove({ id: r._id }).catch((e) => toast.error(errorMessage(e, "Couldn't remove it")));
+                  }}
+                  className="text-muted-foreground hover:text-destructive cursor-pointer"
+                >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </span>

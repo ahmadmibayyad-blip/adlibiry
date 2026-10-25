@@ -261,7 +261,7 @@ export const toggleSave = mutation({
   args: { productId: v.id("products") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Not logged in" });
+    if (!identity) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in to save products." });
     const user = await ctx.db
       .query("users")
       .withIndex("by_token", (q) => q.eq("tokenIdentifier", stableToken(identity)))

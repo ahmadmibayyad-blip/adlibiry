@@ -540,6 +540,9 @@ function LaunchButton({
                 }
                 if (!(priceNum > 0)) {
                   goTo(1);
+                  toast.error("Add a price above 0 first");
+                  // The price field is on step 1: focus it once that step renders.
+                  setTimeout(() => formRef.current?.querySelector<HTMLInputElement>('input[name="price"]')?.focus());
                   return;
                 }
                 setBusy(true);
@@ -625,7 +628,7 @@ function LaunchButton({
 
                   <label className="block text-sm">
                     <span className="font-medium">Price ({currency})</span>
-                    <Input type="number" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" />
+                    <Input type="number" name="price" inputMode="decimal" autoComplete="off" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" />
                     <span className="text-xs text-muted-foreground">
                       {cost
                         ? `Supplier cost ${cost.toFixed(2)} ${currency} incl. shipping · margin ${margin ?? "–"}%`
