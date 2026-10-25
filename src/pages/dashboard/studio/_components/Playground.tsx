@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea.tsx";
 import RemakeTopUpDialog from "@/components/billing/RemakeTopUpDialog.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 
 // AI Studio → Playground: describe a clip, optionally start from a product photo, pick a fal model, format and length,
 // generate (convex/studio.ts). Each finished take stays below with Re-roll, Other model and Download.
@@ -37,14 +38,15 @@ function takeLabel(t: Take, m: { name: string; photoAspect: boolean } | undefine
 
 function Choice({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-1.5">
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-1.5" onKeyDown={arrowSelect}>
       <span className="text-xs text-muted-foreground mr-1">{label}</span>
-      {options.map((o) => (
+      {options.map((o, i) => (
         <button
           key={o}
           type="button"
           role="radio"
           aria-checked={value === o}
+          tabIndex={rovingTabIndex(value === o, i, options.includes(value))}
           onClick={() => onChange(o)}
           className={cn("h-8 px-3 rounded-md border text-sm", value === o ? "border-primary bg-primary/10" : "border-border hover:bg-muted")}
         >
@@ -189,13 +191,14 @@ export default function Playground() {
 
       <section>
         <h3 className="font-semibold text-sm mb-1.5">Model</h3>
-        <div ref={pickerRef} tabIndex={-1} role="radiogroup" aria-label="Model" className="grid grid-cols-1 sm:grid-cols-2 gap-2 outline-none">
-          {(shown ?? []).map((m) => (
+        <div ref={pickerRef} tabIndex={-1} role="radiogroup" aria-label="Model" className="grid grid-cols-1 sm:grid-cols-2 gap-2 outline-none" onKeyDown={arrowSelect}>
+          {(shown ?? []).map((m, i, all) => (
             <button
               key={m.key}
               type="button"
               role="radio"
               aria-checked={model?.key === m.key}
+              tabIndex={rovingTabIndex(model?.key === m.key, i, all.some((x) => x.key === model?.key))}
               onClick={() => setModelKey(m.key)}
               className={cn(
                 "text-left rounded-lg border-2 p-3 transition-colors",

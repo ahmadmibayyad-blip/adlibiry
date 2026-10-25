@@ -39,9 +39,13 @@ function Reel({ reel, withSound, onSound, paused }: { reel: (typeof REELS)[numbe
     return () => io.disconnect();
   }, [paused]); // eslint-disable-line react-hooks/exhaustive-deps -- a reel playing with sound keeps playing when autoplay is paused
 
+  // Captions show while a reel plays with sound (the muted autoplay stays clean).
   useEffect(() => {
     const el = video.current;
-    if (el) el.muted = !withSound;
+    if (!el) return;
+    el.muted = !withSound;
+    const track = el.textTracks[0];
+    if (track) track.mode = withSound ? "showing" : "hidden";
   }, [withSound]);
 
   const tap = () => {
@@ -78,7 +82,9 @@ function Reel({ reel, withSound, onSound, paused }: { reel: (typeof REELS)[numbe
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           aria-hidden="true"
-        />
+        >
+          <track kind="captions" src={`/videos/reel-${reel.id}.en.vtt`} srcLang="en" label="English" />
+        </video>
         {!playing && (
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="flex w-14 h-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform group-hover:scale-105">
@@ -116,7 +122,7 @@ export default function Reels() {
             <h2 id="reels-heading" className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 text-balance">
               One tool, 20 seconds
             </h2>
-            <p className="text-muted-foreground text-lg">Short clips of each tool on a phone. Tap one to hear it.</p>
+            <p className="text-muted-foreground text-lg">Short clips of each tool on a phone. Tap one to hear it, with captions.</p>
           </div>
           <div className="flex gap-2 shrink-0">
             <button

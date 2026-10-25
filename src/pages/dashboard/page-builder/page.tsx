@@ -87,7 +87,7 @@ export default function PageBuilderPage() {
         <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />
         {shot ? (
           <div className="flex gap-3 items-start">
-            <img src={shot.preview} alt="Your screenshot" className="w-28 h-28 rounded-md object-cover object-top border border-border shrink-0" />
+            <img width={112} height={112} src={shot.preview} alt="Your screenshot" className="w-28 h-28 rounded-md object-cover object-top border border-border shrink-0" />
             <div className="text-sm space-y-1 min-w-0">
               <p className="font-medium">Screenshot ready</p>
               <p className="text-xs text-muted-foreground">

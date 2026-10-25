@@ -37,7 +37,7 @@ export default function ProductGallery({ product }: { product: Doc<"products"> }
   return (
     <div className="mb-4">
       <div className="relative rounded-xl overflow-hidden border border-border bg-muted group">
-        <img src={current.src} alt={product.title} onError={() => drop(current.src)} className="w-full aspect-[4/3] object-contain bg-white" />
+        <img width={400} height={300} src={current.src} alt={product.title} onError={() => drop(current.src)} className="w-full aspect-[4/3] object-contain bg-white" />
         {current.label && (
           <span className="absolute top-2 left-2 text-xs font-medium bg-black/65 text-white rounded-md px-2 py-0.5">{current.label}</span>
         )}

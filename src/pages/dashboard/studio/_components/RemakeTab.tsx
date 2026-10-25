@@ -14,7 +14,7 @@ function AdHeader({ ad }: { ad: Doc<"ads"> }) {
   const image = useMediaFallback(ad.creativeUrl, ad.hostedImageUrl);
   return (
     <div className="mb-4 flex items-start gap-3">
-      {!image.failed && <img src={image.src} onError={image.onError} alt="" className="w-14 h-14 rounded-lg object-cover bg-muted shrink-0" />}
+      {!image.failed && <img width={56} height={56} src={image.src} onError={image.onError} alt="" className="w-14 h-14 rounded-lg object-cover bg-muted shrink-0" />}
       <div className="min-w-0">
         <Link to={`/dashboard/ads/${ad._id}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to the ad

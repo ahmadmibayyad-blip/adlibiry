@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input.tsx";
 
 // Admin → Users: affiliates and what they're owed (convex/affiliates.ts).
 // Pay by hand (PayPal / Wise to the payout email), then press "Mark paid".
-const euros = (cents: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" }).format(cents / 100);
+const euros = (cents: number) => new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(cents / 100);
 
 export default function AffiliatesCard() {
   const rows = useQuery(api.affiliates.adminList, {});

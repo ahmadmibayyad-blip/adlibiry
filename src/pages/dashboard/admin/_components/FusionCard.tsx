@@ -4,6 +4,10 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 
+// Apify bills in dollars, so these stay USD.
+const usdFormat = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
+const usd = (n: number) => usdFormat.format(n);
+
 const TRIGGERS: Record<string, string> = {
   winner: "New winners → advertiser's ads (Apify)",
   spike: "Niche spikes → newcomers (Apify)",
@@ -33,13 +37,13 @@ export default function FusionCard() {
         <h3 className="font-semibold text-sm">Source fusion</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        Apify, Meta's Ad Library, AdLibrary and Nexscope combined per product. Triggered Apify runs share a daily budget of $
-        {data.budget.toFixed(2)} (APIFY_DAILY_BUDGET_USD).
+        Apify, Meta's Ad Library, AdLibrary and Nexscope combined per product. Triggered Apify runs share a daily budget of{" "}
+        {usd(data.budget)} (APIFY_DAILY_BUDGET_USD).
       </p>
       <div className="grid grid-cols-3 gap-2 mb-4">
         <div className="bg-muted/60 rounded-lg px-3 py-2">
           <div className="text-xs text-muted-foreground">Triggered spend today</div>
-          <div className="text-lg font-semibold tabular-nums">${data.spentToday.toFixed(2)}</div>
+          <div className="text-lg font-semibold tabular-nums">{usd(data.spentToday)}</div>
         </div>
         <div className="bg-muted/60 rounded-lg px-3 py-2">
           <div className="text-xs text-muted-foreground">Verified winners</div>
@@ -62,7 +66,7 @@ export default function FusionCard() {
             <li key={s.trigger} className="flex justify-between py-1">
               <span>{TRIGGERS[s.trigger] ?? s.trigger}</span>
               <span className="tabular-nums text-muted-foreground">
-                {s.runs} run{s.runs === 1 ? "" : "s"} · ${s.usd.toFixed(2)}
+                {s.runs} run{s.runs === 1 ? "" : "s"} · {usd(s.usd)}
               </span>
             </li>
           ))}

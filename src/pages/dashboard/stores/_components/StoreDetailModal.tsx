@@ -16,6 +16,7 @@ import StoreSales from "./StoreSales.tsx";
 import ProductImage from "@/components/ProductImage.tsx";
 import { storeRevenueLabel } from "@/lib/estimateFormat.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
+import { price } from "@/lib/money.ts";
 import StoreCatalog from "./StoreCatalog.tsx";
 import AddToCollection from "@/components/AddToCollection.tsx";
 
@@ -94,7 +95,7 @@ export default function StoreDetailModal({ store, open, onOpenChange }: { store:
                   <div className="text-sm font-medium leading-snug line-clamp-1">{product.title}</div>
                   <div className="text-xs text-muted-foreground">{product.estSalesRange}</div>
                 </div>
-                <div className="text-sm font-bold shrink-0">${product.price.toFixed(2)}</div>
+                <div className="text-sm font-bold shrink-0">{price(product.price)}</div>
               </div>
             ))}
           </div>

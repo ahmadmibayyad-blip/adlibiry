@@ -56,7 +56,7 @@ export default function AdStore({ adId, compact = false }: { adId: Id<"ads">; co
     <div className={compact ? "bg-card border border-border rounded-xl p-3.5 space-y-2.5" : "bg-card border border-border rounded-xl p-4 space-y-3"}>
       <div className="flex items-center gap-2 text-sm font-semibold min-w-0">
         {store?.logoUrl ? (
-          <img src={store.logoUrl} alt="" className="w-5 h-5 rounded object-contain shrink-0 bg-muted" />
+          <img width={20} height={20} src={store.logoUrl} alt="" className="w-5 h-5 rounded object-contain shrink-0 bg-muted" />
         ) : (
           <Store className="w-4 h-4 text-primary shrink-0" />
         )}
@@ -96,7 +96,7 @@ export default function AdStore({ adId, compact = false }: { adId: Id<"ads">; co
           <ul className="divide-y divide-border">
             {store.bestSellers.map((b) => (
               <li key={b.title} className="flex items-center gap-3 py-1.5 text-xs">
-                {b.imageUrl ? <img src={b.imageUrl} alt="" loading="lazy" className="w-8 h-8 rounded object-cover shrink-0 bg-muted" /> : null}
+                {b.imageUrl ? <img width={32} height={32} src={b.imageUrl} alt="" loading="lazy" className="w-8 h-8 rounded object-cover shrink-0 bg-muted" /> : null}
                 <span className="flex-1 min-w-0 truncate">{b.title}</span>
                 {/\d/.test(b.estSalesRange) && <span className="text-muted-foreground shrink-0">{b.estSalesRange}</span>}
               </li>

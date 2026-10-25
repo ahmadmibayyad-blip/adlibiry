@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FoundStore } from "@/convex/lib/offerSearch.ts";
 import { StoreResults } from "./StoreResults.tsx";
 
@@ -31,6 +31,8 @@ const show = (stores: FoundStore[]) =>
 const hosts = () => screen.getAllByRole("link").map((a) => a.textContent).filter((t) => t?.includes("."));
 
 describe("StoreResults", () => {
+  // Filters are kept per history entry in sessionStorage; every test starts on a fresh page.
+  beforeEach(() => sessionStorage.clear());
   const scored = [
     store("etos.nl", 9, { score: 1, likely: false, reasons: [] }),
     store("middo.nl", 4, { score: 6, likely: true, reasons: ["Shopify", "7 products", "−50%", "Urgency ads"] }),

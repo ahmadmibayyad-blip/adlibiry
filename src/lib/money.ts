@@ -18,3 +18,7 @@ export const price = (usd: number) => formatMoney(usd, current.code, current.rat
 
 /** A large amount: compact ("€12.4K"), whole units below 1,000. */
 export const moneyCompact = (usd: number) => formatMoney(usd, current.code, current.rate, { compact: true });
+
+/** An amount that really is in euros (AdSpy Pro's own prices), in the user's number format: "€35", "€9.50". */
+export const euros = (n: number) =>
+  new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR", minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }).format(n);

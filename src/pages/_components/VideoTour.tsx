@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 
 // Screen recordings of the live app (public/videos, made in ~/Videos/adspy-live).
 // Click to play: nothing downloads until the visitor asks for it.
@@ -67,7 +68,10 @@ export default function VideoTour() {
               autoPlay={started}
               controls={started}
               aria-label={`${tour.label} tour, ${tour.length}`}
-            />
+            >
+              {/* Captions made from the narration (public/videos/*.en.vtt); the player's CC button turns them off. */}
+              <track kind="captions" src={`/videos/tour-${tour.id}.en.vtt`} srcLang="en" label="English" default />
+            </video>
             {!started && (
               <button
                 type="button"
@@ -85,13 +89,14 @@ export default function VideoTour() {
             )}
           </div>
 
-          <div role="tablist" aria-label="Choose a tour" className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-            {TOURS.map((t) => (
+          <div role="tablist" aria-label="Choose a tour" className="grid grid-cols-2 gap-2 lg:grid-cols-1" onKeyDown={arrowSelect}>
+            {TOURS.map((t, i) => (
               <button
                 key={t.id}
                 type="button"
                 role="tab"
                 aria-selected={t.id === active}
+                tabIndex={rovingTabIndex(t.id === active, i, TOURS.some((x) => x.id === active))}
                 onClick={() => pick(t.id)}
                 className={cn(
                   "text-left rounded-xl border px-4 py-3 min-h-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",

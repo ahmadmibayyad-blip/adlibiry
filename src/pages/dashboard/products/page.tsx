@@ -10,6 +10,7 @@ import { TrendingUp, X, Search, LayoutGrid, Table2, ChevronDown, EyeOff } from "
 import FilterTogglePill from "@/components/FilterTogglePill.tsx";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.tsx";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import ProductTable from "../_components/ProductTable.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -235,12 +236,14 @@ export default function ProductsFeed() {
           </div>
           <div className="flex items-center gap-2">
             <ImageSearchDialog trigger="icon" />
-            <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-9" role="tablist" aria-label="Show">
-              {ORIGINS.map((o) => (
+            <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-9" role="tablist" aria-label="Show" onKeyDown={arrowSelect}>
+              {ORIGINS.map((o, i) => (
                 <button
                   key={o.label}
+                  type="button"
                   role="tab"
                   aria-selected={f.origin === o.value}
+                  tabIndex={rovingTabIndex(f.origin === o.value, i, ORIGINS.some((x) => x.value === f.origin))}
                   onClick={() => set("origin", o.value)}
                   title={o.value === "ads" ? "Products we found inside running ads (several ads for one product are merged)" : undefined}
                   className={cn(

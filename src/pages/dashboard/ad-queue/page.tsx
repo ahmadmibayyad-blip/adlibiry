@@ -93,7 +93,7 @@ function AdCard({ ad }: { ad: Ad }) {
 
   return (
     <li className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
-      {ad.imageUrl ? <img src={ad.imageUrl} alt="" className="w-full aspect-square object-cover" loading="lazy" /> : null}
+      {ad.imageUrl ? <img width={400} height={400} src={ad.imageUrl} alt="" className="w-full aspect-square object-cover" loading="lazy" /> : null}
       <div className="p-3 space-y-2 flex-1 flex flex-col">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5">{ad.angle}</span>

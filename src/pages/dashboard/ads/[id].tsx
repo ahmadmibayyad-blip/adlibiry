@@ -181,7 +181,7 @@ export default function AdDetailPage() {
               <AdStageBadge ad={ad} className="text-xs px-2 rounded" />
             </div>
             <div className="flex items-center gap-2 mb-2 min-w-0">
-              {ad.advertiserAvatar && <img src={ad.advertiserAvatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />}
+              {ad.advertiserAvatar && <img width={24} height={24} src={ad.advertiserAvatar} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />}
               <span className="text-sm font-semibold truncate">{ad.advertiserName}</span>
               {knownAdvertiser && <FollowAdvertiser name={ad.advertiserName} className="shrink-0" />}
             </div>

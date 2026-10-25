@@ -72,7 +72,7 @@ describe("RemakeVideo", () => {
     show();
     const make = screen.getByRole("button", { name: /make the video/i });
     expect(make).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Maya" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Maya" }));
     expect(make).toBeDisabled();
     const file = new File([new Uint8Array(10)], "mat.jpg", { type: "image/jpeg" });
     fireEvent.change(screen.getByLabelText(/product photo/i), { target: { files: [file] } });
@@ -115,7 +115,7 @@ describe("RemakeVideo", () => {
   it("makes a finished video again for free, with the actor picked below", async () => {
     state.latest = { _id: "r1", status: "done", error: null, videoUrl: "https://v.example/x.mp4", seconds: 5, redoId: "r1" };
     show();
-    fireEvent.click(screen.getByRole("button", { name: "Liam" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Liam" }));
     await waitFor(() => expect(screen.getByRole("button", { name: /make it again free/i })).toBeEnabled());
     await waitFor(() => screen.getByText(/Sarah/));
     fireEvent.click(screen.getByRole("button", { name: /make it again free/i }));

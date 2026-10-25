@@ -63,7 +63,7 @@ function HookCard({ h, rank }: { h: Hook; rank: number }) {
       {h.ad && (
         <Link to={`/dashboard/ads/${h.ad._id}`} className="mt-auto flex items-center gap-3 rounded-lg p-2 -m-1 hover:bg-muted/60">
           {h.ad.creativeUrl ? (
-            <img src={h.ad.creativeUrl} alt="" loading="lazy" className="w-10 h-12 rounded-md object-cover bg-muted shrink-0" />
+            <img width={40} height={48} src={h.ad.creativeUrl} alt="" loading="lazy" className="w-10 h-12 rounded-md object-cover bg-muted shrink-0" />
           ) : (
             <div className="w-10 h-12 rounded-md bg-muted shrink-0" />
           )}

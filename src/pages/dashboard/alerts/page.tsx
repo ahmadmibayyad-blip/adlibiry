@@ -25,15 +25,17 @@ const typeIcons: Record<string, typeof Package> = {
   product_follow: BellRing,
 };
 
+const relative = new Intl.RelativeTimeFormat(undefined, { style: "narrow" });
+
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return relative.format(-mins, "minute");
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return relative.format(-hours, "hour");
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return relative.format(-days, "day");
 }
 
 function NotificationRow({ notification, onOpen }: { notification: Notification; onOpen: (n: Notification) => void }) {

@@ -50,7 +50,7 @@ export default function ScreenshotLook({ value, onChange, dawn }: { value: Desig
       <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => void use(e.target.files?.[0])} />
       {value || busy ? (
         <div className="mt-1 flex gap-3 rounded-lg border border-border p-3">
-          {preview ? <img src={preview} alt="Your screenshot" className="w-20 h-20 rounded-md object-cover object-top border border-border shrink-0" /> : null}
+          {preview ? <img width={80} height={80} src={preview} alt="Your screenshot" className="w-20 h-20 rounded-md object-cover object-top border border-border shrink-0" /> : null}
           <div className="min-w-0 flex-1 space-y-2">
             {busy ? (
               <p className="flex items-center gap-2 text-muted-foreground"><Spinner className="w-4 h-4" /> Reading the colors, fonts and shapes…</p>

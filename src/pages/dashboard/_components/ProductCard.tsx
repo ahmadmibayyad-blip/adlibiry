@@ -84,7 +84,7 @@ export default function ProductCard({ product, isNewToday }: { product: Product;
   return (
     <Link
       to={`/dashboard/products/${product._id}`}
-      className="group flex flex-col h-full bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:border-primary/40 hover:shadow-md transition-[border-color,box-shadow]"
+      className="cv-card group flex flex-col h-full bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:border-primary/40 hover:shadow-md transition-[border-color,box-shadow]"
     >
       {/* Image */}
       <div className="relative aspect-square sm:aspect-[4/3] overflow-hidden bg-muted">

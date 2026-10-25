@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Check } from "lucide-react";
 import { STORE_STYLE_FONTS_URL, STORE_STYLE_IDS, STORE_STYLES, type StoreStyleId } from "@/convex/lib/storeStyles.ts";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 
 // The looks a Full store launch can have (convex/lib/storeStyles.ts), each
 // drawn as a small store front with the product's own photo.
@@ -80,8 +81,8 @@ export default function StylePicker({
 }) {
   useStyleFonts();
   return (
-    <div role="radiogroup" aria-label="Store style" className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-      {STORE_STYLE_IDS.map((id) => {
+    <div role="radiogroup" aria-label="Store style" className="grid grid-cols-2 sm:grid-cols-3 gap-2.5" onKeyDown={arrowSelect}>
+      {STORE_STYLE_IDS.map((id, i) => {
         const s = STORE_STYLES[id];
         const selected = value === id;
         return (
@@ -90,6 +91,7 @@ export default function StylePicker({
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={rovingTabIndex(selected, i, STORE_STYLE_IDS.includes(value))}
             onClick={() => onChange(id)}
             className={cn(
               "group relative overflow-hidden rounded-lg border text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

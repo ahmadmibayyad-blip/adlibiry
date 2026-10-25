@@ -10,9 +10,10 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 // Product page → On YouTube (convex/youtube.ts): review and unboxing videos about the product and their views,
 // looked up once when the page opens and saved for everyone.
 
+const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 const age = (iso: string) => {
-  const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
-  return days < 1 ? "today" : days < 30 ? `${days} days ago` : days < 365 ? `${Math.floor(days / 30)} months ago` : `${Math.floor(days / 365)} years ago`;
+  const days = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
+  return days < 30 ? relative.format(-days, "day") : days < 365 ? relative.format(-Math.floor(days / 30), "month") : relative.format(-Math.floor(days / 365), "year");
 };
 
 export default function YoutubeSection({ product }: { product: Doc<"products"> }) {
@@ -52,7 +53,7 @@ export default function YoutubeSection({ product }: { product: Doc<"products"> }
             {yt.videos.slice(0, 4).map((v) => (
               <li key={v.id}>
                 <a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank" rel="noopener noreferrer" className="flex gap-3 group">
-                  {v.thumbnail ? <img src={v.thumbnail} alt="" className="w-24 h-14 rounded object-cover shrink-0" loading="lazy" /> : null}
+                  {v.thumbnail ? <img width={96} height={56} src={v.thumbnail} alt="" className="w-24 h-14 rounded object-cover shrink-0" loading="lazy" /> : null}
                   <span className="min-w-0 text-xs">
                     <span className="block text-sm line-clamp-2 group-hover:underline">{v.title}</span>
                     <span className="text-muted-foreground">{v.channel} · {compactNumber(v.views)} views · {age(v.publishedAt)}</span>

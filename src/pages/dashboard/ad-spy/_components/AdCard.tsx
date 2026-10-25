@@ -117,12 +117,12 @@ export default function AdCard({ ad, href, onClick }: { ad: Ad; href?: string; o
         setHovering(false);
         videoRef.current?.pause();
       }}
-      className="group relative isolate text-left bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 has-[.ad-open:focus-visible]:ring-2 has-[.ad-open:focus-visible]:ring-ring transition-colors cursor-pointer w-full flex flex-col"
+      className="cv-card group relative isolate text-left bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 has-[.ad-open:focus-visible]:ring-2 has-[.ad-open:focus-visible]:ring-ring transition-colors cursor-pointer w-full flex flex-col"
     >
       {/* Advertiser header */}
       <div className="flex items-center gap-2 px-3 py-2.5">
         {ad.advertiserAvatar ? (
-          <img src={ad.advertiserAvatar} alt="" className="w-8 h-8 rounded-full object-cover bg-muted shrink-0" />
+          <img width={32} height={32} src={ad.advertiserAvatar} alt="" className="w-8 h-8 rounded-full object-cover bg-muted shrink-0" />
         ) : (
           <div className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold shrink-0">
             {ad.advertiserName.replace(/^(https?:\/\/)?(www\.)?/, "").charAt(0).toUpperCase()}

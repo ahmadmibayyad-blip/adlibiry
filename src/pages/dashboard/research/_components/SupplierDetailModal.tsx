@@ -21,7 +21,7 @@ export default function SupplierDetailModal({ supplier, open, onOpenChange }: { 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <div className="rounded-xl overflow-hidden border border-border bg-muted mb-3">
-              <img src={supplier.imageUrl} alt={supplier.title} className="w-full aspect-[4/3] object-cover" />
+              <img width={400} height={300} src={supplier.imageUrl} alt={supplier.title} className="w-full aspect-[4/3] object-cover" />
             </div>
             <h2 className="text-base font-bold leading-tight mb-2">{supplier.title}</h2>
             <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
