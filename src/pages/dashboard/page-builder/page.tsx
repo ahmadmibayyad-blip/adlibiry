@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import LinkScreenshot from "@/components/LinkScreenshot.tsx";
 import PageProducts, { type PickedProduct } from "./PageProducts.tsx";
+import ConfirmAction from "@/components/ConfirmAction.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { pastedImage, screenshotParts, type ScreenshotPart } from "@/lib/screenshotParts.ts";
 import { cn } from "@/lib/utils.ts";
@@ -269,14 +270,26 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
               <Undo2 className="w-4 h-4 mr-1.5" /> Undo change
             </Button>
           ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive"
-            onClick={() => void remove({ id: page._id }).then(onRemoved, (e: unknown) => toast.error(errorMessage(e, "Couldn't delete the page")))}
+          <ConfirmAction
+            title="Delete this page?"
+            description={
+              page.shopify?.home
+                ? "It's removed from AdSpy Pro, with its screenshot and history, but stays your store's home page in Shopify. Use “Restore my old home page” first if you want it back."
+                : page.shopify
+                  ? "It's removed from AdSpy Pro, with its screenshot and history. The page you published stays in your Shopify store."
+                  : "It's removed from AdSpy Pro, with its screenshot and history. This can't be undone."
+            }
+            confirmLabel="Delete page"
+            errorLabel="Couldn't delete the page"
+            onConfirm={async () => {
+              await remove({ id: page._id });
+              onRemoved();
+            }}
           >
-            <Trash2 className="w-4 h-4 mr-1.5" /> Delete
-          </Button>
+            <Button size="sm" variant="ghost" className="text-destructive">
+              <Trash2 className="w-4 h-4 mr-1.5" /> Delete
+            </Button>
+          </ConfirmAction>
         </div>
       </div>
 

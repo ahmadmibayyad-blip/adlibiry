@@ -1,13 +1,16 @@
 import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { BellRing, X } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import ProductImage from "@/components/ProductImage.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 // Alerts page: products I follow (Pro), with the score I'm waiting for.
 export default function FollowedProductsPanel() {
   const rows = useQuery(api.follows.listFollowedProducts, {});
   const unfollow = useMutation(api.follows.unfollowProduct);
+  const follow = useMutation(api.follows.followProduct);
   if (!rows?.length) return null;
   return (
     <div className="bg-card border border-border rounded-xl p-4">
@@ -26,7 +29,22 @@ export default function FollowedProductsPanel() {
                 {r.minScore !== null && ` · alert at ${r.minScore}`}
               </div>
             </Link>
-            <button type="button" aria-label="Unfollow" onClick={() => unfollow({ productId: r.productId })} className="text-muted-foreground hover:text-foreground cursor-pointer p-1">
+            <button
+              type="button"
+              aria-label={`Unfollow ${r.title}`}
+              onClick={async () => {
+                const { productId, minScore } = r;
+                try {
+                  await unfollow({ productId });
+                  toast.success(`Unfollowed ${r.title}`, {
+                    action: { label: "Undo", onClick: () => void follow({ productId, minScore: minScore ?? undefined }).catch((e) => toast.error(errorMessage(e, "Couldn't follow it again"))) },
+                  });
+                } catch (e) {
+                  toast.error(errorMessage(e, "Couldn't unfollow"));
+                }
+              }}
+              className="text-muted-foreground hover:text-foreground cursor-pointer p-1"
+            >
               <X className="w-4 h-4" />
             </button>
           </li>

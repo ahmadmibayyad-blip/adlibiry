@@ -4,6 +4,7 @@ import { BellRing, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { errorMessage } from "@/lib/errorMessage.ts";
 
 // Advertisers the user follows (convex/follows.ts), with unfollow.
 export default function FollowingPanel() {
@@ -27,7 +28,7 @@ export default function FollowingPanel() {
             {following.map((f) => (
               <div key={f._id} className="flex items-center gap-2 pl-1 pr-1 h-9 rounded-full border border-border bg-muted/50 max-w-full">
                 {f.avatar ? (
-                  <img src={f.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
+                  <img src={f.avatar} alt="" width={28} height={28} className="w-7 h-7 rounded-full object-cover" />
                 ) : (
                   <span className="w-7 h-7 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">
                     {f.name.charAt(0).toUpperCase()}
@@ -44,9 +45,17 @@ export default function FollowingPanel() {
                 <button
                   type="button"
                   title={`Unfollow ${f.name}`}
+                  aria-label={`Unfollow ${f.name}`}
                   onClick={async () => {
-                    await toggle({ name: f.name });
-                    toast.success(`Unfollowed ${f.name}`);
+                    const name = f.name;
+                    try {
+                      await toggle({ name });
+                      toast.success(`Unfollowed ${name}`, {
+                        action: { label: "Undo", onClick: () => void toggle({ name }).catch((e) => toast.error(errorMessage(e, "Couldn't follow again"))) },
+                      });
+                    } catch (e) {
+                      toast.error(errorMessage(e, "Couldn't unfollow"));
+                    }
                   }}
                   className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer shrink-0"
                 >

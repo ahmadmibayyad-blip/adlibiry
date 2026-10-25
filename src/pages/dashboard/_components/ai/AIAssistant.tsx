@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAction } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Sparkles, Send, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
@@ -58,7 +59,8 @@ export default function AIAssistant() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
   }, [messages, busy, open]);
 
   async function send(text: string) {
@@ -102,7 +104,7 @@ export default function AIAssistant() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3 text-sm" role="log" aria-live="polite" aria-label="Conversation">
             {messages.length === 0 && (
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">Try asking:</p>
@@ -137,7 +139,7 @@ export default function AIAssistant() {
                 <Spinner className="w-3.5 h-3.5" /> Looking through the data…
               </div>
             )}
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
             <div ref={bottomRef} />
           </div>
 
@@ -159,6 +161,8 @@ export default function AIAssistant() {
                   }
                 }}
                 placeholder="Ask anything about products or ads…"
+                aria-label="Message to Ask AI"
+                name="message"
                 rows={2}
                 className="resize-none min-h-0"
                 disabled={busy}
@@ -172,7 +176,12 @@ export default function AIAssistant() {
               {messages.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => { setMessages([]); setError(null); }}
+                  onClick={() => {
+                    const before = messages;
+                    setMessages([]);
+                    setError(null);
+                    toast("Started a new chat", { action: { label: "Undo", onClick: () => setMessages(before) } });
+                  }}
                   disabled={busy}
                   className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer"
                 >

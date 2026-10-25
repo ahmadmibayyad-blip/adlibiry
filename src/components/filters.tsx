@@ -19,6 +19,8 @@ import { readJson, writeJson } from "@/lib/filterUtils.ts";
 export function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
+      type="button"
+      aria-pressed={on}
       onClick={onClick}
       className={cn(
         "flex items-center gap-1.5 h-10 sm:h-8 px-3 rounded-lg text-xs border cursor-pointer whitespace-nowrap transition-colors shrink-0",
@@ -89,15 +91,26 @@ export function SavedSearches<F>({
       await saveRemote({ page: storageKey, name: n, filters, search });
       setName("");
       setOpen(false);
-      toast.success(`Saved "${n}"`);
+      toast.success(`Saved “${n}”`);
     } catch (e) {
       toast.error(errorMessage(e, "Couldn't save the search"));
     } finally {
       setSaving(false);
     }
   };
-  const remove = (n: string) => {
-    removeRemote({ page: storageKey, name: n }).catch((e) => toast.error(errorMessage(e, "Couldn't delete it")));
+  const remove = async (s: (typeof saved)[number]) => {
+    try {
+      await removeRemote({ page: storageKey, name: s.name });
+      toast.success(`Deleted “${s.name}”`, {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void saveRemote({ page: storageKey, name: s.name, filters: s.filters, search: s.search }).catch((e) => toast.error(errorMessage(e, "Couldn't bring it back"))),
+        },
+      });
+    } catch (e) {
+      toast.error(errorMessage(e, "Couldn't delete it"));
+    }
   };
 
   return (
@@ -116,7 +129,7 @@ export function SavedSearches<F>({
               void save();
             }}
           >
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. DK pets video" aria-label="Search name" className="h-10 sm:h-8 text-xs" />
+            <Input autoFocus name="searchName" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. DK pets video…" aria-label="Search name" className="h-10 sm:h-8 text-xs" />
             <Button type="submit" size="sm" className="h-10 sm:h-8" disabled={!name.trim() || saving}>
               {saving ? <Spinner className="w-3.5 h-3.5" /> : "Save"}
             </Button>
@@ -139,7 +152,7 @@ export function SavedSearches<F>({
                   className="inline-flex size-10 sm:size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-destructive cursor-pointer"
                   title="Delete"
                   aria-label={`Delete saved search ${s.name}`}
-                  onClick={() => remove(s.name)}
+                  onClick={() => void remove(s)}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
