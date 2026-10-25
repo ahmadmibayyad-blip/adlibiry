@@ -65,7 +65,7 @@ export default function LooksSimilar({ adId, compact = false }: { adId: Id<"ads"
           {ads.slice(0, 6).map((a) => (
             <Link key={a._id} to={`/dashboard/ads/${a._id}`} className="group block min-w-0" title={a.headline || a.advertiserName}>
               {a.creativeUrl ? (
-                <img src={a.creativeUrl} alt="" loading="lazy" className="w-full aspect-square rounded-lg object-cover bg-muted group-hover:opacity-80" />
+                <img width={400} height={400} src={a.creativeUrl} alt="" loading="lazy" className="w-full aspect-square rounded-lg object-cover bg-muted group-hover:opacity-80" />
               ) : (
                 <div className="w-full aspect-square rounded-lg bg-muted" />
               )}

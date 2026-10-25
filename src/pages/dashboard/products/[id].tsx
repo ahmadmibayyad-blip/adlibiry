@@ -25,7 +25,7 @@ import LaunchDialog from "./_components/LaunchDialog.tsx";
 import ProductGallery from "./_components/ProductGallery.tsx";
 import ScoreBreakdown from "./_components/ScoreBreakdown.tsx";
 import { price } from "@/lib/money.ts";
-import { flag } from "@/lib/adFormat.ts";
+import { compactNumber, flag } from "@/lib/adFormat.ts";
 import FollowProduct, { FollowMenuItem } from "./_components/FollowProduct.tsx";
 import VerdictPanel from "./_components/VerdictPanel.tsx";
 import SourceAgreement from "./_components/SourceAgreement.tsx";
@@ -287,14 +287,14 @@ export default function ProductDetail() {
               <div className="space-y-2">
                 {product.adExamples.map((ad, i) => (
                   <div key={i} className="flex items-center gap-3 bg-card border border-border rounded-lg p-3">
-                    <img
+                    <img width={48} height={48}
                       src={ad.imageUrl}
                       alt={`Ad ${i + 1}`}
                       className="w-12 h-12 rounded-md object-cover"
                     />
                     <div className="flex-1">
                       <div className="text-xs font-medium">{ad.platform}</div>
-                      <div className="text-xs text-muted-foreground">{ad.impressions} impressions</div>
+                      <div className="text-xs text-muted-foreground">{/^\d+$/.test(ad.impressions) ? compactNumber(Number(ad.impressions)) : ad.impressions} impressions</div>
                     </div>
                     <BarChart3 className="w-4 h-4 text-primary" />
                   </div>

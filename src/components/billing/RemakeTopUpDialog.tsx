@@ -8,11 +8,10 @@ import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { getStripe } from "@/lib/stripe.ts";
+import { euros } from "@/lib/money.ts";
 
 const message = (err: unknown, fallback: string) =>
   err instanceof ConvexError ? ((err.data as { message?: string })?.message ?? fallback) : fallback;
-
-const euros = (cents: number) => (cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2));
 
 // Extra AI-video seconds for "Make the video": the server creates the payment
 // (convex/remakeTopUp.ts), the customer pays here with Stripe, then the server
@@ -100,7 +99,7 @@ function PayForm({ cents, onDone }: { cents: number; onDone: () => void }) {
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={!stripe || busy}>
         {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
-        Pay €{euros(cents)}
+        Pay {euros(cents / 100)}
       </Button>
       <p className="text-xs text-muted-foreground text-center">Payments are processed securely by Stripe.</p>
     </form>

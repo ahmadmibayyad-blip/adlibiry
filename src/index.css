@@ -233,6 +233,12 @@
     cursor: pointer;
   }
 
+  /* Cards in long "Load more" grids: the browser skips drawing the ones far off screen (keeps their last height). */
+  .cv-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 480px;
+  }
+
   /* No double-tap zoom delay on controls. */
   a,
   button,

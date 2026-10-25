@@ -33,7 +33,7 @@ describe("EU spend estimate", () => {
   it("formats dollars compactly", () => {
     expect(formatUsd(7.578)).toBe("$7.58");
     expect(formatUsd(1234)).toBe("$1.2K");
-    expect(formatUsd(197_771)).toBe("$198K");
+    expect(formatUsd(197_771)).toBe("$197.8K");
     expect(formatUsd(2_500_000)).toBe("$2.5M");
   });
 

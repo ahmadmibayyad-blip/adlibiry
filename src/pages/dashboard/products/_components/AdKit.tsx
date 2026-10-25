@@ -83,7 +83,7 @@ function AdCard({ ad, index, src }: { ad: Ad; index: number; src?: string }) {
         <div className="sm:w-40 shrink-0 space-y-1.5">
           {image && image !== "error" ? (
             <>
-              <img src={image} alt={`Ad ${index + 1}: ${ad.hook}`} className="w-full aspect-[4/5] rounded-md border border-border object-cover" />
+              <img width={400} height={500} src={image} alt={`Ad ${index + 1}: ${ad.hook}`} className="w-full aspect-[4/5] rounded-md border border-border object-cover" />
               <Button asChild size="sm" variant="outline" className="w-full h-7 text-xs">
                 <a href={image} download={`ad-${index + 1}.jpg`}><Download className="w-3.5 h-3.5 mr-1" />Download</a>
               </Button>

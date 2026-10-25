@@ -201,7 +201,7 @@ export default function KnowledgeEditor() {
           </div>
           <div className="text-xs text-muted-foreground">
             {state.base
-              ? `Edited version, last saved ${new Date(state.base).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.`
+              ? `Edited version, last saved ${new Date(state.base).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.`
               : "Showing the built-in guides."}{" "}
             {dirty ? <span className="text-warn font-medium">You have unsaved changes.</span> : "No unsaved changes."}
           </div>

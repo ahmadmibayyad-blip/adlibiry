@@ -4,17 +4,19 @@ import { Heart, Play, ShoppingBag, Star, Store, TrendingUp } from "lucide-react"
 import { api } from "@/convex/_generated/api.js";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { amazonMarket, uniqueShopItems, type AmazonItem, type MarketEntry, type ProductMarkets } from "@/convex/lib/justone.ts";
-import { compactNumber } from "@/lib/adFormat.ts";
+import { compactNumber, inCurrency } from "@/lib/adFormat.ts";
 import { price } from "@/lib/money.ts";
 import { Spinner } from "@/components/ui/spinner.tsx";
 
 // Product page → AliExpress best sellers, On Amazon, Viral on TikTok and On TikTok Shop (convex/justone.ts, JustOne API):
 // looked up when the page opens (each again after a week) and saved on the product for everyone.
 
+const today = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(0, "day");
+const inDays = new Intl.NumberFormat(undefined, { style: "unit", unit: "day", unitDisplay: "narrow" });
 const age = (iso: string | undefined) => {
   if (!iso) return "";
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
-  return days < 1 ? "today" : `${days}d`; // short: it sits under a narrow TikTok tile
+  return days < 1 ? today : inDays.format(days); // short ("3d"): it sits under a narrow TikTok tile
 };
 
 function Card({ icon, title, sub, children }: { icon: ReactNode; title: string; sub?: string; children: ReactNode }) {
@@ -42,7 +44,7 @@ function Row({ href, image, title, children }: { href: string; image?: string; t
     <li>
       <a href={href} target="_blank" rel="noopener noreferrer" className="flex gap-3 group rounded-md -mx-1 px-1 py-1 hover:bg-muted/50 min-h-10">
         {image ? (
-          <img src={image} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-12 h-12 rounded object-cover shrink-0 bg-muted" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+          <img width={48} height={48} src={image} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-12 h-12 rounded object-cover shrink-0 bg-muted" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
         ) : (
           <span className="w-12 h-12 rounded bg-muted shrink-0" />
         )}
@@ -156,7 +158,7 @@ export default function MarketsSection({ product }: { product: Doc<"products"> }
           <ul className="space-y-1">
             {uniqueShopItems(shop.items).slice(0, 4).map((it) => (
               <Row key={it.id} href={it.url} image={it.image} title={it.title}>
-                {it.price ? <span className="font-medium text-foreground">{it.currency === "USD" || !it.currency ? price(it.price) : `${it.currency} ${it.price.toFixed(2)}`}</span> : null}
+                {it.price ? <span className="font-medium text-foreground">{it.currency === "USD" || !it.currency ? price(it.price) : inCurrency(it.price, it.currency)}</span> : null}
                 {it.sold ? <span>{compactNumber(it.sold)} sold</span> : null}
                 {stars(it.rating, it.reviews)}
                 {it.shop ? (

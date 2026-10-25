@@ -2,6 +2,7 @@ import { Star, Truck, Package, Users, ExternalLink } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { cn } from "@/lib/utils.ts";
 import { supplierLink } from "@/lib/supplierLink.ts";
+import { price } from "@/lib/money.ts";
 
 type Supplier = Doc<"supplierListings">;
 
@@ -32,7 +33,7 @@ export default function SupplierCard({ supplier, onSelect }: { supplier: Supplie
           </div>
         </div>
         <div className="flex items-center justify-between mb-3">
-          <div className="text-lg font-bold">${supplier.price.toFixed(2)}</div>
+          <div className="text-lg font-bold">{price(supplier.price)}</div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Package className="w-3.5 h-3.5" />
             {supplier.orders.toLocaleString()} orders

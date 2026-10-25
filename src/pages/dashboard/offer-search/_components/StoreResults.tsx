@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useHistoryState } from "@/hooks/use-history-state.ts";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Bookmark, BookmarkCheck, Clock, ExternalLink, Eye, FolderPlus, Layers, Radar, Search, ShoppingBag, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -50,12 +51,12 @@ export function StoreResults({ stores, country, showCountry, pictures }: { store
   // Searches since the dropshipper score open on likely dropshippers, most likely first; older ones as before.
   const scored = stores.some((s) => s.dropship);
   // A product search (Who else sells this) opens on the stores whose ad pictures match the product photo.
-  const [platform, setPlatform] = useState(pictures ? SAME : scored ? LIKELY : ANY);
-  const [minAds, setMinAds] = useState(ANY);
-  const [minDays, setMinDays] = useState(ANY);
-  const [sort, setSort] = useState<StoreSort>(pictures ? "match" : scored ? "dropship" : "ads");
-  const [where, setWhere] = useState(ANY);
-  const [shown, setShown] = useState(PAGE);
+  const [platform, setPlatform] = useHistoryState("offerStores.platform", pictures ? SAME : scored ? LIKELY : ANY);
+  const [minAds, setMinAds] = useHistoryState("offerStores.minAds", ANY);
+  const [minDays, setMinDays] = useHistoryState("offerStores.minDays", ANY);
+  const [sort, setSort] = useHistoryState<StoreSort>("offerStores.sort", pictures ? "match" : scored ? "dropship" : "ads");
+  const [where, setWhere] = useHistoryState("offerStores.where", ANY);
+  const [shown, setShown] = useHistoryState("offerStores.shown", PAGE);
   const [cpm] = useCpm();
 
   const countries = useMemo(() => [...new Set(stores.map((s) => s.country).filter((c): c is string => !!c))].sort(), [stores]);
@@ -245,7 +246,7 @@ function StoreCard({
         {s.sample.map((ad) => (
           <a key={ad.id} href={`https://www.facebook.com/ads/library/?id=${ad.id}`} target="_blank" rel="noopener noreferrer" className="group space-y-1">
             {ad.image ? (
-              <img src={ad.image} alt="" loading="lazy" className="w-full aspect-square object-cover rounded-md bg-muted" />
+              <img width={400} height={400} src={ad.image} alt="" loading="lazy" className="w-full aspect-square object-cover rounded-md bg-muted" />
             ) : (
               <div className="w-full aspect-square rounded-md bg-muted" />
             )}
@@ -302,7 +303,7 @@ function ProductRow({ product: p, currency, country, brand }: { product: FoundPr
   return (
     <div className="rounded-lg border border-border p-2 space-y-2">
       <div className="flex gap-3">
-        {p.image ? <img src={p.image} alt="" loading="lazy" className="w-16 h-16 shrink-0 rounded-md object-cover bg-muted" /> : <div className="w-16 h-16 shrink-0 rounded-md bg-muted" />}
+        {p.image ? <img width={64} height={64} src={p.image} alt="" loading="lazy" className="w-16 h-16 shrink-0 rounded-md object-cover bg-muted" /> : <div className="w-16 h-16 shrink-0 rounded-md bg-muted" />}
         <div className="min-w-0 flex-1 space-y-1">
           <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium leading-tight line-clamp-2 hover:underline">
             {p.title}
@@ -342,7 +343,7 @@ function ProductRow({ product: p, currency, country, brand }: { product: FoundPr
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {matches.map((m) => (
               <a key={m.url} href={m.url} target="_blank" rel="noopener noreferrer" className="group flex gap-2 rounded-md border border-border p-1.5">
-                {m.imageUrl ? <img src={m.imageUrl} alt="" loading="lazy" className="w-10 h-10 shrink-0 rounded object-cover bg-muted" /> : <span className="w-10 h-10 shrink-0 rounded bg-muted" />}
+                {m.imageUrl ? <img width={40} height={40} src={m.imageUrl} alt="" loading="lazy" className="w-10 h-10 shrink-0 rounded object-cover bg-muted" /> : <span className="w-10 h-10 shrink-0 rounded bg-muted" />}
                 <span className="min-w-0">
                   <span className="text-xs leading-tight line-clamp-2 group-hover:underline" title={m.title}>{m.title}</span>
                   <span className="block text-xs font-semibold">{price(m.price)}</span>

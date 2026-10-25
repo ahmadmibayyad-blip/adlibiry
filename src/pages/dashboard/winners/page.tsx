@@ -4,6 +4,7 @@ import { usePaginatedQuery, useQuery } from "convex/react";
 import { ChevronDown, LayoutGrid, Search, SlidersHorizontal, Table2, Trophy, X } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import { useDebounce } from "@/hooks/use-debounce.ts";
 import { useHistoryState, useLoadedCount } from "@/hooks/use-history-state.ts";
 import { compactNumber } from "@/lib/adFormat.ts";
@@ -181,12 +182,14 @@ export default function WinnersPage() {
             </div>
             <div className="flex items-center gap-2">
               <ImageSearchDialog trigger="icon" />
-              <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-10 sm:h-9" role="tablist" aria-label="Order">
-                {([["mixed", "Mixed feed"], ["byNiche", "By category"]] as const).map(([m, label]) => (
+              <div className="flex items-center bg-background border border-border rounded-lg p-0.5 h-10 sm:h-9" role="tablist" aria-label="Order" onKeyDown={arrowSelect}>
+                {([["mixed", "Mixed feed"], ["byNiche", "By category"]] as const).map(([m, label], i) => (
                   <button
                     key={m}
+                    type="button"
                     role="tab"
                     aria-selected={mode === m}
+                    tabIndex={rovingTabIndex(mode === m, i, true)}
                     onClick={() => setMode(m)}
                     className={cn(
                       "px-3 h-full rounded-md text-xs font-medium whitespace-nowrap cursor-pointer transition-colors",

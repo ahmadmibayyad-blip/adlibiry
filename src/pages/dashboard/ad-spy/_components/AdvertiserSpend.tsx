@@ -13,7 +13,7 @@ export default function AdvertiserSpend({ name }: { name: string }) {
   const spend = spendFromReach(totals.reach, cpm)!;
   const ads = `${totals.euAds}${totals.more ? "+" : ""} EU ad${totals.euAds === 1 ? "" : "s"}`;
   return (
-    <p className="text-xs text-muted-foreground mb-2" title={`EU reach ${totals.reach.toLocaleString("en-US")} × $${cpm} CPM, over the ads AdSpy has of this advertiser`}>
+    <p className="text-xs text-muted-foreground mb-2" title={`EU reach ${totals.reach.toLocaleString()} × $${cpm} CPM, over the ads AdSpy has of this advertiser`}>
       Advertiser: <span className="font-semibold text-foreground">{formatUsd(spend)}</span> est. EU spend · {compactNumber(totals.reach)} EU reach · {ads}
       {totals.activeAds > 0 ? ` · ${totals.activeAds} active` : ""}
     </p>

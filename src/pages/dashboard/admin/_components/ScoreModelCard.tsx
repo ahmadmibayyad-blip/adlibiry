@@ -76,7 +76,7 @@ export default function ScoreModelCard() {
             <Distribution title="New model" side={report.after} highlight />
           </div>
           <details className="mt-3 text-xs">
-            <summary className="cursor-pointer text-muted-foreground">Top 20 under the new model ({report.total.toLocaleString("en-US")} products scored {report.day})</summary>
+            <summary className="cursor-pointer text-muted-foreground">Top 20 under the new model ({report.total.toLocaleString()} products scored {report.day})</summary>
             <table className="w-full mt-2">
               <thead className="text-muted-foreground">
                 <tr><th className="text-left font-normal py-1">Product</th><th className="text-right font-normal">Live</th><th className="text-right font-normal">New</th></tr>

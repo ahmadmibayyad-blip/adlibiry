@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { useHistoryState } from "@/hooks/use-history-state.ts";
-import { compactNumber } from "@/lib/adFormat.ts";
+import { compactNumber, inCurrency } from "@/lib/adFormat.ts";
 import { anyCountryName } from "@/lib/countries.ts";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { price } from "@/lib/money.ts";
@@ -83,7 +83,7 @@ export default function ShopSearch() {
                 <span className="p-3 flex flex-col gap-1 flex-1 min-w-0">
                   <span className="text-sm line-clamp-2 group-hover:underline">{it.title}</span>
                   <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground mt-auto">
-                    {it.price ? <span className="font-semibold text-foreground">{it.currency === "USD" || !it.currency ? price(it.price) : `${it.currency} ${it.price.toFixed(2)}`}</span> : null}
+                    {it.price ? <span className="font-semibold text-foreground">{it.currency === "USD" || !it.currency ? price(it.price) : inCurrency(it.price, it.currency)}</span> : null}
                     {it.sold ? <span>{compactNumber(it.sold)} sold</span> : null}
                     {it.rating ? (
                       <span className="inline-flex items-center gap-0.5">

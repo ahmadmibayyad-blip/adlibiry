@@ -46,6 +46,7 @@ import KnowledgeEditor from "./_components/KnowledgeEditor.tsx";
 import OfferResearchTab from "./_components/OfferResearchTab.tsx";
 import AffiliatesCard from "./_components/AffiliatesCard.tsx";
 import FilterSelect from "@/components/FilterSelect.tsx";
+import { price } from "@/lib/money.ts";
 
 type Tab = "overview" | "products" | "ads" | "offers" | "users" | "knowledge";
 type Product = Doc<"products">;
@@ -166,7 +167,7 @@ function OverviewTab() {
           <div className="space-y-2">
             {mostSaved.map(({ product, saveCount }) => (
               <div key={product._id} className="flex items-center gap-3 bg-card border border-border rounded-lg p-3">
-                <img src={product.imageUrl} alt={product.title} className="w-10 h-10 rounded-md object-cover shrink-0" />
+                <img width={40} height={40} src={product.imageUrl} alt={product.title} className="w-10 h-10 rounded-md object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{product.title}</div>
                   <div className="text-xs text-muted-foreground">{product.category}</div>
@@ -600,7 +601,7 @@ function ProductsTab() {
                   <TableRow key={product._id}>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <img src={product.imageUrl} alt={product.title} className="w-8 h-8 rounded-md object-cover shrink-0" />
+                        <img width={32} height={32} src={product.imageUrl} alt={product.title} className="w-8 h-8 rounded-md object-cover shrink-0" />
                         <span className="font-medium truncate max-w-[220px]">{product.title}</span>
                       </div>
                     </TableCell>
@@ -608,7 +609,7 @@ function ProductsTab() {
                     <TableCell>
                       {product.price !== undefined ? (
                         <>
-                          ${product.price.toFixed(2)}
+                          {price(product.price)}
                           {product.priceSource === "estimated_market" && (
                             <span className="text-xs text-muted-foreground ml-1">(est.)</span>
                           )}
@@ -874,7 +875,7 @@ function AdsTab() {
                   <TableRow key={ad._id}>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <img src={ad.creativeUrl} alt={ad.advertiserName} className="w-8 h-8 rounded-md object-cover shrink-0" />
+                        <img width={32} height={32} src={ad.creativeUrl} alt={ad.advertiserName} className="w-8 h-8 rounded-md object-cover shrink-0" />
                         <div className="min-w-0">
                           <div className="font-medium truncate max-w-[180px]">{ad.advertiserName}</div>
                           <div className="text-xs text-muted-foreground truncate max-w-[180px]">{ad.headline}</div>

@@ -119,8 +119,8 @@ export default function SuppliersSection({ product }: { product: Doc<"products">
                   <div className="text-sm line-clamp-1">{w.title}</div>
                   <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2">
                     <span className="font-semibold text-foreground">{price(w.priceUsd)}</span>
-                    {w.moq !== undefined && <span>min. order {w.moq.toLocaleString("en-US")}</span>}
-                    {w.monthlySales !== undefined && <span>{w.monthlySales.toLocaleString("en-US")} sold / month</span>}
+                    {w.moq !== undefined && <span>min. order {w.moq.toLocaleString()}</span>}
+                    {w.monthlySales !== undefined && <span>{w.monthlySales.toLocaleString()} sold / month</span>}
                   </div>
                 </div>
                 <a
@@ -159,7 +159,7 @@ function SupplierRow({ m, onOpen, ordersLabel = "orders" }: { m: Supplier; onOpe
               {m.rating}% positive
             </span>
           )}
-          {m.orders !== undefined && <span>{m.orders.toLocaleString("en-US")} {m.orders === 1 ? ordersLabel.replace(/^orders/, "order") : ordersLabel}</span>}
+          {m.orders !== undefined && <span>{m.orders.toLocaleString()} {m.orders === 1 ? ordersLabel.replace(/^orders/, "order") : ordersLabel}</span>}
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">

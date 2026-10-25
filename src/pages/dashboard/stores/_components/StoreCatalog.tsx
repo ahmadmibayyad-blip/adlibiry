@@ -36,7 +36,7 @@ export default function StoreCatalog({ storeId }: { storeId: Id<"stores"> }) {
         <div>
           <div className="flex items-baseline justify-between mb-2">
             <h3 className="font-semibold text-sm">Catalog</h3>
-            <span className="text-xs text-muted-foreground">{data.totalProducts.toLocaleString("en-US")} products</span>
+            <span className="text-xs text-muted-foreground">{data.totalProducts.toLocaleString()} products</span>
           </div>
           <ul className="divide-y divide-border text-xs">
             {data.entries.slice(0, 30).map((e) => (

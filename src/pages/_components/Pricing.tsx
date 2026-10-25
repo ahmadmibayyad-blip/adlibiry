@@ -4,6 +4,7 @@ import { Check, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
 import { cn } from "@/lib/utils.ts";
+import { euros } from "@/lib/money.ts";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api.js";
@@ -138,8 +139,8 @@ export default function Pricing() {
         >
           <h2 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight mb-5 text-balance">Simple pricing</h2>
           <p className="text-muted-foreground text-lg">
-            Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: €{PRO_PRICE_EUR} a
-            month, or €{PRO_YEARLY_PER_MONTH_EUR} a month paid yearly. Try Pro's research tools free for 7 days, no card needed.
+            Start free with the first {FREE_LIMIT} results of every list. Go Pro to unlock everything: {euros(PRO_PRICE_EUR)} a
+            month, or {euros(PRO_YEARLY_PER_MONTH_EUR)} a month paid yearly. Try Pro's research tools free for 7 days, no card needed.
           </p>
           <div className="inline-flex items-center gap-1 bg-card border border-border rounded-full p-1 mt-8">
             {(["monthly", "yearly"] as const).map((p) => (
@@ -156,7 +157,7 @@ export default function Pricing() {
                 {p}
                 {p === "yearly" && (
                   <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-bold", yearly ? "bg-primary-foreground/20" : "bg-good/10 text-good")}>
-                    Save €{PRO_PRICE_EUR * 12 - PRO_YEARLY_TOTAL_EUR}
+                    Save {euros(PRO_PRICE_EUR * 12 - PRO_YEARLY_TOTAL_EUR)}
                   </span>
                 )}
               </button>
@@ -186,11 +187,11 @@ export default function Pricing() {
                 <h3 className="text-lg font-bold mb-1">{plan.name}</h3>
                 <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold">€{plan.id === "pro" && yearly ? PRO_YEARLY_PER_MONTH_EUR : plan.price}</span>
+                  <span className="text-4xl font-extrabold">{euros(plan.id === "pro" && yearly ? PRO_YEARLY_PER_MONTH_EUR : plan.price)}</span>
                   <span className="text-muted-foreground text-sm">/month</span>
                 </div>
                 {plan.id === "pro" && yearly && (
-                  <div className="text-xs text-good mt-1">Billed €{PRO_YEARLY_TOTAL_EUR} once a year</div>
+                  <div className="text-xs text-good mt-1">Billed {euros(PRO_YEARLY_TOTAL_EUR)} once a year</div>
                 )}
               </div>
 

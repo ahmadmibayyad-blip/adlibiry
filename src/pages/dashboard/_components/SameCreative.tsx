@@ -46,7 +46,7 @@ export default function SameCreative({ adId, compact = false }: { adId: Id<"ads"
               <li key={a._id}>
                 <Link to={`/dashboard/ads/${a._id}`} className="flex items-center gap-3 py-2 text-xs hover:bg-muted/50 rounded -mx-1 px-1">
                   {a.creativeUrl ? (
-                    <img src={a.creativeUrl} alt="" loading="lazy" className="w-9 h-9 rounded object-cover shrink-0 bg-muted" />
+                    <img width={36} height={36} src={a.creativeUrl} alt="" loading="lazy" className="w-9 h-9 rounded object-cover shrink-0 bg-muted" />
                   ) : (
                     <div className="w-9 h-9 rounded bg-muted shrink-0" />
                   )}

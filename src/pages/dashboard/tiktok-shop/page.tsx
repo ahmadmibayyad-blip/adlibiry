@@ -10,6 +10,7 @@ import MyNichesChip from "@/components/MyNichesChip.tsx";
 import { useHistoryState, useLoadedCount } from "@/hooks/use-history-state.ts";
 import { useMyNiches } from "@/hooks/use-my-niches.ts";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import ProductCard, { ProductCardSkeleton } from "../_components/ProductCard.tsx";
 import TrialLimitNotice from "../_components/TrialLimitNotice.tsx";
 import AdCard from "../ad-spy/_components/AdCard.tsx";
@@ -172,12 +173,14 @@ export default function TikTokShopPage() {
         <MyNichesChip niches={niches} on={useMine && niches.length > 0} onToggle={() => setUseMine(!useMine)} />
       </div>
 
-      <div role="tablist" aria-label="TikTok" className="inline-flex rounded-lg border border-border bg-muted/50 p-1 mb-5 max-w-full overflow-x-auto">
-        {TABS.map((t) => (
+      <div role="tablist" aria-label="TikTok" onKeyDown={arrowSelect} className="inline-flex rounded-lg border border-border bg-muted/50 p-1 mb-5 max-w-full overflow-x-auto">
+        {TABS.map((t, i) => (
           <button
             key={t.key}
+            type="button"
             role="tab"
             aria-selected={tab === t.key}
+            tabIndex={rovingTabIndex(tab === t.key, i, TABS.some((x) => x.key === tab))}
             onClick={() => setParams(t.key === "best" ? {} : { tab: t.key }, { replace: true })}
             className={cn(
               "px-3 py-1.5 text-sm rounded-md whitespace-nowrap cursor-pointer transition-colors",

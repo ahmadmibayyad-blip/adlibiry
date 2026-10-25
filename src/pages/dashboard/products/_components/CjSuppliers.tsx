@@ -70,8 +70,8 @@ export default function CjSuppliers({ product, embedded }: { product: Doc<"produ
                 <div className="text-sm line-clamp-1">{m.title}</div>
                 <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2">
                   <span className="font-semibold text-foreground">{price(m.price)}</span>
-                  {m.listed !== undefined && <span>listed by {m.listed.toLocaleString("en-US")} stores</span>}
-                  {m.inventory !== undefined && <span>{m.inventory.toLocaleString("en-US")} in stock</span>}
+                  {m.listed !== undefined && <span>listed by {m.listed.toLocaleString()} stores</span>}
+                  {m.inventory !== undefined && <span>{m.inventory.toLocaleString()} in stock</span>}
                 </div>
               </div>
               <a

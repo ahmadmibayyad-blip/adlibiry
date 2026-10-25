@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { ChartContainer } from "@/components/ui/chart.tsx";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import { compactNumber } from "@/lib/adFormat.ts";
 import { openAssistant } from "@/lib/assistant.ts";
 import ProductCard, { ProductCardSkeleton } from "./_components/ProductCard.tsx";
@@ -291,12 +292,14 @@ function JustAdded() {
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-bold">Just added</h2>
-          <div className="flex bg-muted rounded-full p-0.5 text-xs" role="tablist" aria-label="Just added">
-            {(["ads", "products"] as const).map((t) => (
+          <div className="flex bg-muted rounded-full p-0.5 text-xs" role="tablist" aria-label="Just added" onKeyDown={arrowSelect}>
+            {(["ads", "products"] as const).map((t, i) => (
               <button
                 key={t}
+                type="button"
                 role="tab"
                 aria-selected={tab === t}
+                tabIndex={rovingTabIndex(tab === t, i, true)}
                 onClick={() => setTab(t)}
                 className={cn(
                   "px-3 h-10 sm:h-7 rounded-full font-medium cursor-pointer transition-colors",
@@ -374,12 +377,14 @@ function WinnersGrid({ fallback }: { fallback: Doc<"products">[] | undefined }) 
       </div>
 
       {tabs.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] pb-1 mb-4" role="tablist" aria-label="Category">
-          {[{ niche: undefined as string | undefined, filled: summary?.total ?? 0 }, ...tabs].map((t) => (
+        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] pb-1 mb-4" role="tablist" aria-label="Category" onKeyDown={arrowSelect}>
+          {[{ niche: undefined as string | undefined, filled: summary?.total ?? 0 }, ...tabs].map((t, i, all) => (
             <button
               key={t.niche ?? "all"}
+              type="button"
               role="tab"
               aria-selected={niche === t.niche}
+              tabIndex={rovingTabIndex(niche === t.niche, i, all.some((x) => x.niche === niche))}
               onClick={() => setNiche(t.niche)}
               className={cn(
                 "shrink-0 px-3.5 h-10 sm:h-8 rounded-full text-xs font-medium border transition-colors cursor-pointer",

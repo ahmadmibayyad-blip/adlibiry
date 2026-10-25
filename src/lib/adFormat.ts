@@ -1,10 +1,19 @@
 // Small display helpers shared by Ad Spy cards and the ad detail view.
+const compactFormat = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+
 export function compactNumber(n: number | undefined | null): string {
   if (n === undefined || n === null || !Number.isFinite(n)) return "—";
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return `${Math.round(n)}`;
+  if (Math.abs(n) < 1_000) return Math.round(n).toLocaleString();
+  return compactFormat.format(n);
+}
+
+// An amount that is in a marketplace's or shop's own currency ("€12.90", "¥1,200"); an unknown code shows as "XYZ 12.90".
+export function inCurrency(n: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n);
+  } catch {
+    return `${currency} ${n.toFixed(2)}`;
+  }
 }
 
 export function flag(code: string | undefined): string {

@@ -44,11 +44,11 @@ export default function SourceAgreement({ product }: { product: Doc<"products"> 
       {product.marketplaceMatch && (
         <p className="text-xs mt-3">
           <strong className="font-medium">Amazon twin</strong> (matched by image):{" "}
-          <a href={product.marketplaceMatch.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            {product.marketplaceMatch.title.slice(0, 70)}
+          <a href={product.marketplaceMatch.url} target="_blank" rel="noopener noreferrer" title={product.marketplaceMatch.title} className="inline-block max-w-full truncate align-bottom text-primary hover:underline">
+            {product.marketplaceMatch.title}
           </a>
           {product.marketplaceMatch.unitsPerMonth !== undefined && (
-            <span className="text-muted-foreground"> · ~{product.marketplaceMatch.unitsPerMonth.toLocaleString("en-US")} sold / month</span>
+            <span className="text-muted-foreground"> · ~{product.marketplaceMatch.unitsPerMonth.toLocaleString()} sold / month</span>
           )}
         </p>
       )}

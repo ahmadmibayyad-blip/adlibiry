@@ -17,6 +17,7 @@ import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFo
 import { useCpm } from "@/hooks/use-cpm.ts";
 import AddToCollection from "@/components/AddToCollection.tsx";
 import { adSpend } from "@/lib/euSpend.ts";
+import { price } from "@/lib/money.ts";
 import FollowAdvertiser from "../../_components/FollowAdvertiser.tsx";
 import SameCreative from "../../_components/SameCreative.tsx";
 import AdStore from "../../_components/AdStore.tsx";
@@ -127,7 +128,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
           <div className="bg-black/40 md:border-r border-border p-4 space-y-3">
             <div className="flex items-center gap-2">
               {ad.advertiserAvatar ? (
-                <img src={ad.advertiserAvatar} alt="" className="w-9 h-9 rounded-full object-cover bg-muted" />
+                <img width={36} height={36} src={ad.advertiserAvatar} alt="" className="w-9 h-9 rounded-full object-cover bg-muted" />
               ) : (
                 <div className="w-9 h-9 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold">
                   {ad.advertiserName.charAt(0).toUpperCase()}
@@ -367,7 +368,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
                       <ProductImage src={product.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium line-clamp-1">{product.title}</div>
-                        {product.price !== undefined && <div className="text-xs text-muted-foreground">${product.price}</div>}
+                        {product.price !== undefined && <div className="text-xs text-muted-foreground">{price(product.price)}</div>}
                       </div>
                     </a>
                   ))}

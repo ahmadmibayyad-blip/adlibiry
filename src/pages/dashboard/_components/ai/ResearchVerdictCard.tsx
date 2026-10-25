@@ -166,7 +166,7 @@ export default function ResearchVerdictCard({ productId, hasSuppliers }: { produ
                   <p className="text-muted-foreground">
                     So each sale may cost at most <strong className="text-foreground">{usd(afterVat ? afterVat.breakEvenAfterVat : margin.breakEvenAdCost)}</strong> in ads before you lose money
                     {vat ? ` (after ${Math.round(vat.rate * 1000) / 10}% ${vat.country} VAT)` : ""}. Fees assumed at{" "}
-                    {(FEE_PCT * 100).toFixed(1)}% + ${FEE_FIXED.toFixed(2)}; not counted: refunds, discounts, {vat ? "" : "VAT, "}chargebacks, apps.
+                    {(FEE_PCT * 100).toFixed(1)}% + {usd(FEE_FIXED)}; not counted: refunds, discounts, {vat ? "" : "VAT, "}chargebacks, apps.
                   </p>
                   {code !== "USD" && (
                     <p className="text-muted-foreground">1 $ = {rate} {code}{fxDate ? `, rate of ${fxDate}` : ""}</p>

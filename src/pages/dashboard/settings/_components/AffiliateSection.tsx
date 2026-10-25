@@ -13,7 +13,7 @@ import { REFERRAL_DAYS } from "@/lib/referral.ts";
 const SITE = "https://adspypro.net";
 
 const euros = (cents: number, currency = "eur") =>
-  new Intl.NumberFormat("en-IE", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
+  new Intl.NumberFormat(undefined, { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 
 const errorText = (e: unknown, fallback: string) =>
   e instanceof ConvexError ? ((e.data as { message?: string }).message ?? fallback) : fallback;

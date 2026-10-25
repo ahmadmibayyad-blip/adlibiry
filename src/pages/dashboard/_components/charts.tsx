@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 import { Table2 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart.tsx";
 import { compactNumber } from "@/lib/adFormat.ts";
 import { SERIES, type Point, type Range } from "./chartUtils.ts";
@@ -15,12 +16,14 @@ const dayLabel = (day: string) => new Date(`${day}T00:00:00Z`).toLocaleDateStrin
 
 export function RangeSwitch({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
   return (
-    <div className="flex items-center bg-card border border-border rounded-lg p-1" role="tablist" aria-label="Time range">
-      {([7, 30, 90] as const).map((r) => (
+    <div className="flex items-center bg-card border border-border rounded-lg p-1" role="tablist" aria-label="Time range" onKeyDown={arrowSelect}>
+      {([7, 30, 90] as const).map((r, i) => (
         <button
           key={r}
+          type="button"
           role="tab"
           aria-selected={value === r}
+          tabIndex={rovingTabIndex(value === r, i, [7, 30, 90].includes(value))}
           onClick={() => onChange(r)}
           className={cn(
             "px-3 h-7 rounded-md text-xs cursor-pointer",

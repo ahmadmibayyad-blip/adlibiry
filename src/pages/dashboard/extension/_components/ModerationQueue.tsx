@@ -171,7 +171,7 @@ export default function ModerationQueue() {
         {results.map((s) => (
           <div key={s._id} className="flex items-center gap-3 bg-card border border-border rounded-xl p-3">
             {s.creativeUrl ? (
-              <img src={s.creativeUrl} alt={s.advertiserName} className="w-12 h-12 rounded-lg object-cover shrink-0 bg-muted" />
+              <img width={48} height={48} src={s.creativeUrl} alt={s.advertiserName} className="w-12 h-12 rounded-lg object-cover shrink-0 bg-muted" />
             ) : (
               <div className="w-12 h-12 rounded-lg bg-muted shrink-0" />
             )}

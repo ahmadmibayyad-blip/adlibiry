@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useHistoryState } from "@/hooks/use-history-state.ts";
 import { useQuery } from "convex/react";
 import { CircleCheck, CopyCheck, ExternalLink, Link2, Megaphone, MoreHorizontal, Rocket, RotateCw, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -243,7 +244,7 @@ export default function LaunchesPage() {
   const [mirroring, setMirroring] = useState(false);
   // On phones one form shows at a time; from md up both sit side by side.
   const [tool, setTool] = useState<"link" | "mirror">(() => (params.get("mirror") || savedMirror() ? "mirror" : "link"));
-  const [shown, setShown] = useState(GROUPS_PER_PAGE);
+  const [shown, setShown] = useHistoryState("launches.shown", GROUPS_PER_PAGE);
   useEffect(() => {
     if (!params.has("mirror")) return;
     saveMirror(params.get("mirror"));

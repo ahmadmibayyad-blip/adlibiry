@@ -258,7 +258,7 @@ export default function AdCsvImportDialog({ open, onOpenChange }: { open: boolea
                 {built.rows.slice(0, 5).map((r, i) => (
                   <div key={i} className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-0">
                     {r.creativeUrl ? (
-                      <img src={r.creativeUrl} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" loading="lazy" />
+                      <img width={40} height={40} src={r.creativeUrl} alt="" className="w-10 h-10 rounded object-cover bg-muted shrink-0" loading="lazy" />
                     ) : (
                       <video src={r.videoUrl} muted preload="metadata" className="w-10 h-10 rounded object-cover bg-muted shrink-0" />
                     )}

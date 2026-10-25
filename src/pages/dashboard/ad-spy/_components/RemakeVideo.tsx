@@ -14,6 +14,7 @@ import FilterSelect from "@/components/FilterSelect.tsx";
 import RemakeTopUpDialog from "@/components/billing/RemakeTopUpDialog.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 
 // Under a "Write my version" script: "Make the video" turns it into a 9:16 ad with an AI actor
 // and AI product shots (convex/remake.ts). Shows the user's AI-video seconds and sells more.
@@ -184,20 +185,22 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2" role="radiogroup" aria-label="Actor">
-                {REMAKE_ACTORS.map((a) => (
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2" role="radiogroup" aria-label="Actor" onKeyDown={arrowSelect}>
+                {REMAKE_ACTORS.map((a, i) => (
                   <button
                     key={a.id}
                     type="button"
+                    role="radio"
                     aria-label={a.name}
-                    aria-pressed={actorId === a.id}
+                    aria-checked={actorId === a.id}
+                    tabIndex={rovingTabIndex(actorId === a.id, i, REMAKE_ACTORS.some((x) => x.id === actorId))}
                     onClick={() => setActorId(a.id)}
                     className={cn(
                       "rounded-lg overflow-hidden border-2 transition-colors",
                       actorId === a.id ? "border-primary" : "border-transparent hover:border-primary/40",
                     )}
                   >
-                    <img src={`/actors/${a.id}.jpg`} alt="" className="w-full aspect-[9/16] object-cover" loading="lazy" />
+                    <img src={`/actors/${a.id}.jpg`} alt="" width={90} height={160} className="w-full aspect-[9/16] object-cover" loading="lazy" />
                     <span className="block text-xs py-0.5">{a.name}</span>
                   </button>
                 ))}

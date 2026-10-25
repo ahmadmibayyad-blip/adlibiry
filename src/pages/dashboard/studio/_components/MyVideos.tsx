@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useHistoryState } from "@/hooks/use-history-state.ts";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { Download } from "lucide-react";
@@ -11,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton.tsx";
 const PAGE = 30;
 
 export default function MyVideos() {
-  const [limit, setLimit] = useState(PAGE);
+  const [limit, setLimit] = useHistoryState("myVideos.limit", PAGE);
   const videos = useQuery(api.studio.mine, limit === PAGE ? {} : { limit });
   if (videos === undefined) return <Skeleton className="h-40 w-full" />;
   if (!videos.length) return <p className="text-sm text-muted-foreground">Your AI videos and clips will show here.</p>;

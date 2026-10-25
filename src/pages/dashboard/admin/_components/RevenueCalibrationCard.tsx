@@ -90,7 +90,7 @@ export default function RevenueCalibrationCard() {
                 {r.url}
               </span>
               <span className="flex items-center gap-2 shrink-0">
-                <strong className="tabular-nums">${r.monthlyRevenueUsd.toLocaleString("en-US")}/mo</strong>
+                <strong className="tabular-nums">{r.monthlyRevenueUsd.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 })}/mo</strong>
                 <button
                   type="button"
                   aria-label={`Remove ${r.url}`}

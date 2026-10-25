@@ -87,7 +87,7 @@ export default function GoogleAdsSection({ host }: { host: string }) {
         shown.ads.length ? (
           <>
             <p className="text-sm">
-              {shown.estimate ? `About ${shown.estimate.toLocaleString("en-US")} ads` : `${shown.ads.length} ads`}
+              {shown.estimate ? `About ${shown.estimate.toLocaleString()} ads` : `${shown.ads.length} ads`}
               {active ? ` · ${active} running now` : ""}
               <span className="text-muted-foreground"> (newest {shown.ads.length} below)</span>
             </p>

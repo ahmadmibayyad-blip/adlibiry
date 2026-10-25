@@ -17,6 +17,7 @@ import ConnectShopify from "@/components/ConnectShopify.tsx";
 import StoreCheck from "@/components/StoreCheck.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import AdKit from "./AdKit.tsx";
 import StylePicker from "./StylePicker.tsx";
 import ScreenshotLook from "./ScreenshotLook.tsx";
@@ -77,7 +78,7 @@ function AiPhotos({ l }: { l: Doc<"launches"> }) {
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {urls.map((u, i) => (
             <a key={u} href={u} target="_blank" rel="noopener noreferrer" title="Open full size">
-              <img src={u} alt={`AI photo ${i + 1}`} className="aspect-square w-full rounded-md border border-border object-cover" />
+              <img width={400} height={400} src={u} alt={`AI photo ${i + 1}`} className="aspect-square w-full rounded-md border border-border object-cover" />
             </a>
           ))}
         </div>
@@ -300,13 +301,14 @@ function ModeSwitch({ mode, onChange }: { mode: "page" | "store"; onChange: (m: 
     ["store", Store, "Full store", "Home, product, cart and pages in a new design"],
   ] as const;
   return (
-    <div role="radiogroup" aria-label="What to launch" className="grid grid-cols-2 gap-2">
-      {options.map(([value, Icon, title, sub]) => (
+    <div role="radiogroup" aria-label="What to launch" className="grid grid-cols-2 gap-2" onKeyDown={arrowSelect}>
+      {options.map(([value, Icon, title, sub], i) => (
         <button
           key={value}
           type="button"
           role="radio"
           aria-checked={mode === value}
+          tabIndex={rovingTabIndex(mode === value, i, options.some(([v]) => v === mode))}
           onClick={() => onChange(value)}
           className={cn(
             "rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -329,13 +331,14 @@ function ThemeSwitch({ value, onChange }: { value: BaseTheme; onChange: (t: Base
     ["dawn", "Shopify's free default theme: fast, familiar, works with every app"],
   ] as const;
   return (
-    <div role="radiogroup" aria-label="Theme" className="grid grid-cols-2 gap-2">
-      {options.map(([id, sub]) => (
+    <div role="radiogroup" aria-label="Theme" className="grid grid-cols-2 gap-2" onKeyDown={arrowSelect}>
+      {options.map(([id, sub], i) => (
         <button
           key={id}
           type="button"
           role="radio"
           aria-checked={value === id}
+          tabIndex={rovingTabIndex(value === id, i, options.some(([x]) => x === value))}
           onClick={() => onChange(id)}
           className={cn(
             "rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -631,7 +634,7 @@ function LaunchButton({
                     <Input type="number" name="price" inputMode="decimal" autoComplete="off" min="0.01" step="0.01" required value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1" />
                     <span className="text-xs text-muted-foreground">
                       {cost
-                        ? `Supplier cost ${cost.toFixed(2)} ${currency} incl. shipping · margin ${margin ?? "–"}%`
+                        ? `Supplier cost ${new Intl.NumberFormat(undefined, { style: "currency", currency }).format(cost)} incl. shipping · margin ${margin ?? "–"}%`
                         : prep.suggested.price
                           ? "No supplier cost known: check your margin."
                           : "We couldn't tell a sensible price from this product's data: enter yours."}
@@ -764,13 +767,14 @@ function LaunchButton({
                       </div>
                       <div className="text-sm">
                         <span className="font-medium">AI product photos</span>
-                        <div className="mt-1 flex gap-1.5" role="radiogroup" aria-label="AI product photos">
-                          {AI_PHOTO_COUNTS.map((n) => (
+                        <div className="mt-1 flex gap-1.5" role="radiogroup" aria-label="AI product photos" onKeyDown={arrowSelect}>
+                          {AI_PHOTO_COUNTS.map((n, i) => (
                             <button
                               key={n}
                               type="button"
                               role="radio"
                               aria-checked={aiPhotos === n}
+                              tabIndex={rovingTabIndex(aiPhotos === n, i, AI_PHOTO_COUNTS.includes(aiPhotos as (typeof AI_PHOTO_COUNTS)[number]))}
                               disabled={!prep.aiPhotosReady}
                               onClick={() => setAiPhotos(n)}
                               className={cn(

@@ -58,7 +58,7 @@ export default function StoreCard({
   onToggleCompare?: () => void;
 }) {
   return (
-    <div className="group bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-colors">
+    <div className="cv-card group bg-card border border-border rounded-xl overflow-hidden hover:border-primary/40 transition-colors">
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         {/* A bigger mouse target for the store button below, which keyboard and screen readers use. */}
         <div className="w-full h-full cursor-pointer" onClick={onClick} aria-hidden="true">

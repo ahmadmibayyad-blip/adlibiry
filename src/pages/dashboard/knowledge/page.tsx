@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useHistoryState } from "@/hooks/use-history-state.ts";
 import { useQuery } from "convex/react";
 import { BookOpen, BookText, Calculator, CheckCircle2, Search } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
@@ -8,6 +9,7 @@ import { STAGES, matches, type Stage } from "@/lib/knowledge.ts";
 import { useKnowledge } from "@/hooks/use-knowledge.ts";
 import { TOPIC_ICONS } from "@/lib/knowledgeIcons.ts";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import KnowledgeLoading from "./_components/KnowledgeLoading.tsx";
 import LevelTag from "./_components/LevelTag.tsx";
 
@@ -18,8 +20,8 @@ export default function KnowledgeHub() {
   const k = useKnowledge();
   const reads = useQuery(api.knowledge.myReads);
   const read = useMemo(() => new Set(reads ?? []), [reads]);
-  const [q, setQ] = useState("");
-  const [stage, setStage] = useState<Stage | "All">("All");
+  const [q, setQ] = useHistoryState("knowledge.q", "");
+  const [stage, setStage] = useHistoryState<Stage | "All">("knowledge.stage", "All");
   if (!k) return <KnowledgeLoading />;
   const { topics, allGuides } = k;
   const total = allGuides.length;
@@ -74,12 +76,14 @@ export default function KnowledgeHub() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input type="search" name="search" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search all guides…" className="pl-9" aria-label="Search all guides" />
         </div>
-        <div role="tablist" aria-label="Stage" className="inline-flex rounded-lg border border-border bg-muted/50 p-1 max-w-full overflow-x-auto">
-          {(["All", ...STAGES] as const).map((s) => (
+        <div role="tablist" aria-label="Stage" onKeyDown={arrowSelect} className="inline-flex rounded-lg border border-border bg-muted/50 p-1 max-w-full overflow-x-auto">
+          {(["All", ...STAGES] as const).map((s, i) => (
             <button
               key={s}
+              type="button"
               role="tab"
               aria-selected={stage === s}
+              tabIndex={rovingTabIndex(stage === s, i, true)}
               onClick={() => setStage(s)}
               className={cn(
                 "px-3 py-1.5 text-sm rounded-md whitespace-nowrap cursor-pointer transition-colors",

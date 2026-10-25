@@ -9,13 +9,15 @@ import { Button } from "@/components/ui/button.tsx";
 import { Spinner } from "@/components/ui/spinner.tsx";
 import { ChartCard, TimeChart, StatTile } from "../../_components/charts.tsx";
 import { money } from "../../_components/chartUtils.ts";
+import { price } from "@/lib/money.ts";
 
 // Sales tracking in the store popup (convex/storeSales.ts): estimates from the
 // store's public catalog, saved once a day.
 
+const relative = new Intl.RelativeTimeFormat(undefined, { style: "narrow" });
 const ago = (iso: string) => {
   const h = Math.round((Date.now() - Date.parse(iso)) / 3_600_000);
-  return h < 1 ? "just now" : h < 48 ? `${h}h ago` : `${Math.round(h / 24)} days ago`;
+  return h < 1 ? "just now" : h < 48 ? relative.format(-h, "hour") : relative.format(-Math.round(h / 24), "day");
 };
 // One figure (the middle of the 1–3 orders-per-change range), not a 3× range.
 const range = (low: number, high: number, fmt: (n: number) => string) => (high ? `~${fmt(Math.sqrt(Math.max(low, 0.01) * high))}` : "0");
@@ -78,7 +80,7 @@ export default function StoreSales({ storeId }: { storeId: Id<"stores"> }) {
       {latest && (
         <div className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <StatTile label="Est. orders, last day" value={range(latest.estOrdersLow, latest.estOrdersHigh, (n) => Math.round(n).toLocaleString("en-US"))} hint={`${latest.updatedCount} of ${latest.productCount} products changed`} />
+            <StatTile label="Est. orders, last day" value={range(latest.estOrdersLow, latest.estOrdersHigh, (n) => Math.round(n).toLocaleString())} hint={`${latest.updatedCount} of ${latest.productCount} products changed`} />
             <StatTile label="Est. revenue, last day" value={range(latest.estRevenueLow, latest.estRevenueHigh, money)} hint={latest.newCount ? `${latest.newCount} new products` : undefined} />
             <StatTile label={`Est. revenue, ${Math.min(days.length, 30)} days tracked`} value={range(total.low, total.high, money)} />
           </div>
@@ -108,7 +110,7 @@ export default function StoreSales({ storeId }: { storeId: Id<"stores"> }) {
                     className="flex items-center gap-3 bg-muted rounded-lg p-2 hover:bg-muted/70"
                   >
                     {p.imageUrl ? (
-                      <img
+                      <img width={40} height={40}
                         src={p.imageUrl}
                         alt=""
                         className="w-10 h-10 rounded-md object-cover shrink-0"
@@ -122,7 +124,7 @@ export default function StoreSales({ storeId }: { storeId: Id<"stores"> }) {
                       <div className="text-sm font-medium line-clamp-1">{p.title}</div>
                       <div className="text-xs text-muted-foreground">Changed {ago(p.updatedAt)}</div>
                     </div>
-                    {p.price > 0 && <div className="text-sm font-bold shrink-0">${p.price.toFixed(2)}</div>}
+                    {p.price > 0 && <div className="text-sm font-bold shrink-0">{price(p.price)}</div>}
                   </a>
                 ))}
               </div>

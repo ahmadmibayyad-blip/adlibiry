@@ -8,6 +8,8 @@ import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
+import { euros } from "@/lib/money.ts";
 import {
   PRO_PRICE_EUR,
   PRO_RETURN_PATH,
@@ -68,18 +70,19 @@ export default function ProCheckoutDialog({
           <DialogDescription>Every result, no limits.</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Billing period">
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Billing period" onKeyDown={arrowSelect}>
           {(
             [
-              ["monthly", `€${PRO_PRICE_EUR}`, "per month"],
-              ["yearly", `€${PRO_YEARLY_PER_MONTH_EUR}/mo`, `€${PRO_YEARLY_TOTAL_EUR} billed yearly`],
+              ["monthly", euros(PRO_PRICE_EUR), "per month"],
+              ["yearly", `${euros(PRO_YEARLY_PER_MONTH_EUR)}/mo`, `${euros(PRO_YEARLY_TOTAL_EUR)} billed yearly`],
             ] as const
-          ).map(([p, price, note]) => (
+          ).map(([p, price, note], i) => (
             <button
               key={p}
               type="button"
               role="radio"
               aria-checked={period === p}
+              tabIndex={rovingTabIndex(period === p, i, true)}
               onClick={() => setPeriod(p)}
               className={cn(
                 "rounded-lg border p-3 text-left transition-colors",
@@ -101,7 +104,7 @@ export default function ProCheckoutDialog({
             onChange={(e) => setAutoRenew(e.target.checked)}
           />
           <span>
-            Renew automatically: €{proCharge(period)} every {period === "yearly" ? "year" : "month"} until you turn it off in
+            Renew automatically: {euros(proCharge(period))} every {period === "yearly" ? "year" : "month"} until you turn it off in
             Settings.
           </span>
         </label>
@@ -160,7 +163,7 @@ function PayForm({ period, autoRenew, onDone }: { period: BillingPeriod; autoRen
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={!stripe || busy}>
         {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
-        Pay €{proCharge(period)}
+        Pay {euros(proCharge(period))}
         {period === "yearly" ? " for a year" : " for a month"}
       </Button>
       <p className="text-xs text-muted-foreground text-center">Payments are processed securely by Stripe.</p>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useHistoryState, useLoadedCount } from "@/hooks/use-history-state.ts";
 import { useSearchParams } from "react-router-dom";
 import { usePaginatedQuery, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
@@ -34,18 +35,18 @@ const countryOptions = [
 ];
 
 export default function StoreTrackerPage() {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useHistoryState("stores.search", "");
   const [debouncedSearch] = useDebounce(search, 300);
-  const [niche, setNiche] = useState<string | undefined>(undefined);
-  const [minRevenue, setMinRevenue] = useState("");
-  const [minTraffic, setMinTraffic] = useState("");
-  const [minActiveAds, setMinActiveAds] = useState("");
-  const [country, setCountry] = useState<string | undefined>(undefined);
-  const [highTrafficOnly, setHighTrafficOnly] = useState(false);
+  const [niche, setNiche] = useHistoryState<string | undefined>("stores.niche", undefined);
+  const [minRevenue, setMinRevenue] = useHistoryState("stores.minRevenue", "");
+  const [minTraffic, setMinTraffic] = useHistoryState("stores.minTraffic", "");
+  const [minActiveAds, setMinActiveAds] = useHistoryState("stores.minActiveAds", "");
+  const [country, setCountry] = useHistoryState<string | undefined>("stores.country", undefined);
+  const [highTrafficOnly, setHighTrafficOnly] = useHistoryState("stores.highTrafficOnly", false);
   // Read from the stores' home pages (stores.tech): theme, an app, a tracking pixel.
-  const [theme, setTheme] = useState<string | undefined>(undefined);
-  const [app, setApp] = useState<string | undefined>(undefined);
-  const [pixel, setPixel] = useState<string | undefined>(undefined);
+  const [theme, setTheme] = useHistoryState<string | undefined>("stores.theme", undefined);
+  const [app, setApp] = useHistoryState<string | undefined>("stores.app", undefined);
+  const [pixel, setPixel] = useHistoryState<string | undefined>("stores.pixel", undefined);
   const [selectedStore, setSelectedStore] = useState<StoreDoc | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<Array<StoreDoc["_id"]>>([]);
@@ -124,6 +125,7 @@ export default function StoreTrackerPage() {
     pixel,
   ].filter((v) => v !== undefined && !(typeof v === "number" && Number.isNaN(v))).length;
 
+  const [firstPage, rememberLoaded] = useLoadedCount("stores", 12);
   const { results, status, loadMore } = usePaginatedQuery(
     api.stores.list,
     {
@@ -138,8 +140,9 @@ export default function StoreTrackerPage() {
       app,
       pixel,
     },
-    { initialNumItems: 12 }
+    { initialNumItems: firstPage }
   );
+  useEffect(() => rememberLoaded(results.length), [results.length, rememberLoaded]);
 
   const handleSeed = async () => {
     await seedStores();

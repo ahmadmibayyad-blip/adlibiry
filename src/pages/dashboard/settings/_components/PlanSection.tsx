@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Switch } from "@/components/ui/switch.tsx";
 import { cn } from "@/lib/utils.ts";
+import { euros } from "@/lib/money.ts";
 import { useUserPlan } from "@/hooks/use-user-plan.ts";
 import ProCheckoutDialog from "@/components/billing/ProCheckoutDialog.tsx";
 import ProReturnHandler from "@/components/billing/ProReturnHandler.tsx";
@@ -55,7 +56,7 @@ export default function PlanSection() {
     if (!isPro || !billing?.periodEnd) return "Every result is unlocked.";
     const amount = proCharge(billing.period);
     return billing.autoRenew
-      ? `Renews automatically on ${day(billing.periodEnd)} for €${amount}.`
+      ? `Renews automatically on ${day(billing.periodEnd)} for ${euros(amount)}.`
       : `Pro ends on ${day(billing.periodEnd)}. Turn on auto-renew to keep it.`;
   })();
 
@@ -86,7 +87,7 @@ export default function PlanSection() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {isPro
                     ? renewNote
-                    : `You see the first 10 results of each list. Pro unlocks everything: €${PRO_PRICE_EUR}/month, or €${PRO_YEARLY_PER_MONTH_EUR}/month paid yearly.`}
+                    : `You see the first 10 results of each list. Pro unlocks everything: ${euros(PRO_PRICE_EUR)}/month, or ${euros(PRO_YEARLY_PER_MONTH_EUR)}/month paid yearly.`}
                 </p>
               </div>
             </div>

@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.tsx";
 import { errorMessage } from "@/lib/errorMessage.ts";
 import { cn } from "@/lib/utils.ts";
+import { arrowSelect, rovingTabIndex } from "@/lib/arrowKeys.ts";
 import { Progress } from "@/pages/dashboard/products/_components/LaunchDialog.tsx";
 
 // Relaunch (convex/launch.ts relaunch): the same product and settings, with new
@@ -48,13 +49,14 @@ export default function RelaunchDialog({ launch, aiPhotosReady, onClose }: { lau
             <p className="text-xs text-muted-foreground">Same settings: {settings.join(" · ")}</p>
             <div className="text-sm">
               <span className="font-medium">AI product photos</span>
-              <div className="mt-1 flex gap-1.5" role="radiogroup" aria-label="AI product photos">
-                {AI_PHOTO_COUNTS.map((n) => (
+              <div className="mt-1 flex gap-1.5" role="radiogroup" aria-label="AI product photos" onKeyDown={arrowSelect}>
+                {AI_PHOTO_COUNTS.map((n, i) => (
                   <button
                     key={n}
                     type="button"
                     role="radio"
                     aria-checked={aiPhotos === n}
+                    tabIndex={rovingTabIndex(aiPhotos === n, i, AI_PHOTO_COUNTS.includes(aiPhotos as (typeof AI_PHOTO_COUNTS)[number]))}
                     disabled={!aiPhotosReady}
                     onClick={() => setAiPhotos(n)}
                     className={cn(

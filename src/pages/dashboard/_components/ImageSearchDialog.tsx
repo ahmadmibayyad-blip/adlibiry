@@ -113,7 +113,7 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
             className="outline-none focus-visible:ring-2 focus-visible:ring-ring flex flex-col sm:flex-row items-center gap-4 border border-dashed border-border rounded-xl p-4"
           >
             {preview ? (
-              <img src={preview} alt="Your photo" className="w-28 h-28 rounded-lg object-cover border border-border" />
+              <img width={112} height={112} src={preview} alt="Your photo" className="w-28 h-28 rounded-lg object-cover border border-border" />
             ) : (
               <div className="w-28 h-28 rounded-lg bg-muted flex items-center justify-center">
                 <ImageUp className="w-8 h-8 text-muted-foreground" />
@@ -163,7 +163,7 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
                       <div className="text-sm line-clamp-1">{m.title}</div>
                       <div className="text-xs text-muted-foreground">
                         <span className="font-semibold text-foreground">{price(m.price)}</span>
-                        {m.orders !== undefined && ` · ${m.orders.toLocaleString("en-US")} ${m.orders === 1 ? "order" : "orders"}`}
+                        {m.orders !== undefined && ` · ${m.orders.toLocaleString()} ${m.orders === 1 ? "order" : "orders"}`}
                       </div>
                     </div>
                     <a

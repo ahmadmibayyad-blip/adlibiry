@@ -51,7 +51,7 @@ export default function PageProducts({ value, onChange }: { value: PickedProduct
         <ul className="flex flex-wrap gap-2">
           {value.map((p, i) => (
             <li key={p.productId} className="flex items-center gap-2 rounded-lg border border-border bg-background pl-1 pr-1.5 py-1 max-w-72">
-              {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-9 h-9 rounded object-cover shrink-0" /> : null}
+              {p.imageUrl ? <img width={36} height={36} src={p.imageUrl} alt="" className="w-9 h-9 rounded object-cover shrink-0" /> : null}
               <span className="text-xs min-w-0">
                 <span className="block truncate font-medium">{p.title}</span>
                 <span className="block text-muted-foreground">{i === 0 && value.length > 1 ? "Main product" : `Product ${i + 1}`}</span>
