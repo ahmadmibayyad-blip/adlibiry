@@ -143,10 +143,8 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
                   <AdCard
                     key={a._id}
                     ad={a}
-                    onClick={() => {
-                      setOpen(false);
-                      navigate(`/dashboard/ads/${a._id}`);
-                    }}
+                    href={`/dashboard/ads/${a._id}`}
+                    onClick={() => setOpen(false)}
                   />
                 ))}
               </div>
@@ -227,10 +225,8 @@ export default function ImageSearchDialog({ trigger = "button" }: { trigger?: "b
                       <AdCard
                         key={a._id}
                         ad={a}
-                        onClick={() => {
-                          setOpen(false);
-                          navigate(`/dashboard/ads/${a._id}`);
-                        }}
+                        href={`/dashboard/ads/${a._id}`}
+                        onClick={() => setOpen(false)}
                       />
                     ))}
                   </div>

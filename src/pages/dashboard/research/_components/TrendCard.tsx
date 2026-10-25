@@ -16,14 +16,15 @@ function Sparkline({ data }: { data: number[] }) {
   const height = 44;
   const points = data
     .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
+      // One point: a flat line across rather than x = NaN.
+      const x = data.length > 1 ? (i / (data.length - 1)) * width : i * width;
       const y = height - (v / max) * height;
       return `${x},${y}`;
     })
     .join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-11" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-11" preserveAspectRatio="none" aria-hidden="true">
       <polyline
         points={points}
         fill="none"

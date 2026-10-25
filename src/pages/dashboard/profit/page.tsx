@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { PiggyBank, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -110,8 +109,7 @@ export default function ProfitPage() {
 
           {missing ? (
             <p className="text-sm text-warn">
-              {missing} sold item{missing === 1 ? " has" : "s have"} no cost, so profit looks higher than it is. Set "Cost per item" on those products in Shopify, or sell them through the{" "}
-              <Link to="/dashboard/orders" className="underline">CJ order autopilot</Link>.
+              {missing} sold item{missing === 1 ? " has" : "s have"} no cost, so profit looks higher than it is. Set “Cost per item” on those products in Shopify.
             </p>
           ) : null}
 
@@ -141,6 +139,7 @@ export default function ProfitPage() {
                         step="1"
                         defaultValue={d.adSpend ?? ""}
                         placeholder="Add"
+                        aria-label={`Ad spend on ${d.day}`}
                         className="h-8 w-24"
                         onBlur={(e) => {
                           const raw = e.target.value.trim();
@@ -191,7 +190,7 @@ function CostSettings({ settings, currency }: { settings: { feePercent: number; 
     >
       <h2 className="text-sm font-semibold">How costs are counted</h2>
       <p className="text-xs text-muted-foreground">
-        Product cost: Shopify's "Cost per item" on each product, else the supplier cost AdSpy knows for products you launched, else what CJ charged when the autopilot sent it.
+        Product cost: Shopify’s “Cost per item” on each product, else the supplier cost AdSpy knows for products you launched, else what CJ billed for the order.
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">

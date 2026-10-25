@@ -172,7 +172,7 @@ export default function Playground() {
           ))}
         </ul>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-1.5 h-10 sm:h-8 px-3 rounded-md border border-border text-sm cursor-pointer hover:bg-muted">
+          <label className="inline-flex items-center gap-1.5 h-10 sm:h-8 px-3 rounded-md border border-border text-sm cursor-pointer hover:bg-muted has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:border-ring">
             {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
             <span>{photo ? photo.name : "Product photo (optional)"}</span>
             <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Product photo" onChange={upload} />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/convex/_generated/api.js";
 import { ChevronDown, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
@@ -224,7 +224,6 @@ export default function AdSpyPage() {
   // ?q=… (Offer Search's "In Ad Spy") starts with that search.
   const [search, setSearch] = useHistoryState("search", () => params.get("q") ?? "");
   const [debouncedSearch] = useDebounce(search, 300);
-  const navigate = useNavigate();
 
   const [excludeViewed, setExcludeViewed] = useHistoryState("excludeViewed", false);
   const [viewed, setViewed] = useState<string[]>(() => readJson<string[]>(VIEWED_KEY, []));
@@ -270,8 +269,8 @@ export default function AdSpyPage() {
     setUseMine(false);
   };
 
-  const openAd = (ad: Ad) => {
-    navigate(`/dashboard/ads/${ad._id}`);
+  // The card is a link to the ad page; this only remembers it as viewed.
+  const markViewed = (ad: Ad) => {
     if (!viewedSet.has(ad._id)) {
       const next = [ad._id, ...viewed].slice(0, 3000);
       setViewed(next);
@@ -489,7 +488,7 @@ export default function AdSpyPage() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {shown.map((ad) => (
-              <AdCard key={ad._id} ad={ad} onClick={() => openAd(ad)} />
+              <AdCard key={ad._id} ad={ad} href={`/dashboard/ads/${ad._id}`} onClick={() => markViewed(ad)} />
             ))}
           </div>
           {status === "LoadingMore" ? (

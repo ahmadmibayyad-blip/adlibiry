@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { MotionConfig } from "motion/react";
 import Navbar from "./_components/Navbar.tsx";
 import Hero from "./_components/Hero.tsx";
 import StatsBar from "./_components/StatsBar.tsx";
@@ -20,29 +21,32 @@ export default function Index() {
   // Arriving from another page via /#pricing etc.: scroll once the section exists.
   useEffect(() => {
     if (!window.location.hash) return;
-    const t = setTimeout(() => document.querySelector(window.location.hash)?.scrollIntoView({ behavior: "smooth" }), 150);
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const t = setTimeout(() => document.querySelector(window.location.hash)?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" }), 150);
     return () => clearTimeout(t);
   }, []);
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Navbar />
-      <Hero />
-      {/* Live-data sections: if the backend can't answer, hide the section rather than blank the page. */}
-      <HideOnError>
-        <StatsBar />
-      </HideOnError>
-      <VideoTour />
-      <Features />
-      <Reels />
-      <HowItWorks />
-      <HideOnError>
-        <AdSpy />
-      </HideOnError>
-      <Testimonials />
-      <Pricing />
-      <FAQ />
-      <FinalCTA />
-      <Footer />
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen bg-background text-foreground">
+        <Navbar />
+        <Hero />
+        {/* Live-data sections: if the backend can't answer, hide the section rather than blank the page. */}
+        <HideOnError>
+          <StatsBar />
+        </HideOnError>
+        <VideoTour />
+        <Features />
+        <Reels />
+        <HowItWorks />
+        <HideOnError>
+          <AdSpy />
+        </HideOnError>
+        <Testimonials />
+        <Pricing />
+        <FAQ />
+        <FinalCTA />
+        <Footer />
+      </div>
+    </MotionConfig>
   );
 }
