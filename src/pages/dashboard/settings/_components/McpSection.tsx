@@ -28,7 +28,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
       <div className="text-xs text-muted-foreground mb-1">{label}</div>
       <div className="flex gap-2">
         <code className="flex-1 min-w-0 truncate rounded-md border border-border bg-muted px-2 py-1.5 text-xs">{value}</code>
-        <Button type="button" size="sm" variant="secondary" onClick={() => copy(value, label)}>
+        <Button type="button" size="sm" variant="secondary" aria-label={`Copy ${label}`} onClick={() => copy(value, label)}>
           <Copy className="w-3.5 h-3.5" />
         </Button>
       </div>
@@ -103,6 +103,9 @@ export default function McpSection() {
           }}
         >
           <Input
+            name="key-name"
+            aria-label="Key name"
+            autoComplete="off"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 40))}
             placeholder="Key name, e.g. Claude"

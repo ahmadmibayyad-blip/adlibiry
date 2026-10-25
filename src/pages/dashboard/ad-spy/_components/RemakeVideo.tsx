@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { Clapperboard, Download, ImagePlus, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -129,9 +130,9 @@ export default function RemakeVideo({ adId, variant, product }: { adId: Id<"ads"
       {!canMake ? (
         <p className="text-sm">
           AI videos come with Pro.{" "}
-          <a href="/pricing" className="text-primary underline underline-offset-2">
+          <Link to="/pricing" className="text-primary underline underline-offset-2">
             Upgrade
-          </a>
+          </Link>
         </p>
       ) : (
         <>

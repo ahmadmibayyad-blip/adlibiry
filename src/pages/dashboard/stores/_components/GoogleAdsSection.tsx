@@ -60,6 +60,7 @@ export default function GoogleAdsSection({ host }: { host: string }) {
               <button
                 key={p.id}
                 type="button"
+                aria-pressed={platform === p.id}
                 onClick={() => void load(p.id)}
                 disabled={busy}
                 className={cn("rounded-full border px-2.5 py-0.5 text-xs transition", platform === p.id ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}

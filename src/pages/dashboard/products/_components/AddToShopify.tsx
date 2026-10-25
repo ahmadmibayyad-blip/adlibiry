@@ -73,7 +73,7 @@ function AddButton({ product, dialogOnly, open: openProp, onOpenChange }: Props)
         </Button>
       )}
       {shop && !dialogOnly && (
-        <Button variant="ghost" size="icon" title="Shopify settings and CSV" onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="icon" title="Shopify settings and CSV" aria-label="Shopify settings and CSV" onClick={() => setOpen(true)}>
           <Settings2 className="w-4 h-4" />
         </Button>
       )}

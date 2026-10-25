@@ -50,7 +50,7 @@ export default function RemakeTopUpDialog({ open, onOpenChange }: { open: boolea
           <DialogDescription>Extra AI-video seconds. They don't expire and are used after this month's.</DialogDescription>
         </DialogHeader>
         {error ? (
-          <p className="text-sm text-destructive">{error}</p>
+          <p role="alert" className="text-sm text-destructive">{error}</p>
         ) : !payment ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
             <Loader2 className="w-4 h-4 animate-spin" /> Preparing secure payment…
@@ -97,7 +97,7 @@ function PayForm({ cents, onDone }: { cents: number; onDone: () => void }) {
   return (
     <form onSubmit={pay} className="space-y-4">
       <PaymentElement />
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <Button type="submit" className="w-full" disabled={!stripe || busy}>
         {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
         Pay €{euros(cents)}

@@ -36,6 +36,7 @@ function NichePicker({ value, onChange }: { value: string[]; onChange: (v: strin
           <button
             key={n}
             type="button"
+            aria-pressed={on}
             onClick={() => onChange(on ? value.filter((x) => x !== n) : [...value, n].slice(0, 6))}
             className={cn(
               "px-2.5 h-7 rounded-full text-xs border cursor-pointer transition-colors",
@@ -88,8 +89,11 @@ function NewAgent({ onDone }: { onDone: () => void }) {
           ))}
         </div>
       </div>
-      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Agent name, e.g. Pet scout" maxLength={60} />
+      <Input name="agent-name" aria-label="Agent name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Agent name, e.g. Pet scout" maxLength={60} />
       <Textarea
+        name="goal"
+        aria-label="What should it look for every day?"
+        autoComplete="off"
         value={goal}
         onChange={(e) => setGoal(e.target.value)}
         placeholder="What should it look for every day? e.g. Find rising pet products under $40 with ads running 7+ days."
@@ -158,6 +162,7 @@ function AgentCard({ agent }: { agent: Doc<"agents"> & { latest: Doc<"agentBrief
             variant="outline"
             onClick={() => update({ id: agent._id, name: agent.name, goal: agent.goal, niches: agent.niches, enabled: !agent.enabled })}
             title={agent.enabled ? "Pause the daily run" : "Resume the daily run"}
+            aria-label={agent.enabled ? "Pause the daily run" : "Resume the daily run"}
           >
             {agent.enabled ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
           </Button>
@@ -168,6 +173,7 @@ function AgentCard({ agent }: { agent: Doc<"agents"> & { latest: Doc<"agentBrief
               if (confirm(`Delete "${agent.name}" and its briefings?`)) void remove({ id: agent._id });
             }}
             title="Delete agent"
+            aria-label="Delete agent"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </Button>

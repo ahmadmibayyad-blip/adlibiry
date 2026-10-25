@@ -124,6 +124,9 @@ export default function PageBuilderPage() {
         {!shot ? <LinkScreenshot onShot={pick} /> : null}
         <PageProducts value={products} onChange={setProducts} />
         <textarea
+          name="notes"
+          aria-label="Notes for the AI (optional)"
+          autoComplete="off"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           maxLength={1000}
@@ -237,6 +240,7 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
   const tabButton = (value: typeof tab, label: string, Icon: typeof Eye) => (
     <button
       type="button"
+      aria-pressed={tab === value}
       onClick={() => setTab(value)}
       className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition", tab === value ? "bg-muted text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}
     >
@@ -380,10 +384,10 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
         </div>
         {tab === "preview" ? (
           <div className="flex gap-1">
-            <Button size="sm" variant={device === "desktop" ? "secondary" : "ghost"} onClick={() => setDevice("desktop")} aria-label="Desktop">
+            <Button size="sm" variant={device === "desktop" ? "secondary" : "ghost"} onClick={() => setDevice("desktop")} aria-label="Desktop" aria-pressed={device === "desktop"}>
               <Monitor className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant={device === "phone" ? "secondary" : "ghost"} onClick={() => setDevice("phone")} aria-label="Phone">
+            <Button size="sm" variant={device === "phone" ? "secondary" : "ghost"} onClick={() => setDevice("phone")} aria-label="Phone" aria-pressed={device === "phone"}>
               <Smartphone className="w-4 h-4" />
             </Button>
           </div>
@@ -398,7 +402,7 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
               title="Page preview"
               sandbox="allow-scripts"
               srcDoc={html}
-              className={cn("bg-white h-[75vh] transition-all", device === "phone" ? "w-[390px] max-w-full border-x border-border" : "w-full")}
+              className={cn("bg-white h-[75vh] transition-[width]", device === "phone" ? "w-[390px] max-w-full border-x border-border" : "w-full")}
             />
           </div>
         ) : (
@@ -423,6 +427,9 @@ function Result({ page, onRemoved }: { page: PageView; onRemoved: () => void }) 
           }}
         >
           <Input
+            name="change"
+            aria-label="Change something on the page"
+            autoComplete="off"
             value={change}
             onChange={(e) => setChange(e.target.value)}
             maxLength={1000}

@@ -251,7 +251,7 @@ export default function CountrySaturationCard({
           <TabsContent value="check">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
               <Select value={country} onValueChange={setCountry}>
-                <SelectTrigger className="flex-1 w-full">
+                <SelectTrigger className="flex-1 w-full" aria-label="Country">
                   <SelectValue placeholder="Select a country" />
                 </SelectTrigger>
                 <SelectContent>

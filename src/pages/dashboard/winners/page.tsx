@@ -169,10 +169,14 @@ export default function WinnersPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
+                type="search"
+                name="search"
+                aria-label="Search winning products"
+                autoComplete="off"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search winning products…"
-                className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-10 sm:h-9 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+                className="w-full bg-background border border-border rounded-lg pl-9 pr-3 h-10 sm:h-9 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -250,8 +254,11 @@ export default function WinnersPage() {
               {([["grid", LayoutGrid], ["table", Table2]] as const).map(([v, Icon]) => (
                 <button
                   key={v}
+                  type="button"
                   onClick={() => setView(v)}
                   title={v === "table" ? "Table view" : "Grid view"}
+                  aria-label={v === "table" ? "Table view" : "Grid view"}
+                  aria-pressed={view === v}
                   className={cn("p-1 rounded-md cursor-pointer", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
                 >
                   <Icon className="w-4 h-4" />
@@ -348,7 +355,7 @@ export default function WinnersPage() {
           <h3 className="text-sm font-semibold mb-2">Slots filled per category</h3>
           <div className="space-y-2.5">
             {summary?.perNiche.map((n) => (
-              <button key={n.niche} className="block w-full text-left cursor-pointer group" onClick={() => set("niche", n.niche)}>
+              <button key={n.niche} type="button" aria-pressed={f.niche === n.niche} className="block w-full text-left cursor-pointer group" onClick={() => set("niche", n.niche)}>
                 <div className="flex justify-between text-xs mb-1">
                   <span className={cn("group-hover:text-primary", f.niche === n.niche && "text-primary font-medium")}>{n.niche}</span>
                   <span className="tabular-nums text-muted-foreground">{n.filled}/{slots}</span>

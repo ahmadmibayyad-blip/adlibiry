@@ -145,9 +145,11 @@ export default function Pricing() {
             {(["monthly", "yearly"] as const).map((p) => (
               <button
                 key={p}
+                type="button"
+                aria-pressed={period === p}
                 onClick={() => setYearly(p === "yearly")}
                 className={cn(
-                  "min-h-11 px-5 rounded-full text-sm font-medium transition-all cursor-pointer flex items-center gap-2 capitalize",
+                  "min-h-11 px-5 rounded-full text-sm font-medium transition-colors cursor-pointer flex items-center gap-2 capitalize",
                   period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >

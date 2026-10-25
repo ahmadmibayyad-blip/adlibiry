@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
-import { Crown, Sparkles } from "lucide-react";
+import { Crown, Loader2, Sparkles } from "lucide-react";
 import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -25,13 +25,18 @@ export default function PlanSection() {
   const onTrial = trial?.state === "active" && !!trial.endsAt;
   const onGift = trial?.state === "gift" && !!trial.endsAt;
   const [open, setOpen] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   const beginTrial = async () => {
+    if (starting) return;
+    setStarting(true);
     try {
       await startTrial({});
       toast.success("Your 7-day Pro trial has started.");
     } catch (err) {
       toast.error(err instanceof ConvexError ? ((err.data as { message?: string })?.message ?? "Couldn't start the trial.") : "Couldn't start the trial.");
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -88,8 +93,8 @@ export default function PlanSection() {
 
             <div className="flex items-center gap-2 flex-wrap">
               {trial?.state === "available" && (
-                <Button size="sm" onClick={beginTrial}>
-                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                <Button size="sm" onClick={beginTrial} disabled={starting}>
+                  {starting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
                   Start 7-day free trial
                 </Button>
               )}

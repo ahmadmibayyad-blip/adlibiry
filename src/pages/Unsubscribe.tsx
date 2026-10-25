@@ -22,7 +22,7 @@ export default function UnsubscribePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4">
-      <div className="max-w-sm text-center">
+      <div className="max-w-sm text-center" aria-live="polite">
         <MailX className="w-10 h-10 text-muted-foreground mx-auto mb-4" />
         <h1 className="text-xl font-bold mb-2">
           {state === "working" ? "Unsubscribing…" : state === "done" ? "You're unsubscribed" : "This link isn't valid any more"}

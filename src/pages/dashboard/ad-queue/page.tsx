@@ -47,6 +47,7 @@ export default function AdQueuePage() {
           <button
             key={t.id}
             type="button"
+            aria-pressed={tab === t.id}
             onClick={() => setTab(t.id)}
             className={cn("px-3 py-2 text-sm border-b-2 -mb-px transition", tab === t.id ? "border-primary text-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
@@ -101,9 +102,9 @@ function AdCard({ ad }: { ad: Ad }) {
         </div>
         {editing ? (
           <div className="space-y-2">
-            <Input value={form.hook} onChange={(e) => setForm({ ...form, hook: e.target.value })} placeholder="Hook (first line)" />
-            <textarea value={form.primaryText} onChange={(e) => setForm({ ...form, primaryText: e.target.value })} rows={5} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-            <Input value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} placeholder="Headline" />
+            <Input name="hook" aria-label="Hook (first line)" autoComplete="off" value={form.hook} onChange={(e) => setForm({ ...form, hook: e.target.value })} placeholder="Hook (first line)" />
+            <textarea name="primary-text" aria-label="Primary text" autoComplete="off" value={form.primaryText} onChange={(e) => setForm({ ...form, primaryText: e.target.value })} rows={5} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <Input name="headline" aria-label="Headline" autoComplete="off" value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} placeholder="Headline" />
             <div className="flex gap-2">
               <Button size="sm" disabled={!!busy} onClick={() => void run("save", () => edit({ id: ad._id, ...form }).then(() => setEditing(false)), "Saved")}>Save</Button>
               <Button size="sm" variant="ghost" onClick={() => { setForm({ hook: ad.hook, primaryText: ad.primaryText, headline: ad.headline }); setEditing(false); }}>Cancel</Button>

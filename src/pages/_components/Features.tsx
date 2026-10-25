@@ -104,7 +104,7 @@ export default function Features() {
             return (
               <motion.div
                 key={feat.title}
-                className={`${!showAll && i >= FIRST_ON_PHONES ? "hidden sm:block " : ""}relative group rounded-2xl border border-border bg-gradient-to-br ${feat.gradient} p-6 hover:border-primary/30 transition-all duration-300 cursor-default`}
+                className={`${!showAll && i >= FIRST_ON_PHONES ? "hidden sm:block " : ""}relative group rounded-2xl border border-border bg-gradient-to-br ${feat.gradient} p-6 hover:border-primary/30 transition-[border-color,box-shadow,background-color] duration-300 cursor-default`}
               >
                 <div
                   className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-background/50 ${feat.accent}`}

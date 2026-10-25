@@ -41,6 +41,8 @@ export default function StoreCompareModal({
               store ? (
                 <div key={store._id} className="bg-card border border-border rounded-xl p-4 relative">
                   <button
+                    type="button"
+                    aria-label={`Remove ${store.name} from comparison`}
                     onClick={() => onRemove(store._id)}
                     className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
                   >

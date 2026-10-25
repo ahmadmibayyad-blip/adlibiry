@@ -137,10 +137,10 @@ export default function OrdersPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Tile label="To ship" value={s!.toShip} onClick={() => setFilter("ship")} />
-            <Tile label="Needs a look" value={s!.needsLook} warn={s!.needsLook > 0} onClick={() => setFilter("look")} />
-            <Tile label="On the way" value={s!.onTheWay} onClick={() => setFilter("way")} />
-            <Tile label="Delivered" value={s!.delivered} onClick={() => setFilter("delivered")} />
+            <Tile label="To ship" value={s!.toShip} active={filter === "ship"} onClick={() => setFilter("ship")} />
+            <Tile label="Needs a look" value={s!.needsLook} warn={s!.needsLook > 0} active={filter === "look"} onClick={() => setFilter("look")} />
+            <Tile label="On the way" value={s!.onTheWay} active={filter === "way"} onClick={() => setFilter("way")} />
+            <Tile label="Delivered" value={s!.delivered} active={filter === "delivered"} onClick={() => setFilter("delivered")} />
           </div>
 
           {shipsNothing ? (
@@ -182,9 +182,9 @@ export default function OrdersPage() {
   );
 }
 
-function Tile({ label, value, warn, onClick }: { label: string; value: number; warn?: boolean; onClick: () => void }) {
+function Tile({ label, value, warn, active, onClick }: { label: string; value: number; warn?: boolean; active?: boolean; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="rounded-xl border border-border bg-card p-3 text-left hover:bg-muted/50">
+    <button type="button" aria-pressed={!!active} onClick={onClick} className="rounded-xl border border-border bg-card p-3 text-left hover:bg-muted/50">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={cn("text-2xl font-bold", warn && "text-warn")}>{value}</div>
     </button>

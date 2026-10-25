@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Play, Volume2, VolumeX } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 
 // 20-second reels recorded in the live app (public/videos). They play muted while on screen;
-// tapping one plays it from the start with sound and mutes the rest.
+// tapping one plays it from the start with sound and mutes the rest. "Pause clips" stops the autoplay.
 const REELS = [
   { id: "find", tool: "Winning products", title: "Find a winner in under a minute" },
   { id: "analyse", tool: "Should I test this?", title: "Check the numbers before you spend" },
@@ -15,14 +15,19 @@ const REELS = [
 
 type ReelId = (typeof REELS)[number]["id"];
 
-function Reel({ reel, withSound, onSound }: { reel: (typeof REELS)[number]; withSound: boolean; onSound: (on: boolean) => void }) {
+function Reel({ reel, withSound, onSound, paused }: { reel: (typeof REELS)[number]; withSound: boolean; onSound: (on: boolean) => void; paused: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
 
   // Play while mostly on screen, pause when it scrolls away. Reduced motion: only on tap.
   useEffect(() => {
     const el = video.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!el) return;
+    if (paused) {
+      if (!withSound) el.pause();
+      return;
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) void el.play().catch(() => {});
@@ -32,7 +37,7 @@ function Reel({ reel, withSound, onSound }: { reel: (typeof REELS)[number]; with
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [paused]); // eslint-disable-line react-hooks/exhaustive-deps -- a reel playing with sound keeps playing when autoplay is paused
 
   useEffect(() => {
     const el = video.current;
@@ -58,7 +63,7 @@ function Reel({ reel, withSound, onSound }: { reel: (typeof REELS)[number]; with
         type="button"
         onClick={tap}
         aria-pressed={withSound}
-        aria-label={withSound ? `Mute "${reel.title}"` : `Play "${reel.title}" with sound`}
+        aria-label={withSound ? `Mute “${reel.title}”` : `Play “${reel.title}” with sound`}
         className="group relative block w-full aspect-[9/16] rounded-2xl overflow-hidden border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <video
@@ -98,8 +103,10 @@ function Reel({ reel, withSound, onSound }: { reel: (typeof REELS)[number]; with
 
 export default function Reels() {
   const [sound, setSound] = useState<ReelId | null>(null);
+  const [paused, setPaused] = useState(false);
   const strip = useRef<HTMLUListElement>(null);
-  const scroll = (dir: 1 | -1) => strip.current?.scrollBy({ left: dir * 272 * 2, behavior: "smooth" });
+  const scroll = (dir: 1 | -1) =>
+    strip.current?.scrollBy({ left: dir * 272 * 2, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 
   return (
     <section className="py-24 bg-card/30 border-y border-border overflow-hidden" aria-labelledby="reels-heading">
@@ -111,12 +118,21 @@ export default function Reels() {
             </h2>
             <p className="text-muted-foreground text-lg">Short clips of each tool on a phone. Tap one to hear it.</p>
           </div>
-          <div className="hidden md:flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setPaused((p) => !p)}
+              aria-pressed={paused}
+              aria-label="Pause clips"
+              className="w-11 h-11 rounded-full border border-border bg-card flex items-center justify-center hover:border-foreground/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {paused ? <Play className="w-5 h-5" aria-hidden="true" /> : <Pause className="w-5 h-5" aria-hidden="true" />}
+            </button>
             <button
               type="button"
               onClick={() => scroll(-1)}
               aria-label="Previous clips"
-              className="w-11 h-11 rounded-full border border-border bg-card flex items-center justify-center hover:border-foreground/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="hidden md:flex w-11 h-11 rounded-full border border-border bg-card items-center justify-center hover:border-foreground/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronLeft className="w-5 h-5" aria-hidden="true" />
             </button>
@@ -124,7 +140,7 @@ export default function Reels() {
               type="button"
               onClick={() => scroll(1)}
               aria-label="Next clips"
-              className="w-11 h-11 rounded-full border border-border bg-card flex items-center justify-center hover:border-foreground/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="hidden md:flex w-11 h-11 rounded-full border border-border bg-card items-center justify-center hover:border-foreground/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronRight className="w-5 h-5" aria-hidden="true" />
             </button>
@@ -136,7 +152,7 @@ export default function Reels() {
           className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 scroll-px-4 sm:-mx-6 sm:px-6 sm:scroll-px-6 lg:mx-0 lg:px-0 lg:scroll-px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {REELS.map((reel) => (
-            <Reel key={reel.id} reel={reel} withSound={sound === reel.id} onSound={(on) => setSound(on ? reel.id : null)} />
+            <Reel key={reel.id} reel={reel} withSound={sound === reel.id} onSound={(on) => setSound(on ? reel.id : null)} paused={paused} />
           ))}
         </ul>
       </div>

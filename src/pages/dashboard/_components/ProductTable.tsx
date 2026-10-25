@@ -72,7 +72,7 @@ export default function ProductTable({ products }: { products: Product[] }) {
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1 justify-end">
                     {(p.storeUrl || p.supplierUrl) && (
-                      <a href={p.storeUrl || p.supplierUrl} target="_blank" rel="noopener noreferrer" title="Open store" className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
+                      <a href={p.storeUrl || p.supplierUrl} target="_blank" rel="noopener noreferrer" title="Open store" aria-label="Open store" className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     )}

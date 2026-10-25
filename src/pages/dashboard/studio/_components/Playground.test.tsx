@@ -1,7 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Playground from "./Playground.tsx";
+
+// Playground links to /pricing, so it needs a router.
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 type Model = { key: string; name: string; blurb: string; lengths: number[]; aspects: string[]; photoAspect: boolean; multiplier: number; needsPhoto: boolean };
 type Latest = {

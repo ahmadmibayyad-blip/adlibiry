@@ -117,7 +117,7 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto p-0">
+      <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto overscroll-contain p-0" aria-describedby={undefined}>
         <DialogHeader className="sr-only">
           <DialogTitle>{ad.headline}</DialogTitle>
         </DialogHeader>
@@ -168,8 +168,10 @@ export default function AdDetailModal({ ad, open, onOpenChange }: { ad: Ad | nul
               size="sm"
               className="h-7 px-2 text-xs"
               onClick={() => {
-                navigator.clipboard?.writeText([ad.headline, ad.bodyText].filter(Boolean).join("\n\n"));
-                toast.success("Ad copy copied");
+                navigator.clipboard.writeText([ad.headline, ad.bodyText].filter(Boolean).join("\n\n")).then(
+                  () => toast.success("Ad text copied"),
+                  () => toast.error("Couldn't copy. Select the text and copy it instead."),
+                );
               }}
             >
               <Copy className="w-3.5 h-3.5 mr-1.5" />Copy ad text

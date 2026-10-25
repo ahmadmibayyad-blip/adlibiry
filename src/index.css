@@ -232,6 +232,18 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+
+  /* No double-tap zoom delay on controls. */
+  a,
+  button,
+  [role="button"],
+  input,
+  label,
+  select,
+  summary,
+  textarea {
+    touch-action: manipulation;
+  }
 }
 
 /* Knowledge hub: topic cards fan out from a stacked deck, 45ms apart (--i = card index). */
@@ -253,5 +265,14 @@
 @media (prefers-reduced-motion: reduce) {
   .k-fan {
     animation: none;
+  }
+  /* Dialogs, menus and toasts open without zoom or slide; spinners and loading pulses keep moving, they mean "working". */
+  *:not(.animate-spin):not(.animate-pulse),
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

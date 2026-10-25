@@ -6,6 +6,7 @@ import { Heart, Eye, MessageCircle, Share2, Bookmark, BookmarkCheck, Play, Layer
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils.ts";
+import { errorMessage } from "@/lib/errorMessage.ts";
 import type { Doc } from "@/convex/_generated/dataModel.d.ts";
 import { compactNumber, flag, shortDate, domainOf, spendLabel } from "@/lib/adFormat.ts";
 import AdStageBadge from "@/components/AdStageBadge.tsx";
@@ -39,8 +40,8 @@ function SaveAdButton({ adId }: { adId: Ad["_id"] }) {
         try {
           const r = await toggleSave({ adId });
           toast.success(r.saved ? "Saved to your creative library" : "Removed from saved");
-        } catch {
-          toast.error("Please sign in to save ads");
+        } catch (err) {
+          toast.error(errorMessage(err, "Couldn't save the ad"));
         }
       }}
       className={cn(

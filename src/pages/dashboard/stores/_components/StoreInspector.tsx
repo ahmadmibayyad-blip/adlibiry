@@ -256,7 +256,7 @@ export default function StoreInspector() {
           void run(url);
         }}
       >
-        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste a store link, like https://needyknee.se" disabled={busy} />
+        <Input name="store-url" aria-label="Store link" inputMode="url" autoComplete="off" spellCheck={false} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste a store link, like https://needyknee.se" disabled={busy} />
         <Button type="submit" disabled={busy || !url.trim()} className="shrink-0">
           {busy ? <Spinner className="w-4 h-4 mr-2" /> : <Radar className="w-4 h-4 mr-2" />}
           {busy ? "Inspecting…" : "Inspect"}

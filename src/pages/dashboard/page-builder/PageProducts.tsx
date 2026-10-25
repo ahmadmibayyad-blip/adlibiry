@@ -72,6 +72,10 @@ export default function PageProducts({ value, onChange }: { value: PickedProduct
         <div className="flex gap-2">
           <Input
             type="url"
+            name="product-link"
+            aria-label="Product link"
+            autoComplete="off"
+            spellCheck={false}
             value={link}
             onChange={(e) => setLink(e.target.value)}
             onKeyDown={(e) => {

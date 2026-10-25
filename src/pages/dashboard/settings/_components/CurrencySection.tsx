@@ -20,6 +20,7 @@ export default function CurrencySection() {
           <button
             key={c}
             type="button"
+            aria-pressed={mine?.code === c}
             onClick={async () => {
               try {
                 await setMine({ code: c });
@@ -29,7 +30,7 @@ export default function CurrencySection() {
               }
             }}
             className={cn(
-              "flex flex-col items-center gap-0.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer",
+              "flex flex-col items-center gap-0.5 py-2.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer",
               mine?.code === c ? "bg-primary/10 border-primary text-primary" : "bg-secondary border-border text-muted-foreground hover:text-foreground",
             )}
           >

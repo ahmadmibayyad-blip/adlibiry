@@ -84,6 +84,10 @@ export default function AffiliateSection() {
           }}
         >
           <Input
+            name="affiliate-code"
+            aria-label="Your affiliate code (optional)"
+            autoComplete="off"
+            spellCheck={false}
             value={code}
             onChange={(e) => setCode(e.target.value.slice(0, 24))}
             placeholder="Your code, e.g. yourname (optional)"
@@ -103,6 +107,7 @@ export default function AffiliateSection() {
                 type="button"
                 size="sm"
                 variant="secondary"
+                aria-label="Copy link"
                 onClick={() =>
                   navigator.clipboard
                     ?.writeText(link)
@@ -146,6 +151,10 @@ export default function AffiliateSection() {
           >
             <Input
               type="email"
+              name="payout-email"
+              aria-label="Payout email (PayPal or Wise)"
+              autoComplete="email"
+              spellCheck={false}
               value={email}
               onChange={(e) => setDraft(e.target.value.slice(0, 120))}
               placeholder="PayPal or Wise email for payouts"

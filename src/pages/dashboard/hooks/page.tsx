@@ -49,6 +49,7 @@ function HookCard({ h, rank }: { h: Hook; rank: number }) {
           <button
             type="button"
             title="Copy template"
+            aria-label="Copy template"
             onClick={() => {
               void navigator.clipboard.writeText(h.template!);
               toast.success("Template copied");
@@ -177,6 +178,7 @@ export default function HooksPage() {
               <button
                 key={n}
                 type="button"
+                aria-pressed={niche === n}
                 onClick={() => setNiche(n)}
                 className={cn(
                   "px-3 h-8 rounded-full text-xs border cursor-pointer transition-colors",

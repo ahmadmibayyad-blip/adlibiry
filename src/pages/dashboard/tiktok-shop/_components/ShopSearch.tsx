@@ -53,7 +53,7 @@ export default function ShopSearch() {
           void run();
         }}
       >
-        <Input className="h-10 sm:h-8 w-full sm:w-72" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Product word, e.g. dog paw cleaner" aria-label="Search TikTok Shop" />
+        <Input type="search" name="keyword" autoComplete="off" className="h-10 sm:h-8 w-full sm:w-72" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Product word, e.g. dog paw cleaner" aria-label="Search TikTok Shop" />
         <FilterSelect label="Region" value={region} onChange={setRegion} options={REGIONS} active />
         <Button type="submit" size="sm" className="h-10 sm:h-8" disabled={busy || keyword.trim().length < 2}>
           {busy ? <Spinner className="w-4 h-4 mr-2" /> : <Search className="w-4 h-4 mr-2" />}

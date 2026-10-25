@@ -83,7 +83,7 @@ export default function LoginPage() {
             )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" autoComplete="email" required />
+              <Input id="email" name="email" type="email" autoComplete="email" spellCheck={false} required />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Password</Label>
@@ -95,7 +95,7 @@ export default function LoginPage() {
                 required
               />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={busy} className="w-full">
               {busy && <Loader2 className="size-4 animate-spin" />}
               {flow === "signIn" ? "Sign in" : "Create account"}

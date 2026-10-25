@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
 import { Bell, BellOff, Loader2, Smartphone } from "lucide-react";
@@ -21,13 +21,14 @@ function ToggleRow({
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
+  const id = useId();
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div>
-        <div className="text-sm font-medium">{label}</div>
-        <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
+        <div id={`${id}-label`} className="text-sm font-medium">{label}</div>
+        <div id={`${id}-desc`} className="text-xs text-muted-foreground mt-0.5">{description}</div>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch checked={checked} onCheckedChange={onCheckedChange} aria-labelledby={`${id}-label`} aria-describedby={`${id}-desc`} />
     </div>
   );
 }
@@ -165,9 +166,11 @@ export default function AlertPreferencesPanel() {
             {allNiches.map((niche) => (
               <button
                 key={niche}
+                type="button"
+                aria-pressed={prefs.watchedNiches.includes(niche)}
                 onClick={() => toggleNiche(niche)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border",
+                  "px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer border",
                   prefs.watchedNiches.includes(niche)
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-secondary border-border text-muted-foreground hover:text-foreground"
