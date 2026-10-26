@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
@@ -38,6 +39,13 @@ export default function AffiliateSection() {
   const [busy, setBusy] = useState(false);
 
   const link = me ? `${SITE}/r/${me.code}` : "";
+
+  // Landing page "Get your link" opens /dashboard/settings#affiliate: scroll here once the section has loaded.
+  const { hash } = useLocation();
+  const loaded = me !== undefined;
+  useEffect(() => {
+    if (hash === "#affiliate" && loaded) document.getElementById("affiliate")?.scrollIntoView({ block: "start" });
+  }, [hash, loaded]);
 
   async function onJoin() {
     setBusy(true);
