@@ -10,6 +10,7 @@ import Reels from "./_components/Reels.tsx";
 import AdSpy from "./_components/AdSpy.tsx";
 import Pricing from "./_components/Pricing.tsx";
 import Testimonials from "./_components/Testimonials.tsx";
+import Affiliate from "./_components/Affiliate.tsx";
 import FAQ from "./_components/FAQ.tsx";
 import FinalCTA from "./_components/FinalCTA.tsx";
 import Footer from "./_components/Footer.tsx";
@@ -43,6 +44,7 @@ export default function Index() {
         </HideOnError>
         <Testimonials />
         <Pricing />
+        <Affiliate />
         <FAQ />
         <FinalCTA />
         <Footer />
