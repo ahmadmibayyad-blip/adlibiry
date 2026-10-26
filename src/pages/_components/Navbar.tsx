@@ -12,6 +12,7 @@ const navLinks = [
   { label: "Features", href: "/#features" },
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Pricing", href: "/#pricing" },
+  { label: "Affiliates", href: "/#affiliate" },
   { label: "FAQ", href: "/#faq" },
 ];
 
@@ -41,12 +42,12 @@ export default function Navbar() {
           </a>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden lg:flex items-center gap-8">
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                className="text-sm whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
                 {link.label}
               </a>
@@ -54,7 +55,7 @@ export default function Navbar() {
           </nav>
 
           {/* Desktop CTA */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3">
             <Authenticated>
               <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground gap-1.5">
                 <Link to="/dashboard">
@@ -76,7 +77,7 @@ export default function Navbar() {
             type="button"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
-            className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+            className="lg:hidden p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -91,7 +92,7 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background/95 backdrop-blur-xl border-b border-border"
+            className="lg:hidden bg-background/95 backdrop-blur-xl border-b border-border"
           >
             <div className="px-4 py-4 space-y-3">
               {navLinks.map((link) => (
