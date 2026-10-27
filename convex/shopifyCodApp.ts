@@ -164,9 +164,8 @@ export const savePlan = internalMutation({
       tier, status: sub.status, subscriptionId: sub.id, name: sub.name, test: sub.test ?? s.plan?.test ?? false,
       currentPeriodEnd: sub.currentPeriodEnd ?? (s.plan?.subscriptionId === sub.id ? s.plan.currentPeriodEnd : undefined),
       trialEndsAt: sub.trialEndsAt ?? (s.plan?.subscriptionId === sub.id ? s.plan.trialEndsAt : undefined),
-      checkedAt,
     } : undefined;
-    await ctx.db.patch("shopifyCodShops", s._id, { plan, updatedAt: Date.now() });
+    await ctx.db.patch("shopifyCodShops", s._id, { plan, updatedAt: Date.now(), ...(checkedAt ? { planCheckedAt: checkedAt } : {}) });
   },
 });
 
@@ -210,6 +209,9 @@ export const webhook = httpAction(async (ctx, request) => {
         await ctx.runMutation(internal.shopifyCodApp.savePlan, {
           shop, subscription: { id: sub.admin_graphql_api_id, name: sub.name, status: sub.status.toUpperCase() },
         });
+        // The webhook has no period end or trial: read the whole subscription from Shopify.
+        const row = await ctx.runQuery(internal.shopifyCodAuth.shopByDomain, { shop });
+        if (row?.tokenEnc) await ctx.scheduler.runAfter(0, internal.shopifyCodEmbedded.syncPlanAction, { shop, shopKey: row.shopKey });
       }
       break;
     }

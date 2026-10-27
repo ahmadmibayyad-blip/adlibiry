@@ -12,7 +12,7 @@ import {
 import { verify as whatsappVerify, webhook as whatsappWebhook } from "./sallaWhatsapp";
 import { webhook as istilamShopifyWebhook } from "./shopifyCodApp";
 import {
-  dataRoute as istilamShopifyData, feed as istilamShopifyFeed, feedRoute as istilamShopifyFeedKey, page as istilamShopifyPage,
+  billingRoute as istilamShopifyBilling, dataRoute as istilamShopifyData, feed as istilamShopifyFeed, feedRoute as istilamShopifyFeedKey, page as istilamShopifyPage,
   settingsRoute as istilamShopifySettings,
 } from "./shopifyCodEmbedded";
 import { callback as shopifyCallback, webhook as shopifyWebhook } from "./shopifyApp";
@@ -137,6 +137,7 @@ http.route({ path: "/shopify-istilam/app", method: "GET", handler: istilamShopif
 http.route({ path: "/shopify-istilam/app/data", method: "POST", handler: istilamShopifyData });
 http.route({ path: "/shopify-istilam/app/settings", method: "POST", handler: istilamShopifySettings });
 http.route({ path: "/shopify-istilam/app/feed", method: "POST", handler: istilamShopifyFeedKey });
+http.route({ path: "/shopify-istilam/app/billing", method: "POST", handler: istilamShopifyBilling });
 http.route({ pathPrefix: "/shopify-istilam/feed/", method: "GET", handler: istilamShopifyFeed });
 // Launch → Full store: the storefront theme zip Shopify installs (convex/storeThemeHttp.ts).
 http.route({ path: "/shopify/theme.zip", method: "GET", handler: serveTheme });

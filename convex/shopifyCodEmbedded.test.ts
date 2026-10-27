@@ -33,7 +33,7 @@ async function setup() {
     for (const s of [A, B]) {
       await ctx.db.insert("shopifyCodShops", {
         shop: s.shop, shopKey: s.key, tokenEnc: "enc:v1:x", tokenExpiresAt: Date.now() + 3_600_000, enabled: true, blockRefusers: false,
-        installedAt: 1, updatedAt: 1, plan: { tier: "pro", status: "ACTIVE", test: true, checkedAt: Date.now() },
+        installedAt: 1, updatedAt: 1, plan: { tier: "pro", status: "ACTIVE", test: true }, planCheckedAt: Date.now(),
       });
     }
     await ctx.db.insert("shopifyCodOrders", { shopKey: A.key, orderId: "1", orderName: "#1001", total: 100, currency: "SAR", status: "confirmed", answeredAt: 1, createdAt: Date.now() });
@@ -100,5 +100,77 @@ describe("Istilam Shopify dashboard", () => {
     expect(second).not.toBe(first);
     expect((await t.fetch(`/shopify-istilam/feed/${first}.csv`, { method: "GET" })).status).toBe(404);
     expect((await t.fetch(`/shopify-istilam/feed/${second}.csv`, { method: "GET" })).status).toBe(200);
+  });
+});
+
+describe("Istilam Shopify billing", () => {
+  type Gql = { op: string; variables: Record<string, unknown> };
+  function stubShopify(answers: Record<string, unknown>) {
+    const calls: Gql[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      const { query, variables } = JSON.parse(String(init.body)) as { query: string; variables: Record<string, unknown> };
+      const op = /(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? "?";
+      calls.push({ op, variables });
+      return new Response(JSON.stringify({ data: answers[op] ?? {} }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
+    return calls;
+  }
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function withToken() {
+    const t = await setup();
+    const { encryptToken } = await import("./lib/shopifyOAuth");
+    const tokenEnc = await encryptToken("shpat_x", btoa(String.fromCharCode(...new Uint8Array(32).fill(7))));
+    await t.run(async (ctx) => {
+      for (const s of await ctx.db.query("shopifyCodShops").collect()) await ctx.db.patch("shopifyCodShops", s._id, { tokenEnc });
+    });
+    return t;
+  }
+
+  it("creates a test subscription with the trial on a development store", async () => {
+    const t = await withToken();
+    const calls = stubShopify({
+      IstilamShopPlan: { shop: { plan: { partnerDevelopment: true } } },
+      IstilamSubscribe: { appSubscriptionCreate: { confirmationUrl: "https://admin.shopify.com/charges/confirm", userErrors: [] } },
+    });
+    const res = await call(t, "/shopify-istilam/app/billing", await sessionToken(A.shop), { plan: "Confirm Pro" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ confirmationUrl: "https://admin.shopify.com/charges/confirm" });
+    const sub = calls.find((c) => c.op === "IstilamSubscribe")!;
+    expect(sub.variables).toEqual({
+      name: "Confirm Pro", returnUrl: `https://${A.shop}/admin/apps/${CLIENT_ID}`, trialDays: 7, test: true,
+      lineItems: [{ plan: { appRecurringPricingDetails: { price: { amount: 27, currencyCode: "USD" }, interval: "EVERY_30_DAYS" } } }],
+    });
+  });
+
+  it("refuses a plan that doesn't exist", async () => {
+    const t = await withToken();
+    stubShopify({});
+    expect((await call(t, "/shopify-istilam/app/billing", await sessionToken(A.shop), { plan: "Free" })).status).toBe(400);
+  });
+
+  it("reads the active subscription when the stored plan is old", async () => {
+    const t = await withToken();
+    await t.run(async (ctx) => {
+      const s = (await ctx.db.query("shopifyCodShops").collect()).find((x) => x.shop === A.shop)!;
+      await ctx.db.patch("shopifyCodShops", s._id, { planCheckedAt: Date.now() - 60 * 60 * 1000 });
+    });
+    const created = new Date(Date.now() - 2 * 86400_000).toISOString();
+    stubShopify({
+      IstilamActiveSubscriptions: { currentAppInstallation: { activeSubscriptions: [
+        { id: "gid://shopify/AppSubscription/9", name: "Confirm", status: "ACTIVE", test: false, trialDays: 7, createdAt: created, currentPeriodEnd: "2026-11-27T00:00:00Z" },
+      ] } },
+    });
+    const d = await (await call(t, "/shopify-istilam/app/data", await sessionToken(A.shop))).json();
+    expect(d.plan).toMatchObject({ tier: "confirm", name: "Confirm", active: true, limit: 500, test: false });
+    expect(d.plan.trialEndsAt).toBe(Date.parse(created) + 7 * 86400_000);
+
+    stubShopify({ IstilamActiveSubscriptions: { currentAppInstallation: { activeSubscriptions: [] } } });
+    await t.run(async (ctx) => {
+      const s = (await ctx.db.query("shopifyCodShops").collect()).find((x) => x.shop === A.shop)!;
+      await ctx.db.patch("shopifyCodShops", s._id, { planCheckedAt: 0 });
+    });
+    const none = await (await call(t, "/shopify-istilam/app/data", await sessionToken(A.shop))).json();
+    expect(none.plan).toMatchObject({ tier: null, active: false });
   });
 });

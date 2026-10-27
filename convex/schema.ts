@@ -1087,8 +1087,8 @@ export default defineSchema({
       currentPeriodEnd: v.optional(v.number()),
       trialEndsAt: v.optional(v.number()),
       test: v.boolean(),
-      checkedAt: v.optional(v.number()),
     })),
+    planCheckedAt: v.optional(v.number()),   // last read of currentAppInstallation.activeSubscriptions
     installedAt: v.number(),
     updatedAt: v.number(),
     uninstalledAt: v.optional(v.number()),

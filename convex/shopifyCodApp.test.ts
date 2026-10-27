@@ -160,5 +160,8 @@ describe("Istilam Shopify webhook", () => {
     await post(t, "app_subscriptions/update", { app_subscription: { admin_graphql_api_id: "gid://shopify/AppSubscription/1", name: "Confirm", status: "CANCELLED" } });
     const [after] = await t.run((ctx) => ctx.db.query("shopifyCodShops").collect());
     expect(after.plan?.status).toBe("CANCELLED");
+    await post(t, "orders/create", cod(3));
+    expect(await orders(t)).toHaveLength(0);
+    expect((await usage(t))[0]).toMatchObject({ skipped: 1 });
   });
 });

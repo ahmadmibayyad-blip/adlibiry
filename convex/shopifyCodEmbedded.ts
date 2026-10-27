@@ -1,11 +1,11 @@
 import { v } from "convex/values";
-import { httpAction, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
+import { httpAction, internalAction, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { install, NeedsNewSession } from "./shopifyCodAuth";
+import { gql, install, NeedsNewSession } from "./shopifyCodAuth";
 import { DEFAULT_PARCEL_COST, codStats, errorKind, parseParcelCost } from "./lib/codStats";
 import { SHOPIFY_CSV_HEADER, ordersCsv } from "./lib/codCsv";
 import { usageMonth, type Tier } from "./lib/codPlans";
-import { shopGate } from "./lib/shopifyCod";
+import { SHOPIFY_PLANS, TRIAL_DAYS, shopGate } from "./lib/shopifyCod";
 import { verifySessionToken } from "./lib/shopifySessionToken";
 import { dashboardPage } from "./lib/shopifyCodDashboardPage";
 
@@ -14,8 +14,12 @@ import { dashboardPage } from "./lib/shopifyCodDashboardPage";
 // here on every request. A shop without a stored token (first open, reinstall) is installed with
 // that same token (token exchange, shopifyCodAuth.ts). /app/feed makes or replaces the shop's
 // secret CSV link; GET /shopify-istilam/feed/<key>.csv serves it for Google Sheets / Excel.
+// /app/billing starts a Billing API subscription (test charge on development stores); the plan is
+// re-read from currentAppInstallation when the page opens (at most every 10 minutes) and after
+// app_subscriptions/update.
 
 const DAY = 24 * 60 * 60 * 1000;
+const PLAN_RECHECK_MS = 10 * 60 * 1000;
 const SHOP_DOMAIN = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -82,7 +86,7 @@ export const data = internalQuery({
         sent: usage?.sent ?? 0,
         skipped: usage?.skipped ?? 0,
       },
-      planCheckedAt: s.plan?.checkedAt ?? null,
+      planCheckedAt: s.planCheckedAt ?? null,
       days,
       stats: codStats(orders, parcelCost),
       recent: orders.slice(0, 25).map((o) => ({
@@ -146,6 +150,34 @@ export const feedOrders = internalQuery({
   },
 });
 
+type ActiveSub = { id: string; name: string; status: string; test: boolean; trialDays?: number; createdAt?: string; currentPeriodEnd?: string | null };
+
+/** Reads the shop's active subscription from Shopify and stores it (none = no plan). */
+export async function syncPlan(ctx: ActionCtx, shop: string, shopKey: string): Promise<void> {
+  const r = await gql<{ currentAppInstallation?: { activeSubscriptions?: ActiveSub[] } }>(ctx, shopKey,
+    `query IstilamActiveSubscriptions { currentAppInstallation { activeSubscriptions { id name status test trialDays createdAt currentPeriodEnd } } }`);
+  const sub = r.currentAppInstallation?.activeSubscriptions?.[0];
+  const ms = (x: string | null | undefined) => (x ? Date.parse(x) : NaN);
+  const created = ms(sub?.createdAt);
+  const periodEnd = ms(sub?.currentPeriodEnd);
+  await ctx.runMutation(internal.shopifyCodApp.savePlan, {
+    shop,
+    checkedAt: Date.now(),
+    subscription: sub ? {
+      id: sub.id, name: sub.name, status: sub.status, test: sub.test,
+      currentPeriodEnd: Number.isFinite(periodEnd) ? periodEnd : undefined,
+      trialEndsAt: sub.trialDays && Number.isFinite(created) ? created + sub.trialDays * DAY : undefined,
+    } : null,
+  });
+}
+
+export const syncPlanAction = internalAction({
+  args: { shop: v.string(), shopKey: v.string() },
+  handler: async (ctx, { shop, shopKey }): Promise<void> => {
+    await syncPlan(ctx, shop, shopKey).catch((e) => console.error("Istilam plan sync failed", shop, e instanceof Error ? e.message : e));
+  },
+});
+
 export const page = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const shop = url.searchParams.get("shop") ?? "";
@@ -175,7 +207,14 @@ export const dataRoute = httpAction(async (ctx, request) => {
   if (auth instanceof Response) return auth;
   const body = (await request.json().catch(() => null)) as { days?: unknown } | null;
   const days = [7, 30, 90].includes(Number(body?.days)) ? Number(body?.days) : 30;
-  const d = await ctx.runQuery(internal.shopifyCodEmbedded.data, { shopKey: auth.shopKey, days });
+  let d = await ctx.runQuery(internal.shopifyCodEmbedded.data, { shopKey: auth.shopKey, days });
+  if (d && (d.planCheckedAt == null || Date.now() - d.planCheckedAt > PLAN_RECHECK_MS)) {
+    const synced = await syncPlan(ctx, auth.shop, auth.shopKey).then(() => true, (e) => {
+      console.error("Istilam plan sync failed", auth.shop, e instanceof Error ? e.message : e);
+      return false;
+    });
+    if (synced) d = await ctx.runQuery(internal.shopifyCodEmbedded.data, { shopKey: auth.shopKey, days });
+  }
   return d ? json(d) : json({ error: "not_installed" }, 404);
 });
 
@@ -198,6 +237,36 @@ export const feedRoute = httpAction(async (ctx, request) => {
   const body = (await request.json().catch(() => null)) as { rotate?: unknown } | null;
   const key = await ctx.runMutation(internal.shopifyCodEmbedded.feedKey, { shopKey: auth.shopKey, rotate: body?.rotate === true });
   return key ? json({ feedKey: key }) : json({ error: "not_installed" }, 404);
+});
+
+export const billingRoute = httpAction(async (ctx, request) => {
+  const auth = await authShop(ctx, request);
+  if (auth instanceof Response) return auth;
+  const body = (await request.json().catch(() => null)) as { plan?: unknown } | null;
+  const plan = SHOPIFY_PLANS.find((p) => p.name === body?.plan);
+  if (!plan) return json({ error: "unknown_plan" }, 400);
+  try {
+    const shopInfo = await gql<{ shop?: { plan?: { partnerDevelopment?: boolean } } }>(ctx, auth.shopKey,
+      `query IstilamShopPlan { shop { plan { partnerDevelopment } } }`);
+    const r = await gql<{ appSubscriptionCreate?: { confirmationUrl?: string | null; userErrors: { message: string }[] } }>(ctx, auth.shopKey,
+      `mutation IstilamSubscribe($name: String!, $returnUrl: URL!, $trialDays: Int, $test: Boolean, $lineItems: [AppSubscriptionLineItemInput!]!) {
+        appSubscriptionCreate(name: $name, returnUrl: $returnUrl, trialDays: $trialDays, test: $test, lineItems: $lineItems) {
+          confirmationUrl userErrors { message } } }`,
+      {
+        name: plan.name,
+        returnUrl: `https://${auth.shop}/admin/apps/${credentials()!.clientId}`,
+        trialDays: TRIAL_DAYS,
+        test: shopInfo.shop?.plan?.partnerDevelopment === true,
+        lineItems: [{ plan: { appRecurringPricingDetails: { price: { amount: plan.amount, currencyCode: "USD" }, interval: plan.interval } } }],
+      });
+    const errors = r.appSubscriptionCreate?.userErrors ?? [];
+    const url = r.appSubscriptionCreate?.confirmationUrl;
+    if (errors.length || !url) throw new Error(`Shopify: ${errors.map((e) => e.message).join("; ") || "no confirmation URL"}`);
+    return json({ confirmationUrl: url });
+  } catch (e) {
+    console.error("Istilam billing failed", auth.shop, e instanceof Error ? e.message : e);
+    return json({ error: "billing_failed" }, 502);
+  }
 });
 
 export const feed = httpAction(async (ctx, request) => {
