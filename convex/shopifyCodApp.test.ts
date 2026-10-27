@@ -165,3 +165,18 @@ describe("Istilam Shopify webhook", () => {
     expect((await usage(t))[0]).toMatchObject({ skipped: 1 });
   });
 });
+
+describe("failed deliveries", () => {
+  it("lets Shopify's retry through when handling failed", async () => {
+    const t = await setup();
+    const month = usageMonth(Date.now());
+    const ids = await t.run(async (ctx) => [
+      await ctx.db.insert("shopifyCodUsage", { shopKey: KEY, month, sent: 0, skipped: 0 }),
+      await ctx.db.insert("shopifyCodUsage", { shopKey: KEY, month, sent: 0, skipped: 0 }),
+    ]);
+    expect((await post(t, "orders/create", cod(1), { id: "retry-me" })).status).toBe(500);
+    await t.run((ctx) => ctx.db.delete("shopifyCodUsage", ids[1]));
+    expect((await post(t, "orders/create", cod(1), { id: "retry-me" })).status).toBe(200);
+    expect((await orders(t)).map((o) => o.orderId)).toEqual(["1"]);
+  });
+});

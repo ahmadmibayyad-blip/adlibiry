@@ -39,6 +39,7 @@ async function setup() {
     await ctx.db.insert("shopifyCodOrders", { shopKey: A.key, orderId: "1", orderName: "#1001", total: 100, currency: "SAR", status: "confirmed", answeredAt: 1, createdAt: Date.now() });
     await ctx.db.insert("shopifyCodOrders", { shopKey: A.key, orderId: "2", orderName: "#1002", total: 50, currency: "SAR", status: "pending", lastError: "Shopify: nope", createdAt: Date.now() });
     await ctx.db.insert("shopifyCodOrders", { shopKey: B.key, orderId: "9", orderName: "#9", status: "confirmed", createdAt: Date.now() });
+    await ctx.db.insert("shopifyCodOrders", { shopKey: B.key, orderId: "10", orderName: "#10", status: "pending", holdError: "no_fulfillment_order: x", createdAt: Date.now() });
   });
   return t;
 }
@@ -173,4 +174,10 @@ describe("Istilam Shopify billing", () => {
     const none = await (await call(t, "/shopify-istilam/app/data", await sessionToken(A.shop))).json();
     expect(none.plan).toMatchObject({ tier: null, active: false });
   });
+});
+
+it("shows a hold failure on a pending order", async () => {
+  const t = await setup();
+  const d = await (await call(t, "/shopify-istilam/app/data", await sessionToken(B.shop))).json();
+  expect(d.recent.find((o: { orderId: string }) => o.orderId === "10")).toMatchObject({ errorKind: "no_fulfillment_order" });
 });

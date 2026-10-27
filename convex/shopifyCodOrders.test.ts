@@ -83,7 +83,7 @@ describe("hold", () => {
     let s = await scheduled(t);
     expect(s.map((x) => [x.name, x.args[0].attempt])).toEqual([["shopifyCodOrders:hold", 1]]);
     await t.action(internal.shopifyCodOrders.hold, { shopKey: SHOP_KEY, orderId: ORDER, attempt: 1 });
-    expect((await row(t)).lastError).toMatch(/^no_fulfillment_order/);
+    expect((await row(t)).holdError).toMatch(/^no_fulfillment_order/);
     s = await scheduled(t);
     expect(s.map((x) => x.name)).toContain("shopifyCodWhatsapp:sendConfirm");
   });
@@ -162,5 +162,33 @@ describe("notes", () => {
     answers.IstilamHolds = { order: { fulfillmentOrders: { nodes: [fo(1, "ON_HOLD", true)] } } };
     await t.action(internal.shopifyCodOrders.releaseHold, { shopKey: SHOP_KEY, orderId: ORDER });
     expect(ops()).toEqual(["IstilamHolds", "IstilamRelease", "IstilamTagsRemove"]);
+  });
+});
+
+describe("orders released in Shopify admin", () => {
+  it("doesn't auto-cancel an order the merchant released; closes it instead", async () => {
+    const t = await setup({ status: "cancelled", heldAt: 1 });
+    answers.IstilamHolds = { order: { fulfillmentOrders: { nodes: [fo(1, "OPEN")] } } };
+    await t.action(internal.shopifyCodOrders.decide, { shopKey: SHOP_KEY, orderId: ORDER, decision: "cancelled", note: "no answer" });
+    expect(ops()).not.toContain("IstilamCancel");
+    expect(await row(t)).toMatchObject({ status: "confirmed", releasedOutside: true });
+  });
+
+  it("keeps a customer's cancel but doesn't cancel a released order, and says why", async () => {
+    const t = await setup({ status: "cancelled", heldAt: 1, answeredAt: 2 });
+    answers.IstilamHolds = { order: { fulfillmentOrders: { nodes: [fo(1, "OPEN")] } } };
+    await t.action(internal.shopifyCodOrders.decide, { shopKey: SHOP_KEY, orderId: ORDER, decision: "cancelled" });
+    expect(ops()).not.toContain("IstilamCancel");
+    const o = await row(t);
+    expect(o.status).toBe("cancelled");
+    expect(o.lastError).toMatch(/^released_outside/);
+  });
+
+  it("still cancels while our hold is on", async () => {
+    const t = await setup({ status: "cancelled", heldAt: 1 });
+    answers.IstilamHolds = { order: { fulfillmentOrders: { nodes: [fo(1, "ON_HOLD", true)] } } };
+    answers.IstilamCancel = { orderCancel: { userErrors: [], orderCancelUserErrors: [] } };
+    await t.action(internal.shopifyCodOrders.decide, { shopKey: SHOP_KEY, orderId: ORDER, decision: "cancelled" });
+    expect(ops()).toContain("IstilamCancel");
   });
 });

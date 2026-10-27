@@ -73,7 +73,7 @@ export function parseParcelCost(n: unknown): number | null {
 }
 
 export type ErrorKind =
-  | "setup" | "no_mobile" | "whatsapp" | "no_status" | "address_note" | "no_fulfillment_order" | "shopify" | "salla" | "other";
+  | "setup" | "no_mobile" | "whatsapp" | "no_status" | "address_note" | "no_fulfillment_order" | "released_outside" | "shopify" | "salla" | "other";
 
 /** What kind of failure a stored error is, so the dashboard can say it in the merchant's language. */
 export function errorKind(error: string): ErrorKind {
@@ -83,6 +83,7 @@ export function errorKind(error: string): ErrorKind {
   if (/under review/i.test(error)) return "no_status";
   if (/\/histories\b/.test(error)) return "address_note";
   if (/^no_fulfillment_order\b/.test(error)) return "no_fulfillment_order";
+  if (/^released_outside\b/.test(error)) return "released_outside";
   if (/^Shopify\b|SHOPIFY_ISTILAM/.test(error)) return "shopify";
   if (/Salla|token|SHOPIFY_TOKEN_KEY|SALLA_CLIENT/i.test(error)) return "salla";
   return "other";

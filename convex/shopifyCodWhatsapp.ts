@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { errorText } from "./sallaOrders";
+import { releasedInShopify } from "./shopifyCodOrders";
 import { sender, waSend } from "./sallaWhatsapp";
 import { gql } from "./shopifyCodAuth";
 import { pickPhone, type ShopifyPhoneOrder } from "./lib/shopifyCod";
@@ -144,6 +145,11 @@ export const sendConfirm = internalAction({
     const s = sender();
     const key = process.env.SHOPIFY_TOKEN_KEY?.trim();
     if (!s || !key) return fail("WhatsApp isn't set up (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID), so the customer wasn't asked");
+    // A reminder for an order the merchant already released in Shopify admin: stop here.
+    if (reminder > 0 && (await releasedInShopify(ctx, shopKey, orderId, o.heldAt).catch(() => false))) {
+      await ctx.runMutation(internal.shopifyCodOrders.closeReleased, { shopKey, orderId });
+      return;
+    }
     try {
       const r = await gql<{ order?: MessageOrder | null; shop?: { name?: string } }>(ctx, shopKey,
         `query IstilamOrderForMessage($id: ID!) { order(id: $id) { name totalPriceSet { shopMoney { amount currencyCode } }

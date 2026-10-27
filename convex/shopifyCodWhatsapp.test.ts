@@ -18,6 +18,7 @@ const PHONE = "966555123456";
 type Call = { url: string; op?: string; body: any };
 let calls: Call[] = [];
 let orderAnswer: Record<string, unknown>;
+let holdNodes: unknown[] = [];
 
 const json = (body: object) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
@@ -30,6 +31,7 @@ beforeEach(() => {
   vi.stubEnv("WHATSAPP_PHONE_NUMBER_ID", "1234");
   vi.stubEnv("WHATSAPP_APP_SECRET", "app-secret");
   calls = [];
+  holdNodes = [];
   orderAnswer = {
     name: "#1001", totalPriceSet: { shopMoney: { amount: "199.0", currencyCode: "SAR" } },
     shippingAddress: { firstName: "Sara", phone: "0555123456", countryCodeV2: "SA" }, billingAddress: null, customer: null,
@@ -43,6 +45,7 @@ beforeEach(() => {
     const op = /(?:query|mutation)\s+(\w+)/.exec(body?.query ?? "")?.[1];
     calls.push({ url, op, body });
     if (op === "IstilamOrderForMessage") return json({ data: { order: orderAnswer, shop: { name: "Nordform" } } });
+    if (op === "IstilamHolds") return json({ data: { order: { fulfillmentOrders: { nodes: holdNodes } } } });
     return json({ data: {} });
   });
 });
@@ -167,5 +170,30 @@ describe("Istilam Shopify WhatsApp", () => {
     const t = await setup({ waMessageId: "wamid.out1" });
     await post(t, { entry: [{ changes: [{ value: { statuses: [{ id: "wamid.out1", status: "failed", errors: [{ code: 131026, title: "Message undeliverable" }] }] } }] }] });
     expect((await row(t)).lastError).toBe("WhatsApp 131026: Message undeliverable");
+  });
+});
+
+describe("hold state on reminders", () => {
+  it("keeps the hold error visible after the message goes out", async () => {
+    const t = await setup({ holdError: "no_fulfillment_order: Shopify had no open fulfillment order to hold" });
+    await t.action(internal.shopifyCodWhatsapp.sendConfirm, { shopKey: SHOP_KEY, orderId: ORDER, reminder: 0 });
+    expect(waCalls()).toHaveLength(1);
+    expect((await row(t)).holdError).toMatch(/^no_fulfillment_order/);
+  });
+
+  it("stops reminding when the merchant released the hold in Shopify", async () => {
+    holdNodes = [{ id: "gid://shopify/FulfillmentOrder/1", status: "OPEN", fulfillmentHolds: [] }];
+    const t = await setup({ heldAt: 1 });
+    await t.action(internal.shopifyCodWhatsapp.sendConfirm, { shopKey: SHOP_KEY, orderId: ORDER, reminder: 1 });
+    expect(waCalls()).toHaveLength(0);
+    expect(await row(t)).toMatchObject({ status: "confirmed", releasedOutside: true });
+    expect(await scheduled(t)).toHaveLength(0);
+  });
+
+  it("keeps reminding while our hold is on", async () => {
+    holdNodes = [{ id: "gid://shopify/FulfillmentOrder/1", status: "ON_HOLD", fulfillmentHolds: [{ id: "h", heldByRequestingApp: true }] }];
+    const t = await setup({ heldAt: 1 });
+    await t.action(internal.shopifyCodWhatsapp.sendConfirm, { shopKey: SHOP_KEY, orderId: ORDER, reminder: 1 });
+    expect(waCalls()).toHaveLength(1);
   });
 });

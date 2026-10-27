@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { httpAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { httpAction, internalMutation, type ActionCtx, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { verifyWebhookHmac } from "./lib/shopifyOAuth";
 import { usageMonth, type Tier } from "./lib/codPlans";
@@ -186,11 +186,30 @@ export const webhook = httpAction(async (ctx, request) => {
   } catch {
     return new Response("Bad payload", { status: 400 });
   }
-  // Shopify retries: handle each delivery once.
-  if (webhookId && !(await ctx.runMutation(internal.sallaApp.markDelivery, { key: `shp:${webhookId}` }))) {
+  // Shopify retries: handle each delivery once. If handling fails, the key is dropped so the retry runs.
+  const deliveryKey = webhookId ? `shp:${webhookId}` : "";
+  if (deliveryKey && !(await ctx.runMutation(internal.sallaApp.markDelivery, { key: deliveryKey }))) {
     return new Response(null, { status: 200 });
   }
+  try {
+    await handle(ctx, topic, shop, body);
+  } catch (e) {
+    if (deliveryKey) await ctx.runMutation(internal.shopifyCodApp.forgetDelivery, { key: deliveryKey });
+    console.error("Istilam webhook failed", topic, shop, e instanceof Error ? e.message : e);
+    return new Response("Failed", { status: 500 });
+  }
+  return new Response(null, { status: 200 });
+});
 
+export const forgetDelivery = internalMutation({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const seen = await ctx.db.query("sallaWebhookEvents").withIndex("by_key", (q) => q.eq("key", key)).unique();
+    if (seen) await ctx.db.delete("sallaWebhookEvents", seen._id);
+  },
+});
+
+async function handle(ctx: ActionCtx, topic: string, shop: string, body: Record<string, unknown>): Promise<void> {
   switch (topic) {
     case "orders/create": {
       const order = codOrderFromWebhook(body);
@@ -229,5 +248,4 @@ export const webhook = httpAction(async (ctx, request) => {
       console.log(`Istilam data request for ${shop}, request ${String((body.data_request as { id?: unknown } | undefined)?.id ?? "?")}`);
       break;
   }
-  return new Response(null, { status: 200 });
-});
+}

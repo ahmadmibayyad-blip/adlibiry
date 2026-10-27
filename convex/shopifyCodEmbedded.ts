@@ -54,6 +54,12 @@ export async function authShop(ctx: ActionCtx, request: Request): Promise<{ shop
   }
 }
 
+/** The error to show: any on a pending order (send first, then hold); after that only a cancel we didn't carry out. */
+function errorOf(o: { status: string; lastError?: string; holdError?: string }) {
+  const err = o.status === "pending" ? o.lastError ?? o.holdError : o.lastError?.startsWith("released_outside") ? o.lastError : undefined;
+  return err ? errorKind(err) : null;
+}
+
 export const data = internalQuery({
   args: { shopKey: v.string(), days: v.number() },
   handler: async (ctx, { shopKey, days }) => {
@@ -102,7 +108,7 @@ export const data = internalQuery({
         address: !!o.addressAt,
         reminders: o.reminders ?? 0,
         createdAt: o.createdAt,
-        errorKind: o.status === "pending" && o.lastError ? errorKind(o.lastError) : null,
+        errorKind: errorOf(o),
       })),
     };
   },

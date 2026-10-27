@@ -53,7 +53,7 @@ export const run = internalMutation({
       .withIndex("by_scrubbed_created", (q) => q.eq("scrubbedAt", undefined).lt("createdAt", now - SCRUB_AFTER_MS))
       .take(BATCH);
     for (const o of shopifyScrub) {
-      await ctx.db.patch("shopifyCodOrders", o._id, { phoneHash: undefined, waMessageId: undefined, lastError: undefined, scrubbedAt: now });
+      await ctx.db.patch("shopifyCodOrders", o._id, { phoneHash: undefined, waMessageId: undefined, lastError: undefined, holdError: undefined, scrubbedAt: now });
     }
     more ||= shopifyScrub.length === BATCH;
 

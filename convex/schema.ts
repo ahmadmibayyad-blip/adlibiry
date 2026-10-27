@@ -1108,6 +1108,7 @@ export default defineSchema({
     heldAt: v.optional(v.number()),         // fulfillment orders put on hold
     fulfillmentOrderIds: v.optional(v.array(v.string())),
     releasedOutside: v.optional(v.boolean()), // the merchant released the hold in Shopify before the answer
+    holdError: v.optional(v.string()),      // the hold failed (kept apart from lastError, which a later send clears)
     decidedAt: v.optional(v.number()),      // released/cancelled in Shopify
     lastError: v.optional(v.string()),
     phoneHash: v.optional(v.string()),

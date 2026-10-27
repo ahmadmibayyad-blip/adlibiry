@@ -30,7 +30,7 @@ export const order = internalQuery({
 export const recordOrder = internalMutation({
   args: {
     shopKey: v.string(), orderId: v.string(),
-    lastError: v.optional(v.string()), heldAt: v.optional(v.number()), decidedAt: v.optional(v.number()),
+    lastError: v.optional(v.string()), holdError: v.optional(v.string()), heldAt: v.optional(v.number()), decidedAt: v.optional(v.number()),
     fulfillmentOrderIds: v.optional(v.array(v.string())), releasedOutside: v.optional(v.boolean()), status: v.optional(v.string()),
   },
   handler: async (ctx, { shopKey, orderId, ...patch }) => {
@@ -48,16 +48,36 @@ const tags = (ctx: ActionCtx, shopKey: string, orderId: string, op: "add" | "rem
       `mutation IstilamTagsRemove($id: ID!, $tags: [String!]!) { tagsRemove(id: $id, tags: $tags) { userErrors { message } } }`,
       { id: orderGid(orderId), tags: list }).then((r) => check(r.tagsRemove?.userErrors));
 
-/** Releases the holds Istilam placed; false when none were left (the merchant released them). */
-async function releaseOurs(ctx: ActionCtx, shopKey: string, orderId: string): Promise<boolean> {
+/** Istilam's own holds still on the order, per fulfillment order. */
+async function ourHolds(ctx: ActionCtx, shopKey: string, orderId: string): Promise<{ id: string; holdIds: string[] }[]> {
   type Holds = { order?: { fulfillmentOrders?: { nodes: { id: string; fulfillmentHolds?: { id: string; heldByRequestingApp: boolean }[] }[] } } | null };
   const r = await gql<Holds>(ctx, shopKey,
     `query IstilamHolds($id: ID!) { order(id: $id) { fulfillmentOrders(first: 10) { nodes { id status fulfillmentHolds { id heldByRequestingApp } } } } }`,
     { id: orderGid(orderId) });
+  return (r.order?.fulfillmentOrders?.nodes ?? [])
+    .map((fo) => ({ id: fo.id, holdIds: (fo.fulfillmentHolds ?? []).filter((h) => h.heldByRequestingApp).map((h) => h.id) }))
+    .filter((fo) => fo.holdIds.length > 0);
+}
+
+/** We held the order and none of our holds are left: the merchant released it in Shopify admin. */
+export async function releasedInShopify(ctx: ActionCtx, shopKey: string, orderId: string, heldAt: number | undefined): Promise<boolean> {
+  return heldAt != null && (await ourHolds(ctx, shopKey, orderId)).length === 0;
+}
+
+/** The merchant released the hold themselves: stop asking and never cancel the order. */
+export const closeReleased = internalMutation({
+  args: { shopKey: v.string(), orderId: v.string() },
+  handler: async (ctx, { shopKey, orderId }) => {
+    const o = await ctx.db.query("shopifyCodOrders").withIndex("by_shop_order", (q) => q.eq("shopKey", shopKey).eq("orderId", orderId)).unique();
+    if (o) await ctx.db.patch("shopifyCodOrders", o._id, { status: "confirmed", releasedOutside: true, answeredAt: undefined, decidedAt: Date.now() });
+  },
+});
+
+/** Releases the holds Istilam placed; false when none were left (the merchant released them). */
+async function releaseOurs(ctx: ActionCtx, shopKey: string, orderId: string): Promise<boolean> {
   let released = false;
-  for (const fo of r.order?.fulfillmentOrders?.nodes ?? []) {
-    const holdIds = (fo.fulfillmentHolds ?? []).filter((h) => h.heldByRequestingApp).map((h) => h.id);
-    if (!holdIds.length) continue;
+  for (const fo of await ourHolds(ctx, shopKey, orderId)) {
+    const holdIds = fo.holdIds;
     const res = await gql<{ fulfillmentOrderReleaseHold?: { userErrors: UserErrors } }>(ctx, shopKey,
       `mutation IstilamRelease($id: ID!, $holdIds: [ID!]) { fulfillmentOrderReleaseHold(id: $id, holdIds: $holdIds) { userErrors { message } } }`,
       { id: fo.id, holdIds });
@@ -99,7 +119,7 @@ export const hold = internalAction({
       await ctx.runMutation(internal.shopifyCodOrders.recordOrder, { shopKey, orderId, heldAt: Date.now(), fulfillmentOrderIds: open.map((fo) => fo.id) });
     } catch (e) {
       // Not held, but the customer is still asked: the merchant sees the error and can hold by hand.
-      await ctx.runMutation(internal.shopifyCodOrders.recordOrder, { shopKey, orderId, lastError: errorText(e) });
+      await ctx.runMutation(internal.shopifyCodOrders.recordOrder, { shopKey, orderId, holdError: errorText(e) });
     }
     await ctx.scheduler.runAfter(0, internal.shopifyCodWhatsapp.sendConfirm, { shopKey, orderId, reminder: 0 });
   },
@@ -117,6 +137,19 @@ export const decide = internalAction({
           shopKey, orderId, decidedAt: Date.now(), lastError: undefined, ...(released ? {} : { releasedOutside: true }),
         });
       } else {
+        // Released in Shopify admin first: the merchant took the order over, so it's never cancelled here.
+        const o = await ctx.runQuery(internal.shopifyCodOrders.order, { shopKey, orderId });
+        if (await releasedInShopify(ctx, shopKey, orderId, o?.heldAt)) {
+          if (o?.answeredAt) {
+            await ctx.runMutation(internal.shopifyCodOrders.recordOrder, {
+              shopKey, orderId, releasedOutside: true,
+              lastError: "released_outside: the customer cancelled, but the hold was released in Shopify, so the order wasn't cancelled",
+            });
+          } else {
+            await ctx.runMutation(internal.shopifyCodOrders.closeReleased, { shopKey, orderId });
+          }
+          return;
+        }
         type Cancel = { orderCancel?: { userErrors: UserErrors; orderCancelUserErrors: UserErrors } };
         const r = await gql<Cancel>(ctx, shopKey,
           `mutation IstilamCancel($orderId: ID!, $reason: OrderCancelReason!, $restock: Boolean!, $notifyCustomer: Boolean, $refundMethod: OrderCancelRefundMethodInput, $staffNote: String) {
