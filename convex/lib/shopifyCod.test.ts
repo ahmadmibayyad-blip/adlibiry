@@ -46,13 +46,13 @@ describe("waNumberFrom", () => {
 });
 
 describe("pickPhone", () => {
-  it("prefers shipping, then billing, then the customer", () => {
+  it("prefers shipping, then billing, then the order's own phone", () => {
     expect(pickPhone({ shippingAddress: { phone: "0555123456", countryCodeV2: "SA" }, billingAddress: { phone: "+4571653898" } })).toBe("966555123456");
     expect(pickPhone({ shippingAddress: { phone: null, countryCodeV2: "SA" }, billingAddress: { phone: "+4571653898", countryCodeV2: "DK" } })).toBe("4571653898");
-    expect(pickPhone({ shippingAddress: { countryCodeV2: "SA" }, customer: { defaultPhoneNumber: { phoneNumber: "0555123456" } } })).toBe("966555123456");
+    expect(pickPhone({ shippingAddress: { countryCodeV2: "SA" }, phone: "0555123456" })).toBe("966555123456");
   });
   it("is null when nothing is usable", () => {
-    expect(pickPhone({ shippingAddress: null, billingAddress: null, customer: null })).toBeNull();
+    expect(pickPhone({ shippingAddress: null, billingAddress: null, phone: null })).toBeNull();
   });
 });
 

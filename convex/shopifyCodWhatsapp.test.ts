@@ -34,7 +34,7 @@ beforeEach(() => {
   holdNodes = [];
   orderAnswer = {
     name: "#1001", totalPriceSet: { shopMoney: { amount: "199.0", currencyCode: "SAR" } },
-    shippingAddress: { firstName: "Sara", phone: "0555123456", countryCodeV2: "SA" }, billingAddress: null, customer: null,
+    shippingAddress: { firstName: "Sara", phone: "0555123456", countryCodeV2: "SA" }, billingAddress: null,
   };
   vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
     const body = typeof init.body === "string" ? JSON.parse(init.body) : undefined;
@@ -99,6 +99,15 @@ describe("Istilam Shopify WhatsApp", () => {
     expect(s[0].scheduledTime - Date.now()).toBe(REMINDER_DELAYS_MS[0]);
     const [shop] = await t.run((ctx) => ctx.db.query("shopifyCodShops").collect());
     expect(shop.name).toBe("Nordform");
+  });
+
+  it("reads only order fields (Istilam has no customers scope) and falls back to the order's phone", async () => {
+    orderAnswer = { ...orderAnswer, shippingAddress: { firstName: "Sara", phone: null, countryCodeV2: "DK" }, phone: "+4571653898" };
+    const t = await setup();
+    await t.action(internal.shopifyCodWhatsapp.sendConfirm, { shopKey: SHOP_KEY, orderId: ORDER, reminder: 0 });
+    const q = calls.find((c) => c.op === "IstilamOrderForMessage")!.body.query as string;
+    expect(q).not.toMatch(/\bcustomer\b/);
+    expect(waCalls()[0].body.to).toBe("4571653898");
   });
 
   it("cancels for lack of an answer after the last reminder", async () => {
