@@ -5,7 +5,7 @@
 # Fill in client_id from the app in the Partner/Dev Dashboard, and put the same client ID and
 # secret in Convex prod (SHOPIFY_ISTILAM_CLIENT_ID / SHOPIFY_ISTILAM_CLIENT_SECRET).
 
-client_id = "REPLACE_WITH_CLIENT_ID"
+client_id = "4b3a77f0787c36ef11a711aa57ea04f3"
 name = "Istilam"
 application_url = "https://careful-raccoon-363.convex.site/shopify-istilam/app"
 embedded = true
