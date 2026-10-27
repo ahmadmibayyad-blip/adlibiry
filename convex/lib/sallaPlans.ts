@@ -2,12 +2,9 @@
 // app.subscription.* / app.trial.* webhooks) and how many COD orders a month it may send
 // for confirmation. Salla bills the merchant; we only read the events and gate.
 
-import { TIER_LIMITS, type Tier } from "./codPlans";
+import { GRACE_MS, TIER_LIMITS, type Tier } from "./codPlans";
 
-export { TIER_LIMITS, usageMonth, type Tier } from "./codPlans";
-
-/** After end_date we keep sending this long, so a renewal that lands a little late doesn't stop orders. */
-export const GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+export { GRACE_MS, TIER_LIMITS, usageMonth, type Tier } from "./codPlans";
 
 export type PlanEvent = {
   kind: "start" | "end";
