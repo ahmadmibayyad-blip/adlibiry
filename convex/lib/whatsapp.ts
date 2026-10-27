@@ -2,7 +2,8 @@
 // The confirm message is an approved utility template with quick-reply buttons
 // (confirm, cancel and, in templates listed in ADDRESS_BUTTON_TEMPLATES, edit address);
 // each button's payload names the store, the order and the answer, so a tap
-// comes back on the webhook as `cod:<merchantId>:<orderId>:<c|x|a>`.
+// comes back on the webhook as `cod:<merchantId>:<orderId>:<c|x|a>` (Salla) or
+// `shp:<shopKey>:<orderId>:<c|x|a>` (Shopify, convex/shopifyCodWhatsapp.ts).
 import { safeEqual } from "./shopifyOAuth";
 import { signBody } from "./sallaWebhook";
 
@@ -60,6 +61,23 @@ export function parsePayload(payload: string): { merchantId: number; orderId: st
   return { merchantId: Number(m[1]), orderId: m[2], answer: CODE_TAP[m[3]] };
 }
 
+export const shopifyButtonPayload = (shopKey: string, orderId: string, tap: Tap) => `shp:${shopKey}:${orderId}:${TAP_CODE[tap]}`;
+
+export type AnyPayload =
+  | { platform: "salla"; merchantId: number; orderId: string; answer: Tap }
+  | { platform: "shopify"; shopKey: string; orderId: string; answer: Tap };
+
+/** A tap's payload from either platform; null for anything else. */
+export function parseAnyPayload(payload: string): AnyPayload | null {
+  const salla = parsePayload(payload);
+  if (salla) return { platform: "salla", ...salla };
+  const m = /^shp:([a-z0-9]{6,16}):(\d+):([cxa])$/.exec(payload.trim());
+  return m ? { platform: "shopify", shopKey: m[1], orderId: m[2], answer: CODE_TAP[m[3]] } : null;
+}
+
+/** Builds a button's payload for one order. */
+export type PayloadFor = (tap: Tap) => string;
+
 export type ConfirmParams = { customer: string; store: string; reference: string; total: string };
 
 /** POST /{phone-number-id}/messages body for the confirm template (buttons 0 = confirm, 1 = cancel, 2 = edit address). */
@@ -67,10 +85,17 @@ export function confirmMessage(
   to: string, p: ConfirmParams, merchantId: number, orderId: string,
   template: { name: string; language: string } = CONFIRM_TEMPLATE,
 ): Record<string, unknown> {
+  return confirmMessageWith(to, p, (t) => buttonPayload(merchantId, orderId, t), template);
+}
+
+export function confirmMessageWith(
+  to: string, p: ConfirmParams, payloadFor: PayloadFor,
+  template: { name: string; language: string } = CONFIRM_TEMPLATE,
+): Record<string, unknown> {
   const text = (s: string) => ({ type: "text", text: s.slice(0, 60) || "-" });
   const button = (index: number, answer: Tap) => ({
     type: "button", sub_type: "quick_reply", index: String(index),
-    parameters: [{ type: "payload", payload: buttonPayload(merchantId, orderId, answer) }],
+    parameters: [{ type: "payload", payload: payloadFor(answer) }],
   });
   return {
     messaging_product: "whatsapp",
@@ -98,15 +123,18 @@ export const locationRequest = (to: string, body: string) => ({
 });
 
 /** Confirm / cancel as plain reply buttons (service window only); taps come back as `interactive` with the same payloads. */
-export const answerButtons = (to: string, body: string, merchantId: number, orderId: string) => ({
+export const answerButtons = (to: string, body: string, merchantId: number, orderId: string) =>
+  answerButtonsWith(to, body, (t) => buttonPayload(merchantId, orderId, t));
+
+export const answerButtonsWith = (to: string, body: string, payloadFor: PayloadFor) => ({
   messaging_product: "whatsapp", to, type: "interactive",
   interactive: {
     type: "button",
     body: { text: body },
     action: {
       buttons: [
-        { type: "reply", reply: { id: buttonPayload(merchantId, orderId, "confirmed"), title: "تأكيد الطلب" } },
-        { type: "reply", reply: { id: buttonPayload(merchantId, orderId, "cancelled"), title: "إلغاء الطلب" } },
+        { type: "reply", reply: { id: payloadFor("confirmed"), title: "تأكيد الطلب" } },
+        { type: "reply", reply: { id: payloadFor("cancelled"), title: "إلغاء الطلب" } },
       ],
     },
   },

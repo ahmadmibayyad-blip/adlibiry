@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { addressNote, buttonPayload, confirmMessage, parsePayload, parseWaWebhook, phoneHash, verifyMetaSignature, waNumber } from "./whatsapp";
+import {
+  addressNote, answerButtonsWith, buttonPayload, confirmMessage, confirmMessageWith, parseAnyPayload, parsePayload, parseWaWebhook, phoneHash,
+  shopifyButtonPayload, verifyMetaSignature, waNumber,
+} from "./whatsapp";
 import { signBody } from "./sallaWebhook";
 
 describe("waNumber", () => {
@@ -91,5 +94,28 @@ describe("edit address pieces", () => {
   it("writes the history note", () => {
     expect(addressNote({ text: "  حي النرجس " })).toBe("عنوان جديد من العميل عبر واتساب: حي النرجس");
     expect(addressNote({ lat: 1.5, lng: 2 })).toBe("موقع العميل عبر واتساب: https://maps.google.com/?q=1.5,2");
+  });
+});
+
+describe("Shopify payloads", () => {
+  it("round-trips Shopify payloads and keeps Salla ones", () => {
+    expect(shopifyButtonPayload("k3x9a0b2cq", "5512345678901", "address")).toBe("shp:k3x9a0b2cq:5512345678901:a");
+    expect(parseAnyPayload("shp:k3x9a0b2cq:5512345678901:c")).toEqual({ platform: "shopify", shopKey: "k3x9a0b2cq", orderId: "5512345678901", answer: "confirmed" });
+    expect(parseAnyPayload("cod:212746149:445306537:x")).toEqual({ platform: "salla", merchantId: 212746149, orderId: "445306537", answer: "cancelled" });
+    expect(parseAnyPayload("shp::1:c")).toBeNull();
+    expect(parseAnyPayload("shp:k3x:1:z")).toBeNull();
+    expect(parseAnyPayload("shp:k3x9a0b2cq:abc:c")).toBeNull();
+  });
+  it("builds the template and reply buttons with Shopify payloads", () => {
+    const m = confirmMessageWith("966555123456", { customer: "Sara", store: "Nordform", reference: "#1001", total: "199.00 SAR" },
+      (t) => shopifyButtonPayload("k3x9a0b2cq", "1", t), { name: "cod_order_confirm_v3", language: "ar" });
+    expect(JSON.stringify(m)).toContain("shp:k3x9a0b2cq:1:a");
+    expect(JSON.stringify(m)).toContain("shp:k3x9a0b2cq:1:c");
+    const b = answerButtonsWith("966555123456", "ok?", (t) => shopifyButtonPayload("k3x9a0b2cq", "1", t));
+    expect(JSON.stringify(b)).toContain("shp:k3x9a0b2cq:1:x");
+  });
+  it("keeps the Salla template unchanged", () => {
+    const m = confirmMessage("966555123456", { customer: "a", store: "b", reference: "c", total: "d" }, 7, "9");
+    expect(JSON.stringify(m)).toContain(buttonPayload(7, "9", "confirmed"));
   });
 });

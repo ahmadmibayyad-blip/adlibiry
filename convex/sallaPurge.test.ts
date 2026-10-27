@@ -34,5 +34,27 @@ it("removes phone hashes after 90 days and old rows after a year", async () => {
   expect((await t.run((ctx) => ctx.db.query("sallaSessions").collect())).map((s) => s.sid)).toEqual(["s1"]);
 
   // A second run has nothing left to do.
-  expect(await t.mutation(internal.sallaPurge.run, {})).toEqual({ scrubbed: 0, deleted: 0, refusers: 0, keys: 0, sessions: 0 });
+  expect(await t.mutation(internal.sallaPurge.run, {})).toEqual({
+    scrubbed: 0, deleted: 0, refusers: 0, keys: 0, sessions: 0, shopifyScrubbed: 0, shopifyDeleted: 0, shopifyRefusers: 0,
+  });
+});
+
+it("does the same for Istilam's Shopify orders", async () => {
+  const t = convexTest(schema, modules);
+  const now = Date.now();
+  await t.run(async (ctx) => {
+    const order = { shopKey: "k3x9a0b2cq", status: "confirmed", phoneHash: "h", waMessageId: "wamid.1", lastError: "x" };
+    await ctx.db.insert("shopifyCodOrders", { ...order, orderId: "1", createdAt: now - 10 * DAY });
+    await ctx.db.insert("shopifyCodOrders", { ...order, orderId: "2", createdAt: now - 91 * DAY });
+    await ctx.db.insert("shopifyCodOrders", { ...order, orderId: "3", createdAt: now - 366 * DAY });
+    await ctx.db.insert("shopifyCodRefusers", { shopKey: "k3x9a0b2cq", phoneHash: "a", refusals: 1, lastAt: now - 10 * DAY });
+    await ctx.db.insert("shopifyCodRefusers", { shopKey: "k3x9a0b2cq", phoneHash: "b", refusals: 1, lastAt: now - 400 * DAY });
+  });
+  expect(await t.mutation(internal.sallaPurge.run, {})).toMatchObject({ shopifyScrubbed: 2, shopifyDeleted: 1, shopifyRefusers: 1 });
+  const orders = await t.run((ctx) => ctx.db.query("shopifyCodOrders").collect());
+  expect(orders.map((o) => [o.orderId, o.phoneHash ?? null, o.waMessageId ?? null, o.lastError ?? null])).toEqual([
+    ["1", "h", "wamid.1", "x"],
+    ["2", null, null, null],
+  ]);
+  expect((await t.run((ctx) => ctx.db.query("shopifyCodRefusers").collect())).map((r) => r.phoneHash)).toEqual(["a"]);
 });

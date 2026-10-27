@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CSV_HEADER, csvField, ordersCsv, riyadhTime, statusLabel } from "./sallaCsv";
+import { CSV_HEADER, SHOPIFY_CSV_HEADER, csvField, ordersCsv, riyadhTime, statusLabel } from "./sallaCsv";
 
 describe("ordersCsv", () => {
   const at = Date.parse("2026-10-24T04:35:00Z");
@@ -29,4 +29,8 @@ describe("ordersCsv", () => {
     expect(statusLabel({ orderId: "1", status: "cancelled", createdAt: 0, blocked: true })).toBe("ملغي (رفض سابق)");
     expect(riyadhTime(undefined)).toBe("");
   });
+});
+
+it("names Shopify's order id column for Istilam on Shopify", () => {
+  expect(ordersCsv([], false, SHOPIFY_CSV_HEADER).split("\r\n")[0]).toContain("معرف الطلب في Shopify");
 });

@@ -1,0 +1,34 @@
+# Istilam (استلام): COD orders confirmed on WhatsApp. A separate public Shopify app, not AdSpy Pro's
+# (that one is shopify-app/). Backend: Convex careful-raccoon-363 (convex/shopifyCod*.ts).
+# Deploy this config with Shopify CLI:
+#   cd shopify-istilam && npx @shopify/cli@latest app deploy
+# Fill in client_id from the app in the Partner/Dev Dashboard, and put the same client ID and
+# secret in Convex prod (SHOPIFY_ISTILAM_CLIENT_ID / SHOPIFY_ISTILAM_CLIENT_SECRET).
+
+client_id = "REPLACE_WITH_CLIENT_ID"
+name = "Istilam"
+application_url = "https://careful-raccoon-363.convex.site/shopify-istilam/app"
+embedded = true
+
+[access_scopes]
+# Hold, release and cancel COD orders and add the customer's new address to the note.
+scopes = "read_orders,write_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders"
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = ["https://careful-raccoon-363.convex.site/shopify-istilam/app"]
+
+[webhooks]
+api_version = "2025-07"
+
+  [[webhooks.subscriptions]]
+  topics = ["orders/create", "orders/cancelled", "refunds/create", "app/uninstalled", "app_subscriptions/update"]
+  uri = "https://careful-raccoon-363.convex.site/shopify-istilam/webhook"
+
+  # Shopify's mandatory privacy webhooks: we keep no customer data beyond a keyed phone hash.
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "https://careful-raccoon-363.convex.site/shopify-istilam/webhook"
+
+[pos]
+embedded = false
