@@ -169,6 +169,7 @@ import type * as shopifyApp from "../shopifyApp.js";
 import type * as shopifyCodApp from "../shopifyCodApp.js";
 import type * as shopifyCodAuth from "../shopifyCodAuth.js";
 import type * as shopifyCodOrders from "../shopifyCodOrders.js";
+import type * as shopifyCodWhatsapp from "../shopifyCodWhatsapp.js";
 import type * as shopifyImport from "../shopifyImport.js";
 import type * as sourceConflicts from "../sourceConflicts.js";
 import type * as sources_links from "../sources/links.js";
@@ -363,6 +364,7 @@ declare const fullApi: ApiFromModules<{
   shopifyCodApp: typeof shopifyCodApp;
   shopifyCodAuth: typeof shopifyCodAuth;
   shopifyCodOrders: typeof shopifyCodOrders;
+  shopifyCodWhatsapp: typeof shopifyCodWhatsapp;
   shopifyImport: typeof shopifyImport;
   sourceConflicts: typeof sourceConflicts;
   "sources/links": typeof sources_links;
