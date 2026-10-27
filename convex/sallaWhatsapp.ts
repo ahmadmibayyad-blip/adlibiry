@@ -1,11 +1,12 @@
 import { v } from "convex/values";
-import { httpAction, internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { httpAction, internalAction, internalMutation, internalQuery, type ActionCtx, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { accessToken, errorText, sallaFetch } from "./sallaOrders";
 import {
   ADDRESS_WINDOW_MS, AUTO_CANCEL_AFTER_MS, CONFIRM_TEMPLATE, GRAPH_API, REMINDER_DELAYS_MS, REPLIES,
-  addressNote, answerButtons, confirmMessage, locationRequest, parsePayload, parseWaWebhook, phoneHash, textMessage,
-  verifyMetaSignature, waNumber,
+  addressNote, answerButtons, answerButtonsWith, confirmMessage, locationRequest, parseAnyPayload, parseWaWebhook, phoneHash,
+  shopifyButtonPayload, textMessage,
+  verifyMetaSignature, waNumber, type Tap,
 } from "./lib/whatsapp";
 
 // The WhatsApp half of the COD flow: after hold() (convex/sallaOrders.ts) the customer
@@ -18,17 +19,19 @@ import {
 // (signs the webhook), WHATSAPP_VERIFY_TOKEN (webhook setup), optional
 // WHATSAPP_TEMPLATE / WHATSAPP_TEMPLATE_LANG (default cod_order_confirm / ar).
 // The customer's number is read from Salla when sending and never stored.
+// The webhook below is shared with Istilam for Shopify: `shp:` payloads, failures and addresses
+// of Shopify orders go to convex/shopifyCodWhatsapp.ts.
 
 type Ans = "confirmed" | "cancelled";
 const answer = v.union(v.literal("confirmed"), v.literal("cancelled"));
 
-function sender() {
+export function sender() {
   const token = process.env.WHATSAPP_TOKEN?.trim();
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
   return token && phoneNumberId ? { token, phoneNumberId } : null;
 }
 
-async function waSend(s: { token: string; phoneNumberId: string }, body: unknown): Promise<string> {
+export async function waSend(s: { token: string; phoneNumberId: string }, body: unknown): Promise<string> {
   const res = await fetch(`${GRAPH_API}/${s.phoneNumberId}/messages`, {
     method: "POST",
     headers: { Authorization: `Bearer ${s.token}`, "Content-Type": "application/json" },
@@ -246,6 +249,20 @@ export const verify = httpAction(async (_ctx, request) => {
   return new Response("Forbidden", { status: 403 });
 });
 
+type Sender = ReturnType<typeof sender>;
+
+/** A button on a Shopify order's message (Istilam for Shopify), same replies as Salla's. */
+async function shopifyTap(ctx: ActionCtx, s: Sender, from: string, fromHash: string, tap: { shopKey: string; orderId: string; answer: Tap }) {
+  const { shopKey, orderId } = tap;
+  if (tap.answer === "address") {
+    const r = await ctx.runMutation(internal.shopifyCodWhatsapp.askAddress, { shopKey, orderId, fromHash });
+    if (r !== "ignored" && s) await waSend(s, r === "asked" ? locationRequest(from, REPLIES.askAddress) : textMessage(from, REPLIES.already)).catch(() => {});
+    return;
+  }
+  const result: "taken" | "already" | "ignored" = await ctx.runMutation(internal.shopifyCodWhatsapp.claimAnswer, { shopKey, orderId, answer: tap.answer, fromHash });
+  if (result !== "ignored" && s) await waSend(s, textMessage(from, result === "taken" ? REPLIES[tap.answer] : REPLIES.already)).catch(() => {});
+}
+
 export const webhook = httpAction(async (ctx, request) => {
   const appSecret = process.env.WHATSAPP_APP_SECRET?.trim();
   const raw = await request.text();
@@ -263,6 +280,7 @@ export const webhook = httpAction(async (ctx, request) => {
   for (const evt of parseWaWebhook(body)) {
     if (evt.kind === "failed") {
       await ctx.runMutation(internal.sallaWhatsapp.markFailed, { waMessageId: evt.messageId, error: evt.error });
+      await ctx.runMutation(internal.shopifyCodWhatsapp.markFailed, { waMessageId: evt.messageId, error: evt.error });
       continue;
     }
     if (!key) continue;
@@ -273,9 +291,18 @@ export const webhook = httpAction(async (ctx, request) => {
 
     if (evt.kind === "text" || evt.kind === "location") {
       // Only a number that tapped "تعديل العنوان" is answered; other messages are left for the store.
-      const hit = await ctx.runMutation(internal.sallaWhatsapp.takeAddress, { fromHash });
-      if (!hit) continue;
       const note = addressNote(evt.kind === "text" ? { text: evt.text } : evt);
+      const hit = await ctx.runMutation(internal.sallaWhatsapp.takeAddress, { fromHash });
+      if (!hit) {
+        const shp = await ctx.runMutation(internal.shopifyCodWhatsapp.takeAddress, { fromHash });
+        if (!shp) continue;
+        await ctx.scheduler.runAfter(0, internal.shopifyCodOrders.appendNote, { shopKey: shp.shopKey, orderId: shp.orderId, line: note });
+        if (shp.first && s) {
+          const payloadFor = (t: Tap) => shopifyButtonPayload(shp.shopKey, shp.orderId, t);
+          await waSend(s, answerButtonsWith(evt.from, REPLIES.addressSaved, payloadFor)).catch(() => {});
+        }
+        continue;
+      }
       try {
         const token = await accessToken(ctx, hit.merchantId);
         await sallaFetch(token, `/orders/${hit.orderId}/histories`, { method: "POST", body: { note } });
@@ -286,8 +313,13 @@ export const webhook = httpAction(async (ctx, request) => {
       continue;
     }
 
-    const tap = parsePayload(evt.payload);
-    if (!tap) continue;
+    const any = parseAnyPayload(evt.payload);
+    if (!any) continue;
+    if (any.platform === "shopify") {
+      await shopifyTap(ctx, s, evt.from, fromHash, any);
+      continue;
+    }
+    const tap = any;
     // The tap opened the 24 h service window, so free-form replies are allowed.
     if (tap.answer === "address") {
       const r = await ctx.runMutation(internal.sallaWhatsapp.askAddress, { merchantId: tap.merchantId, orderId: tap.orderId, fromHash });
