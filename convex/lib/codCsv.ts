@@ -24,6 +24,9 @@ export const CSV_HEADER = [
   "التذكيرات", "عنوان جديد", "رفض سابق (مرات)", "رُفض عند التسليم", "تاريخ القرار", "خطأ",
 ];
 
+/** The same columns for Istilam on Shopify: the second one is Shopify's order id. */
+export const SHOPIFY_CSV_HEADER = CSV_HEADER.map((h, i) => (i === 1 ? "معرف الطلب في Shopify" : h));
+
 /** Arabic status as the dashboard shows it. */
 export function statusLabel(o: CsvOrder): string {
   if (o.refusedAt) return "رُفض عند التسليم";
@@ -48,9 +51,9 @@ export function csvField(v: string | number | undefined | null): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function ordersCsv(orders: CsvOrder[], bom = false): string {
+export function ordersCsv(orders: CsvOrder[], bom = false, header: string[] = CSV_HEADER): string {
   const yes = (b: unknown) => (b ? "نعم" : "");
-  const lines = [CSV_HEADER, ...orders.map((o) => [
+  const lines = [header, ...orders.map((o) => [
     o.referenceId ?? o.orderId,
     o.orderId,
     riyadhTime(o.createdAt),
