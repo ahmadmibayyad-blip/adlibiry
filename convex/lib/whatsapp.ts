@@ -143,7 +143,8 @@ export const answerButtonsWith = (to: string, body: string, payloadFor: PayloadF
 /** The order-history note for a new address: the typed text, or a map link for a pin. */
 export function addressNote(a: { text: string } | { lat: number; lng: number; name?: string; address?: string }): string {
   if ("text" in a) return `عنوان جديد من العميل عبر واتساب: ${a.text.trim().slice(0, 500)}`;
-  const label = [a.name, a.address].filter((x) => x?.trim()).join("، ").slice(0, 200);
+  const parts = [a.name?.trim(), a.address?.trim()].filter((x): x is string => !!x);
+  const label = [...new Set(parts)].join("، ").slice(0, 200);
   return `موقع العميل عبر واتساب: https://maps.google.com/?q=${a.lat},${a.lng}${label ? ` (${label})` : ""}`;
 }
 

@@ -95,6 +95,10 @@ describe("edit address pieces", () => {
     expect(addressNote({ text: "  حي النرجس " })).toBe("عنوان جديد من العميل عبر واتساب: حي النرجس");
     expect(addressNote({ lat: 1.5, lng: 2 })).toBe("موقع العميل عبر واتساب: https://maps.google.com/?q=1.5,2");
   });
+  it("names a pinned place once when Meta sends the same text as name and address", () => {
+    expect(addressNote({ lat: 1, lng: 2, name: "Fjældevænget 68, Aarhus", address: " Fjældevænget 68, Aarhus " }))
+      .toBe("موقع العميل عبر واتساب: https://maps.google.com/?q=1,2 (Fjældevænget 68, Aarhus)");
+  });
 });
 
 describe("Shopify payloads", () => {
