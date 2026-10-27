@@ -2,10 +2,9 @@
 // app.subscription.* / app.trial.* webhooks) and how many COD orders a month it may send
 // for confirmation. Salla bills the merchant; we only read the events and gate.
 
-export type Tier = "confirm" | "pro" | "bundle" | "trial";
+import { TIER_LIMITS, type Tier } from "./codPlans";
 
-/** Confirmations a month per tier; null = no limit. The trial gets the Pro allowance. */
-export const TIER_LIMITS: Record<Tier, number | null> = { confirm: 500, pro: 3000, bundle: null, trial: 3000 };
+export { TIER_LIMITS, usageMonth, type Tier } from "./codPlans";
 
 /** After end_date we keep sending this long, so a renewal that lands a little late doesn't stop orders. */
 export const GRACE_MS = 3 * 24 * 60 * 60 * 1000;
@@ -74,9 +73,4 @@ export function planGate(plan: StoredPlan | null, now: number): { limited: boole
   if (!plan || plan.storeType !== "live") return { limited: false, active: true, limit: null };
   const active = plan.status !== "inactive" && (plan.endsAt == null || now <= plan.endsAt + GRACE_MS);
   return { limited: true, active, limit: TIER_LIMITS[plan.tier] };
-}
-
-/** Usage is counted per calendar month in Riyadh time: "2026-10". */
-export function usageMonth(ms: number): string {
-  return new Date(ms + 3 * 60 * 60 * 1000).toISOString().slice(0, 7);
 }
