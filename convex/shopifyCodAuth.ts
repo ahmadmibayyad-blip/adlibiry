@@ -181,6 +181,8 @@ export async function gql<T = Record<string, unknown>>(ctx: ActionCtx, shopKey: 
   } catch (e) {
     if (!(e instanceof ShopifyError)) throw e;
     const msg = e.code === "RECONNECT" ? "access refused, open Istilam in Shopify admin" : e.message.replace(/^Shopify: /, "");
-    throw new Error(`Shopify: ${msg}`.slice(0, 300), { cause: e });
+    const err = new Error(`Shopify: ${msg}`.slice(0, 300));
+    (err as { cause?: unknown }).cause = e;
+    throw err;
   }
 }

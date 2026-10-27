@@ -10,6 +10,7 @@ import {
   dataRoute as sallaData, feed as sallaFeed, feedRoute as sallaFeedKey, page as sallaPage, session as sallaSession, settingsRoute as sallaSettings,
 } from "./sallaEmbedded";
 import { verify as whatsappVerify, webhook as whatsappWebhook } from "./sallaWhatsapp";
+import { webhook as istilamShopifyWebhook } from "./shopifyCodApp";
 import { callback as shopifyCallback, webhook as shopifyWebhook } from "./shopifyApp";
 import { serveAdImage, serveTheme } from "./storeThemeHttp";
 import { serveVideo } from "./videoDownload";
@@ -126,6 +127,8 @@ http.route({ pathPrefix: "/salla/feed/", method: "GET", handler: sallaFeed });
 // Its WhatsApp confirm buttons (Meta Cloud API webhook, see convex/sallaWhatsapp.ts).
 http.route({ path: "/whatsapp/webhook", method: "GET", handler: whatsappVerify });
 http.route({ path: "/whatsapp/webhook", method: "POST", handler: whatsappWebhook });
+// Istilam for Shopify (a separate Shopify app, see convex/shopifyCodApp.ts).
+http.route({ path: "/shopify-istilam/webhook", method: "POST", handler: istilamShopifyWebhook });
 // Launch → Full store: the storefront theme zip Shopify installs (convex/storeThemeHttp.ts).
 http.route({ path: "/shopify/theme.zip", method: "GET", handler: serveTheme });
 http.route({ path: "/launch/ad-image", method: "GET", handler: serveAdImage });
