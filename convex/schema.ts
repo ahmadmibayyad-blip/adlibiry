@@ -1064,6 +1064,85 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_received", ["receivedAt"]),
 
+  // Istilam for Shopify (convex/shopifyCodApp.ts): a separate public Shopify app, not AdSpy Pro's.
+  // One row per shop; tokens are AES-GCM "enc:v1:" (expiring offline token + its refresh token).
+  shopifyCodShops: defineTable({
+    shop: v.string(),                         // "<handle>.myshopify.com"
+    shopKey: v.string(),                      // short random id used in WhatsApp button payloads
+    name: v.optional(v.string()),             // shown in the WhatsApp message
+    tokenEnc: v.optional(v.string()),
+    refreshTokenEnc: v.optional(v.string()),
+    tokenExpiresAt: v.optional(v.number()),   // ms
+    refreshLockUntil: v.optional(v.number()), // a refresh is running until then (refresh tokens rotate)
+    scopes: v.optional(v.string()),
+    enabled: v.boolean(),                     // merchant turned confirmations on/off
+    blockRefusers: v.boolean(),               // cancel COD orders from numbers that refused a confirmed order before
+    parcelCost: v.optional(v.number()),       // what a refused parcel costs them, for "saved"
+    feedKey: v.optional(v.string()),          // secret of the shop's CSV link for Google Sheets
+    plan: v.optional(v.object({               // from the Billing API (currentAppInstallation.activeSubscriptions)
+      tier: v.string(),                       // "confirm" | "pro" | "bundle"
+      status: v.string(),                     // Shopify's AppSubscriptionStatus, e.g. "ACTIVE"
+      subscriptionId: v.optional(v.string()),
+      name: v.optional(v.string()),
+      currentPeriodEnd: v.optional(v.number()),
+      trialEndsAt: v.optional(v.number()),
+      test: v.boolean(),
+      checkedAt: v.optional(v.number()),
+    })),
+    installedAt: v.number(),
+    updatedAt: v.number(),
+    uninstalledAt: v.optional(v.number()),
+  })
+    .index("by_shop", ["shop"])
+    .index("by_key", ["shopKey"])
+    .index("by_feed_key", ["feedKey"]),
+  // Its COD orders awaiting WhatsApp confirmation, like sallaCodOrders. Ids and amount only, no customer PII.
+  shopifyCodOrders: defineTable({
+    shopKey: v.string(),
+    orderId: v.string(),                    // Shopify's numeric order id
+    orderName: v.optional(v.string()),      // "#1001"
+    total: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    status: v.string(),                     // "pending" | "confirmed" | "cancelled"
+    createdAt: v.number(),
+    heldAt: v.optional(v.number()),         // fulfillment orders put on hold
+    fulfillmentOrderIds: v.optional(v.array(v.string())),
+    releasedOutside: v.optional(v.boolean()), // the merchant released the hold in Shopify before the answer
+    decidedAt: v.optional(v.number()),      // released/cancelled in Shopify
+    lastError: v.optional(v.string()),
+    phoneHash: v.optional(v.string()),
+    waMessageId: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+    reminders: v.optional(v.number()),
+    answeredAt: v.optional(v.number()),
+    refusedAt: v.optional(v.number()),
+    priorRefusals: v.optional(v.number()),
+    blocked: v.optional(v.boolean()),
+    addressAskedAt: v.optional(v.number()),
+    addressAt: v.optional(v.number()),
+    scrubbedAt: v.optional(v.number()),
+  })
+    .index("by_shop_order", ["shopKey", "orderId"])
+    .index("by_shop_created", ["shopKey", "createdAt"])
+    .index("by_wa_message", ["waMessageId"])
+    .index("by_phone_address", ["phoneHash", "addressAskedAt"])
+    .index("by_created", ["createdAt"])
+    .index("by_scrubbed_created", ["scrubbedAt", "createdAt"]),
+  shopifyCodRefusers: defineTable({
+    shopKey: v.string(),
+    phoneHash: v.string(),
+    refusals: v.number(),
+    lastAt: v.number(),
+  })
+    .index("by_shop_phone", ["shopKey", "phoneHash"])
+    .index("by_last", ["lastAt"]),
+  shopifyCodUsage: defineTable({
+    shopKey: v.string(),
+    month: v.string(),
+    sent: v.number(),
+    skipped: v.number(),
+  }).index("by_shop_month", ["shopKey", "month"]),
+
   shopifyOAuthStates: defineTable({
     state: v.string(),
     userId: v.id("users"),
