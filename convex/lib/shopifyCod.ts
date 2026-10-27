@@ -81,6 +81,9 @@ export const SHOPIFY_PLANS: readonly ShopifyPlan[] = [
 ];
 export const TRIAL_DAYS = 7;
 
+/** Istilam's Admin API and webhook version (shopify-istilam/shopify.app.toml); Shopify supports each one for 12 months. */
+export const ISTILAM_API_VERSION = "2026-10";
+
 export function tierForPlanName(name: string): Exclude<Tier, "trial"> | null {
   return SHOPIFY_PLANS.find((p) => p.name === name)?.tier ?? null;
 }

@@ -19,7 +19,7 @@ use_legacy_install_flow = false
 redirect_urls = ["https://careful-raccoon-363.convex.site/shopify-istilam/app"]
 
 [webhooks]
-api_version = "2025-07"
+api_version = "2026-10"
 
   [[webhooks.subscriptions]]
   topics = ["orders/create", "orders/cancelled", "refunds/create", "app/uninstalled", "app_subscriptions/update"]

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { codOrderFromWebhook, isCodOrder, pickPhone, SHOPIFY_PLANS, shopGate, tierForPlanName, waNumberFrom } from "./shopifyCod";
+import { codOrderFromWebhook, ISTILAM_API_VERSION, isCodOrder, pickPhone, SHOPIFY_PLANS, shopGate, tierForPlanName, waNumberFrom } from "./shopifyCod";
+import appToml from "../../shopify-istilam/shopify.app.toml?raw";
 import { GRACE_MS } from "./codPlans";
 
 describe("isCodOrder", () => {
@@ -78,5 +79,13 @@ describe("plans", () => {
     expect(shopGate({ tier: "pro", status: "CANCELLED" }, now).active).toBe(false);
     expect(shopGate({ tier: "pro", status: "ACTIVE", currentPeriodEnd: now - GRACE_MS - 1 }, now).active).toBe(false);
     expect(shopGate({ tier: "pro", status: "ACTIVE", currentPeriodEnd: now - 1000 }, now).active).toBe(true);
+  });
+});
+
+describe("API version", () => {
+  it("is one Shopify still supports, and the app config's webhooks use the same one", () => {
+    // Shopify supports each quarterly version for 12 months; App Store review rejects older ones.
+    expect(ISTILAM_API_VERSION >= "2026-01").toBe(true);
+    expect(appToml).toContain(`api_version = "${ISTILAM_API_VERSION}"`);
   });
 });
