@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import schema from "./schema";
 import { internal } from "./_generated/api";
 import { encryptToken } from "./lib/shopifyOAuth";
+import { ISTILAM_API_VERSION } from "./lib/shopifyCod";
 import { signBody } from "./lib/sallaWebhook";
 import { AUTO_CANCEL_AFTER_MS, REMINDER_DELAYS_MS, REPLIES, addressNote, phoneHash } from "./lib/whatsapp";
 
@@ -105,7 +106,9 @@ describe("Istilam Shopify WhatsApp", () => {
     orderAnswer = { ...orderAnswer, shippingAddress: { firstName: "Sara", phone: null, countryCodeV2: "DK" }, phone: "+4571653898" };
     const t = await setup();
     await t.action(internal.shopifyCodWhatsapp.sendConfirm, { shopKey: SHOP_KEY, orderId: ORDER, reminder: 0 });
-    const q = calls.find((c) => c.op === "IstilamOrderForMessage")!.body.query as string;
+    const call = calls.find((c) => c.op === "IstilamOrderForMessage")!;
+    const q = call.body.query as string;
+    expect(call.url).toBe(`https://${SHOP}/admin/api/${ISTILAM_API_VERSION}/graphql.json`);
     expect(q).not.toMatch(/\bcustomer\b/);
     expect(waCalls()[0].body.to).toBe("4571653898");
   });

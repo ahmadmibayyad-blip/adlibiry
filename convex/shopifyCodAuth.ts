@@ -3,6 +3,7 @@ import { internalAction, internalMutation, internalQuery, type ActionCtx } from 
 import { internal } from "./_generated/api";
 import { decryptToken, encryptToken } from "./lib/shopifyOAuth";
 import { orderGql, ShopifyError } from "./lib/shopifyOrderApi";
+import { ISTILAM_API_VERSION } from "./lib/shopifyCod";
 
 // Istilam for Shopify: the shop's access token. Managed installation (scopes in
 // shopify-istilam/shopify.app.toml), so there's no OAuth redirect: the first time the page opens
@@ -177,7 +178,7 @@ export const currentToken = internalAction({
 export async function gql<T = Record<string, unknown>>(ctx: ActionCtx, shopKey: string, query: string, variables?: Record<string, unknown>): Promise<T> {
   const { shop, token } = await shopToken(ctx, shopKey);
   try {
-    return await orderGql<T>(shop, token, query, variables);
+    return await orderGql<T>(shop, token, query, variables, ISTILAM_API_VERSION);
   } catch (e) {
     if (!(e instanceof ShopifyError)) throw e;
     const msg = e.code === "RECONNECT" ? "access refused, open Istilam in Shopify admin" : e.message.replace(/^Shopify: /, "");

@@ -13,9 +13,11 @@ export class ShopifyError extends Error {
   }
 }
 
-export async function orderGql<T = Record<string, unknown>>(shop: string, token: string, query: string, variables?: Record<string, unknown>): Promise<T> {
+export async function orderGql<T = Record<string, unknown>>(
+  shop: string, token: string, query: string, variables?: Record<string, unknown>, version = SHOPIFY_API_VERSION,
+): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
+    const res = await fetch(`https://${shop}/admin/api/${version}/graphql.json`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
       body: JSON.stringify({ query, variables }),
