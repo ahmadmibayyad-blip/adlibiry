@@ -132,7 +132,7 @@ type MessageOrder = ShopifyPhoneOrder & {
   name?: string;
   totalPriceSet?: { shopMoney?: { amount?: string; currencyCode?: string } };
   shippingAddress?: (ShopifyPhoneOrder["shippingAddress"] & { firstName?: string | null }) | null;
-  customer?: (ShopifyPhoneOrder["customer"] & { firstName?: string | null }) | null;
+  billingAddress?: (ShopifyPhoneOrder["billingAddress"] & { firstName?: string | null }) | null;
 };
 
 /** The confirm message (reminder 0) or a reminder; schedules the next step while the order stays pending. */
@@ -153,8 +153,7 @@ export const sendConfirm = internalAction({
     try {
       const r = await gql<{ order?: MessageOrder | null; shop?: { name?: string } }>(ctx, shopKey,
         `query IstilamOrderForMessage($id: ID!) { order(id: $id) { name totalPriceSet { shopMoney { amount currencyCode } }
-          shippingAddress { firstName phone countryCodeV2 } billingAddress { phone countryCodeV2 }
-          customer { firstName defaultPhoneNumber { phoneNumber } } } shop { name } }`,
+          phone shippingAddress { firstName phone countryCodeV2 } billingAddress { firstName phone countryCodeV2 } } shop { name } }`,
         { id: `gid://shopify/Order/${orderId}` });
       const ord = r.order ?? {};
       const to = pickPhone(ord);
@@ -182,7 +181,7 @@ export const sendConfirm = internalAction({
         language: process.env.WHATSAPP_TEMPLATE_LANG?.trim() || CONFIRM_TEMPLATE.language,
       };
       const waMessageId = await waSend(s, confirmMessageWith(to, {
-        customer: ord.shippingAddress?.firstName?.trim() || ord.customer?.firstName?.trim() || "عميلنا العزيز",
+        customer: ord.shippingAddress?.firstName?.trim() || ord.billingAddress?.firstName?.trim() || "عميلنا العزيز",
         store: shopName || "المتجر",
         reference: ord.name ?? o.orderName ?? orderId,
         total: money?.amount ? `${money.amount} ${money.currencyCode ?? o.currency ?? ""}`.trim() : "-",

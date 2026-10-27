@@ -57,16 +57,16 @@ type Address = { phone?: string | null; countryCodeV2?: string | null } | null;
 export type ShopifyPhoneOrder = {
   shippingAddress?: Address;
   billingAddress?: Address;
-  customer?: { defaultPhoneNumber?: { phoneNumber?: string | null } | null } | null;
+  phone?: string | null;       // the order's contact phone; customer fields would need read_customers, which Istilam doesn't ask for
 };
 
-/** The number to message: shipping, then billing, then the customer's own (with the shipping country, else billing). */
+/** The number to message: shipping, then billing, then the order's contact phone (with the shipping country, else billing). */
 export function pickPhone(o: ShopifyPhoneOrder): string | null {
   const country = o.shippingAddress?.countryCodeV2 ?? o.billingAddress?.countryCodeV2;
   return (
     waNumberFrom(o.shippingAddress?.phone, o.shippingAddress?.countryCodeV2) ??
     waNumberFrom(o.billingAddress?.phone, o.billingAddress?.countryCodeV2) ??
-    waNumberFrom(o.customer?.defaultPhoneNumber?.phoneNumber, country)
+    waNumberFrom(o.phone, country)
   );
 }
 
