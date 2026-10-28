@@ -56,9 +56,12 @@ Set up at https://apps.shopify.com/services/pricing/4b3a77f0787c36ef11a711aa57ea
 
 | Handle | Billing | Price | Display name | Top features (listing form) |
 |---|---|---|---|---|
-| confirm | Monthly | $13 / month | Confirm | 500 WhatsApp confirmations a month · Confirm, cancel and change-address buttons · Reminders and auto-cancel |
-| confirm-pro | Monthly + yearly | $27 / month or $264 / year | Confirm Pro | 3,000 WhatsApp confirmations a month · Everything in Confirm · Refuser protection |
-| confirm-unlimited | Monthly | $53 / month | Confirm Unlimited | No confirmation limit · Everything in Confirm Pro · For high-volume COD stores |
+| confirm | Monthly | $13 / month | Confirm | 500 WhatsApp confirmations a month · Confirm, cancel and change address · Reminders and auto-cancel |
+| confirm-pro | Monthly + yearly | $27 / month or $264 / year | Confirm Pro | 3,000 WhatsApp confirmations a month · Confirm, cancel and change address · Reminders and auto-cancel |
+| confirm-unlimited | Monthly | $53 / month | Confirm Unlimited | Unlimited WhatsApp confirmations · Confirm, cancel and change address · Reminders and auto-cancel |
+
+Plans differ only by monthly limit (TIER_LIMITS); feature copy must not claim plan-gated features.
+Saving the listing form writes its own copy of the plan list: a form opened before plans were added wipes them on save. Reload the form after any pricing change.
 
 ## Listing form values as entered (Fraud category version, 2026-10-28)
 
@@ -89,7 +92,7 @@ WhatsApp messages are sent from Istilam's own WhatsApp Business number; nothing 
 
 - Images: scratchpad `icon/`, `shots/shot1-en.png`, `shot2-ar.png`, `shot3-orders.png`, `feature.png`
   (copies kept in docs/istilam-listing-images/).
-- Still needed to save: screencast URL (3–8 min YouTube video of install → COD order → WhatsApp confirm).
+- Screencast URL: https://youtu.be/DZoZp_Yga88 (the Salla demo video; saved 2026-10-28).
 
 ## Screenshots (1600×900, 3–6)
 
