@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button.tsx";
 import { euros } from "@/lib/money.ts";
 import { PRO_PRICE_EUR } from "@/lib/stripe.ts";
 
-// Same terms as convex/affiliates.ts and the /partners page: 30% of each payment, for a member's first 12 months.
+// Same terms as convex/affiliates.ts and the /partners page: 30% of each payment, for as long as the member pays.
 const SHARE = 0.3;
 const MAX_REFERRALS = 10000;
 
@@ -23,11 +23,11 @@ export default function Affiliate() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-4">Affiliate program</p>
           <h2 id="affiliate-title" className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight text-balance mb-5">
-            Earn 30% of every payment for 12 months
+            Earn 30% of every payment, for life
           </h2>
           <p className="text-lg text-muted-foreground max-w-xl mb-8 text-pretty">
-            Recommend AdSpy Pro to your e-commerce audience. You get 30% of every payment from each person you bring, for their first 12
-            months, paid monthly to your PayPal or Wise.
+            Recommend AdSpy Pro to your e-commerce audience. You get 30% of every payment from each person you bring, for as long as
+            they stay, paid monthly to your PayPal or Wise.
           </p>
           <JoinButton />
         </div>
@@ -54,7 +54,7 @@ export default function Affiliate() {
             {euros(monthly)}
           </p>
           <p className="text-xs text-muted-foreground mb-8">
-            Pro at {euros(PRO_PRICE_EUR)} a month × 30%, for each member's first 12 months
+            Pro at {euros(PRO_PRICE_EUR)} a month × 30%, for as long as each member pays
           </p>
           <JoinButton wide />
         </div>

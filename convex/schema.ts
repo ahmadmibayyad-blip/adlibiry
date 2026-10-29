@@ -1538,7 +1538,7 @@ export default defineSchema({
     affiliateId: v.id("affiliates"),
     userId: v.id("users"),
     at: v.number(),
-    firstPaidAt: v.optional(v.number()),    // start of the 12-month commission window
+    firstPaidAt: v.optional(v.number()),    // first payment; set = a paying referral
   })
     .index("by_user", ["userId"])
     .index("by_affiliate", ["affiliateId"]),

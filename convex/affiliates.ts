@@ -4,8 +4,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdmin } from "./admin/helpers";
 import { stableToken } from "./lib/authIdentity";
 
-// Affiliate program: 30% of every Pro payment a referred user makes in the
-// 12 months after their first payment. Commissions are payable 30 days after
+// Affiliate program: 30% of every Pro payment a referred user makes, for as
+// long as they keep paying. Commissions are payable 30 days after
 // the payment (room for refunds); an admin pays them by hand (PayPal / Wise)
 // and marks them paid here.
 // Flow: adspypro.net/r/<code> → the browser keeps the code (src/lib/referral.ts)
@@ -13,10 +13,8 @@ import { stableToken } from "./lib/authIdentity";
 // calls recordCommission for each payment.
 
 export const COMMISSION_RATE = 0.3;
-export const COMMISSION_MONTHS = 12;
 export const HOLD_DAYS = 30;
 const DAY = 24 * 60 * 60 * 1000;
-const WINDOW_MS = 365 * DAY;
 const HOLD_MS = HOLD_DAYS * DAY;
 // A referral only counts for a new account, before it has paid anything.
 const CLAIM_WINDOW_MS = 7 * DAY;
@@ -69,7 +67,6 @@ export async function recordCommission(
 ): Promise<void> {
   const ref = await ctx.db.query("referrals").withIndex("by_user", (q) => q.eq("userId", p.userId)).unique();
   if (!ref) return;
-  if (ref.firstPaidAt !== undefined && p.at > ref.firstPaidAt + WINDOW_MS) return;
   const dup = await ctx.db
     .query("affiliateCommissions")
     .withIndex("by_payment_intent", (q) => q.eq("paymentIntentId", p.paymentIntentId))

@@ -93,7 +93,7 @@ describe("affiliates", () => {
     expect(await late.mutation(api.affiliates.claimReferral, { code: "shop-tips" })).toBe("not_new");
   });
 
-  it("earns 30% of each payment for 12 months after the first one", async () => {
+  it("earns 30% of every payment for as long as the member pays", async () => {
     const { t, partnerT, buyerT, buyer } = await setup();
     await partnerT.mutation(api.affiliates.join, { code: "shop-tips" });
     await buyerT.mutation(api.affiliates.claimReferral, { code: "shop-tips" });
@@ -105,13 +105,17 @@ describe("affiliates", () => {
     vi.setSystemTime(start + 200 * DAY);
     await pay(t, buyer, "pi_2", 36000); // yearly €360 → €108
     vi.setSystemTime(start + 366 * DAY);
-    await pay(t, buyer, "pi_3"); // after the 12 months: nothing
+    await pay(t, buyer, "pi_3"); // after the first year: still earns
+    vi.setSystemTime(start + 3 * 365 * DAY);
+    await pay(t, buyer, "pi_4"); // three years in: still earns
 
-    vi.setSystemTime(start + 210 * DAY);
+    vi.setSystemTime(start + 3 * 365 * DAY + 10 * DAY);
     const mine = await partnerT.query(api.affiliates.mine, {});
-    expect(mine).toMatchObject({ paying: 1, payable: 1050, pending: 10800, paid: 0 });
+    expect(mine).toMatchObject({ paying: 1, payable: 12900, pending: 1050, paid: 0 });
     expect(mine?.recent.map((r) => [r.amount, r.status])).toEqual([
-      [10800, "pending"],
+      [1050, "pending"],
+      [1050, "payable"],
+      [10800, "payable"],
       [1050, "payable"],
     ]);
   });
