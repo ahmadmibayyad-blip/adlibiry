@@ -46,7 +46,7 @@ export default function AffiliatesCard() {
         <h3 className="font-semibold text-sm">Affiliates</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        30% of referred users' payments for 12 months, payable 30 days after each payment. Send the money to the payout email, then
+        30% of referred users' payments for life, payable 30 days after each payment. Send the money to the payout email, then
         mark it paid.
       </p>
       {rows === undefined ? null : rows.length === 0 ? (

@@ -79,7 +79,7 @@ export default function AffiliateSection() {
         <h2 className="font-semibold text-sm">Affiliate program</h2>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        Earn 30% of every payment from people you bring to AdSpy Pro, for their first 12 months. Your link remembers a visitor for{" "}
+        Earn 30% of every payment from people you bring to AdSpy Pro, for as long as they stay. Your link remembers a visitor for{" "}
         {REFERRAL_DAYS} days. Commissions can be paid out 30 days after each payment; we pay monthly to your PayPal or Wise email.
       </p>
 
