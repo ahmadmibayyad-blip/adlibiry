@@ -92,7 +92,7 @@ export const COMPARE_PAGES: ComparePage[] = [
     ],
     theyWin: [
       "Pinterest ads, which AdSpy Pro doesn't track.",
-      "A much bigger database: WinningHunter says 300M+ ads and 5M+ stores.",
+      "A much bigger database: WinningHunter says 500M+ ads and 5M+ stores.",
       "1-on-1 weekly calls on their Enterprise plan.",
     ],
     weWin: [

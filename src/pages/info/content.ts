@@ -26,7 +26,7 @@ export const INFO_PAGES: InfoPage[] = [
         heading: "How we work",
         bullets: [
           "Real data first. Numbers like views, likes and days running come straight from the source.",
-          "Honest estimates. Revenue, spend and sales we can't see directly are always shown as ranges and marked as estimates.",
+          "Honest estimates. Revenue, spend and sales we can't see directly are always marked as estimates.",
           "Built for sellers. Every feature should save you time when choosing the next product to test.",
         ],
       },
@@ -111,10 +111,10 @@ export const INFO_PAGES: InfoPage[] = [
       {
         heading: "Where the data comes from",
         bullets: [
-          "Ads: licensed ad-research data providers and Meta's official Ad Library API (EU ads). We don't scrape Facebook, Instagram or TikTok.",
+          "Ads: public data from Meta's Ad Library, collected for us by third-party tools such as Apify, plus ad-research data providers. EU and UK reach figures come from that public data.",
           "Products: the products those ads sell (from their landing pages), plus Amazon, TikTok Shop and Shopify bestseller data.",
           "Stores: Shopify stores' public catalogs (/products.json), read politely: we follow each store's robots.txt and read one page a second.",
-          "Supplier costs: AliExpress listings matched by product title, plus a shipping estimate.",
+          "Supplier costs: AliExpress and CJ listings matched by product title or picture, plus a shipping estimate.",
         ],
       },
       {

@@ -7,7 +7,7 @@
 // The part of stats.get the home page uses (lists are { value, n } counts).
 type Count = { value: string; n: number };
 export type LandingStats = {
-  ads: { total: number; activeCount: number; countries: Count[] };
+  ads: { total: number; activeCount: number; countries: Count[]; countryCount?: number };
   products: { total: number; categories: Count[] };
 };
 
