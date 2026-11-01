@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./admin/helpers";
+import { countCountries } from "./lib/countryCodes";
 import type { Doc } from "./_generated/dataModel";
 import { engagementRate, median } from "./lib/scaling";
 import { parseCompact } from "./lib/productMatch";
@@ -15,7 +16,7 @@ const adViewsCount = (d: Doc<"ads">) => d.impressions ?? parseCompact(d.views) ?
 type Count = { value: string; n: number };
 export type SiteStats = {
   ads: {
-    total: number; activeCount: number; videoCount: number; ctas: Count[]; countries: Count[]; niches: Count[]; platforms: Count[]; languages?: Count[];
+    total: number; activeCount: number; videoCount: number; ctas: Count[]; countries: Count[]; countryCount?: number; niches: Count[]; platforms: Count[]; languages?: Count[];
     // Median (likes + comments) ÷ views per niche, for the Scaling filter (lib/scaling.ts).
     engagementMedians?: Record<string, number>;
   };
@@ -124,6 +125,7 @@ export const recompute = internalAction({
     await scan("stores", () => stats.stores.total++);
     stats.ads.ctas = count(ctas).slice(0, 20);
     stats.ads.countries = count(countries);
+    stats.ads.countryCount = countCountries(stats.ads.countries.map((c) => String(c.value)));
     stats.ads.niches = count(niches);
     stats.ads.platforms = count(platforms);
     stats.ads.languages = count(langs).slice(0, 30);

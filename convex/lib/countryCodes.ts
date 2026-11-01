@@ -13,7 +13,8 @@ const ALPHA3_TO_ALPHA2: Record<string, string> = {
   BHR: "BH", OMN: "OM", EGY: "EG", MAR: "MA", TUR: "TR", ISR: "IL", AUS: "AU", NZL: "NZ", CAN: "CA",
   MEX: "MX", BRA: "BR", ARG: "AR", CHL: "CL", COL: "CO", ZAF: "ZA", IND: "IN", JPN: "JP", KOR: "KR",
   SGP: "SG", MYS: "MY", THA: "TH", PHL: "PH", IDN: "ID", VNM: "VN", HKG: "HK", TWN: "TW", CHN: "CN",
-  UKR: "UA", RUS: "RU",
+  UKR: "UA", RUS: "RU", MAC: "MO", VEN: "VE", IRQ: "IQ", AZE: "AZ", PER: "PE", KEN: "KE", KAZ: "KZ", MMR: "MM",
+  ARM: "AM", CIV: "CI", LBN: "LB", PRY: "PY", PAK: "PK", KHM: "KH", DZA: "DZ", SEN: "SN", PAN: "PA", GEO: "GE", AGO: "AO",
 };
 
 const NAME_TO_ALPHA2: Record<string, string> = {
@@ -29,7 +30,8 @@ const NAME_TO_ALPHA2: Record<string, string> = {
   canada: "CA", mexico: "MX", brazil: "BR", argentina: "AR", chile: "CL", colombia: "CO",
   "south africa": "ZA", india: "IN", japan: "JP", "south korea": "KR", singapore: "SG",
   malaysia: "MY", thailand: "TH", philippines: "PH", indonesia: "ID", vietnam: "VN",
-  "hong kong": "HK", taiwan: "TW", china: "CN", ukraine: "UA", russia: "RU",
+  "hong kong": "HK", taiwan: "TW", china: "CN", ukraine: "UA", russia: "RU", "réunion": "RE", martinique: "MQ",
+  guadeloupe: "GP", mayotte: "YT", "saint martin": "MF", "french guiana": "GF",
 };
 
 export function toAlpha2(value: unknown): string | undefined {
@@ -41,6 +43,12 @@ export function toAlpha2(value: unknown): string | undefined {
   if (/^[A-Z]{2}$/.test(upper)) return upper;
   if (/^[A-Z]{3}$/.test(upper) && ALPHA3_TO_ALPHA2[upper]) return ALPHA3_TO_ALPHA2[upper];
   return NAME_TO_ALPHA2[raw.toLowerCase()];
+}
+
+// How many real countries a list of raw labels covers: "IE", "IRL" and "IRELAND" are one, a city counts as
+// its country ("HAMBURG, GERMANY"), and regions ("WORLDWIDE", "EURO AREA") aren't countries.
+export function countCountries(values: readonly string[]): number {
+  return new Set(values.map((v) => toAlpha2(v.split(",").pop())).filter(Boolean)).size;
 }
 
 // Maps a list, drops unknowns and duplicates, keeps order.
